@@ -336,8 +336,8 @@
   min-height: 28px;
 }
 
-.flag-active.normal      { background: var(--hl-green); border-color: #95bd83; color: #2d4a25; }
-.flag-active.ok          { background: var(--paper-2); border-color: var(--ink-soft); color: var(--ink); }
+.flag-active.normal      { background: var(--paper-2); border-color: var(--ink-soft); color: var(--ink); }
+.flag-active.ok          { background: var(--hl-green); border-color: #95bd83; color: #2d4a25; }
 .flag-active.scheduled   { background: var(--hl-yellow); border-color: #d6c568; color: #5a4d12; }
 .flag-active.unscheduled { background: var(--hl-red); border-color: #d39a8c; color: #6a2818; }
 .flag-active.note        { background: var(--hl-blue); border-color: #97b6d6; color: #244260; }

@@ -16,8 +16,8 @@ export const EVENT_TYPES = [
 
 // Categories: Normal, OK, Scheduled, Unscheduled, Note
 export const FLAGS = {
-  normal: { key: 'normal', label: 'Normal', tint: 'green' },
-  ok: { key: 'ok', label: 'OK', tint: null },
+  normal: { key: 'normal', label: 'Normal', tint: null },
+  ok: { key: 'ok', label: 'OK', tint: 'green' },
   scheduled: { key: 'scheduled', label: 'Scheduled', tint: 'yellow' },
   unscheduled: { key: 'unscheduled', label: 'Unscheduled', tint: 'red' },
   note: { key: 'note', label: 'Note', tint: 'blue' },
