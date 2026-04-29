@@ -1,0 +1,42 @@
+:root {
+  --ink: #2a2722;
+  --ink-soft: #5a564f;
+  --ink-faint: #8a857c;
+  --line: #1f1c18;
+  --line-soft: #b8b3a8;
+  --line-faint: #d8d4c8;
+  --paper: #fbfaf6;
+  --paper-2: #f3f0e7;
+  --hl-yellow: #f5e9a8;
+  --hl-red: #f3c8c0;
+  --hl-green: #cde6c2;
+  --hl-blue: #c8dcef;
+  --accent: #c96442;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f0eee9;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+.mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.hand {
+  font-family: 'Caveat', cursive;
+}
