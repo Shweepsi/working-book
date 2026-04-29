@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SAMPLE_EVENTS, newId } from '../data/shift.js';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes.js';
-import { diffMinutes, fmtDuration, fmtHM, liveDurationSince } from '../lib/time.js';
+import { diffMinutes, fmtDuration, fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 import EventEditor from './EventEditor.jsx';
 
 function storageKey(poste) {
-  return `wb.logbook.v2.${poste}`;
+  return `wb.logbook.v3.${poste}`;
 }
 
 function defaultsForPoste(poste) {
@@ -17,7 +17,7 @@ export default function Logbook({ now, poste, shiftMeta }) {
   const [events, setEvents] = useState(() =>
     load(storageKey(poste), defaultsForPoste(poste)),
   );
-  const [editing, setEditing] = useState(null); // { event } | { event: { id: null, ...defaults } } | null
+  const [editing, setEditing] = useState(null);
 
   useEffect(() => {
     setEvents(load(storageKey(poste), defaultsForPoste(poste)));
@@ -27,28 +27,15 @@ export default function Logbook({ now, poste, shiftMeta }) {
     save(storageKey(poste), events);
   }, [events, poste]);
 
-  const running = useMemo(() => events.find((e) => e.start && !e.end), [events]);
   const summary = useMemo(() => computeSummary(events), [events]);
 
-  function startEvent(type) {
-    const start = fmtHM(now);
-    if (running && running.type === type) return;
-    setEvents((prev) => {
-      const closed = running
-        ? prev.map((e) => (e.id === running.id ? { ...e, end: start } : e))
-        : prev;
-      return [
-        ...closed,
-        {
-          id: newId(),
-          start,
-          end: null,
-          type,
-          desc: '',
-          flag: EVENT_TYPES.find((t) => t.key === type)?.defaultFlag ?? null,
-        },
-      ];
-    });
+  function quickLog(type) {
+    const stamp = fmtHM(now);
+    const flag = EVENT_TYPES.find((t) => t.key === type)?.defaultFlag ?? null;
+    setEvents((prev) => [
+      ...prev,
+      { id: newId(), start: stamp, end: stamp, type, desc: '', flag },
+    ]);
   }
 
   function patch(id, changes) {
@@ -59,25 +46,26 @@ export default function Logbook({ now, poste, shiftMeta }) {
     setEvents((prev) => prev.filter((e) => e.id !== id));
   }
 
-  function endRunning() {
-    if (!running) return;
-    patch(running.id, { end: fmtHM(now) });
-  }
-
   function reset() {
     if (!window.confirm(`Reset Poste ${poste} to ${poste === 'C' ? 'sample' : 'empty'} data?`)) return;
     setEvents(defaultsForPoste(poste));
   }
 
   function openNewEvent() {
-    setEditing({ event: { start: fmtHM(now), end: '', type: '', desc: '', flag: '', notes: [] } });
+    setEditing({
+      event: { start: fmtHM(now), end: fmtHM(now), type: '', desc: '', flag: '', notes: [] },
+    });
   }
 
   function saveFromEditor(payload) {
-    if (payload.id) {
-      patch(payload.id, payload);
+    const normalized = {
+      ...payload,
+      end: payload.end || payload.start || null,
+    };
+    if (normalized.id) {
+      patch(normalized.id, normalized);
     } else {
-      setEvents((prev) => [...prev, { ...payload, id: newId() }]);
+      setEvents((prev) => [...prev, { ...normalized, id: newId() }]);
     }
     setEditing(null);
   }
@@ -86,35 +74,29 @@ export default function Logbook({ now, poste, shiftMeta }) {
     <div>
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
-      <div className="now-bar no-print">
-        {running ? (
-          <RunningStrip ev={running} now={now} onEnd={endRunning} onClick={() => setEditing({ event: running })} />
-        ) : (
-          <IdleStrip />
-        )}
-        <div className="quickadd">
-          <label>Quick log →</label>
+      <div className="logbook-toolbar no-print">
+        <div className="toolbar-left">
+          <span className="muted small">Quick log →</span>
           <button className="btn primary" onClick={openNewEvent}>＋ New event</button>
-          <span className="faint" style={{ fontSize: 11 }}>or pick a type below</span>
+          <span className="faint small">or pick a type</span>
+        </div>
+        <div className="toolbar-right small muted">
+          {summary.total} events logged
         </div>
       </div>
 
       <div className="type-strip no-print">
-        {EVENT_TYPES.filter((t) => t.key !== 'Note').map((t) => {
-          const isLive = running?.type === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              className={isLive ? 'live' : ''}
-              onClick={() => startEvent(t.key)}
-              title={isLive ? 'Currently running' : `Start ${t.label} now`}
-            >
-              <span className="glyph">{isLive ? '●' : '＋'}</span>
-              {t.label}
-            </button>
-          );
-        })}
+        {EVENT_TYPES.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => quickLog(t.key)}
+            title={`Log ${t.label} at ${fmtHM(now)}`}
+          >
+            <span className="glyph">＋</span>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <div className="evt-list">
@@ -123,15 +105,13 @@ export default function Logbook({ now, poste, shiftMeta }) {
           <div className="dur">Dur.</div>
           <div className="type-h">Type</div>
           <div className="desc">Description</div>
-          <div className="flags-h">Flags</div>
+          <div className="flags-h">Catégorie</div>
         </div>
         {events.map((ev) => (
           <EventRow
             key={ev.id}
             ev={ev}
-            now={now}
             onPatch={(changes) => patch(ev.id, changes)}
-            onRemove={() => remove(ev.id)}
             onOpen={() => setEditing({ event: ev })}
           />
         ))}
@@ -145,9 +125,9 @@ export default function Logbook({ now, poste, shiftMeta }) {
         )}
         <div className="summary">
           <span><strong>{summary.total}</strong> events</span>
-          <span><strong>{summary.imprevus}</strong> imprévus</span>
-          <span>planned <strong>{fmtDuration(summary.plannedMin)}</strong></span>
-          <span>unplanned <strong>{fmtDuration(summary.unplannedMin)}</strong></span>
+          <span><strong>{summary.unscheduledCount}</strong> unscheduled</span>
+          <span>scheduled <strong>{fmtDuration(summary.scheduledMin)}</strong></span>
+          <span>unscheduled <strong>{fmtDuration(summary.unscheduledMin)}</strong></span>
           <span style={{ marginLeft: 'auto' }} className="no-print">
             <button className="btn ghost" onClick={() => window.print()}>Print</button>
             <button className="btn ghost" onClick={reset}>Reset</button>
@@ -179,46 +159,12 @@ export default function Logbook({ now, poste, shiftMeta }) {
   );
 }
 
-function RunningStrip({ ev, now, onEnd, onClick }) {
-  const min = liveDurationSince(ev.start, now);
-  const variant = ev.flag === 'unplan' ? 'alarm' : 'running';
-  return (
-    <div className={`live ${variant}`} onClick={onClick} role="button">
-      <span className="pulse" />
-      <div className="text">
-        <div className="title">{ev.type} — {ev.desc || 'in progress'}</div>
-        <div className="muted xsmall">started {ev.start} · tap to edit</div>
-      </div>
-      <span className="timer">{fmtDuration(min)}</span>
-      <button
-        className="btn"
-        style={{ marginLeft: 12 }}
-        onClick={(e) => { e.stopPropagation(); onEnd(); }}
-      >
-        End now
-      </button>
-    </div>
-  );
-}
-
-function IdleStrip() {
-  return (
-    <div className="live idle">
-      <span className="pulse" />
-      <div className="text">
-        <div className="title">No event running</div>
-        <div className="muted xsmall">tap a type below to start one</div>
-      </div>
-    </div>
-  );
-}
-
-function EventRow({ ev, now, onPatch, onRemove, onOpen }) {
+function EventRow({ ev, onPatch, onOpen }) {
   const tint = tintForFlag(ev.flag);
-  const live = ev.start && !ev.end ? liveDurationSince(ev.start, now) : null;
-  const minutes = ev.start && ev.end ? diffMinutes(ev.start, ev.end) : live;
+  const minutes = diffMinutes(ev.start, ev.end);
   const refs = (ev.desc || '').match(/#\d+/g) || [];
   const typeMeta = EVENT_TYPES.find((t) => t.key === ev.type);
+  const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
 
   return (
     <div
@@ -230,12 +176,9 @@ function EventRow({ ev, now, onPatch, onRemove, onOpen }) {
     >
       <div className="time">
         {ev.start ? <span className="start">{ev.start}</span> : <span className="faint">—</span>}
-        {' '}
-        <span className="end">
-          {live != null ? '· running' : ev.end ? `→ ${ev.end}` : ''}
-        </span>
+        {ev.end && !sameStartEnd ? <span className="end"> → {ev.end}</span> : null}
       </div>
-      <div className="dur">{fmtDuration(minutes)}</div>
+      <div className="dur">{sameStartEnd ? <span className="faint">·</span> : fmtDuration(minutes)}</div>
       <span className="type">{ev.type}</span>
       <div className="desc">
         <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
@@ -259,15 +202,6 @@ function EventRow({ ev, now, onPatch, onRemove, onOpen }) {
             {f.label}
           </button>
         ))}
-        {!ev.end && ev.start && (
-          <button
-            className="btn ghost row-action"
-            onClick={(e) => { e.stopPropagation(); onPatch({ end: fmtHM(now) }); }}
-            style={{ fontSize: 11, padding: '4px 8px' }}
-          >
-            End
-          </button>
-        )}
       </div>
     </div>
   );
@@ -304,15 +238,15 @@ function PrintSignature({ poste }) {
 }
 
 function computeSummary(events) {
-  let plannedMin = 0;
-  let unplannedMin = 0;
-  let imprevus = 0;
+  let scheduledMin = 0;
+  let unscheduledMin = 0;
+  let unscheduledCount = 0;
   for (const e of events) {
-    if (e.flag === 'unplan') imprevus += 1;
+    if (e.flag === 'unscheduled') unscheduledCount += 1;
     const m = diffMinutes(e.start, e.end);
-    if (m == null) continue;
-    if (e.flag === 'planned') plannedMin += m;
-    if (e.flag === 'unplan') unplannedMin += m;
+    if (m == null || m === 0) continue;
+    if (e.flag === 'scheduled') scheduledMin += m;
+    if (e.flag === 'unscheduled') unscheduledMin += m;
   }
-  return { total: events.length, imprevus, plannedMin, unplannedMin };
+  return { total: events.length, unscheduledCount, scheduledMin, unscheduledMin };
 }

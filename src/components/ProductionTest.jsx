@@ -191,9 +191,6 @@ export default function ProductionTest({ now, poste }) {
             ? <span style={{ color: '#a14233' }}><strong>{stats.bad}</strong> hors tolérance</span>
             : <span>aucune hors tolérance</span>}
         </span>
-        <button className="btn accent" disabled={stats.bad > 0 || stats.filled === 0}>
-          Lock & sign 🔒
-        </button>
       </div>
     </div>
   );

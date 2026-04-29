@@ -1,5 +1,4 @@
-// Sample shift events from the Poste C / 06h-14h reference data.
-// flag: 'planned' | 'unplan' | 'note' | 'ok' | 'normal' | null
+// Sample shift events for Poste C (06h–14h) using the new type/category set.
 
 let nextId = 1;
 const id = () => `e${nextId++}`;
@@ -7,50 +6,80 @@ const id = () => `e${nextId++}`;
 export const SAMPLE_EVENTS = [
   {
     id: id(),
-    start: '06:00', end: null, type: 'Reprise',
-    desc: 'Reprise du poste en Production',
+    start: '06:00', end: '06:15', type: 'Production',
+    desc: 'Reprise du poste',
     notes: ['SG NRG A/R Clear à 6 m/mn'],
     flag: 'normal',
   },
-  { id: id(), start: null, end: null, type: 'Test', desc: '#341 Test QC', flag: 'ok' },
   {
     id: id(),
     start: '06:20', end: '06:35', type: 'Brûlage',
     desc: 'Brûlage',
     notes: ['Première plaque #375 à 06:35', 'Dernière plaque #389 à 06:49'],
-    flag: 'planned',
+    flag: 'scheduled',
   },
-  { id: id(), start: null, end: null, type: 'Contrôle', desc: '#18 Contrôle Man31 + Trempe' },
-  { id: id(), start: null, end: null, type: 'Test', desc: '#36 Test Vapo' },
-  { id: id(), start: null, end: null, type: 'Contrôle', desc: '#177 Contrôle Man31' },
   {
     id: id(),
-    start: '09:44', end: '10:15', type: 'Maintenance',
-    desc: 'Passage 6.2.6 pour faire tomber O-ring K9',
-    flag: 'unplan',
+    start: '06:35', end: '07:00', type: 'Refroidissement',
+    desc: 'Refroidissement four 1',
+    flag: 'scheduled',
   },
-  { id: id(), start: '10:00', end: null, type: 'Test', desc: '#180 Test QC' },
+  {
+    id: id(),
+    start: '07:30', end: '07:35', type: 'Qualité',
+    desc: '#341 Test QC',
+    flag: 'ok',
+  },
+  {
+    id: id(),
+    start: '08:15', end: '08:35', type: 'Recherche Couleur',
+    desc: 'Tests recettes ISRA avec Andjelika',
+    flag: 'note',
+  },
+  {
+    id: id(),
+    start: '09:44', end: '10:15', type: 'Entretien',
+    desc: 'Passage 6.2.6 pour faire tomber O-ring K9',
+    flag: 'unscheduled',
+  },
   {
     id: id(),
     start: '10:25', end: '10:40', type: 'Brûlage',
     desc: 'Brûlage',
     notes: ['Première plaque #193 à 10:48'],
-    flag: 'planned',
+    flag: 'scheduled',
   },
   {
     id: id(),
     start: '10:40', end: '11:00', type: 'Refroidissement',
     desc: 'Refroidissement',
-    notes: ['Dernière plaque #36 à 11:13', 'Tests différentes recettes ISRA avec Andjelika'],
-    flag: 'planned',
+    notes: ['Dernière plaque #36 à 11:13'],
+    flag: 'scheduled',
   },
-  { id: id(), start: '12:53', end: '12:59', type: 'Coupure', desc: 'Coupure K31', flag: 'unplan' },
   {
     id: id(),
-    start: null, end: null, type: 'Contrôle',
-    desc: '#302 Contrôle Man31 + Cosmétique (AJ955DE)',
+    start: '11:30', end: '12:10', type: 'Conditionnement',
+    desc: '#18 Conditionnement Man31 + Trempe',
+    flag: 'normal',
   },
-  { id: id(), start: '13:31', end: '13:35', type: 'Coupure', desc: 'Coupure K31', flag: 'unplan' },
+  {
+    id: id(),
+    start: '12:53', end: '12:59', type: 'Ventilation',
+    desc: 'Reprise ventilation K31',
+    flag: 'unscheduled',
+  },
+  {
+    id: id(),
+    start: '13:20', end: '13:30', type: 'Développement',
+    desc: 'Test recette nouveau lot M3',
+    flag: 'note',
+  },
+  {
+    id: id(),
+    start: '13:31', end: '13:55', type: 'Qualité',
+    desc: '#302 Contrôle Man31 + Cosmétique (AJ955DE)',
+    flag: 'ok',
+  },
 ];
 
 export const SAMPLE_SHIFT = {

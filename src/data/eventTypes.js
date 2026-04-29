@@ -1,24 +1,26 @@
-// Event types operators log during a shift, with their default flag styling.
-// `defaultFlag` is what we auto-apply when the operator hasn't picked one;
-// `bold` mirrors the design intent of highlighting state-change events.
+// Event types operators log during a shift, with their default category.
+// `defaultFlag` is the category we auto-assign when the operator hasn't picked one;
+// `bold` highlights state-change events (Brûlage, Refroidissement, Ventilation).
 
 export const EVENT_TYPES = [
-  { key: 'Reprise', label: 'Reprise', defaultFlag: 'normal', bold: false },
-  { key: 'Brûlage', label: 'Brûlage', defaultFlag: 'planned', bold: true },
-  { key: 'Refroidissement', label: 'Refroid.', defaultFlag: 'planned', bold: true },
-  { key: 'Coupure', label: 'Coupure', defaultFlag: 'unplan', bold: true },
-  { key: 'Test', label: 'Test', defaultFlag: null, bold: false },
-  { key: 'Contrôle', label: 'Contrôle', defaultFlag: null, bold: false },
-  { key: 'Maintenance', label: 'Maintenance', defaultFlag: 'unplan', bold: false },
-  { key: 'Note', label: 'Note', defaultFlag: 'note', bold: false },
+  { key: 'Production', label: 'Production', defaultFlag: 'normal', bold: false },
+  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'note', bold: false },
+  { key: 'Brûlage', label: 'Brûlage', defaultFlag: 'scheduled', bold: true },
+  { key: 'Refroidissement', label: 'Refroidissement', defaultFlag: 'scheduled', bold: true },
+  { key: 'Qualité', label: 'Qualité', defaultFlag: 'ok', bold: false },
+  { key: 'Développement', label: 'Développement', defaultFlag: 'note', bold: false },
+  { key: 'Entretien', label: 'Entretien', defaultFlag: 'unscheduled', bold: false },
+  { key: 'Ventilation', label: 'Ventilation', defaultFlag: 'unscheduled', bold: true },
+  { key: 'Conditionnement', label: 'Conditionnement', defaultFlag: 'normal', bold: false },
 ];
 
+// Categories: Normal, OK, Scheduled, Unscheduled, Note
 export const FLAGS = {
-  planned: { key: 'planned', label: 'Planifié', tint: 'yellow' },
-  unplan: { key: 'unplan', label: 'Imprévu', tint: 'red' },
-  note: { key: 'note', label: 'Note', tint: 'blue' },
-  ok: { key: 'ok', label: 'OK', tint: null },
   normal: { key: 'normal', label: 'Normal', tint: 'green' },
+  ok: { key: 'ok', label: 'OK', tint: null },
+  scheduled: { key: 'scheduled', label: 'Scheduled', tint: 'yellow' },
+  unscheduled: { key: 'unscheduled', label: 'Unscheduled', tint: 'red' },
+  note: { key: 'note', label: 'Note', tint: 'blue' },
 };
 
 export function tintForFlag(flagKey) {
