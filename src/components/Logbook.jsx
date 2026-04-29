@@ -189,19 +189,12 @@ function EventRow({ ev, onPatch, onOpen }) {
           <span key={i} className="sub">{n}</span>
         ))}
       </div>
-      <div className="flags" onClick={(e) => e.stopPropagation()}>
-        {Object.values(FLAGS).map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            title={f.label}
-            className={`flag ${ev.flag === f.key ? f.key : ''}`}
-            style={{ opacity: ev.flag === f.key ? 1 : 0.45 }}
-            onClick={() => onPatch({ flag: ev.flag === f.key ? null : f.key })}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flags">
+        {ev.flag ? (
+          <span className={`flag flag-active ${ev.flag}`}>{FLAGS[ev.flag].label}</span>
+        ) : (
+          <span className="flag flag-empty muted">—</span>
+        )}
       </div>
     </div>
   );

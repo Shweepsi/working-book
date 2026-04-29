@@ -22,11 +22,10 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
 
   function save() {
     if (!draft.type && !draft.desc.trim()) return;
-    const start = draft.start || (draft.type ? fmtHM(now) : null);
     onSave({
       ...draft,
-      start: draft.start || start,
-      end: draft.end || null,
+      start: draft.start || null,
+      end: draft.end || draft.start || null,
       type: draft.type || 'Note',
       desc: draft.desc.trim(),
       flag:
@@ -60,10 +59,6 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
     });
   }
 
-  function handleEnd() {
-    update('end', fmtHM(now));
-  }
-
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
@@ -71,97 +66,120 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
         <div className="grabber" />
         <div className="sheet-head">
           <h3>{isNew ? 'Log event' : 'Edit event'}</h3>
-          <button className="btn ghost" onClick={onClose} aria-label="Close">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        <div className="field-row">
-          <label>Start</label>
-          <input
-            type="text"
-            placeholder="HH:MM"
-            value={draft.start || ''}
-            onChange={(e) => update('start', e.target.value)}
-          />
-          <button className="btn" onClick={() => update('start', fmtHM(now))} type="button">
-            now
-          </button>
-        </div>
-
-        <div className="field-row">
-          <label>End</label>
-          <input
-            type="text"
-            placeholder="HH:MM"
-            value={draft.end || ''}
-            onChange={(e) => update('end', e.target.value)}
-          />
-          <button className="btn" onClick={handleEnd} type="button">now</button>
-        </div>
-
-        <div className="field-row">
-          <label>Type</label>
-          <select value={draft.type || ''} onChange={(e) => update('type', e.target.value)}>
-            <option value="">Select…</option>
-            {EVENT_TYPES.map((t) => (
-              <option key={t.key} value={t.key}>{t.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="field-row">
-          <label>Flag</label>
-          <div className="flag-pick">
-            {Object.values(FLAGS).map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                className={`flag ${draft.flag === f.key ? f.key : ''}`}
-                style={{ opacity: draft.flag === f.key ? 1 : 0.5 }}
-                onClick={() => update('flag', draft.flag === f.key ? '' : f.key)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="field-row">
-          <label>Description</label>
-          <input
-            type="text"
-            placeholder="Description (#plates work too)"
-            value={draft.desc || ''}
-            onChange={(e) => update('desc', e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && save()}
-            autoFocus={isNew}
-          />
-        </div>
-
-        <div className="field-row col">
-          <label>Notes / sub-events</label>
-          {(draft.notes || []).map((n, i) => (
-            <div key={i} className="row gap-2 ai-c" style={{ width: '100%' }}>
+        <div className="form-grid">
+          <div className="form-section">
+            <label className="section-label">When</label>
+            <div className="time-range">
               <input
                 type="text"
-                placeholder="e.g. Première plaque #375 à 06:35"
-                value={n}
-                onChange={(e) => setNote(i, e.target.value)}
-                style={{ flex: 1 }}
+                className="time-input"
+                placeholder="HH:MM"
+                value={draft.start || ''}
+                onChange={(e) => update('start', e.target.value)}
+                inputMode="numeric"
               />
-              <button className="btn ghost" type="button" onClick={() => removeNote(i)}>✕</button>
+              <span className="arrow">→</span>
+              <input
+                type="text"
+                className="time-input"
+                placeholder="HH:MM"
+                value={draft.end || ''}
+                onChange={(e) => update('end', e.target.value)}
+                inputMode="numeric"
+              />
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => {
+                  const t = fmtHM(now);
+                  setDraft((d) => ({ ...d, start: d.start || t, end: t }));
+                }}
+              >
+                now
+              </button>
             </div>
-          ))}
-          <button className="btn" type="button" onClick={addNote} style={{ alignSelf: 'flex-start' }}>
-            + Add note
-          </button>
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">Type</label>
+            <select
+              className="type-select"
+              value={draft.type || ''}
+              onChange={(e) => update('type', e.target.value)}
+            >
+              <option value="">Select…</option>
+              {EVENT_TYPES.map((t) => (
+                <option key={t.key} value={t.key}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">Catégorie</label>
+            <div className="flag-pick">
+              {Object.values(FLAGS).map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`flag ${draft.flag === f.key ? `flag-active ${f.key}` : 'flag-empty'}`}
+                  onClick={() => update('flag', draft.flag === f.key ? '' : f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">Description</label>
+            <input
+              type="text"
+              className="text-input"
+              placeholder="Description (#plates work too)"
+              value={draft.desc || ''}
+              onChange={(e) => update('desc', e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+              autoFocus={isNew}
+            />
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">
+              Notes
+              <button className="btn ghost mini" type="button" onClick={addNote}>+ add</button>
+            </label>
+            {(draft.notes || []).length === 0 && (
+              <span className="faint small">No notes yet.</span>
+            )}
+            {(draft.notes || []).map((n, i) => (
+              <div key={i} className="note-row">
+                <input
+                  type="text"
+                  placeholder="e.g. Première plaque #375 à 06:35"
+                  value={n}
+                  onChange={(e) => setNote(i, e.target.value)}
+                />
+                <button
+                  className="btn ghost icon"
+                  type="button"
+                  onClick={() => removeNote(i)}
+                  aria-label="Remove note"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="actions">
           {!isNew && (
             <button
-              className="btn ghost"
+              className="btn ghost danger"
               type="button"
-              style={{ color: 'var(--accent)' }}
               onClick={() => {
                 onDelete();
                 onClose();
@@ -171,7 +189,7 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <button className="btn" type="button" onClick={onClose}>Cancel</button>
+          <button className="btn ghost" type="button" onClick={onClose}>Cancel</button>
           <button className="btn primary" type="button" onClick={save}>
             {isNew ? 'Log' : 'Save'}
           </button>
