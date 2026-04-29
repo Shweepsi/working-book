@@ -6,7 +6,6 @@ import { load, save } from './lib/storage.js';
 import {
   POSTES,
   SHIFT_TYPES,
-  activePosteAt,
   addDaysISO,
   dateFromISO,
   fmtDateLong,
@@ -20,20 +19,37 @@ const TABS = [
   { key: 'test', label: 'Production Test' },
 ];
 
+const SHIFT_TABS = [
+  { key: 'M', label: 'Matin' },
+  { key: 'A', label: 'Après-Midi' },
+  { key: 'N', label: 'Nuit' },
+];
+
+function shiftKeyForHour(hour) {
+  if (hour >= 6 && hour < 14) return 'M';
+  if (hour >= 14 && hour < 22) return 'A';
+  return 'N';
+}
+
+// Map (date, shiftKey) → poste letter
+function posteFor(date, shiftKey) {
+  return POSTES.find((p) => shiftFor(p, date).key === shiftKey) || null;
+}
+
+// Map (date) → resting poste
+function restingPoste(date) {
+  return POSTES.find((p) => shiftFor(p, date).key === 'R') || null;
+}
+
 export default function App() {
   const [tab, setTab] = useState(() => window.location.hash.replace('#', '') || 'logbook');
   const [now, setNow] = useState(() => new Date());
 
-  // Default date = today; default poste = whichever is currently working.
-  const [date, setDate] = useState(() => {
-    const persisted = load('wb.date', null);
-    return persisted || todayISO();
-  });
-  const [poste, setPoste] = useState(() => {
-    const persisted = load('wb.poste', null);
-    if (persisted && POSTES.includes(persisted)) return persisted;
-    const today = new Date();
-    return activePosteAt(today, today.getHours()) || 'C';
+  const [date, setDate] = useState(() => load('wb.date', null) || todayISO());
+  const [shiftKey, setShiftKey] = useState(() => {
+    const persisted = load('wb.shiftKey', null);
+    if (persisted && SHIFT_TABS.some((s) => s.key === persisted)) return persisted;
+    return shiftKeyForHour(new Date().getHours());
   });
 
   useEffect(() => {
@@ -45,12 +61,13 @@ export default function App() {
     window.location.hash = tab;
   }, [tab]);
 
-  useEffect(() => { save('wb.poste', poste); }, [poste]);
+  useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
   const dateObj = dateFromISO(date);
-  const shift = shiftFor(poste, dateObj);
-  const isResting = shift.key === 'R';
+  const poste = posteFor(date, shiftKey);
+  const shift = SHIFT_TYPES[shiftKey];
+  const restPoste = restingPoste(date);
 
   const shiftMeta = {
     poste,
@@ -60,10 +77,8 @@ export default function App() {
   };
 
   function jumpToday() {
-    const today = todayISO();
-    setDate(today);
-    const cur = activePosteAt(new Date(), new Date().getHours());
-    if (cur) setPoste(cur);
+    setDate(todayISO());
+    setShiftKey(shiftKeyForHour(new Date().getHours()));
   }
 
   return (
@@ -114,70 +129,38 @@ export default function App() {
           </button>
         </div>
 
-        <div className="poste-switch" role="group" aria-label="Poste">
-          {POSTES.map((p) => {
-            const s = shiftFor(p, dateObj);
+        <div className="shift-switch" role="group" aria-label="Shift">
+          {SHIFT_TABS.map((s) => {
+            const p = posteFor(date, s.key);
             return (
               <button
-                key={p}
+                key={s.key}
                 type="button"
-                className={`poste-chip ${poste === p ? 'active' : ''} shift-${s.key}`}
-                onClick={() => setPoste(p)}
-                title={`Poste ${p} · ${s.label}`}
+                className={`shift-chip ${shiftKey === s.key ? 'active' : ''} shift-${s.key}`}
+                onClick={() => setShiftKey(s.key)}
+                title={`${s.label} · Poste ${p}`}
               >
-                <span className="poste-letter">{p}</span>
-                <span className="poste-shift">{s.key}</span>
+                <span className="shift-name">{s.label}</span>
+                <span className="shift-poste">{p}</span>
               </button>
             );
           })}
         </div>
 
         <div className="shift-meta">
-          <span className={`shift-badge shift-${shift.key}`}>{shift.label}</span>
           <span className="muted small">{shift.hours}</span>
+          {restPoste && <span className="rest-hint faint xsmall">Repos · {restPoste}</span>}
           <span className="clock">{fmtClock(now)}</span>
         </div>
       </header>
 
       <main className="app-main">
-        {isResting ? (
-          <RestingView shiftMeta={shiftMeta} onPick={setPoste} dateObj={dateObj} />
-        ) : tab === 'logbook' ? (
-          <Logbook key={`lb-${date}-${poste}`} now={now} poste={poste} shiftMeta={shiftMeta} />
+        {tab === 'logbook' ? (
+          <Logbook key={`lb-${date}-${shiftKey}`} now={now} poste={poste} shiftMeta={shiftMeta} />
         ) : (
-          <ProductionTest key={`pt-${date}-${poste}`} now={now} poste={poste} shiftMeta={shiftMeta} />
+          <ProductionTest key={`pt-${date}-${shiftKey}`} now={now} poste={poste} shiftMeta={shiftMeta} />
         )}
       </main>
-    </div>
-  );
-}
-
-function RestingView({ shiftMeta, onPick, dateObj }) {
-  const others = POSTES.filter((p) => shiftFor(p, dateObj).key !== 'R');
-  return (
-    <div className="resting">
-      <div className="resting-card">
-        <div className="resting-icon">☾</div>
-        <h2>Repos · Poste {shiftMeta.poste}</h2>
-        <p className="muted">{shiftMeta.dateLabel}</p>
-        <p className="faint small">No shift logged on rest days. Pick another poste working today:</p>
-        <div className="resting-postes">
-          {others.map((p) => {
-            const s = shiftFor(p, dateObj);
-            return (
-              <button
-                key={p}
-                type="button"
-                className="btn"
-                onClick={() => onPick(p)}
-              >
-                Poste {p} · {SHIFT_TYPES[s.key].label}
-                <span className="faint small" style={{ marginLeft: 6 }}>{s.hours}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }

@@ -976,109 +976,69 @@
   margin-left: 2px;
 }
 
-/* Poste chips with shift code */
-.poste-switch {
+/* Shift switch — Matin / Après-Midi / Nuit */
+.shift-switch {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.poste-chip {
+.shift-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px 3px 6px;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
   border: 1px solid var(--line-soft);
   border-radius: 6px;
   background: var(--paper);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   color: var(--ink);
   min-height: 30px;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-.poste-chip:hover { border-color: var(--line); }
+.shift-chip:hover { border-color: var(--line); }
 
-.poste-chip.active {
+.shift-chip .shift-name {
+  font-weight: 500;
+}
+
+.shift-chip .shift-poste {
+  font-size: 10px;
+  font-family: 'Geist Mono', monospace;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
+.shift-chip.active {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
 }
 
-.poste-chip .poste-letter {
-  font-weight: 600;
-  font-family: 'Geist Mono', monospace;
-  font-size: 12px;
+.shift-chip.active .shift-poste {
+  background: var(--paper);
+  color: var(--ink);
 }
 
-.poste-chip .poste-shift {
-  font-size: 10px;
-  font-family: 'Geist Mono', monospace;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--paper-2);
-  color: var(--ink-soft);
-}
+/* Subtle code-tinted left edge per shift type */
+.shift-chip.shift-M { box-shadow: inset 3px 0 0 var(--hl-yellow); }
+.shift-chip.shift-A { box-shadow: inset 3px 0 0 var(--hl-blue); }
+.shift-chip.shift-N { box-shadow: inset 3px 0 0 #5a564f; }
 
-.poste-chip.shift-M .poste-shift { background: var(--hl-yellow); color: #5a4d12; }
-.poste-chip.shift-A .poste-shift { background: var(--hl-blue); color: #244260; }
-.poste-chip.shift-N .poste-shift { background: #2a2722; color: var(--paper); }
-.poste-chip.shift-R .poste-shift { background: var(--hl-green); color: #2d4a25; }
+.shift-chip.active.shift-M { box-shadow: inset 3px 0 0 #d6c568; }
+.shift-chip.active.shift-A { box-shadow: inset 3px 0 0 #97b6d6; }
+.shift-chip.active.shift-N { box-shadow: inset 3px 0 0 var(--paper); }
 
-.poste-chip.active .poste-shift { background: var(--paper); color: var(--ink); }
-
-/* Shift badge in shift-meta */
-.shift-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 9px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
+.rest-hint {
   font-family: 'Geist Mono', monospace;
   letter-spacing: 0.02em;
-  background: var(--paper-2);
-  border: 1px solid var(--line-soft);
 }
-.shift-badge.shift-M { background: var(--hl-yellow); border-color: #d6c568; color: #5a4d12; }
-.shift-badge.shift-A { background: var(--hl-blue); border-color: #97b6d6; color: #244260; }
-.shift-badge.shift-N { background: #2a2722; border-color: #2a2722; color: var(--paper); }
-.shift-badge.shift-R { background: var(--hl-green); border-color: #95bd83; color: #2d4a25; }
-
-/* Resting (no-shift) view */
-.resting {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 60px 20px;
-}
-.resting-card {
-  max-width: 420px;
-  text-align: center;
-  background: var(--paper);
-  border: 1px solid var(--line-faint);
-  border-radius: 12px;
-  padding: 36px 28px;
-}
-.resting-icon {
-  font-size: 36px;
-  color: var(--ink-faint);
-  margin-bottom: 8px;
-}
-.resting-card h2 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
-}
-.resting-card p { margin: 4px 0 0; }
-.resting-postes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 18px;
-}
-.resting-postes .btn { justify-content: flex-start; }
 
 /* Event header (column titles) */
 .evt-head {
