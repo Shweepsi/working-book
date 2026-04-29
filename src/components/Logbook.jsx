@@ -1,21 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SAMPLE_EVENTS, SAMPLE_SHIFT, newId } from '../data/shift.js';
+import { SAMPLE_EVENTS, newId } from '../data/shift.js';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes.js';
 import { diffMinutes, fmtDuration, fmtHM, liveDurationSince } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
+import EventEditor from './EventEditor.jsx';
 
-const STORAGE_KEY = 'wb.logbook.v1';
+function storageKey(poste) {
+  return `wb.logbook.v2.${poste}`;
+}
 
-export default function Logbook({ now }) {
-  const [events, setEvents] = useState(() => load(STORAGE_KEY, SAMPLE_EVENTS));
-  const [draft, setDraft] = useState(() => emptyDraft());
+function defaultsForPoste(poste) {
+  return poste === 'C' ? SAMPLE_EVENTS : [];
+}
+
+export default function Logbook({ now, poste, shiftMeta }) {
+  const [events, setEvents] = useState(() =>
+    load(storageKey(poste), defaultsForPoste(poste)),
+  );
+  const [editing, setEditing] = useState(null); // { event } | { event: { id: null, ...defaults } } | null
 
   useEffect(() => {
-    save(STORAGE_KEY, events);
-  }, [events]);
+    setEvents(load(storageKey(poste), defaultsForPoste(poste)));
+  }, [poste]);
+
+  useEffect(() => {
+    save(storageKey(poste), events);
+  }, [events, poste]);
 
   const running = useMemo(() => events.find((e) => e.start && !e.end), [events]);
-
   const summary = useMemo(() => computeSummary(events), [events]);
 
   function startEvent(type) {
@@ -39,23 +51,6 @@ export default function Logbook({ now }) {
     });
   }
 
-  function commitDraft() {
-    if (!draft.desc.trim() && !draft.start && !draft.type) return;
-    const start = draft.start || fmtHM(now);
-    setEvents((prev) => [
-      ...prev,
-      {
-        id: newId(),
-        start: draft.start || (draft.type ? start : null),
-        end: draft.end || null,
-        type: draft.type || 'Note',
-        desc: draft.desc.trim(),
-        flag: draft.flag || EVENT_TYPES.find((t) => t.key === draft.type)?.defaultFlag || null,
-      },
-    ]);
-    setDraft(emptyDraft());
-  }
-
   function patch(id, changes) {
     setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...changes } : e)));
   }
@@ -70,66 +65,66 @@ export default function Logbook({ now }) {
   }
 
   function reset() {
-    if (!window.confirm('Reset to sample shift data? Local edits will be lost.')) return;
-    setEvents(SAMPLE_EVENTS);
+    if (!window.confirm(`Reset Poste ${poste} to ${poste === 'C' ? 'sample' : 'empty'} data?`)) return;
+    setEvents(defaultsForPoste(poste));
+  }
+
+  function openNewEvent() {
+    setEditing({ event: { start: fmtHM(now), end: '', type: '', desc: '', flag: '', notes: [] } });
+  }
+
+  function saveFromEditor(payload) {
+    if (payload.id) {
+      patch(payload.id, payload);
+    } else {
+      setEvents((prev) => [...prev, { ...payload, id: newId() }]);
+    }
+    setEditing(null);
   }
 
   return (
     <div>
-      <div className="now-bar">
+      <PrintHeader poste={poste} shiftMeta={shiftMeta} />
+
+      <div className="now-bar no-print">
         {running ? (
-          <RunningStrip ev={running} now={now} onEnd={endRunning} />
+          <RunningStrip ev={running} now={now} onEnd={endRunning} onClick={() => setEditing({ event: running })} />
         ) : (
           <IdleStrip />
         )}
         <div className="quickadd">
           <label>Quick log →</label>
-          <input
-            type="text"
-            placeholder="HH:MM"
-            value={draft.start}
-            onChange={(e) => setDraft({ ...draft, start: e.target.value })}
-            style={{ width: 64 }}
-          />
-          <span className="faint">→</span>
-          <input
-            type="text"
-            placeholder="HH:MM"
-            value={draft.end}
-            onChange={(e) => setDraft({ ...draft, end: e.target.value })}
-            style={{ width: 64 }}
-          />
-          <select
-            value={draft.type}
-            onChange={(e) => setDraft({ ...draft, type: e.target.value })}
-          >
-            <option value="">Type…</option>
-            {EVENT_TYPES.map((t) => (
-              <option key={t.key} value={t.key}>{t.label}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            className="desc-input"
-            placeholder="Description (#plates work too)"
-            value={draft.desc}
-            onChange={(e) => setDraft({ ...draft, desc: e.target.value })}
-            onKeyDown={(e) => e.key === 'Enter' && commitDraft()}
-          />
-          <select
-            value={draft.flag}
-            onChange={(e) => setDraft({ ...draft, flag: e.target.value })}
-          >
-            <option value="">Flag…</option>
-            {Object.values(FLAGS).map((f) => (
-              <option key={f.key} value={f.key}>{f.label}</option>
-            ))}
-          </select>
-          <button className="btn primary" onClick={commitDraft}>Log ⏎</button>
+          <button className="btn primary" onClick={openNewEvent}>＋ New event</button>
+          <span className="faint" style={{ fontSize: 11 }}>or pick a type below</span>
         </div>
       </div>
 
+      <div className="type-strip no-print">
+        {EVENT_TYPES.filter((t) => t.key !== 'Note').map((t) => {
+          const isLive = running?.type === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              className={isLive ? 'live' : ''}
+              onClick={() => startEvent(t.key)}
+              title={isLive ? 'Currently running' : `Start ${t.label} now`}
+            >
+              <span className="glyph">{isLive ? '●' : '＋'}</span>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="evt-list">
+        <div className="evt evt-head no-print" aria-hidden="true">
+          <div className="time">Time</div>
+          <div className="dur">Dur.</div>
+          <div className="type-h">Type</div>
+          <div className="desc">Description</div>
+          <div className="flags-h">Flags</div>
+        </div>
         {events.map((ev) => (
           <EventRow
             key={ev.id}
@@ -137,38 +132,71 @@ export default function Logbook({ now }) {
             now={now}
             onPatch={(changes) => patch(ev.id, changes)}
             onRemove={() => remove(ev.id)}
+            onOpen={() => setEditing({ event: ev })}
           />
         ))}
+        {events.length === 0 && (
+          <div className="evt-empty">
+            <div>No events yet for Poste {poste}.</div>
+            <button className="btn primary" onClick={openNewEvent} style={{ marginTop: 10 }}>
+              ＋ Log first event
+            </button>
+          </div>
+        )}
         <div className="summary">
           <span><strong>{summary.total}</strong> events</span>
           <span><strong>{summary.imprevus}</strong> imprévus</span>
           <span>planned <strong>{fmtDuration(summary.plannedMin)}</strong></span>
           <span>unplanned <strong>{fmtDuration(summary.unplannedMin)}</strong></span>
-          <span style={{ marginLeft: 'auto' }}>
-            <button className="btn ghost" onClick={reset}>Reset sample data</button>
+          <span style={{ marginLeft: 'auto' }} className="no-print">
+            <button className="btn ghost" onClick={() => window.print()}>Print</button>
+            <button className="btn ghost" onClick={reset}>Reset</button>
           </span>
         </div>
       </div>
+
+      <PrintSignature poste={poste} />
+
+      <button
+        className="fab no-print"
+        type="button"
+        onClick={openNewEvent}
+        aria-label="Log new event"
+      >
+        +
+      </button>
+
+      {editing && (
+        <EventEditor
+          event={editing.event}
+          now={now}
+          onSave={saveFromEditor}
+          onDelete={() => editing.event?.id && remove(editing.event.id)}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
 
-function emptyDraft() {
-  return { start: '', end: '', type: '', desc: '', flag: '' };
-}
-
-function RunningStrip({ ev, now, onEnd }) {
+function RunningStrip({ ev, now, onEnd, onClick }) {
   const min = liveDurationSince(ev.start, now);
   const variant = ev.flag === 'unplan' ? 'alarm' : 'running';
   return (
-    <div className={`live ${variant}`}>
+    <div className={`live ${variant}`} onClick={onClick} role="button">
       <span className="pulse" />
       <div className="text">
         <div className="title">{ev.type} — {ev.desc || 'in progress'}</div>
-        <div className="muted xsmall">started {ev.start}</div>
+        <div className="muted xsmall">started {ev.start} · tap to edit</div>
       </div>
       <span className="timer">{fmtDuration(min)}</span>
-      <button className="btn" style={{ marginLeft: 12 }} onClick={onEnd}>End now</button>
+      <button
+        className="btn"
+        style={{ marginLeft: 12 }}
+        onClick={(e) => { e.stopPropagation(); onEnd(); }}
+      >
+        End now
+      </button>
     </div>
   );
 }
@@ -185,7 +213,7 @@ function IdleStrip() {
   );
 }
 
-function EventRow({ ev, now, onPatch, onRemove }) {
+function EventRow({ ev, now, onPatch, onRemove, onOpen }) {
   const tint = tintForFlag(ev.flag);
   const live = ev.start && !ev.end ? liveDurationSince(ev.start, now) : null;
   const minutes = ev.start && ev.end ? diffMinutes(ev.start, ev.end) : live;
@@ -193,7 +221,13 @@ function EventRow({ ev, now, onPatch, onRemove }) {
   const typeMeta = EVENT_TYPES.find((t) => t.key === ev.type);
 
   return (
-    <div className={`evt ${tint ? `tint-${tint}` : ''}`}>
+    <div
+      className={`evt ${tint ? `tint-${tint}` : ''}`}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen()}
+    >
       <div className="time">
         {ev.start ? <span className="start">{ev.start}</span> : <span className="faint">—</span>}
         {' '}
@@ -204,13 +238,15 @@ function EventRow({ ev, now, onPatch, onRemove }) {
       <div className="dur">{fmtDuration(minutes)}</div>
       <span className="type">{ev.type}</span>
       <div className="desc">
-        <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>{ev.desc || <span className="faint">(no description)</span>}</span>
+        <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
+          {ev.desc || <span className="faint">(no description)</span>}
+        </span>
         {refs.length > 0 && <span className="refs">{refs.join(' · ')}</span>}
         {(ev.notes || []).map((n, i) => (
           <span key={i} className="sub">{n}</span>
         ))}
       </div>
-      <div className="flags">
+      <div className="flags" onClick={(e) => e.stopPropagation()}>
         {Object.values(FLAGS).map((f) => (
           <button
             key={f.key}
@@ -223,24 +259,45 @@ function EventRow({ ev, now, onPatch, onRemove }) {
             {f.label}
           </button>
         ))}
-      </div>
-      <div className="row-actions">
         {!ev.end && ev.start && (
           <button
-            className="btn ghost xsmall"
-            onClick={() => onPatch({ end: fmtHM(now) })}
-            style={{ fontSize: 10, padding: '2px 6px' }}
+            className="btn ghost row-action"
+            onClick={(e) => { e.stopPropagation(); onPatch({ end: fmtHM(now) }); }}
+            style={{ fontSize: 11, padding: '4px 8px' }}
           >
             End
           </button>
         )}
-        <button
-          className="btn ghost xsmall"
-          onClick={onRemove}
-          style={{ fontSize: 10, padding: '2px 6px' }}
-        >
-          ✕
-        </button>
+      </div>
+    </div>
+  );
+}
+
+function PrintHeader({ poste, shiftMeta }) {
+  return (
+    <div className="print-header print-only">
+      <h1>Logbook · Poste {poste}</h1>
+      <div className="meta">
+        <span><strong>Date:</strong> {shiftMeta.date}</span>
+        <span><strong>Horaires:</strong> {shiftMeta.hours}</span>
+        <span><strong>Opérateur:</strong> ____________________</span>
+      </div>
+    </div>
+  );
+}
+
+function PrintSignature({ poste }) {
+  return (
+    <div className="print-signature print-only">
+      <div className="sig-row">
+        <div>
+          <div className="sig-line" />
+          <div className="sig-label">Signature opérateur · Poste {poste}</div>
+        </div>
+        <div>
+          <div className="sig-line" />
+          <div className="sig-label">Visa chef d'équipe</div>
+        </div>
       </div>
     </div>
   );

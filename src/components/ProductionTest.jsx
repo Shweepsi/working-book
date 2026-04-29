@@ -10,7 +10,9 @@ import {
 import { fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 
-const STORAGE_KEY = 'wb.prodtest.v1';
+function storageKey(poste) {
+  return `wb.prodtest.v2.${poste}`;
+}
 
 function emptyTest(now) {
   return {
@@ -34,12 +36,17 @@ function emptyTest(now) {
   };
 }
 
-export default function ProductionTest({ now }) {
-  const [state, setState] = useState(() => load(STORAGE_KEY, emptyTest(now)));
+export default function ProductionTest({ now, poste }) {
+  const [state, setState] = useState(() => load(storageKey(poste), emptyTest(now)));
 
   useEffect(() => {
-    save(STORAGE_KEY, state);
-  }, [state]);
+    setState(load(storageKey(poste), emptyTest(now)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poste]);
+
+  useEffect(() => {
+    save(storageKey(poste), state);
+  }, [state, poste]);
 
   const stats = useMemo(() => computeStats(state), [state]);
 
@@ -79,6 +86,15 @@ export default function ProductionTest({ now }) {
 
   return (
     <div className="pt">
+      <div className="print-header print-only">
+        <h1>Production Test · Poste {poste}</h1>
+        <div className="meta">
+          <span><strong>Test n°:</strong> {state.header.testNo || '____________'}</span>
+          <span><strong>Date:</strong> {state.header.date} {state.header.hour}</span>
+          <span><strong>Opérateur:</strong> {state.header.operator || '____________________'}</span>
+        </div>
+      </div>
+
       <header className="pt-header">
         <Field label="Test n°" value={state.header.testNo} onChange={(v) => patchHeader('testNo', v)} />
         <Field label="Opérateur" value={state.header.operator} onChange={(v) => patchHeader('operator', v)} />
@@ -92,7 +108,10 @@ export default function ProductionTest({ now }) {
         <Field label="Résistance" value={state.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
       </header>
 
-      <Section title="Transmissions Digitales" hint={`${TD_PAIRS.length * 2} mesures · tol. ${TOLERANCE.td.min}–${TOLERANCE.td.max}`}>
+      <Section
+        title="Transmissions Digitales"
+        hint={`${TD_PAIRS.length * 2} mesures · tol. ${TOLERANCE.td.min}–${TOLERANCE.td.max}`}
+      >
         <div className="measure-grid" style={{ '--cols': 2 }}>
           {TD_PAIRS.flatMap(([a, b]) => [
             <TdCell key={a} code={a} value={state.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
@@ -149,12 +168,26 @@ export default function ProductionTest({ now }) {
         </div>
       </Section>
 
-      <div className="pt-actions">
+      <div className="print-signature print-only">
+        <div className="sig-row">
+          <div>
+            <div className="sig-line" />
+            <div className="sig-label">Opérateur · Poste {poste}</div>
+          </div>
+          <div>
+            <div className="sig-line" />
+            <div className="sig-label">QC visa</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-actions sticky no-print">
         <button className="btn" onClick={autofill}>↻ Auto-fill date / hour</button>
         <button className="btn ghost" onClick={reset}>Clear</button>
         <button className="btn" onClick={() => window.print()}>Print</button>
         <span className="health">
-          <strong>{stats.filled}</strong>/{stats.total} mesures · {stats.bad > 0
+          <strong>{stats.filled}</strong>/{stats.total} mesures ·{' '}
+          {stats.bad > 0
             ? <span style={{ color: '#a14233' }}><strong>{stats.bad}</strong> hors tolérance</span>
             : <span>aucune hors tolérance</span>}
         </span>
