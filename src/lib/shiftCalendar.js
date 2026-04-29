@@ -38,8 +38,9 @@ function dayDiff(a, b) {
 }
 
 export function shiftFor(poste, date) {
+  const d = typeof date === 'string' ? parseISODate(date) : date;
   const anchor = parseISODate(ANCHOR_ISO);
-  const days = dayDiff(date, anchor);
+  const days = dayDiff(d, anchor);
   const offset = POSTE_OFFSET[poste] ?? 0;
   const idx = ((days + offset) % CYCLE_LEN + CYCLE_LEN) % CYCLE_LEN;
   const code = CYCLE[idx];

@@ -31,14 +31,14 @@ function shiftKeyForHour(hour) {
   return 'N';
 }
 
-// Map (date, shiftKey) → poste letter
-function posteFor(date, shiftKey) {
-  return POSTES.find((p) => shiftFor(p, date).key === shiftKey) || null;
+// Map (dateObj, shiftKey) → poste letter
+function posteFor(dateObj, shiftKey) {
+  return POSTES.find((p) => shiftFor(p, dateObj).key === shiftKey) || null;
 }
 
-// Map (date) → resting poste
-function restingPoste(date) {
-  return POSTES.find((p) => shiftFor(p, date).key === 'R') || null;
+// Map (dateObj) → resting poste
+function restingPoste(dateObj) {
+  return POSTES.find((p) => shiftFor(p, dateObj).key === 'R') || null;
 }
 
 export default function App() {
@@ -65,9 +65,9 @@ export default function App() {
   useEffect(() => { save('wb.date', date); }, [date]);
 
   const dateObj = dateFromISO(date);
-  const poste = posteFor(date, shiftKey);
+  const poste = posteFor(dateObj, shiftKey);
   const shift = SHIFT_TYPES[shiftKey];
-  const restPoste = restingPoste(date);
+  const restPoste = restingPoste(dateObj);
 
   const shiftMeta = {
     poste,
@@ -131,7 +131,7 @@ export default function App() {
 
         <div className="shift-switch" role="group" aria-label="Shift">
           {SHIFT_TABS.map((s) => {
-            const p = posteFor(date, s.key);
+            const p = posteFor(dateObj, s.key);
             return (
               <button
                 key={s.key}
