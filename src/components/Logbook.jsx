@@ -106,12 +106,6 @@ export default function Logbook({ now, poste, shiftMeta }) {
           <div className="desc">Description</div>
           <div className="flags-h">Catégorie</div>
         </div>
-        <QuickAddRow
-          now={now}
-          onAdd={(payload) =>
-            setEvents((prev) => [...prev, { ...payload, id: newId() }])
-          }
-        />
         {events.map((ev) => (
           <EventRow
             key={ev.id}
@@ -160,115 +154,6 @@ export default function Logbook({ now, poste, shiftMeta }) {
           onClose={() => setEditing(null)}
         />
       )}
-    </div>
-  );
-}
-
-function QuickAddRow({ now, onAdd }) {
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const [type, setType] = useState('');
-  const [desc, setDesc] = useState('');
-  const [flag, setFlag] = useState('');
-
-  function commit() {
-    if (!type && !desc.trim()) return;
-    const stamp = fmtHM(now);
-    const startVal = start || stamp;
-    const endVal = end || startVal;
-    const finalFlag =
-      flag || EVENT_TYPES.find((t) => t.key === type)?.defaultFlag || null;
-    onAdd({
-      start: startVal,
-      end: endVal,
-      type: type || 'Production',
-      desc: desc.trim(),
-      flag: finalFlag,
-      notes: [],
-    });
-    setStart('');
-    setEnd('');
-    setType('');
-    setDesc('');
-    setFlag('');
-  }
-
-  function onKey(e) {
-    if (e.key === 'Enter') commit();
-    if (e.key === 'Escape') {
-      setStart(''); setEnd(''); setType(''); setDesc(''); setFlag('');
-    }
-  }
-
-  return (
-    <div className="evt evt-quickadd no-print">
-      <div className="time">
-        <input
-          type="text"
-          inputMode="numeric"
-          className="qa-time"
-          placeholder="HH:MM"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
-          onFocus={() => !start && setStart(fmtHM(now))}
-          onKeyDown={onKey}
-        />
-        <span className="qa-arrow">→</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          className="qa-time"
-          placeholder="HH:MM"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          onKeyDown={onKey}
-        />
-      </div>
-      <div className="dur faint">·</div>
-      <div className="type-h">
-        <select
-          className="qa-select"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          onKeyDown={onKey}
-        >
-          <option value="">Type ▾</option>
-          {EVENT_TYPES.map((t) => (
-            <option key={t.key} value={t.key}>{t.label}</option>
-          ))}
-        </select>
-      </div>
-      <div className="desc">
-        <input
-          type="text"
-          className="qa-desc"
-          placeholder="Description… (Enter to log)"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          onKeyDown={onKey}
-        />
-      </div>
-      <div className="flags">
-        <select
-          className="qa-select qa-flag"
-          value={flag}
-          onChange={(e) => setFlag(e.target.value)}
-          onKeyDown={onKey}
-        >
-          <option value="">Cat. ▾</option>
-          {Object.values(FLAGS).map((f) => (
-            <option key={f.key} value={f.key}>{f.label}</option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="btn primary qa-submit"
-          onClick={commit}
-          aria-label="Log event"
-        >
-          ⏎
-        </button>
-      </div>
     </div>
   );
 }
