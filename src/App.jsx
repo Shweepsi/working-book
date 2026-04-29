@@ -68,6 +68,9 @@ export default function App() {
   const poste = posteFor(dateObj, shiftKey);
   const shift = SHIFT_TYPES[shiftKey];
   const restPoste = restingPoste(dateObj);
+  const today = todayISO();
+  const isToday = date === today;
+  const nowShiftKey = shiftKeyForHour(now.getHours());
 
   const shiftMeta = {
     poste,
@@ -124,7 +127,13 @@ export default function App() {
           >
             ›
           </button>
-          <button type="button" className="btn ghost mini today-btn" onClick={jumpToday}>
+          <button
+            type="button"
+            className="btn ghost mini today-btn"
+            onClick={jumpToday}
+            disabled={isToday && shiftKey === nowShiftKey}
+            title={isToday ? 'Already on today' : 'Jump to today'}
+          >
             Today
           </button>
         </div>
@@ -132,14 +141,16 @@ export default function App() {
         <div className="shift-switch" role="group" aria-label="Shift">
           {SHIFT_TABS.map((s) => {
             const p = posteFor(dateObj, s.key);
+            const isLive = isToday && nowShiftKey === s.key;
             return (
               <button
                 key={s.key}
                 type="button"
-                className={`shift-chip ${shiftKey === s.key ? 'active' : ''} shift-${s.key}`}
+                className={`shift-chip ${shiftKey === s.key ? 'active' : ''} ${isLive ? 'is-live' : ''} shift-${s.key}`}
                 onClick={() => setShiftKey(s.key)}
-                title={`${s.label} · Poste ${p}`}
+                title={isLive ? `${s.label} · Poste ${p} · en cours` : `${s.label} · Poste ${p}`}
               >
+                {isLive && <span className="live-dot" aria-hidden="true" />}
                 <span className="shift-name">{s.label}</span>
                 <span className="shift-poste">{p}</span>
               </button>

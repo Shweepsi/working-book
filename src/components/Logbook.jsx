@@ -80,12 +80,11 @@ export default function Logbook({ now, poste, shiftMeta }) {
 
       <div className="logbook-toolbar no-print">
         <div className="toolbar-left">
-          <span className="muted small">Quick log →</span>
           <button className="btn primary" onClick={openNewEvent}>＋ New event</button>
-          <span className="faint small">or pick a type</span>
+          <span className="faint small">or pick a type below</span>
         </div>
         <div className="toolbar-right small muted">
-          {summary.total} events logged
+          {summary.total} {summary.total === 1 ? 'event' : 'events'} logged
         </div>
       </div>
 

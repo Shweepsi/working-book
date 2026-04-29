@@ -938,12 +938,6 @@
   to   { transform: translateY(0); }
 }
 
-/* Hide the FAB everywhere except phone */
-.fab { display: none; }
-@media (max-width: 600px) {
-  .fab { display: inline-flex; }
-}
-
 /* Date nav */
 .date-nav {
   display: inline-flex;
@@ -974,6 +968,13 @@
 }
 .date-nav .today-btn {
   margin-left: 2px;
+}
+.date-nav .today-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.date-nav .today-btn:disabled:hover {
+  background: transparent;
 }
 
 /* Shift switch — Matin / Après-Midi / Nuit */
@@ -1034,6 +1035,25 @@
 .shift-chip.active.shift-M { box-shadow: inset 3px 0 0 #d6c568; }
 .shift-chip.active.shift-A { box-shadow: inset 3px 0 0 #97b6d6; }
 .shift-chip.active.shift-N { box-shadow: inset 3px 0 0 var(--paper); }
+
+/* Live dot — current real-time shift on today's date */
+.shift-chip .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  animation: live-pulse 2.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.shift-chip.active .live-dot {
+  background: var(--paper);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--paper) 28%, transparent);
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
 
 .rest-hint {
   font-family: 'Geist Mono', monospace;
