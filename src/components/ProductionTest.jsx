@@ -10,8 +10,8 @@ import {
 import { fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 
-function storageKey(poste) {
-  return `wb.prodtest.v2.${poste}`;
+function storageKey(date, poste) {
+  return `wb.prodtest.v4.${date}.${poste}`;
 }
 
 function emptyTest(now) {
@@ -36,17 +36,18 @@ function emptyTest(now) {
   };
 }
 
-export default function ProductionTest({ now, poste }) {
-  const [state, setState] = useState(() => load(storageKey(poste), emptyTest(now)));
+export default function ProductionTest({ now, poste, shiftMeta }) {
+  const { date } = shiftMeta;
+  const [state, setState] = useState(() => load(storageKey(date, poste), emptyTest(now)));
 
   useEffect(() => {
-    setState(load(storageKey(poste), emptyTest(now)));
+    setState(load(storageKey(date, poste), emptyTest(now)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poste]);
+  }, [date, poste]);
 
   useEffect(() => {
-    save(storageKey(poste), state);
-  }, [state, poste]);
+    save(storageKey(date, poste), state);
+  }, [state, date, poste]);
 
   const stats = useMemo(() => computeStats(state), [state]);
 
@@ -87,10 +88,10 @@ export default function ProductionTest({ now, poste }) {
   return (
     <div className="pt">
       <div className="print-header print-only">
-        <h1>Production Test · Poste {poste}</h1>
+        <h1>Production Test · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
           <span><strong>Test n°:</strong> {state.header.testNo || '____________'}</span>
-          <span><strong>Date:</strong> {state.header.date} {state.header.hour}</span>
+          <span><strong>Date:</strong> {shiftMeta.dateLabel} {state.header.hour}</span>
           <span><strong>Opérateur:</strong> {state.header.operator || '____________________'}</span>
         </div>
       </div>

@@ -5,27 +5,32 @@ import { diffMinutes, fmtDuration, fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 import EventEditor from './EventEditor.jsx';
 
-function storageKey(poste) {
-  return `wb.logbook.v3.${poste}`;
+function storageKey(date, poste) {
+  return `wb.logbook.v4.${date}.${poste}`;
 }
 
-function defaultsForPoste(poste) {
-  return poste === 'C' ? SAMPLE_EVENTS : [];
+function defaultsFor(date, poste, shiftKey) {
+  // Seed sample data once for the canonical "demo" shift: Poste C on 28-Apr-2026
+  // (matches the original wireframe context). Other (date, poste) pairs start empty.
+  if (date === '2026-04-28' && poste === 'C' && shiftKey === 'M') return SAMPLE_EVENTS;
+  return [];
 }
 
 export default function Logbook({ now, poste, shiftMeta }) {
+  const { date, shift } = shiftMeta;
   const [events, setEvents] = useState(() =>
-    load(storageKey(poste), defaultsForPoste(poste)),
+    load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
   const [editing, setEditing] = useState(null);
 
   useEffect(() => {
-    setEvents(load(storageKey(poste), defaultsForPoste(poste)));
-  }, [poste]);
+    setEvents(load(storageKey(date, poste), defaultsFor(date, poste, shift.key)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, poste]);
 
   useEffect(() => {
-    save(storageKey(poste), events);
-  }, [events, poste]);
+    save(storageKey(date, poste), events);
+  }, [events, date, poste]);
 
   const summary = useMemo(() => computeSummary(events), [events]);
 
@@ -46,8 +51,8 @@ export default function Logbook({ now, poste, shiftMeta }) {
   }
 
   function reset() {
-    if (!window.confirm(`Reset Poste ${poste} to ${poste === 'C' ? 'sample' : 'empty'} data?`)) return;
-    setEvents(defaultsForPoste(poste));
+    if (!window.confirm(`Clear logbook for Poste ${poste} on ${date}?`)) return;
+    setEvents(defaultsFor(date, poste, shift.key));
   }
 
   function openNewEvent() {
@@ -202,10 +207,10 @@ function EventRow({ ev, onPatch, onOpen }) {
 function PrintHeader({ poste, shiftMeta }) {
   return (
     <div className="print-header print-only">
-      <h1>Logbook · Poste {poste}</h1>
+      <h1>Logbook · Poste {poste} · {shiftMeta.shift.label}</h1>
       <div className="meta">
-        <span><strong>Date:</strong> {shiftMeta.date}</span>
-        <span><strong>Horaires:</strong> {shiftMeta.hours}</span>
+        <span><strong>Date:</strong> {shiftMeta.dateLabel}</span>
+        <span><strong>Horaires:</strong> {shiftMeta.shift.hours}</span>
         <span><strong>Opérateur:</strong> ____________________</span>
       </div>
     </div>
