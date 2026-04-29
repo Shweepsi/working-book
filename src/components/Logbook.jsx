@@ -29,13 +29,12 @@ export default function Logbook({ now, poste, shiftMeta }) {
 
   const summary = useMemo(() => computeSummary(events), [events]);
 
-  function quickLog(type) {
+  function openTypedEvent(type) {
     const stamp = fmtHM(now);
     const flag = EVENT_TYPES.find((t) => t.key === type)?.defaultFlag ?? null;
-    setEvents((prev) => [
-      ...prev,
-      { id: newId(), start: stamp, end: stamp, type, desc: '', flag },
-    ]);
+    setEditing({
+      event: { start: stamp, end: stamp, type, desc: '', flag, notes: [] },
+    });
   }
 
   function patch(id, changes) {
@@ -90,8 +89,8 @@ export default function Logbook({ now, poste, shiftMeta }) {
           <button
             key={t.key}
             type="button"
-            onClick={() => quickLog(t.key)}
-            title={`Log ${t.label} at ${fmtHM(now)}`}
+            onClick={() => openTypedEvent(t.key)}
+            title={`Log ${t.label} starting now`}
           >
             <span className="glyph">＋</span>
             {t.label}
