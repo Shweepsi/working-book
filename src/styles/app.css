@@ -841,6 +841,9 @@
   .evt .desc { grid-area: desc; font-size: 14px; }
   .evt .flags { grid-area: flags; }
 
+  /* Quick-add is desktop-only — touch users have type-strip + FAB */
+  .evt-quickadd { display: none !important; }
+
   .measure-cell { grid-template-columns: 60px 1fr; }
   .measure-cell .mlabel { padding: 6px 10px; }
   .lab-grid { grid-template-columns: 60px repeat(3, 1fr); }
@@ -972,38 +975,18 @@
 
 .evt {
   cursor: pointer;
-  transition: background-color 140ms ease, box-shadow 140ms ease;
+  transition: background-color 120ms ease;
   position: relative;
 }
 
-.evt::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: var(--accent);
-  opacity: 0;
-  transform: scaleY(0.4);
-  transform-origin: center;
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-
 .evt:not(.evt-head):hover {
-  background-color: color-mix(in srgb, var(--accent) 7%, var(--paper));
+  background-color: color-mix(in srgb, var(--ink) 3%, var(--paper));
 }
 
-.evt:not(.evt-head):hover::before {
-  opacity: 1;
-  transform: scaleY(1);
-}
-
-.evt:not(.evt-head).tint-yellow:hover { background-color: color-mix(in srgb, var(--accent) 8%, var(--hl-yellow)); }
-.evt:not(.evt-head).tint-red:hover    { background-color: color-mix(in srgb, var(--accent) 8%, var(--hl-red)); }
-.evt:not(.evt-head).tint-green:hover  { background-color: color-mix(in srgb, var(--accent) 8%, var(--hl-green)); }
-.evt:not(.evt-head).tint-blue:hover   { background-color: color-mix(in srgb, var(--accent) 8%, var(--hl-blue)); }
+.evt:not(.evt-head).tint-yellow:hover { background-color: color-mix(in srgb, var(--ink) 4%, var(--hl-yellow)); }
+.evt:not(.evt-head).tint-red:hover    { background-color: color-mix(in srgb, var(--ink) 4%, var(--hl-red)); }
+.evt:not(.evt-head).tint-green:hover  { background-color: color-mix(in srgb, var(--ink) 4%, var(--hl-green)); }
+.evt:not(.evt-head).tint-blue:hover   { background-color: color-mix(in srgb, var(--ink) 4%, var(--hl-blue)); }
 
 .evt:not(.evt-head):focus-visible {
   outline: 2px solid var(--accent);
@@ -1011,7 +994,85 @@
 }
 
 .evt:not(.evt-head):active {
-  background-color: color-mix(in srgb, var(--accent) 11%, var(--paper));
+  background-color: color-mix(in srgb, var(--ink) 6%, var(--paper));
+}
+
+/* Quick-add row */
+.evt-quickadd {
+  background: color-mix(in srgb, var(--paper-2) 70%, var(--paper));
+  cursor: default;
+  border-bottom: 1px solid var(--line-faint) !important;
+}
+
+.evt-quickadd:hover { background: color-mix(in srgb, var(--paper-2) 70%, var(--paper)) !important; }
+
+.evt-quickadd .time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Geist Mono', monospace;
+}
+
+.evt-quickadd .qa-arrow {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.evt-quickadd .qa-time,
+.evt-quickadd .qa-select,
+.evt-quickadd .qa-desc {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  outline: 0;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.evt-quickadd .qa-time {
+  width: 52px;
+  font-family: 'Geist Mono', monospace;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.evt-quickadd .qa-select { font-size: 11px; min-width: 0; width: 100%; }
+.evt-quickadd .qa-desc { width: 100%; font-size: 13px; }
+
+.evt-quickadd input::placeholder,
+.evt-quickadd select { color: var(--ink-faint); }
+
+.evt-quickadd .qa-time:hover,
+.evt-quickadd .qa-select:hover,
+.evt-quickadd .qa-desc:hover {
+  background: var(--paper);
+  border-color: var(--line-faint);
+}
+
+.evt-quickadd .qa-time:focus,
+.evt-quickadd .qa-select:focus,
+.evt-quickadd .qa-desc:focus {
+  background: var(--paper);
+  border-color: var(--accent);
+}
+
+.evt-quickadd .flags {
+  gap: 6px;
+  align-items: center;
+}
+
+.evt-quickadd .qa-flag {
+  width: 90px;
+}
+
+.evt-quickadd .qa-submit {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: 'Geist Mono', monospace;
 }
 
 .evt-empty {
