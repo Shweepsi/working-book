@@ -4,6 +4,14 @@ import { fmtHM } from '../lib/time.js';
 
 const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [] };
 
+// Force "HH:MM" shape as user types: strip non-digits, cap at 4 digits, splice colon.
+// Empty stays empty so a "no-time" event is still acceptable.
+function maskTime(raw) {
+  const digits = (raw || '').replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
 export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
   const isNew = !event?.id;
   const [draft, setDraft] = useState(() => ({ ...EMPTY, ...(event || {}) }));
@@ -78,8 +86,9 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
                 className="time-input"
                 placeholder="HH:MM"
                 value={draft.start || ''}
-                onChange={(e) => update('start', e.target.value)}
+                onChange={(e) => update('start', maskTime(e.target.value))}
                 inputMode="numeric"
+                maxLength={5}
               />
               <span className="arrow">→</span>
               <input
@@ -87,8 +96,9 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
                 className="time-input"
                 placeholder="HH:MM"
                 value={draft.end || ''}
-                onChange={(e) => update('end', e.target.value)}
+                onChange={(e) => update('end', maskTime(e.target.value))}
                 inputMode="numeric"
+                maxLength={5}
               />
               <button
                 type="button"
