@@ -919,10 +919,6 @@
       'flags flags';
   }
 
-  /* TD becomes single column on phone */
-  .measure-grid { grid-template-columns: 1fr !important; }
-  .measure-cell { border-right: 0 !important; }
-
   .lab-grid { grid-template-columns: 56px repeat(3, 1fr); }
   .lab-grid .rowlabel { padding: 6px 8px; font-size: 11px; }
   .lab-grid .lab-cell input { padding: 6px 8px; font-size: 13px; }
