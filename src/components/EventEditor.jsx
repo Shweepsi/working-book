@@ -94,11 +94,12 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
               />
               <button
                 type="button"
-                className="btn ghost mini"
+                className="now-btn"
                 onClick={() => update('start', fmtHM())}
                 title="Set start to now"
+                aria-label="Set start to now"
               >
-                now
+                ◷
               </button>
               <span className="arrow">→</span>
               <input
@@ -112,11 +113,12 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
               />
               <button
                 type="button"
-                className="btn ghost mini"
+                className="now-btn"
                 onClick={() => update('end', fmtHM())}
                 title="Set end to now"
+                aria-label="Set end to now"
               >
-                now
+                ◷
               </button>
             </div>
           </div>
