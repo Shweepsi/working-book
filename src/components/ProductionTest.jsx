@@ -274,7 +274,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
         </div>
       </Section>
 
-      <Section title="Commentaires" hint="">
+      <Section title="Commentaires">
         <div className="pt-comments">
           <textarea
             placeholder="Notes, anomalies, conditions particulières…"
@@ -335,12 +335,11 @@ function Field({ label, value, onChange, auto, type, prefix, inputMode, maxLengt
   );
 }
 
-function Section({ title, hint, children }) {
+function Section({ title, children }) {
   return (
     <section className="pt-section">
       <header>
         <h3>{title}</h3>
-        {hint && <span className="hint">{hint}</span>}
       </header>
       {children}
     </section>

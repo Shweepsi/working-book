@@ -663,12 +663,6 @@
   font-weight: 600;
 }
 
-.pt-section header .hint {
-  font-size: 11px;
-  color: var(--ink-soft);
-  font-family: 'Geist Mono', monospace;
-}
-
 .measure-grid {
   display: grid;
   grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
