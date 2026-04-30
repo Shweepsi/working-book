@@ -261,6 +261,10 @@
 .evt.tint-green  { background: color-mix(in srgb, var(--hl-green) 55%, var(--paper)); }
 .evt.tint-blue   { background: color-mix(in srgb, var(--hl-blue) 55%, var(--paper)); }
 
+/* Danger row — process consigne. Reused on the future Consigne page. */
+.evt.is-danger { box-shadow: inset 3px 0 0 0 var(--flag-unsched-bd); }
+.evt.is-danger .desc { color: var(--flag-unsched-fg); }
+
 .evt .time {
   font-family: 'Geist Mono', monospace;
   font-size: 12px;
@@ -478,7 +482,22 @@
   border-color: var(--ink);
   color: var(--paper);
 }
+.mep-toggle.is-danger.active {
+  background: var(--flag-unsched-bd);
+  border-color: var(--flag-unsched-bd);
+  color: var(--paper);
+}
+.mep-controls {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .text-input.is-bold { font-weight: 600; }
+.text-input.is-danger {
+  border-color: var(--flag-unsched-bd);
+  box-shadow: inset 3px 0 0 0 var(--flag-unsched-bd);
+}
 
 .time-range {
   display: flex;
@@ -925,7 +944,7 @@
   .date-nav { gap: 0; padding: 1px; }
   .date-nav .icon { width: 26px; height: 26px; min-height: 26px; }
   .date-nav .date-input { font-size: 11px; padding: 3px 4px; min-height: 26px; }
-  .date-nav .today-btn { padding: 0 8px; font-size: 11px; min-height: 26px; }
+  .date-nav .live-btn { padding: 0 8px; font-size: 11px; min-height: 26px; }
 
   .shift-switch { gap: 3px; }
   .shift-chip { padding: 3px 5px 3px 9px; gap: 5px; font-size: 11px; min-height: 28px; }
@@ -1041,14 +1060,14 @@
   outline: 0;
   min-height: 28px;
 }
-.date-nav .today-btn {
+.date-nav .live-btn {
   margin-left: 2px;
 }
-.date-nav .today-btn:disabled {
+.date-nav .live-btn:disabled {
   opacity: 0.45;
   cursor: default;
 }
-.date-nav .today-btn:disabled:hover {
+.date-nav .live-btn:disabled:hover {
   background: transparent;
 }
 

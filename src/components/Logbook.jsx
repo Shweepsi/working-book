@@ -141,7 +141,7 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
 
   return (
     <div
-      className={`evt ${tint ? `tint-${tint}` : ''}`}
+      className={`evt ${tint ? `tint-${tint}` : ''} ${ev.danger ? 'is-danger' : ''}`}
       onClick={open}
       role="button"
       tabIndex={0}

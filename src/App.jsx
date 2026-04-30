@@ -104,7 +104,7 @@ export default function App() {
     shift,
   };
 
-  function jumpToday() {
+  function jumpLive() {
     setDate(todayISO());
     setShiftKey(shiftKeyForHour(new Date().getHours()));
   }
@@ -153,16 +153,16 @@ export default function App() {
           </button>
           <button
             type="button"
-            className="btn ghost mini today-btn"
-            onClick={jumpToday}
+            className="btn ghost mini live-btn"
+            onClick={jumpLive}
             disabled={onLiveShift}
             title={
-              onLiveShift ? 'Already on today’s current shift'
-                : isToday ? 'Snap to today’s current shift'
-                : 'Jump to today'
+              onLiveShift ? 'Already on the live shift'
+                : isToday ? 'Snap to the live shift'
+                : 'Jump to the live shift'
             }
           >
-            Today
+            Live
           </button>
         </div>
 
