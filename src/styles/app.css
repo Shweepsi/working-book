@@ -1196,7 +1196,8 @@
   .evt .time, .evt .dur, .evt .type, .evt .desc, .evt .flags {
     grid-area: auto !important;
   }
-  .evt .row-action { display: none !important; }
+  .evt .row-actions { display: none !important; }
+  .evt .notes-badge { display: none !important; }
 
   /* Show only the active flag chip; hide inactive ones */
   .evt .flags > button {
@@ -1275,74 +1276,125 @@
   }
 }
 
-/* ---------- Density tweaks (compact + advanced) ---------- */
-:root[data-density='compact'] .summary,
-:root[data-density='advanced'] .summary {
-  padding: 8px 12px;
-  font-size: 11px;
-  gap: 12px;
-}
-:root[data-density='compact'] .pt-section header,
-:root[data-density='advanced'] .pt-section header {
-  padding: 6px 12px;
-}
-:root[data-density='compact'] .pt-section header h3,
-:root[data-density='advanced'] .pt-section header h3 {
-  font-size: 12px;
-}
-:root[data-density='compact'] .pt-header,
-:root[data-density='advanced'] .pt-header {
-  padding: 10px;
-  gap: 8px 14px;
-}
+/* ---------- Density tweaks ----------
+   Tokens drive most spacing; these rules cover spots where the token can't
+   reach (specific paddings on grid cells, header chips, etc.). */
+
+/* Summary bar (logbook) */
+.summary { font-size: var(--d-summary-font); padding: var(--d-summary-pad-y) 16px; }
+
+/* Production-test sections */
+:root[data-density='compact'] .pt-section header { padding: 4px 10px; }
+:root[data-density='advanced'] .pt-section header { padding: 8px 12px; }
+:root[data-density='compact'] .pt-section header h3 { font-size: 12px; }
+:root[data-density='compact'] .pt-header { padding: 10px; gap: 6px 12px; }
+:root[data-density='advanced'] .pt-header { padding: 14px; gap: 10px 16px; }
+
+/* Measurement / lab grids */
 :root[data-density='compact'] .measure-cell,
-:root[data-density='advanced'] .measure-cell,
-:root[data-density='compact'] .lab-grid .lab-cell,
-:root[data-density='advanced'] .lab-grid .lab-cell {
-  min-height: 32px;
-}
+:root[data-density='compact'] .lab-grid .lab-cell { min-height: 28px; }
 :root[data-density='compact'] .measure-cell input,
-:root[data-density='advanced'] .measure-cell input,
-:root[data-density='compact'] .lab-grid .lab-cell input,
-:root[data-density='advanced'] .lab-grid .lab-cell input {
-  padding: 4px 10px;
-  font-size: 12px;
-  min-height: 30px;
+:root[data-density='compact'] .lab-grid .lab-cell input {
+  padding: 3px 10px; font-size: 12px; min-height: 26px;
 }
 :root[data-density='compact'] .measure-cell .mlabel,
-:root[data-density='advanced'] .measure-cell .mlabel,
-:root[data-density='compact'] .lab-grid .rowlabel,
-:root[data-density='advanced'] .lab-grid .rowlabel {
-  padding: 4px 10px;
-  font-size: 11px;
+:root[data-density='compact'] .lab-grid .rowlabel {
+  padding: 3px 10px; font-size: 11px;
 }
-:root[data-density='compact'] .type-strip button,
+:root[data-density='advanced'] .measure-cell,
+:root[data-density='advanced'] .lab-grid .lab-cell { min-height: 36px; }
+
+/* Type-strip (one-tap log) */
+:root[data-density='compact'] .type-strip button {
+  padding: 3px 9px; font-size: 10.5px; min-height: 22px;
+}
 :root[data-density='advanced'] .type-strip button {
-  padding: 3px 9px;
-  font-size: 10px;
-  min-height: 22px;
-}
-:root[data-density='compact'] .shift-chip,
-:root[data-density='advanced'] .shift-chip {
-  padding: 3px 5px 3px 10px;
-  font-size: 11px;
-  min-height: 26px;
-}
-:root[data-density='compact'] .date-nav .date-input,
-:root[data-density='advanced'] .date-nav .date-input {
-  font-size: 11px;
-  min-height: 24px;
-}
-:root[data-density='compact'] .shift-meta .clock,
-:root[data-density='advanced'] .shift-meta .clock {
-  padding: 2px 8px;
-  font-size: 12px;
+  padding: 5px 11px; font-size: 11.5px; min-height: 28px;
 }
 
-/* Advanced-only details: refs/IDs/full timestamp visible in event rows */
-.evt .adv-meta { display: none; font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--ink-faint); margin-top: 2px; }
-:root[data-density='advanced'] .evt .adv-meta { display: block; }
-:root[data-density='advanced'] .evt .desc .refs { font-weight: 500; }
+/* Shift switch chip */
+:root[data-density='compact'] .shift-chip {
+  padding: 3px 4px 3px 9px; font-size: 11px; min-height: 24px;
+}
+:root[data-density='compact'] .shift-chip .shift-poste {
+  padding: 1px 5px; font-size: 9.5px;
+}
+:root[data-density='advanced'] .shift-chip {
+  padding: 5px 7px 5px 14px; font-size: 12.5px; min-height: 32px;
+}
+
+/* Date nav */
+:root[data-density='compact'] .date-nav .date-input {
+  font-size: 11px; min-height: 22px; padding: 2px 4px;
+}
+:root[data-density='compact'] .date-nav .icon { width: 24px; height: 24px; min-height: 24px; font-size: 14px; }
+:root[data-density='advanced'] .date-nav .date-input { font-size: 13px; min-height: 30px; }
+:root[data-density='advanced'] .date-nav .icon { width: 32px; height: 32px; min-height: 32px; font-size: 17px; }
+
+/* Header clock */
+:root[data-density='compact'] .shift-meta .clock { padding: 2px 8px; font-size: 11.5px; }
+:root[data-density='advanced'] .shift-meta .clock { padding: 5px 11px; font-size: 13.5px; }
+
+/* Settings gear / help-trigger size */
+:root[data-density='compact'] .btn.gear { width: 26px; height: 26px; min-height: 26px; font-size: 13px; }
+:root[data-density='advanced'] .btn.gear { width: 34px; height: 34px; min-height: 34px; font-size: 16px; }
+
+/* Logbook event rows: extra tightening in compact */
+:root[data-density='compact'] .evt .desc .sub {
+  padding-left: 8px;
+  font-size: 10.5px;
+}
+:root[data-density='compact'] .flag {
+  padding: 2px 8px; min-height: 22px; font-size: 10.5px;
+}
+
+/* Advanced reveals helpers */
+.evt .row-actions {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+:root[data-density='advanced'] .evt:not(.evt-head):hover .row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.evt .row-actions .iconbtn {
+  width: 24px; height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--line-soft);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.evt .row-actions .iconbtn:hover { color: var(--ink); border-color: var(--line); }
+
+/* Notes-count badge — advanced only */
+.evt .notes-badge {
+  display: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-soft);
+  vertical-align: middle;
+}
+:root[data-density='advanced'] .evt .notes-badge { display: inline-block; }
+
+/* Compact summary: shrink stat labels, keep numbers */
+:root[data-density='compact'] .summary { gap: 10px; }
 
 /* ---------- Settings popover ---------- */
 .settings-wrap {
@@ -1429,63 +1481,6 @@
   color: var(--ink-faint);
   line-height: 1.4;
 }
-
-/* First-run beginner tip banner */
-.tip-banner {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--paper));
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line-faint));
-  border-radius: 10px;
-  font-size: 12px;
-  color: var(--ink);
-}
-.tip-banner .tip-icon {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.tip-banner .tip-body { flex: 1; line-height: 1.45; }
-.tip-banner .tip-body strong { color: var(--ink); }
-.tip-banner .tip-close {
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  color: var(--ink-soft);
-  padding: 0 4px;
-  font-size: 16px;
-  line-height: 1;
-}
-.tip-banner .tip-close:hover { color: var(--ink); }
-
-/* Help tooltip trigger near the shift switch */
-.help-trigger {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid var(--line-soft);
-  background: var(--paper);
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-.help-trigger:hover { color: var(--ink); border-color: var(--line); }
 
 /* ---------- PWA / standalone polish ---------- */
 @media (display-mode: standalone) {

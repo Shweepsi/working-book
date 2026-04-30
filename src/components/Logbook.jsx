@@ -22,7 +22,6 @@ export default function Logbook({ now, poste, shiftMeta }) {
     load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
   const [editing, setEditing] = useState(null);
-  const [tipDismissed, setTipDismissed] = useState(() => load('wb.tip.logbook', false));
 
   useEffect(() => {
     setEvents(load(storageKey(date, poste), defaultsFor(date, poste, shift.key)));
@@ -79,25 +78,6 @@ export default function Logbook({ now, poste, shiftMeta }) {
     <div>
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
-      {!tipDismissed && (
-        <div className="tip-banner no-print" role="note">
-          <span className="tip-icon" aria-hidden="true">i</span>
-          <div className="tip-body">
-            Welcome — <strong>tap a type below</strong> (or <strong>＋ New event</strong>) to log what's
-            happening on your shift. Everything autosaves to this device. Use <strong>Print</strong> at the
-            bottom when the shift ends.
-          </div>
-          <button
-            type="button"
-            className="tip-close"
-            aria-label="Dismiss tip"
-            onClick={() => { setTipDismissed(true); save('wb.tip.logbook', true); }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       <div className="logbook-toolbar no-print">
         <div className="toolbar-left">
           <button className="btn primary" onClick={openNewEvent}>＋ New event</button>
@@ -136,17 +116,12 @@ export default function Logbook({ now, poste, shiftMeta }) {
             ev={ev}
             onPatch={(changes) => patch(ev.id, changes)}
             onOpen={() => setEditing({ event: ev })}
+            onRemove={() => remove(ev.id)}
           />
         ))}
         {events.length === 0 && (
           <div className="evt-empty">
             <div>No events yet for Poste {poste}.</div>
-            <div className="faint xsmall" style={{ marginTop: 4 }}>
-              Pick a type above, or start with a blank event.
-            </div>
-            <button className="btn primary" onClick={openNewEvent} style={{ marginTop: 12 }}>
-              ＋ Log first event
-            </button>
           </div>
         )}
         <div className="summary">
@@ -185,12 +160,13 @@ export default function Logbook({ now, poste, shiftMeta }) {
   );
 }
 
-function EventRow({ ev, onPatch, onOpen }) {
+function EventRow({ ev, onPatch, onOpen, onRemove }) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
   const refs = (ev.desc || '').match(/#\d+/g) || [];
   const typeMeta = EVENT_TYPES.find((t) => t.key === ev.type);
   const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
+  const noteCount = (ev.notes || []).filter((n) => n && n.trim()).length;
 
   return (
     <div
@@ -211,14 +187,14 @@ function EventRow({ ev, onPatch, onOpen }) {
           {ev.desc || <span className="faint">(no description)</span>}
         </span>
         {refs.length > 0 && <span className="refs">{refs.join(' · ')}</span>}
+        {noteCount > 0 && (
+          <span className="notes-badge" title={`${noteCount} note${noteCount > 1 ? 's' : ''}`}>
+            ✎ {noteCount}
+          </span>
+        )}
         {(ev.notes || []).map((n, i) => (
           <span key={i} className="sub">{n}</span>
         ))}
-        <span className="adv-meta">
-          {`#${(ev.id || '').toString().slice(-4) || '----'}`}
-          {minutes != null ? ` · ${minutes}m` : ''}
-          {ev.flag ? ` · ${ev.flag}` : ''}
-        </span>
       </div>
       <div className="flags">
         {ev.flag ? (
@@ -226,6 +202,19 @@ function EventRow({ ev, onPatch, onOpen }) {
         ) : (
           <span className="flag flag-empty muted">—</span>
         )}
+      </div>
+      <div className="row-actions no-print" aria-hidden="true">
+        <button
+          type="button"
+          className="iconbtn"
+          title="Delete event"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm('Delete this event?')) onRemove();
+          }}
+        >
+          ✕
+        </button>
       </div>
     </div>
   );

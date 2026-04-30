@@ -140,9 +140,11 @@
 }
 
 /* ---------- Density tokens ----------
-   Normal is the default (beginner-friendly, generous touch targets).
-   Compact tightens spacing and shrinks fonts for power users.
-   Advanced is compact + reveals extra detail (.adv-only) and shows hints. */
+   Three distinct levels:
+   - compact:  smallest, tightest. Power users / overview-on-one-screen.
+   - normal:   balanced default. Comfortable touch targets.
+   - advanced: same comfort as normal, plus extra controls/metadata revealed
+               (notes count, kb hints, hover row actions). */
 
 :root,
 :root[data-density='normal'] {
@@ -160,28 +162,52 @@
   --d-input-min: 42px;
   --d-tab-pad-y: 6px;
   --d-tab-font: 12px;
+  --d-summary-font: 12px;
+  --d-summary-pad-y: 12px;
 }
 
-:root[data-density='compact'],
-:root[data-density='advanced'] {
-  --d-pad-y: 7px;
+:root[data-density='compact'] {
+  --d-pad-y: 6px;
   --d-pad-x: 12px;
-  --d-row-min: 32px;
-  --d-evt-pad-y: 7px;
-  --d-evt-font: 12px;
-  --d-header-pad-y: 7px;
-  --d-header-pad-x: 16px;
-  --d-main-pad: 14px;
-  --d-gap: 10px;
-  --d-btn-min: 30px;
-  --d-chip-min: 26px;
-  --d-input-min: 34px;
-  --d-tab-pad-y: 4px;
+  --d-row-min: 28px;
+  --d-evt-pad-y: 6px;
+  --d-evt-font: 11.5px;
+  --d-header-pad-y: 6px;
+  --d-header-pad-x: 14px;
+  --d-main-pad: 12px;
+  --d-gap: 8px;
+  --d-btn-min: 26px;
+  --d-chip-min: 24px;
+  --d-input-min: 30px;
+  --d-tab-pad-y: 3px;
   --d-tab-font: 11px;
+  --d-summary-font: 11px;
+  --d-summary-pad-y: 8px;
 }
 
-/* Adv-only details — hidden by default, shown in advanced density */
+:root[data-density='advanced'] {
+  --d-pad-y: 10px;
+  --d-pad-x: 16px;
+  --d-row-min: 38px;
+  --d-evt-pad-y: 10px;
+  --d-evt-font: 12.5px;
+  --d-header-pad-y: 10px;
+  --d-header-pad-x: 20px;
+  --d-main-pad: 20px;
+  --d-gap: 14px;
+  --d-btn-min: 32px;
+  --d-chip-min: 30px;
+  --d-input-min: 38px;
+  --d-tab-pad-y: 5px;
+  --d-tab-font: 12px;
+  --d-summary-font: 12px;
+  --d-summary-pad-y: 10px;
+}
+
+/* .compact-only / .adv-only utilities */
+.compact-only,
 .adv-only { display: none; }
+:root[data-density='compact'] .compact-only { display: inline-flex; }
 :root[data-density='advanced'] .adv-only { display: inline-flex; }
 
 html,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Logbook from './components/Logbook.jsx';
 import ProductionTest from './components/ProductionTest.jsx';
 import Settings from './components/Settings.jsx';
@@ -10,7 +10,6 @@ import {
   addDaysISO,
   dateFromISO,
   fmtDateLong,
-  isoDate,
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar.js';
@@ -62,8 +61,6 @@ export default function App() {
   const [theme, setTheme] = useState(() => load('wb.theme', 'auto'));
   const [density, setDensity] = useState(() => load('wb.density', 'normal'));
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const helpRef = useRef(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -100,16 +97,6 @@ export default function App() {
     document.documentElement.setAttribute('data-density', density);
     save('wb.density', density);
   }, [density]);
-
-  // Click-outside to close help popover
-  useEffect(() => {
-    if (!helpOpen) return;
-    function onDoc(e) {
-      if (helpRef.current && !helpRef.current.contains(e.target)) setHelpOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [helpOpen]);
 
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
@@ -203,31 +190,6 @@ export default function App() {
               </button>
             );
           })}
-          <div className="settings-wrap" ref={helpRef}>
-            <button
-              type="button"
-              className="help-trigger"
-              onClick={() => setHelpOpen((o) => !o)}
-              aria-expanded={helpOpen}
-              aria-label="What is a poste?"
-              title="What is a poste?"
-            >
-              ?
-            </button>
-            {helpOpen && (
-              <div className="popover" role="dialog" aria-label="Shift help" style={{ minWidth: 260 }}>
-                <div>
-                  <h4>Postes &amp; shifts</h4>
-                  <div className="popover-help">
-                    Four crews (<strong>A</strong>, <strong>B</strong>, <strong>C</strong>, <strong>D</strong>) rotate through
-                    three shifts: <strong>Matin</strong> (06–14), <strong>Après-Midi</strong> (14–22),
-                    <strong> Nuit</strong> (22–06), plus <strong>Repos</strong>. Pick a shift above — your crew is
-                    shown on the chip. The pulsing dot marks the shift currently in progress.
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="shift-meta">
