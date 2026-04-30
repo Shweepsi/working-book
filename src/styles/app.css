@@ -207,6 +207,22 @@
   transform: scale(0.97);
 }
 
+/* Toggle that reveals row 2 — secondary recurring operations. */
+.type-strip .type-more {
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+.type-strip .type-more[aria-expanded='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
 .type-strip button .glyph {
   font-size: 11px;
   line-height: 1;
