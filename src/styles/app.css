@@ -702,7 +702,7 @@
 }
 
 .measure-cell:nth-child(2n) { border-right: 0; }
-.measure-cell:hover:not(.ok):not(.bad) { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
+.measure-cell:hover { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
 .measure-cell .mlabel {
   font-family: 'Geist Mono', monospace;
   font-size: 12px;
@@ -731,9 +731,6 @@
 .measure-cell input:focus {
   background: var(--focus-ring);
 }
-
-.measure-cell.ok { background: color-mix(in srgb, var(--hl-green) 60%, var(--paper)); }
-.measure-cell.bad { background: color-mix(in srgb, var(--hl-red) 70%, var(--paper)); }
 
 .lab-grid {
   display: grid;
@@ -773,7 +770,7 @@
   transition: background 120ms ease;
 }
 
-.lab-grid .lab-cell:hover:not(.ok):not(.bad) { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
+.lab-grid .lab-cell:hover { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
 
 .lab-grid .lab-cell input {
   border: 0;
@@ -788,9 +785,6 @@
 }
 
 .lab-grid .lab-cell input:focus { background: var(--focus-ring); }
-
-.lab-grid .lab-cell.ok { background: color-mix(in srgb, var(--hl-green) 50%, var(--paper)); }
-.lab-grid .lab-cell.bad { background: color-mix(in srgb, var(--hl-red) 65%, var(--paper)); }
 
 .pt-comments {
   padding: 14px;
@@ -1294,11 +1288,6 @@
     color: black !important;
     border-color: #888 !important;
     min-height: 22px !important;
-  }
-  .measure-cell.bad, .lab-grid .lab-cell.bad {
-    background: white !important;
-    outline: 2px solid #c14a2a;
-    outline-offset: -2px;
   }
   .pt-comments textarea {
     border-color: #888 !important;

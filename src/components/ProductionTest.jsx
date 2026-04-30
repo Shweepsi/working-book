@@ -3,9 +3,7 @@ import {
   HEADER_DEFAULTS,
   OPTOPLEX_CODES,
   TD_PAIRS,
-  TOLERANCE,
   ZEISS_CODES,
-  checkTolerance,
 } from '../data/productionTest.js';
 import { fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
@@ -108,7 +106,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
 
       <Section
         title="Transmissions Digitales"
-        hint={`${TD_PAIRS.length * 2} mesures · tol. ${TOLERANCE.td.min}–${TOLERANCE.td.max}`}
+        hint={`${TD_PAIRS.length * 2} mesures`}
       >
         <div className="measure-grid" style={{ '--cols': 2 }}>
           {TD_PAIRS.flatMap(([a, b]) => [
@@ -121,7 +119,6 @@ export default function ProductionTest({ poste, shiftMeta }) {
       <YabSection
         title="Optoplex"
         codes={OPTOPLEX_CODES}
-        tol={TOLERANCE.optoplex}
         values={state.optoplex}
         onChange={(code, axis, v) => patchYab('optoplex', code, axis, v)}
       />
@@ -129,7 +126,6 @@ export default function ProductionTest({ poste, shiftMeta }) {
       <YabSection
         title="Zeiss"
         codes={ZEISS_CODES}
-        tol={TOLERANCE.zeiss}
         values={state.zeiss}
         onChange={(code, axis, v) => patchYab('zeiss', code, axis, v)}
       />
@@ -141,18 +137,15 @@ export default function ProductionTest({ poste, shiftMeta }) {
           <div className="head">Rsol</div>
           <div className="head">Asol</div>
           <div className="rowlabel">Thermal</div>
-          {['Tsol', 'Rsol', 'Asol'].map((axis) => {
-            const status = checkTolerance(TOLERANCE.stack[axis], state.stack[axis]);
-            return (
-              <div key={axis} className={`lab-cell ${status === 'ok' ? 'ok' : status === 'bad' ? 'bad' : ''}`}>
-                <input
-                  inputMode="decimal"
-                  value={state.stack[axis]}
-                  onChange={(e) => patchStack(axis, e.target.value)}
-                />
-              </div>
-            );
-          })}
+          {['Tsol', 'Rsol', 'Asol'].map((axis) => (
+            <div key={axis} className="lab-cell">
+              <input
+                inputMode="decimal"
+                value={state.stack[axis]}
+                onChange={(e) => patchStack(axis, e.target.value)}
+              />
+            </div>
+          ))}
         </div>
       </Section>
 
@@ -184,10 +177,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
         <button className="btn ghost" onClick={reset}>Clear</button>
         <button className="btn" onClick={() => window.print()}>Print</button>
         <span className="health">
-          <strong>{stats.filled}</strong>/{stats.total} mesures ·{' '}
-          {stats.bad > 0
-            ? <span style={{ color: '#a14233' }}><strong>{stats.bad}</strong> hors tolérance</span>
-            : <span>aucune hors tolérance</span>}
+          <strong>{stats.filled}</strong>/{stats.total} mesures
         </span>
       </div>
     </div>
@@ -220,9 +210,8 @@ function Section({ title, hint, children }) {
 }
 
 function TdCell({ code, value, onChange }) {
-  const status = checkTolerance(TOLERANCE.td, value);
   return (
-    <div className={`measure-cell ${status === 'ok' ? 'ok' : status === 'bad' ? 'bad' : ''}`}>
+    <div className="measure-cell">
       <span className="mlabel">{code}</span>
       <input
         inputMode="decimal"
@@ -233,7 +222,7 @@ function TdCell({ code, value, onChange }) {
   );
 }
 
-function YabSection({ title, codes, tol, values, onChange }) {
+function YabSection({ title, codes, values, onChange }) {
   return (
     <Section title={title} hint="Y / a* / b*">
       <div className="lab-grid">
@@ -245,7 +234,6 @@ function YabSection({ title, codes, tol, values, onChange }) {
           <YabRow
             key={code}
             code={code}
-            tol={tol}
             values={values[code] || {}}
             onChange={(axis, v) => onChange(code, axis, v)}
           />
@@ -255,70 +243,51 @@ function YabSection({ title, codes, tol, values, onChange }) {
   );
 }
 
-function YabRow({ code, tol, values, onChange }) {
+function YabRow({ code, values, onChange }) {
   return (
     <>
       <div className="rowlabel">{code}</div>
-      {['Y', 'a*', 'b*'].map((axis) => {
-        const status = checkTolerance(tol[axis], values[axis]);
-        return (
-          <div key={axis} className={`lab-cell ${status === 'ok' ? 'ok' : status === 'bad' ? 'bad' : ''}`}>
-            <input
-              inputMode="decimal"
-              value={values[axis] || ''}
-              onChange={(e) => onChange(axis, e.target.value)}
-            />
-          </div>
-        );
-      })}
+      {['Y', 'a*', 'b*'].map((axis) => (
+        <div key={axis} className="lab-cell">
+          <input
+            inputMode="decimal"
+            value={values[axis] || ''}
+            onChange={(e) => onChange(axis, e.target.value)}
+          />
+        </div>
+      ))}
     </>
   );
 }
 
 function computeStats(state) {
   let filled = 0;
-  let bad = 0;
   let total = 0;
+  const isFilled = (v) => v != null && String(v).trim() !== '';
 
   for (const [a, b] of TD_PAIRS) {
     for (const code of [a, b]) {
       total += 1;
-      const status = checkTolerance(TOLERANCE.td, state.td[code] || '');
-      if (status === 'ok') filled += 1;
-      else if (status === 'bad' || status === 'invalid') {
-        filled += 1;
-        bad += 1;
-      }
+      if (isFilled(state.td[code])) filled += 1;
     }
   }
 
-  for (const [group, codes, tol] of [
-    ['optoplex', OPTOPLEX_CODES, TOLERANCE.optoplex],
-    ['zeiss', ZEISS_CODES, TOLERANCE.zeiss],
+  for (const [group, codes] of [
+    ['optoplex', OPTOPLEX_CODES],
+    ['zeiss', ZEISS_CODES],
   ]) {
     for (const code of codes) {
       for (const axis of ['Y', 'a*', 'b*']) {
         total += 1;
-        const v = state[group][code]?.[axis] || '';
-        const status = checkTolerance(tol[axis], v);
-        if (status === 'ok') filled += 1;
-        else if (status === 'bad' || status === 'invalid') {
-          filled += 1;
-          bad += 1;
-        }
+        if (isFilled(state[group][code]?.[axis])) filled += 1;
       }
     }
   }
 
   for (const axis of ['Tsol', 'Rsol', 'Asol']) {
     total += 1;
-    const status = checkTolerance(TOLERANCE.stack[axis], state.stack[axis]);
-    if (status === 'ok') filled += 1;
-    else if (status === 'bad' || status === 'invalid') {
-      filled += 1;
-      bad += 1;
-    }
+    if (isFilled(state.stack[axis])) filled += 1;
   }
 
-  return { filled, bad, total };
+  return { filled, total };
 }
