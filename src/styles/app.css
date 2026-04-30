@@ -254,7 +254,7 @@
 
 .evt {
   display: grid;
-  grid-template-columns: 96px 60px 130px 1fr 110px;
+  grid-template-columns: 96px 60px 1fr 110px;
   gap: 14px;
   align-items: center;
   padding: var(--d-evt-pad-y) var(--d-pad-x);
@@ -285,19 +285,6 @@
   color: var(--ink-soft);
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-.evt .type {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border: 1px solid var(--line-soft);
-  border-radius: 4px;
-  font-size: 11px;
-  background: var(--paper);
-  white-space: nowrap;
-  width: fit-content;
-  letter-spacing: 0.01em;
 }
 
 .evt .desc { line-height: 1.35; min-width: 0; }
@@ -830,7 +817,6 @@
     grid-template-columns: 1fr auto;
     grid-template-areas:
       'time dur'
-      'type type'
       'desc desc'
       'flags flags';
     row-gap: 8px;
@@ -838,7 +824,6 @@
   }
   .evt .time { grid-area: time; font-size: 13px; }
   .evt .dur { grid-area: dur; font-size: 13px; }
-  .evt .type { grid-area: type; }
   .evt .desc { grid-area: desc; font-size: 14px; }
   .evt .flags { grid-area: flags; }
 
@@ -871,7 +856,6 @@
     padding: 14px;
     grid-template-areas:
       'time dur'
-      'type type'
       'desc desc'
       'flags flags';
   }
@@ -1184,7 +1168,7 @@
   /* Force desktop grid in print regardless of viewport */
   .evt {
     display: grid !important;
-    grid-template-columns: 60px 50px 90px 1fr 110px !important;
+    grid-template-columns: 60px 50px 1fr 110px !important;
     grid-template-areas: none !important;
     gap: 10px !important;
     padding: 6px 4px !important;
@@ -1193,7 +1177,7 @@
     font-size: 9.5pt !important;
     background: white !important;
   }
-  .evt .time, .evt .dur, .evt .type, .evt .desc, .evt .flags {
+  .evt .time, .evt .dur, .evt .desc, .evt .flags {
     grid-area: auto !important;
   }
   .evt .row-actions { display: none !important; }
