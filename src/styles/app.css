@@ -1973,6 +1973,60 @@
 }
 .sch-foot-meta { margin-left: auto; }
 
+/* Density variants — compact tightens spacing, advanced loosens it.
+   Only paddings, font-sizes and row heights change; column layout stays fixed
+   so the table layout is predictable across densities. */
+
+:root[data-density='compact'] .sch {
+  --sch-header-offset: 56px;
+}
+:root[data-density='compact'] .sch-summary { padding: 8px 12px; gap: 6px; }
+:root[data-density='compact'] .sch-summary-stats { gap: 12px; font-size: 11px; }
+:root[data-density='compact'] .sch-detail-head { padding: 6px 12px; }
+:root[data-density='compact'] .sch-detail-head h3 { font-size: 13px; }
+:root[data-density='compact'] .sch-rail-title { padding: 6px 10px; }
+:root[data-density='compact'] .sch-rail-item { padding: 4px 8px; gap: 0; font-size: 12px; }
+:root[data-density='compact'] .sch-rail-num { font-size: 11px; }
+:root[data-density='compact'] .sch-rail-meta { font-size: 9px; }
+:root[data-density='compact'] .sch-cell { padding: 3px 6px; font-size: 11px; }
+:root[data-density='compact'] .sch-row.sch-head { font-size: 9px; }
+:root[data-density='compact'] .sch-row.sch-total { font-size: 12px; }
+:root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: 9px; }
+:root[data-density='compact'] .sch-customer { font-size: 9px; }
+:root[data-density='compact'] .sch-foot { padding: 6px 12px; gap: 8px; }
+:root[data-density='compact'] .sch-foot-time { padding: 4px 10px; min-width: 110px; }
+:root[data-density='compact'] .sch-foot-time strong { font-size: 12px; }
+:root[data-density='compact'] .sch-vitesse-input { width: 56px; font-size: 12px; padding: 3px 6px; }
+:root[data-density='compact'] .sch-hint { padding: 6px 12px; font-size: 11px; }
+
+:root[data-density='advanced'] .sch-summary { padding: 14px 18px; gap: 12px; }
+:root[data-density='advanced'] .sch-summary-stats { gap: 22px; font-size: 13px; }
+:root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; }
+:root[data-density='advanced'] .sch-detail-head h3 { font-size: 15px; }
+:root[data-density='advanced'] .sch-rail-item { padding: 10px 12px; }
+:root[data-density='advanced'] .sch-rail-num { font-size: 13px; }
+:root[data-density='advanced'] .sch-rail-meta { font-size: 11px; }
+:root[data-density='advanced'] .sch-cell { padding: 9px 10px; font-size: 13px; }
+:root[data-density='advanced'] .sch-row.sch-head { font-size: 11px; }
+:root[data-density='advanced'] .sch-row.sch-total { font-size: 14px; }
+:root[data-density='advanced'] .sch-mto { min-width: 42px; padding: 3px 8px; font-size: 11px; }
+:root[data-density='advanced'] .sch-customer { font-size: 11px; }
+:root[data-density='advanced'] .sch-foot { padding: 14px 18px; gap: 16px; }
+:root[data-density='advanced'] .sch-foot-time { padding: 8px 16px; min-width: 150px; }
+:root[data-density='advanced'] .sch-foot-time strong { font-size: 16px; }
+:root[data-density='advanced'] .sch-vitesse-input { width: 72px; font-size: 14px; padding: 6px 10px; }
+
+/* Advanced reveals the work-center / opSteps cell that's hidden by default. */
+.sch-meta-line { display: none; }
+:root[data-density='advanced'] .sch-meta-line {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+:root[data-density='advanced'] .sch-row { min-height: 44px; }
+
 /* Paste-import sheet */
 .sch-import { width: min(720px, 92vw); }
 .sch-import-hint {
