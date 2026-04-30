@@ -1760,21 +1760,21 @@
 .sch-row {
   display: grid;
   grid-template-columns:
-    64px            /* MTO/MTS */
-    96px            /* Date Départ */
-    110px           /* MO */
-    100px           /* Product */
-    minmax(200px, 1.6fr)  /* Item Name (wider for customer subtitle) */
-    62px 62px 62px  /* Sched / Prod / Req */
-    72px            /* Scraps */
-    78px 78px       /* Largeur / Longueur */
-    72px            /* Qualité */
-    78px            /* Lites/Packs */
-    minmax(110px, 1fr) /* PDP */
-    96px;           /* m² */
+    52px            /* MTO/MTS */
+    84px            /* Date Départ */
+    96px            /* MO */
+    88px            /* Product */
+    minmax(180px, 1.6fr)  /* Item Name (wider for customer subtitle) */
+    56px 56px 56px  /* Sched / Prod / Req */
+    64px            /* Scraps */
+    112px           /* Format (Largeur × Longueur) */
+    60px            /* Qualité */
+    62px            /* Lites/Packs */
+    minmax(96px, 1fr) /* PDP */
+    82px;           /* m² */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1320px;
+  min-width: 1156px;
   transition: background 100ms ease;
 }
 .sch-row:last-child { border-bottom: 0; }
@@ -1834,6 +1834,8 @@
 }
 .sch-cell.col-num,
 .sch-cell.col-m2 { text-align: right; }
+.sch-cell.col-fmt { text-align: center; }
+.sch-fmt-x { padding: 0 1px; }
 .sch-cell.col-m2 {
   background: color-mix(in srgb, var(--hl-green) 55%, var(--paper));
 }

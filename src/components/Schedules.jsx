@@ -18,7 +18,7 @@ const KEY_SPEED  = 'wb.schedules.vitesse';
 
 const COLUMNS = [
   { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'  },
-  { key: 'dateDepart', label: 'Date Départ', cls: 'col-date' },
+  { key: 'dateDepart', label: 'Départ',   cls: 'col-date' },
   { key: 'mo',         label: 'MO',       cls: 'col-mo'   },
   { key: 'product',    label: 'Product',  cls: 'col-prod' },
   { key: 'itemName',   label: 'Item Name', cls: 'col-name' },
@@ -26,12 +26,11 @@ const COLUMNS = [
   { key: 'prodLites',  label: 'Prod',     cls: 'col-num'  },
   { key: 'reqLites',   label: 'Req',      cls: 'col-num'  },
   { key: 'scraps',     label: 'Scraps',   cls: 'col-num'  },
-  { key: 'largeur',    label: 'Largeur',  cls: 'col-num'  },
-  { key: 'longueur',   label: 'Longueur', cls: 'col-num'  },
+  { key: 'format',     label: 'Format',   cls: 'col-fmt'  },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q'    },
-  { key: 'litesPerPack', label: 'Lites/Packs', cls: 'col-num' },
+  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'  },
   { key: 'pdp',        label: 'PDP',      cls: 'col-pdp'  },
-  { key: 'm2',         label: 'm² restants', cls: 'col-m2' },
+  { key: 'm2',         label: 'm² rest.', cls: 'col-m2'   },
 ];
 
 function describePMS230(r) {
@@ -367,8 +366,15 @@ const ScheduleRow = memo(function ScheduleRow({ row }) {
       <div className="sch-cell col-num mono" role="cell">{row.prodLites ?? 0}</div>
       <div className="sch-cell col-num mono" role="cell">{row.reqLites || ''}</div>
       <div className="sch-cell col-num mono" role="cell">{row.scraps ?? 0}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.largeur ? fmtNum(row.largeur, 0) : ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.longueur ? fmtNum(row.longueur, 0) : ''}</div>
+      <div className="sch-cell col-fmt mono" role="cell">
+        {row.largeur && row.longueur ? (
+          <>
+            {fmtNum(row.largeur, 0)}
+            <span className="sch-fmt-x faint"> × </span>
+            {fmtNum(row.longueur, 0)}
+          </>
+        ) : ''}
+      </div>
       <div className="sch-cell col-q mono" role="cell">{row.qualite}</div>
       <div className="sch-cell col-num mono" role="cell">{row.litesPerPack ?? ''}</div>
       <div className="sch-cell col-pdp" role="cell" title={row.pdp}>{row.pdp}</div>
@@ -391,8 +397,7 @@ function TotalRow({ rows }) {
       <div className="sch-cell col-num mono" role="cell" />
       <div className="sch-cell col-num mono" role="cell"><strong>{req}</strong></div>
       <div className="sch-cell col-num mono" role="cell" />
-      <div className="sch-cell col-num mono" role="cell" />
-      <div className="sch-cell col-num mono" role="cell" />
+      <div className="sch-cell col-fmt" role="cell" />
       <div className="sch-cell col-q" role="cell" />
       <div className="sch-cell col-num" role="cell" />
       <div className="sch-cell col-pdp" role="cell" />
