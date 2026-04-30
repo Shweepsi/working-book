@@ -1793,6 +1793,15 @@
   z-index: 2;
   box-shadow: 0 1px 0 var(--line-faint);
 }
+.sch-row.sch-group-break {
+  /* Blank divider between longueur groups, mirrors the formula's blankRow VSTACK. */
+  min-height: 14px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line-faint);
+  pointer-events: none;
+}
+.sch-row.sch-group-break .sch-cell { background: var(--paper-2) !important; }
+
 .sch-row.is-qc {
   background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper));
 }
