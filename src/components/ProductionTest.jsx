@@ -8,11 +8,21 @@ import {
 import { fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 
-function storageKey(date, poste) {
+// A production test belongs to a specific shift (Matin / Après-Midi / Nuit),
+// not just to a date — multiple postes share the same calendar day. The key
+// is keyed by (date, shift) directly; the poste is recorded inside the test
+// header for the printout.
+function storageKey(date, shiftKey) {
+  return `wb.prodtest.v6.${date}.${shiftKey}`;
+}
+
+// v5 keyed by (date, poste). Since poste is bijective with shiftKey on a given
+// date, v5 data migrates 1-for-1 by looking it up under the current poste.
+function v5Key(date, poste) {
   return `wb.prodtest.v5.${date}.${poste}`;
 }
 
-function legacyKey(date, poste) {
+function v4Key(date, poste) {
   return `wb.prodtest.v4.${date}.${poste}`;
 }
 
@@ -59,12 +69,16 @@ function emptyTest() {
   };
 }
 
-function initialState(date, poste) {
-  const v5 = load(storageKey(date, poste), null);
+function initialState(date, shiftKey, poste) {
+  const v6 = load(storageKey(date, shiftKey), null);
+  if (v6 && Array.isArray(v6.tests) && v6.tests.length > 0) {
+    return v6;
+  }
+  const v5 = load(v5Key(date, poste), null);
   if (v5 && Array.isArray(v5.tests) && v5.tests.length > 0) {
     return v5;
   }
-  const legacy = load(legacyKey(date, poste), null);
+  const legacy = load(v4Key(date, poste), null);
   if (legacy && legacy.header) {
     const test = { id: newId(), ...legacy };
     return { tests: [test], activeId: test.id };
@@ -74,12 +88,13 @@ function initialState(date, poste) {
 }
 
 export default function ProductionTest({ poste, shiftMeta }) {
-  const { date } = shiftMeta;
-  const [state, setState] = useState(() => initialState(date, poste));
+  const { date, shift } = shiftMeta;
+  const shiftKey = shift.key;
+  const [state, setState] = useState(() => initialState(date, shiftKey, poste));
 
   useEffect(() => {
-    save(storageKey(date, poste), state);
-  }, [state, date, poste]);
+    save(storageKey(date, shiftKey), state);
+  }, [state, date, shiftKey]);
 
   const active =
     state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
