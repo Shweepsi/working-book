@@ -1563,3 +1563,350 @@
   }
 }
 
+/* ---------- Schedules tab (PMS230 import) ---------- */
+
+.sch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--d-gap);
+}
+
+.sch-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-faint);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.sch-summary-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sch-summary-stats {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.sch-summary-stats strong { color: var(--ink); }
+.sch-warn-chip {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--hl-yellow);
+  color: var(--flag-sched-fg);
+  font-size: 11px;
+  border: 1px solid var(--flag-sched-bd);
+}
+
+.sch-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 32px;
+  border: 1px dashed var(--line-soft);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.sch-empty h3 { margin: 0; font-size: 15px; }
+.sch-empty p { margin: 0; max-width: 50ch; }
+
+.sch-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  gap: var(--d-gap);
+  align-items: start;
+}
+
+.sch-rail {
+  border: 1px solid var(--line-faint);
+  border-radius: 10px;
+  background: var(--paper);
+  overflow: hidden;
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 64px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+.sch-rail-title {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line-faint);
+}
+.sch-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sch-rail-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.sch-rail-item:hover { background: var(--paper-2); }
+.sch-rail-item.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+  border-color: var(--accent);
+}
+
+.sch-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.sch-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  background: var(--paper-2);
+  border-radius: 10px 10px 0 0;
+  border: 1px solid var(--line-faint);
+  border-bottom: 0;
+}
+.sch-detail-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
+
+.sch-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-faint);
+  border-radius: 0 0 10px 10px;
+  overflow-x: auto;
+  background: var(--paper);
+}
+.sch-row {
+  display: grid;
+  grid-template-columns:
+    64px            /* MTO/MTS */
+    96px            /* Date Départ */
+    110px           /* MO */
+    100px           /* Product */
+    minmax(180px, 1.4fr)  /* Item Name */
+    62px 62px 62px  /* Sched / Prod / Req */
+    72px            /* Scraps */
+    78px 78px       /* Largeur / Longueur */
+    72px            /* Qualité */
+    78px            /* Lites/Packs */
+    minmax(110px, 1fr) /* PDP */
+    96px;           /* m² */
+  align-items: center;
+  border-bottom: 1px solid var(--line-faint);
+  min-width: 1280px;
+}
+.sch-row:last-child { border-bottom: 0; }
+.sch-row.sch-head {
+  background: var(--paper-2);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.sch-row.is-qc { background: color-mix(in srgb, var(--hl-yellow) 24%, var(--paper)); }
+.sch-row.sch-total {
+  background: var(--paper-2);
+  border-top: 2px solid var(--line-soft);
+  font-size: 13px;
+}
+.sch-cell {
+  padding: 6px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.sch-cell.col-num,
+.sch-cell.col-m2 { text-align: right; }
+.sch-cell.col-m2 {
+  background: color-mix(in srgb, var(--hl-green) 55%, var(--paper));
+}
+.sch-row.sch-head .sch-cell.col-m2 {
+  background: color-mix(in srgb, var(--hl-green) 65%, var(--paper-2));
+}
+.sch-row.sch-total .sch-cell.col-m2 {
+  background: color-mix(in srgb, var(--hl-green) 75%, var(--paper-2));
+}
+
+.sch-mto {
+  display: inline-block;
+  min-width: 36px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-faint);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.sch-mto-mto { background: color-mix(in srgb, var(--hl-blue) 55%, var(--paper)); border-color: var(--flag-note-bd); color: var(--flag-note-fg); }
+.sch-mto-mts { background: color-mix(in srgb, var(--hl-yellow) 55%, var(--paper)); border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); }
+.sch-mto-\? {
+  background: var(--paper);
+  color: var(--ink-faint);
+  border-style: dashed;
+}
+
+.sch-empty-rows { padding: 28px; text-align: center; }
+
+.sch-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+  border-radius: 10px;
+}
+.sch-foot-vitesse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sch-vitesse-input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: right;
+}
+.sch-vitesse-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.sch-foot-arrow { font-size: 16px; }
+.sch-foot-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+}
+.sch-foot-time strong {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.sch-foot-dt {
+  background: color-mix(in srgb, var(--hl-yellow) 35%, var(--paper-2));
+  border-color: var(--flag-sched-bd);
+}
+
+/* Paste-import sheet */
+.sch-import { width: min(720px, 92vw); }
+.sch-import-hint {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.sch-import-area {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.4;
+  min-height: 160px;
+}
+.sch-import-area:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.sch-import-status {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.sch-ok {
+  background: color-mix(in srgb, var(--hl-green) 50%, var(--paper));
+  color: var(--flag-ok-fg);
+  border: 1px solid var(--flag-ok-bd);
+}
+.sch-error {
+  background: color-mix(in srgb, var(--hl-red) 60%, var(--paper));
+  color: var(--flag-unsched-fg);
+  border: 1px solid var(--flag-unsched-bd);
+}
+.sch-import-warnings {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.sch-import-warnings summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.sch-import-warnings ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sch-import .actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Layout: let the Schedules tab use the full viewport width since the table is wide. */
+.app-main:has(.sch) { max-width: none; }
+
+/* Tablet / phone */
+@media (max-width: 880px) {
+  .sch-body {
+    grid-template-columns: 1fr;
+  }
+  .sch-rail {
+    position: static;
+    max-height: none;
+  }
+  .sch-rail-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .sch-rail-item {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+  }
+}
+

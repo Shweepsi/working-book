@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Logbook from './components/Logbook.jsx';
 import ProductionTest from './components/ProductionTest.jsx';
+import Schedules from './components/Schedules.jsx';
 import Settings from './components/Settings.jsx';
 import { fmtClock } from './lib/time.js';
 import { load, save } from './lib/storage.js';
@@ -17,6 +18,7 @@ import {
 const TABS = [
   { key: 'logbook', label: 'Logbook' },
   { key: 'test', label: 'Production Test' },
+  { key: 'sched', label: 'Schedules' },
 ];
 
 const SHIFT_TABS = [
@@ -200,11 +202,13 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {tab === 'logbook' ? (
+        {tab === 'logbook' && (
           <Logbook key={`lb-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
-        ) : (
+        )}
+        {tab === 'test' && (
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
+        {tab === 'sched' && <Schedules />}
       </main>
     </div>
   );
