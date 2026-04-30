@@ -47,7 +47,7 @@ function describePolicy(r) {
 
 function fmtDate(yyyymmdd) {
   if (!yyyymmdd || yyyymmdd.length !== 8) return '';
-  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6)}`;
+  return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
 }
 
 function fmtNum(n, digits = 0) {
@@ -61,6 +61,7 @@ export default function Schedules() {
   const [vitesse, setVitesse] = useState(() => load(KEY_SPEED, 6));
   const [selected, setSelected] = useState(() => null);
   const [importMode, setImportMode] = useState(null); // null | 'pms230' | 'policy'
+  const [mtoFilter, setMtoFilter] = useState('all'); // 'all' | 'MTO' | 'MTS' | '?'
 
   // Persist datasets and speed.
   useEffect(() => { save(KEY_DATA, data); }, [data]);
@@ -74,6 +75,9 @@ export default function Schedules() {
       setSelected(first);
     }
   }, [data, selected]);
+
+  // Reset filter when switching schedules.
+  useEffect(() => { setMtoFilter('all'); }, [selected]);
 
   const schedules = data?.schedules ?? [];
 
@@ -99,24 +103,38 @@ export default function Schedules() {
     return filtered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
   }, [data, selected, policy]);
 
+  const filteredRows = useMemo(
+    () => mtoFilter === 'all' ? visibleRows : visibleRows.filter((r) => r.mtoMts === mtoFilter),
+    [visibleRows, mtoFilter],
+  );
+
+  // Counts of each policy value for the filter chip badge labels.
+  const mtoCounts = useMemo(() => {
+    const counts = { MTO: 0, MTS: 0, '?': 0 };
+    for (const r of visibleRows) {
+      if (r.mtoMts in counts) counts[r.mtoMts]++;
+    }
+    return counts;
+  }, [visibleRows]);
+
   // Insert a break marker before each new longueur group (skip the first).
-  // Renders as a blank divider row, mirroring the formula's blankRow VSTACK.
+  // Carries the longueur so the break row can render a section label.
   const groupedRows = useMemo(() => {
     const out = [];
     let prevLongueur = null;
-    for (const r of visibleRows) {
+    for (const r of filteredRows) {
       if (prevLongueur !== null && r.longueur !== prevLongueur) {
-        out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}` });
+        out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}`, longueur: r.longueur });
       }
       out.push({ kind: 'row', row: r });
       prevLongueur = r.longueur;
     }
     return out;
-  }, [visibleRows]);
+  }, [filteredRows]);
 
   const coaterRows = useMemo(
-    () => visibleRows.filter((r) => r.workCenter === 'Coater'),
-    [visibleRows],
+    () => filteredRows.filter((r) => r.workCenter === 'Coater'),
+    [filteredRows],
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
 
@@ -236,7 +254,13 @@ export default function Schedules() {
               );
             })()}
 
-            <ScheduleTable items={groupedRows} totals={visibleRows} />
+            <MtoFilterBar
+              counts={mtoCounts}
+              active={mtoFilter}
+              onChange={setMtoFilter}
+            />
+
+            <ScheduleTable items={groupedRows} totals={filteredRows} />
 
             <ThroughputFooter
               rows={coaterRows}
@@ -340,7 +364,11 @@ function ScheduleTable({ items, totals }) {
       </div>
       {items.map((it) =>
         it.kind === 'break'
-          ? <div key={it.id} className="sch-row sch-group-break" role="separator" aria-hidden="true" />
+          ? (
+            <div key={it.id} className="sch-row sch-group-break" role="row">
+              <div className="sch-group-label">{fmtNum(it.longueur, 0)} mm</div>
+            </div>
+          )
           : <ScheduleRow key={it.row.id} row={it.row} />
       )}
       <TotalRow rows={totals} />
@@ -385,6 +413,7 @@ const ScheduleRow = memo(function ScheduleRow({ row }) {
 
 function TotalRow({ rows }) {
   const sched = totalLites(rows);
+  const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
   return (
@@ -394,7 +423,7 @@ function TotalRow({ rows }) {
         <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
       </div>
       <div className="sch-cell col-num mono" role="cell"><strong>{sched}</strong></div>
-      <div className="sch-cell col-num mono" role="cell" />
+      <div className="sch-cell col-num mono" role="cell"><strong>{prod}</strong></div>
       <div className="sch-cell col-num mono" role="cell"><strong>{req}</strong></div>
       <div className="sch-cell col-num mono" role="cell" />
       <div className="sch-cell col-fmt" role="cell" />
@@ -402,6 +431,34 @@ function TotalRow({ rows }) {
       <div className="sch-cell col-num" role="cell" />
       <div className="sch-cell col-pdp" role="cell" />
       <div className="sch-cell col-m2 mono" role="cell"><strong>{fmtNum(m2, 2)}</strong></div>
+    </div>
+  );
+}
+
+function MtoFilterBar({ counts, active, onChange }) {
+  const options = [
+    { key: 'all', label: 'Tous' },
+    { key: 'MTO', label: 'MTO' },
+    { key: 'MTS', label: 'MTS' },
+    { key: '?',   label: '?' },
+  ];
+  return (
+    <div className="sch-mto-bar">
+      {options.map(({ key, label }) => {
+        const count = key === 'all' ? null : counts[key] ?? 0;
+        if (key !== 'all' && count === 0) return null;
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`sch-mto-chip ${active === key ? 'active' : ''}`}
+            onClick={() => onChange(key)}
+          >
+            {label}
+            {count != null && <span className="sch-mto-chip-count">{count}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
