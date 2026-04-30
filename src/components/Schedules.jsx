@@ -156,9 +156,8 @@ export default function Schedules() {
         onImport={() => setImportMode('pms230')}
         onPolicy={() => setImportMode('policy')}
         onClear={() => {
-          if (window.confirm('Effacer le rapport PMS230 et la table MTO/MTS ?')) {
+          if (window.confirm('Effacer le rapport PMS230 ?')) {
             setData(null);
-            setPolicy(null);
             setSelected(null);
           }
         }}
@@ -288,12 +287,12 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }) {
         <button className={`btn ${policy ? 'ghost' : ''}`} onClick={onPolicy}>
           {policy ? `Politique MTO/MTS · ${policyCount} produits` : 'Importer politique MTO/MTS'}
         </button>
-        {(data || policy) && (
+        {data && (
           <button
             className="btn ghost danger"
             onClick={onClear}
             style={{ marginLeft: 'auto' }}
-            title="Effacer le rapport et la table MTO/MTS"
+            title="Effacer le rapport PMS230 (la table MTO/MTS est conservée)"
           >
             Vider
           </button>
