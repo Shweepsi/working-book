@@ -814,13 +814,6 @@
   padding: 10px 0 0;
 }
 
-.pt-actions .health {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-.pt-actions .health strong { color: var(--ink); font-family: 'Geist Mono', monospace; }
-
 /* ---------- Tablet (≤880px) ---------- */
 @media (max-width: 880px) {
   .app-main { padding: 18px; }
@@ -914,7 +907,6 @@
     border-top: 1px solid var(--line-faint);
     margin: 0;
   }
-  .pt-actions.sticky .health { width: 100%; order: -1; margin: 0 0 4px; }
   .pt-actions.sticky .btn { flex: 1; }
   .pt-actions.sticky .btn.ghost { flex: 0; }
 

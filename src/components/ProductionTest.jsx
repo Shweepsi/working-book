@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   HEADER_DEFAULTS,
   OPTOPLEX_CODES,
@@ -42,8 +42,6 @@ export default function ProductionTest({ poste, shiftMeta }) {
   useEffect(() => {
     save(storageKey(date, poste), state);
   }, [state, date, poste]);
-
-  const stats = useMemo(() => computeStats(state), [state]);
 
   function patchHeader(field, value) {
     setState((s) => ({ ...s, header: { ...s.header, [field]: value } }));
@@ -104,10 +102,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
         <Field label="Résistance" value={state.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
       </header>
 
-      <Section
-        title="Transmissions Digitales"
-        hint={`${TD_PAIRS.length * 2} mesures`}
-      >
+      <Section title="Transmissions Digitales">
         <div className="measure-grid" style={{ '--cols': 2 }}>
           {TD_PAIRS.flatMap(([a, b]) => [
             <TdCell key={a} code={a} value={state.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
@@ -176,9 +171,6 @@ export default function ProductionTest({ poste, shiftMeta }) {
         <button className="btn" onClick={autofill}>↻ Auto-fill date / hour</button>
         <button className="btn ghost" onClick={reset}>Clear</button>
         <button className="btn" onClick={() => window.print()}>Print</button>
-        <span className="health">
-          <strong>{stats.filled}</strong>/{stats.total} mesures
-        </span>
       </div>
     </div>
   );
@@ -260,34 +252,3 @@ function YabRow({ code, values, onChange }) {
   );
 }
 
-function computeStats(state) {
-  let filled = 0;
-  let total = 0;
-  const isFilled = (v) => v != null && String(v).trim() !== '';
-
-  for (const [a, b] of TD_PAIRS) {
-    for (const code of [a, b]) {
-      total += 1;
-      if (isFilled(state.td[code])) filled += 1;
-    }
-  }
-
-  for (const [group, codes] of [
-    ['optoplex', OPTOPLEX_CODES],
-    ['zeiss', ZEISS_CODES],
-  ]) {
-    for (const code of codes) {
-      for (const axis of ['Y', 'a*', 'b*']) {
-        total += 1;
-        if (isFilled(state[group][code]?.[axis])) filled += 1;
-      }
-    }
-  }
-
-  for (const axis of ['Tsol', 'Rsol', 'Asol']) {
-    total += 1;
-    if (isFilled(state.stack[axis])) filled += 1;
-  }
-
-  return { filled, total };
-}
