@@ -38,10 +38,6 @@ function posteFor(dateObj, shiftKey) {
   return POSTES.find((p) => shiftFor(p, dateObj).key === shiftKey) || null;
 }
 
-function restingPoste(dateObj) {
-  return POSTES.find((p) => shiftFor(p, dateObj).key === 'R') || null;
-}
-
 function resolvedTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -97,7 +93,6 @@ export default function App() {
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
   const shift = SHIFT_TYPES[shiftKey];
-  const restPoste = restingPoste(dateObj);
   const isToday = date === todayISO();
   const onLiveShift = isToday && shiftKey === nowShiftKey;
 
@@ -192,8 +187,6 @@ export default function App() {
         </div>
 
         <div className="shift-meta">
-          <span className="muted small">{shift.hours}</span>
-          {restPoste && <span className="rest-hint faint xsmall">Repos · {restPoste}</span>}
           <Clock />
           <Settings
             open={settingsOpen}

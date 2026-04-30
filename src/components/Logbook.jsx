@@ -33,16 +33,16 @@ export default function Logbook({ poste, shiftMeta }) {
 
   function openTypedEvent(type) {
     const stamp = fmtHM();
-    const flag = EVENT_TYPE_BY_KEY.get(type)?.defaultFlag ?? null;
+    const meta = EVENT_TYPE_BY_KEY.get(type);
     setEditing({
-      event: { start: stamp, end: stamp, type, desc: '', flag, notes: [] },
-    });
-  }
-
-  function openNewEvent() {
-    const stamp = fmtHM();
-    setEditing({
-      event: { start: stamp, end: stamp, type: '', desc: '', flag: '', notes: [] },
+      event: {
+        start: stamp,
+        end: stamp,
+        type,
+        desc: meta?.label ?? type,
+        flag: meta?.defaultFlag ?? null,
+        notes: [],
+      },
     });
   }
 
@@ -65,16 +65,6 @@ export default function Logbook({ poste, shiftMeta }) {
   return (
     <div>
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
-
-      <div className="logbook-toolbar no-print">
-        <div className="toolbar-left">
-          <button className="btn primary" onClick={openNewEvent}>＋ New event</button>
-          <span className="faint small">or pick a type below</span>
-        </div>
-        <div className="toolbar-right small muted">
-          {summary.total} {summary.total === 1 ? 'event' : 'events'} logged
-        </div>
-      </div>
 
       <div className="type-strip no-print">
         {EVENT_TYPES.map((t) => (
@@ -104,7 +94,7 @@ export default function Logbook({ poste, shiftMeta }) {
         {events.length === 0 && (
           <div className="evt-empty no-print">
             <div>No events yet for Poste {poste}.</div>
-            <div className="faint xsmall">Tap a type above or “＋ New event” to log one.</div>
+            <div className="faint xsmall">Tap a type above to log one.</div>
           </div>
         )}
         <div className="summary">
@@ -119,15 +109,6 @@ export default function Logbook({ poste, shiftMeta }) {
       </div>
 
       <PrintSignature poste={poste} />
-
-      <button
-        className="fab no-print"
-        type="button"
-        onClick={openNewEvent}
-        aria-label="Log new event"
-      >
-        +
-      </button>
 
       {editing && (
         <EventEditor
