@@ -49,7 +49,6 @@ function resolvedTheme(pref) {
 
 export default function App() {
   const [tab, setTab] = useState(() => window.location.hash.replace('#', '') || 'logbook');
-  const [now, setNow] = useState(() => new Date());
 
   const [date, setDate] = useState(() => load('wb.date', null) || todayISO());
   const [shiftKey, setShiftKey] = useState(() => {
@@ -62,10 +61,7 @@ export default function App() {
   const [density, setDensity] = useState(() => load('wb.density', 'normal'));
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const nowShiftKey = useNowShiftKey();
 
   useEffect(() => {
     window.location.hash = tab;
@@ -102,9 +98,8 @@ export default function App() {
   const poste = posteFor(dateObj, shiftKey);
   const shift = SHIFT_TYPES[shiftKey];
   const restPoste = restingPoste(dateObj);
-  const today = todayISO();
-  const isToday = date === today;
-  const nowShiftKey = shiftKeyForHour(now.getHours());
+  const isToday = date === todayISO();
+  const onLiveShift = isToday && shiftKey === nowShiftKey;
 
   const shiftMeta = {
     poste,
@@ -165,8 +160,12 @@ export default function App() {
             type="button"
             className="btn ghost mini today-btn"
             onClick={jumpToday}
-            disabled={isToday && shiftKey === nowShiftKey}
-            title={isToday ? 'Already on today' : 'Jump to today'}
+            disabled={onLiveShift}
+            title={
+              onLiveShift ? 'Already on today’s current shift'
+                : isToday ? 'Snap to today’s current shift'
+                : 'Jump to today'
+            }
           >
             Today
           </button>
@@ -195,7 +194,7 @@ export default function App() {
         <div className="shift-meta">
           <span className="muted small">{shift.hours}</span>
           {restPoste && <span className="rest-hint faint xsmall">Repos · {restPoste}</span>}
-          <span className="clock">{fmtClock(now)}</span>
+          <Clock />
           <Settings
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
@@ -209,11 +208,33 @@ export default function App() {
 
       <main className="app-main">
         {tab === 'logbook' ? (
-          <Logbook key={`lb-${date}-${shiftKey}`} now={now} poste={poste} shiftMeta={shiftMeta} />
+          <Logbook key={`lb-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         ) : (
-          <ProductionTest key={`pt-${date}-${shiftKey}`} now={now} poste={poste} shiftMeta={shiftMeta} />
+          <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
       </main>
     </div>
   );
+}
+
+function Clock() {
+  const [t, setT] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setT(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="clock">{fmtClock(t)}</span>;
+}
+
+function useNowShiftKey() {
+  const [key, setKey] = useState(() => shiftKeyForHour(new Date().getHours()));
+  useEffect(() => {
+    const tick = () => setKey((prev) => {
+      const next = shiftKeyForHour(new Date().getHours());
+      return next === prev ? prev : next;
+    });
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return key;
 }

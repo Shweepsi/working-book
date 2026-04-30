@@ -1,32 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { SAMPLE_EVENTS, newId } from '../data/shift.js';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes.js';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 import EventEditor from './EventEditor.jsx';
 
+const EVENT_TYPE_BY_KEY = new Map(EVENT_TYPES.map((t) => [t.key, t]));
+
 function storageKey(date, poste) {
   return `wb.logbook.v4.${date}.${poste}`;
 }
 
+// Seed the canonical "demo" shift (Poste C, 28-Apr-2026 morning) from the wireframe.
+// Other (date, poste) pairs start empty.
 function defaultsFor(date, poste, shiftKey) {
-  // Seed sample data once for the canonical "demo" shift: Poste C on 28-Apr-2026
-  // (matches the original wireframe context). Other (date, poste) pairs start empty.
   if (date === '2026-04-28' && poste === 'C' && shiftKey === 'M') return SAMPLE_EVENTS;
   return [];
 }
 
-export default function Logbook({ now, poste, shiftMeta }) {
+export default function Logbook({ poste, shiftMeta }) {
   const { date, shift } = shiftMeta;
   const [events, setEvents] = useState(() =>
     load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
   const [editing, setEditing] = useState(null);
-
-  useEffect(() => {
-    setEvents(load(storageKey(date, poste), defaultsFor(date, poste, shift.key)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, poste]);
 
   useEffect(() => {
     save(storageKey(date, poste), events);
@@ -35,42 +32,33 @@ export default function Logbook({ now, poste, shiftMeta }) {
   const summary = useMemo(() => computeSummary(events), [events]);
 
   function openTypedEvent(type) {
-    const stamp = fmtHM(now);
-    const flag = EVENT_TYPES.find((t) => t.key === type)?.defaultFlag ?? null;
+    const stamp = fmtHM();
+    const flag = EVENT_TYPE_BY_KEY.get(type)?.defaultFlag ?? null;
     setEditing({
       event: { start: stamp, end: stamp, type, desc: '', flag, notes: [] },
     });
   }
 
-  function patch(id, changes) {
-    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...changes } : e)));
-  }
-
-  function remove(id) {
-    setEvents((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  function reset() {
-    if (!window.confirm(`Clear logbook for Poste ${poste} on ${date}?`)) return;
-    setEvents(defaultsFor(date, poste, shift.key));
-  }
-
   function openNewEvent() {
+    const stamp = fmtHM();
     setEditing({
-      event: { start: fmtHM(now), end: fmtHM(now), type: '', desc: '', flag: '', notes: [] },
+      event: { start: stamp, end: stamp, type: '', desc: '', flag: '', notes: [] },
     });
   }
 
+  const openEvent = useCallback((ev) => setEditing({ event: ev }), []);
+  const removeEvent = useCallback(
+    (id) => setEvents((prev) => prev.filter((e) => e.id !== id)),
+    [],
+  );
+
   function saveFromEditor(payload) {
-    const normalized = {
-      ...payload,
-      end: payload.end || payload.start || null,
-    };
-    if (normalized.id) {
-      patch(normalized.id, normalized);
-    } else {
-      setEvents((prev) => [...prev, { ...normalized, id: newId() }]);
-    }
+    const normalized = { ...payload, end: payload.end || payload.start || null };
+    setEvents((prev) =>
+      normalized.id
+        ? prev.map((e) => (e.id === normalized.id ? { ...e, ...normalized } : e))
+        : [...prev, { ...normalized, id: newId() }],
+    );
     setEditing(null);
   }
 
@@ -111,17 +99,12 @@ export default function Logbook({ now, poste, shiftMeta }) {
           <div className="flags-h">Catégorie</div>
         </div>
         {events.map((ev) => (
-          <EventRow
-            key={ev.id}
-            ev={ev}
-            onPatch={(changes) => patch(ev.id, changes)}
-            onOpen={() => setEditing({ event: ev })}
-            onRemove={() => remove(ev.id)}
-          />
+          <EventRow key={ev.id} ev={ev} onOpen={openEvent} onRemove={removeEvent} />
         ))}
         {events.length === 0 && (
-          <div className="evt-empty">
+          <div className="evt-empty no-print">
             <div>No events yet for Poste {poste}.</div>
+            <div className="faint xsmall">Tap a type above or “＋ New event” to log one.</div>
           </div>
         )}
         <div className="summary">
@@ -131,7 +114,6 @@ export default function Logbook({ now, poste, shiftMeta }) {
           <span>unscheduled <strong>{fmtDuration(summary.unscheduledMin)}</strong></span>
           <span style={{ marginLeft: 'auto' }} className="no-print">
             <button className="btn ghost" onClick={() => window.print()}>Print</button>
-            <button className="btn ghost" onClick={reset}>Reset</button>
           </span>
         </div>
       </div>
@@ -150,9 +132,8 @@ export default function Logbook({ now, poste, shiftMeta }) {
       {editing && (
         <EventEditor
           event={editing.event}
-          now={now}
           onSave={saveFromEditor}
-          onDelete={() => editing.event?.id && remove(editing.event.id)}
+          onDelete={() => editing.event?.id && removeEvent(editing.event.id)}
           onClose={() => setEditing(null)}
         />
       )}
@@ -160,20 +141,22 @@ export default function Logbook({ now, poste, shiftMeta }) {
   );
 }
 
-function EventRow({ ev, onPatch, onOpen, onRemove }) {
+const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
-  const typeMeta = EVENT_TYPES.find((t) => t.key === ev.type);
+  const typeMeta = EVENT_TYPE_BY_KEY.get(ev.type);
   const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
-  const noteCount = (ev.notes || []).filter((n) => n && n.trim()).length;
+  const notes = (ev.notes || []).filter((n) => n && n.trim());
+
+  const open = () => onOpen(ev);
 
   return (
     <div
       className={`evt ${tint ? `tint-${tint}` : ''}`}
-      onClick={onOpen}
+      onClick={open}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen()}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}
     >
       <div className="time">
         {ev.start ? <span className="start">{ev.start}</span> : <span className="faint">—</span>}
@@ -185,12 +168,12 @@ function EventRow({ ev, onPatch, onOpen, onRemove }) {
         <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
           {ev.desc || <span className="faint">(no description)</span>}
         </span>
-        {noteCount > 0 && (
-          <span className="notes-badge" title={`${noteCount} note${noteCount > 1 ? 's' : ''}`}>
-            ✎ {noteCount}
+        {notes.length > 0 && (
+          <span className="notes-badge" title={`${notes.length} note${notes.length > 1 ? 's' : ''}`}>
+            ✎ {notes.length}
           </span>
         )}
-        {(ev.notes || []).map((n, i) => (
+        {notes.map((n, i) => (
           <span key={i} className="sub">{n}</span>
         ))}
       </div>
@@ -208,7 +191,7 @@ function EventRow({ ev, onPatch, onOpen, onRemove }) {
           title="Delete event"
           onClick={(e) => {
             e.stopPropagation();
-            if (window.confirm('Delete this event?')) onRemove();
+            if (window.confirm('Delete this event?')) onRemove(ev.id);
           }}
         >
           ✕
@@ -216,7 +199,7 @@ function EventRow({ ev, onPatch, onOpen, onRemove }) {
       </div>
     </div>
   );
-}
+});
 
 function PrintHeader({ poste, shiftMeta }) {
   return (

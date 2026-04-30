@@ -9,7 +9,7 @@ const THEMES = [
 const DENSITIES = [
   { key: 'compact', label: 'Compact', help: 'Tight rows, small text — fits more on screen.' },
   { key: 'normal', label: 'Normal', help: 'Friendly spacing, larger touch targets. Recommended.' },
-  { key: 'advanced', label: 'Advanced', help: 'Compact + reveals refs, IDs, and extra hints.' },
+  { key: 'advanced', label: 'Advanced', help: 'Adds the type chip, notes count, and hover row actions.' },
 ];
 
 export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange }) {

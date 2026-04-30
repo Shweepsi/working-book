@@ -14,7 +14,8 @@ function storageKey(date, poste) {
   return `wb.prodtest.v4.${date}.${poste}`;
 }
 
-function emptyTest(now) {
+function emptyTest() {
+  const now = new Date();
   return {
     header: {
       testNo: '',
@@ -36,14 +37,9 @@ function emptyTest(now) {
   };
 }
 
-export default function ProductionTest({ now, poste, shiftMeta }) {
+export default function ProductionTest({ poste, shiftMeta }) {
   const { date } = shiftMeta;
-  const [state, setState] = useState(() => load(storageKey(date, poste), emptyTest(now)));
-
-  useEffect(() => {
-    setState(load(storageKey(date, poste), emptyTest(now)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, poste]);
+  const [state, setState] = useState(() => load(storageKey(date, poste), emptyTest()));
 
   useEffect(() => {
     save(storageKey(date, poste), state);
@@ -75,10 +71,11 @@ export default function ProductionTest({ now, poste, shiftMeta }) {
 
   function reset() {
     if (!window.confirm('Clear all measurements for this test?')) return;
-    setState(emptyTest(now));
+    setState(emptyTest());
   }
 
   function autofill() {
+    const now = new Date();
     setState((s) => ({
       ...s,
       header: { ...s.header, hour: fmtHM(now), date: now.toISOString().slice(0, 10) },

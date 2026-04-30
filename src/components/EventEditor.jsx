@@ -12,7 +12,7 @@ function maskTime(raw) {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
-export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
+export default function EventEditor({ event, onSave, onDelete, onClose }) {
   const isNew = !event?.id;
   const [draft, setDraft] = useState(() => ({ ...EMPTY, ...(event || {}) }));
 
@@ -104,7 +104,7 @@ export default function EventEditor({ event, now, onSave, onDelete, onClose }) {
                 type="button"
                 className="btn ghost"
                 onClick={() => {
-                  const t = fmtHM(now);
+                  const t = fmtHM();
                   setDraft((d) => ({ ...d, start: d.start || t, end: t }));
                 }}
               >
