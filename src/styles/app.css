@@ -177,22 +177,6 @@
 
 /* ---------- Logbook ---------- */
 
-.logbook-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.logbook-toolbar .toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 /* One-tap "type strip" — phone/tablet primary action */
 .type-strip {
   display: flex;
@@ -377,30 +361,6 @@
   font-weight: 600;
   font-family: 'Geist Mono', monospace;
 }
-
-/* Floating action button — phone primary */
-.fab {
-  position: fixed;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: max(22px, env(safe-area-inset-bottom));
-  width: 60px;
-  height: 60px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--accent);
-  color: #fff;
-  font-size: 28px;
-  font-weight: 400;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: var(--shadow-fab);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 30;
-}
-
-.fab:active { transform: scale(0.96); }
 
 /* Editor sheet — centered modal on desktop, bottom sheet on phone */
 .sheet-backdrop {
@@ -854,15 +814,31 @@
 /* ---------- Phone (≤600px) ---------- */
 @media (max-width: 600px) {
   .app-main { padding: 14px 14px 100px; }
-  .app-header {
-    padding: 10px 14px;
-    gap: 8px;
-  }
-  .app-header .brand { font-size: 13px; }
-  .shift-meta { width: 100%; order: 3; margin-left: 0; justify-content: space-between; }
 
-  .logbook-toolbar { font-size: 12px; }
-  .logbook-toolbar .toolbar-right { display: none; }
+  /* Tight, single-row-friendly header on phones.
+     Keeping the shift-meta (clock + cog) inline avoids burning a whole
+     row, and the brand collapses to its dot so the row breathes. */
+  .app-header {
+    padding: 8px 12px;
+    gap: 6px;
+    row-gap: 6px;
+  }
+  .app-header .brand { gap: 0; }
+  .app-header .brand-name { display: none; }
+  .shift-meta { gap: 8px; font-size: 11px; }
+  .shift-meta .clock { font-size: 12px; padding: 3px 8px; }
+
+  .tabs { padding: 2px; }
+  .tabs .tab { padding: 4px 10px; font-size: 12px; min-height: 28px; }
+
+  .date-nav { gap: 0; padding: 1px; }
+  .date-nav .icon { width: 26px; height: 26px; min-height: 26px; }
+  .date-nav .date-input { font-size: 11px; padding: 3px 4px; min-height: 26px; }
+  .date-nav .today-btn { padding: 0 8px; font-size: 11px; min-height: 26px; }
+
+  .shift-switch { gap: 3px; }
+  .shift-chip { padding: 3px 5px 3px 9px; gap: 5px; font-size: 11px; min-height: 28px; }
+  .shift-chip .shift-poste { padding: 1px 5px; font-size: 9px; }
 
   .type-strip {
     margin: 0 -14px 14px;
@@ -914,8 +890,6 @@
     padding: 12px 14px;
     font-size: 12px;
   }
-
-  .fab { display: inline-flex; }
 
   /* Phone sheet: full-width bottom sheet, not centered modal */
   .sheet {
@@ -1137,12 +1111,10 @@
   }
 
   .app-header,
-  .fab,
   .type-strip,
   .pt-actions,
   .sheet,
   .sheet-backdrop,
-  .logbook-toolbar,
   .no-print {
     display: none !important;
   }
