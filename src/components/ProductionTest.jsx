@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import {
   HEADER_DEFAULTS,
   OPTOPLEX_CODES,
+  STACK_AXES,
   TD_ENTER_ORDER,
   TD_PAIRS,
+  YAB_AXES,
   ZEISS_CODES,
+  yabEnterOrder,
 } from '../data/productionTest.js';
 import { fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
@@ -244,6 +247,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
 
       <YabSection
         title="Optoplex"
+        section="optoplex"
         codes={OPTOPLEX_CODES}
         values={active.optoplex}
         onChange={(code, axis, v) => patchYab('optoplex', code, axis, v)}
@@ -251,6 +255,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
 
       <YabSection
         title="Zeiss"
+        section="zeiss"
         codes={ZEISS_CODES}
         values={active.zeiss}
         onChange={(code, axis, v) => patchYab('zeiss', code, axis, v)}
@@ -259,16 +264,28 @@ export default function ProductionTest({ poste, shiftMeta }) {
       <Section title="Stack Analysis">
         <div className="lab-grid">
           <div className="head" />
-          <div className="head">Tsol</div>
-          <div className="head">Rsol</div>
-          <div className="head">Asol</div>
+          {STACK_AXES.map((a) => (
+            <div key={a} className="head">{a}</div>
+          ))}
           <div className="rowlabel">Thermal</div>
-          {['Tsol', 'Rsol', 'Asol'].map((axis) => (
+          {STACK_AXES.map((axis) => (
             <div key={axis} className="lab-cell">
               <input
                 inputMode="decimal"
                 value={active.stack[axis]}
+                data-stack-axis={axis}
                 onChange={(e) => patchStack(axis, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  const next = STACK_AXES[STACK_AXES.indexOf(axis) + 1];
+                  if (!next) return;
+                  const el = document.querySelector(`input[data-stack-axis="${next}"]`);
+                  if (el) {
+                    el.focus();
+                    el.select?.();
+                  }
+                }}
               />
             </div>
           ))}
@@ -374,19 +391,22 @@ function TdCell({ code, value, onChange }) {
   );
 }
 
-function YabSection({ title, codes, values, onChange }) {
+function YabSection({ title, section, codes, values, onChange }) {
+  const order = yabEnterOrder(codes);
   return (
     <Section title={title}>
       <div className="lab-grid">
         <div className="head" />
-        <div className="head">Y</div>
-        <div className="head">a*</div>
-        <div className="head">b*</div>
+        {YAB_AXES.map((a) => (
+          <div key={a} className="head">{a}</div>
+        ))}
         {codes.map((code) => (
           <YabRow
             key={code}
+            section={section}
             code={code}
             values={values[code] || {}}
+            order={order}
             onChange={(axis, v) => onChange(code, axis, v)}
           />
         ))}
@@ -395,16 +415,30 @@ function YabSection({ title, codes, values, onChange }) {
   );
 }
 
-function YabRow({ code, values, onChange }) {
+function YabRow({ section, code, values, order, onChange }) {
+  function handleKeyDown(e, axis) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const idx = order.indexOf(`${code}.${axis}`);
+    const next = order[idx + 1];
+    if (!next) return;
+    const el = document.querySelector(`input[data-yab-key="${section}.${next}"]`);
+    if (el) {
+      el.focus();
+      el.select?.();
+    }
+  }
   return (
     <>
       <div className="rowlabel">{code}</div>
-      {['Y', 'a*', 'b*'].map((axis) => (
+      {YAB_AXES.map((axis) => (
         <div key={axis} className="lab-cell">
           <input
             inputMode="decimal"
             value={values[axis] || ''}
+            data-yab-key={`${section}.${code}.${axis}`}
             onChange={(e) => onChange(axis, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(e, axis)}
           />
         </div>
       ))}
