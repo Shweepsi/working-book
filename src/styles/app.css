@@ -1739,38 +1739,6 @@
 }
 .sch-detail-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
 
-.sch-mto-bar {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.sch-mto-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  background: var(--paper);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  color: var(--ink-soft);
-  letter-spacing: 0.03em;
-  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
-}
-.sch-mto-chip:hover { border-color: var(--line); color: var(--ink); }
-.sch-mto-chip.active {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-}
-.sch-mto-chip-count {
-  font-size: 10px;
-  font-weight: 400;
-  opacity: 0.7;
-}
-
 .sch-table {
   display: flex;
   flex-direction: column;
