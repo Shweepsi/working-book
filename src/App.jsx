@@ -3,7 +3,6 @@ import Logbook from './components/Logbook.jsx';
 import ProductionTest from './components/ProductionTest.jsx';
 import Schedules from './components/Schedules.jsx';
 import Settings from './components/Settings.jsx';
-import { fmtClock } from './lib/time.js';
 import { load, save } from './lib/storage.js';
 import {
   POSTES,
@@ -189,7 +188,6 @@ export default function App() {
         </div>
 
         <div className="shift-meta">
-          <Clock />
           <Settings
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
@@ -212,15 +210,6 @@ export default function App() {
       </main>
     </div>
   );
-}
-
-function Clock() {
-  const [t, setT] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setT(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return <span className="clock">{fmtClock(t)}</span>;
 }
 
 function useNowShiftKey() {

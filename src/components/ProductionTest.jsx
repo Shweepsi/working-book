@@ -20,12 +20,18 @@ function newId() {
   return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function stripHash(raw) {
-  return (raw || '').replace(/^#+/, '');
+// Test n° accepts integers 1..399. Strips non-digits, drops leading zeros,
+// clamps the high end. Returns '' for empty / zero input so the placeholder shows.
+function sanitizeTestNo(raw) {
+  const digits = String(raw ?? '').replace(/\D/g, '').replace(/^0+/, '');
+  if (!digits) return '';
+  const n = parseInt(digits, 10);
+  if (!Number.isFinite(n) || n < 1) return '';
+  return String(Math.min(399, n));
 }
 
 function displayTestNo(raw) {
-  const s = stripHash(raw);
+  const s = sanitizeTestNo(raw);
   return s ? `#${s}` : '';
 }
 
@@ -195,8 +201,10 @@ export default function ProductionTest({ poste, shiftMeta }) {
         <Field
           label="Test n°"
           prefix="#"
-          value={stripHash(active.header.testNo)}
-          onChange={(v) => patchHeader('testNo', stripHash(v))}
+          inputMode="numeric"
+          maxLength={3}
+          value={active.header.testNo}
+          onChange={(v) => patchHeader('testNo', sanitizeTestNo(v))}
         />
         <Field label="Opérateur" value={active.header.operator} onChange={(v) => patchHeader('operator', v)} />
         <Field label="Date" type="date" value={active.header.date} onChange={(v) => patchHeader('date', v)} auto />
@@ -232,7 +240,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
         onChange={(code, axis, v) => patchYab('zeiss', code, axis, v)}
       />
 
-      <Section title="Stack Analysis" hint="Thermal · Tsol / Rsol / Asol">
+      <Section title="Stack Analysis">
         <div className="lab-grid">
           <div className="head" />
           <div className="head">Tsol</div>
@@ -287,12 +295,14 @@ export default function ProductionTest({ poste, shiftMeta }) {
   );
 }
 
-function Field({ label, value, onChange, auto, type, prefix }) {
+function Field({ label, value, onChange, auto, type, prefix, inputMode, maxLength }) {
   const input = (
     <input
       type={type || 'text'}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      inputMode={inputMode}
+      maxLength={maxLength}
     />
   );
   return (
@@ -337,7 +347,7 @@ function TdCell({ code, value, onChange }) {
 
 function YabSection({ title, codes, values, onChange }) {
   return (
-    <Section title={title} hint="Y / a* / b*">
+    <Section title={title}>
       <div className="lab-grid">
         <div className="head" />
         <div className="head">Y</div>
