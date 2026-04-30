@@ -89,8 +89,9 @@ export default function Logbook({ poste, shiftMeta }) {
             onClick={() => setShowSecondary((v) => !v)}
             title={showSecondary ? 'Hide secondary types' : 'Show secondary types'}
             aria-expanded={showSecondary}
+            aria-label="Toggle secondary types"
           >
-            {showSecondary ? '−' : '+'}
+            <span className="chevron" aria-hidden="true">⌄</span>
           </button>
         </div>
         {showSecondary && (
