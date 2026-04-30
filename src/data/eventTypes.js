@@ -1,17 +1,21 @@
-// Event types operators log during a shift, with their default category.
-// `defaultFlag` is the category we auto-assign when the operator hasn't picked one;
-// `bold` highlights state-change events (Brûlage, Refroidissement, Ventilation).
+// `prefill: true` means the editor opens with desc set to the type label;
+// `prefill: false` opens with an empty description for the operator to type.
+// Order matters — the type strip renders prefilled types first, then ad-hoc.
 
 export const EVENT_TYPES = [
-  { key: 'Production', label: 'Production', defaultFlag: 'normal', bold: false },
-  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'note', bold: false },
-  { key: 'Brûlage', label: 'Brûlage', defaultFlag: 'scheduled', bold: true },
-  { key: 'Refroidissement', label: 'Refroidissement', defaultFlag: 'scheduled', bold: true },
-  { key: 'Qualité', label: 'Qualité', defaultFlag: 'ok', bold: false },
-  { key: 'Développement', label: 'Développement', defaultFlag: 'note', bold: false },
-  { key: 'Entretien', label: 'Entretien', defaultFlag: 'unscheduled', bold: false },
-  { key: 'Ventilation', label: 'Ventilation', defaultFlag: 'unscheduled', bold: true },
-  { key: 'Conditionnement', label: 'Conditionnement', defaultFlag: 'normal', bold: false },
+  { key: 'Production',        label: 'Production',        defaultFlag: 'normal',      prefill: true  },
+  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'note',        prefill: true  },
+  { key: 'Développement',     label: 'Développement',     defaultFlag: 'note',        prefill: true  },
+  { key: 'Entretien',         label: 'Entretien',         defaultFlag: 'unscheduled', prefill: true  },
+  { key: 'Conditionnement',   label: 'Conditionnement',   defaultFlag: 'normal',      prefill: true  },
+  { key: 'Ventilation',       label: 'Ventilation',       defaultFlag: 'unscheduled', prefill: true  },
+  { key: 'Brûlage',           label: 'Brûlage',           defaultFlag: 'scheduled',   prefill: true  },
+  { key: 'Refroidissement',   label: 'Refroidissement',   defaultFlag: 'scheduled',   prefill: true  },
+  { key: 'Pompage',           label: 'Pompage',           defaultFlag: 'normal',      prefill: true  },
+  { key: 'Leak Test',         label: 'Leak Test',         defaultFlag: 'normal',      prefill: true  },
+  { key: 'Arrêt',             label: 'Arrêt',             defaultFlag: 'unscheduled', prefill: false },
+  { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: false },
+  { key: 'Note',              label: 'Note',              defaultFlag: 'note',        prefill: false },
 ];
 
 // Categories: Normal, OK, Scheduled, Unscheduled, Note

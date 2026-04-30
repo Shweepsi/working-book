@@ -7,6 +7,12 @@ import EventEditor from './EventEditor.jsx';
 
 const EVENT_TYPE_BY_KEY = new Map(EVENT_TYPES.map((t) => [t.key, t]));
 
+// Two visual rows: prefilled types on top, ad-hoc events on the bottom.
+const TYPE_ROWS = [
+  EVENT_TYPES.filter((t) => t.prefill),
+  EVENT_TYPES.filter((t) => !t.prefill),
+];
+
 function storageKey(date, poste) {
   return `wb.logbook.v4.${date}.${poste}`;
 }
@@ -39,7 +45,7 @@ export default function Logbook({ poste, shiftMeta }) {
         start: stamp,
         end: stamp,
         type,
-        desc: meta?.label ?? type,
+        desc: meta?.prefill ? meta.label : '',
         flag: meta?.defaultFlag ?? null,
         notes: [],
       },
@@ -67,16 +73,20 @@ export default function Logbook({ poste, shiftMeta }) {
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
       <div className="type-strip no-print">
-        {EVENT_TYPES.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => openTypedEvent(t.key)}
-            title={`Log ${t.label} starting now`}
-          >
-            <span className="glyph">＋</span>
-            {t.label}
-          </button>
+        {TYPE_ROWS.map((row, i) => (
+          <div key={i} className="type-row">
+            {row.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => openTypedEvent(t.key)}
+                title={`Log ${t.label} starting now`}
+              >
+                <span className="glyph">＋</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
 
@@ -124,7 +134,6 @@ export default function Logbook({ poste, shiftMeta }) {
 const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
-  const typeMeta = EVENT_TYPE_BY_KEY.get(ev.type);
   const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
   const notes = (ev.notes || []).filter((n) => n && n.trim());
 
@@ -145,7 +154,7 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
       <div className="dur">{sameStartEnd ? <span className="faint">·</span> : fmtDuration(minutes)}</div>
       <span className="type">{ev.type}</span>
       <div className="desc">
-        <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
+        <span style={{ fontWeight: ev.bold ? 600 : 400 }}>
           {ev.desc || <span className="faint">(no description)</span>}
         </span>
         {notes.length > 0 && (

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { EVENT_TYPES, FLAGS } from '../data/eventTypes.js';
 import { fmtHM } from '../lib/time.js';
 
-const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [] };
+const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [], bold: false };
 
 // Force "HH:MM" shape as user types: strip non-digits, cap at 4 digits, splice colon.
 // Empty stays empty so a "no-time" event is still acceptable.
@@ -40,6 +40,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
         draft.flag ||
         EVENT_TYPES.find((t) => t.key === draft.type)?.defaultFlag ||
         null,
+      bold: !!draft.bold,
     });
   }
 
@@ -144,10 +145,21 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
           </div>
 
           <div className="form-section">
-            <label className="section-label">Description</label>
+            <label className="section-label">
+              Description
+              <button
+                type="button"
+                className={`mep-toggle ${draft.bold ? 'active' : ''}`}
+                onClick={() => update('bold', !draft.bold)}
+                title="Mise en page : mettre la description en gras"
+                aria-pressed={!!draft.bold}
+              >
+                <strong>B</strong>
+              </button>
+            </label>
             <input
               type="text"
-              className="text-input"
+              className={`text-input ${draft.bold ? 'is-bold' : ''}`}
               placeholder="Description (#plates work too)"
               value={draft.desc || ''}
               onChange={(e) => update('desc', e.target.value)}
