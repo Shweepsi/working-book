@@ -9,12 +9,21 @@ import { fmtHM } from '../lib/time.js';
 import { load, save } from '../lib/storage.js';
 
 function storageKey(date, poste) {
+  return `wb.prodtest.v5.${date}.${poste}`;
+}
+
+function legacyKey(date, poste) {
   return `wb.prodtest.v4.${date}.${poste}`;
+}
+
+function newId() {
+  return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
 function emptyTest() {
   const now = new Date();
   return {
+    id: newId(),
     header: {
       testNo: '',
       operator: '',
@@ -35,78 +44,162 @@ function emptyTest() {
   };
 }
 
+function initialState(date, poste) {
+  const v5 = load(storageKey(date, poste), null);
+  if (v5 && Array.isArray(v5.tests) && v5.tests.length > 0) {
+    return v5;
+  }
+  const legacy = load(legacyKey(date, poste), null);
+  if (legacy && legacy.header) {
+    const test = { id: newId(), ...legacy };
+    return { tests: [test], activeId: test.id };
+  }
+  const t = emptyTest();
+  return { tests: [t], activeId: t.id };
+}
+
 export default function ProductionTest({ poste, shiftMeta }) {
   const { date } = shiftMeta;
-  const [state, setState] = useState(() => load(storageKey(date, poste), emptyTest()));
+  const [state, setState] = useState(() => initialState(date, poste));
 
   useEffect(() => {
     save(storageKey(date, poste), state);
   }, [state, date, poste]);
 
+  const active =
+    state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
+
+  function patchActive(updater) {
+    setState((s) => ({
+      ...s,
+      tests: s.tests.map((t) => (t.id === active.id ? updater(t) : t)),
+    }));
+  }
+
   function patchHeader(field, value) {
-    setState((s) => ({ ...s, header: { ...s.header, [field]: value } }));
+    patchActive((t) => ({ ...t, header: { ...t.header, [field]: value } }));
   }
 
   function patchTd(code, value) {
-    setState((s) => ({ ...s, td: { ...s.td, [code]: value } }));
+    patchActive((t) => ({ ...t, td: { ...t.td, [code]: value } }));
   }
 
   function patchYab(group, code, axis, value) {
-    setState((s) => ({
-      ...s,
+    patchActive((t) => ({
+      ...t,
       [group]: {
-        ...s[group],
-        [code]: { ...(s[group][code] || {}), [axis]: value },
+        ...t[group],
+        [code]: { ...(t[group][code] || {}), [axis]: value },
       },
     }));
   }
 
   function patchStack(axis, value) {
-    setState((s) => ({ ...s, stack: { ...s.stack, [axis]: value } }));
+    patchActive((t) => ({ ...t, stack: { ...t.stack, [axis]: value } }));
   }
 
   function reset() {
     if (!window.confirm('Clear all measurements for this test?')) return;
-    setState(emptyTest());
+    setState((s) => ({
+      ...s,
+      tests: s.tests.map((t) =>
+        t.id === active.id ? { ...emptyTest(), id: t.id } : t,
+      ),
+    }));
   }
 
   function autofill() {
     const now = new Date();
-    setState((s) => ({
-      ...s,
-      header: { ...s.header, hour: fmtHM(now), date: now.toISOString().slice(0, 10) },
+    patchActive((t) => ({
+      ...t,
+      header: {
+        ...t.header,
+        hour: fmtHM(now),
+        date: now.toISOString().slice(0, 10),
+      },
     }));
+  }
+
+  function addTest() {
+    const t = emptyTest();
+    setState((s) => ({ tests: [...s.tests, t], activeId: t.id }));
+  }
+
+  function selectTest(id) {
+    setState((s) => ({ ...s, activeId: id }));
+  }
+
+  function deleteActive() {
+    if (state.tests.length === 1) {
+      reset();
+      return;
+    }
+    if (!window.confirm('Delete this test?')) return;
+    setState((s) => {
+      const idx = s.tests.findIndex((t) => t.id === active.id);
+      const next = s.tests.filter((t) => t.id !== active.id);
+      const fallback = next[Math.min(idx, next.length - 1)].id;
+      return { tests: next, activeId: fallback };
+    });
   }
 
   return (
     <div className="pt">
+      <div className="pt-tests no-print" role="tablist" aria-label="Tests">
+        {state.tests.map((t, i) => {
+          const label = t.header.testNo?.trim() || `Test ${i + 1}`;
+          const isActive = t.id === active.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`pt-test-chip ${isActive ? 'active' : ''}`}
+              onClick={() => selectTest(t.id)}
+              title={`Switch to ${label}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className="pt-test-chip add"
+          onClick={addTest}
+          title="Add a new test"
+        >
+          <span className="glyph">＋</span> Nouveau
+        </button>
+      </div>
+
       <div className="print-header print-only">
         <h1>Production Test · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
-          <span><strong>Test n°:</strong> {state.header.testNo || '____________'}</span>
-          <span><strong>Date:</strong> {shiftMeta.dateLabel} {state.header.hour}</span>
-          <span><strong>Opérateur:</strong> {state.header.operator || '____________________'}</span>
+          <span><strong>Test n°:</strong> {active.header.testNo || '____________'}</span>
+          <span><strong>Date:</strong> {shiftMeta.dateLabel} {active.header.hour}</span>
+          <span><strong>Opérateur:</strong> {active.header.operator || '____________________'}</span>
         </div>
       </div>
 
       <header className="pt-header">
-        <Field label="Test n°" value={state.header.testNo} onChange={(v) => patchHeader('testNo', v)} />
-        <Field label="Opérateur" value={state.header.operator} onChange={(v) => patchHeader('operator', v)} />
-        <Field label="Date" type="date" value={state.header.date} onChange={(v) => patchHeader('date', v)} auto />
-        <Field label="Heure" value={state.header.hour} onChange={(v) => patchHeader('hour', v)} auto />
-        <Field label="Produit" value={state.header.product} onChange={(v) => patchHeader('product', v)} />
-        <Field label="Vitesse" value={state.header.speed} onChange={(v) => patchHeader('speed', v)} />
-        <Field label="M3 Lot" value={state.header.m3Lot} onChange={(v) => patchHeader('m3Lot', v)} />
-        <Field label="Épaisseur" value={state.header.thickness} onChange={(v) => patchHeader('thickness', v)} />
-        <Field label="Origine" value={state.header.origin} onChange={(v) => patchHeader('origin', v)} />
-        <Field label="Résistance" value={state.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
+        <Field label="Test n°" value={active.header.testNo} onChange={(v) => patchHeader('testNo', v)} />
+        <Field label="Opérateur" value={active.header.operator} onChange={(v) => patchHeader('operator', v)} />
+        <Field label="Date" type="date" value={active.header.date} onChange={(v) => patchHeader('date', v)} auto />
+        <Field label="Heure" value={active.header.hour} onChange={(v) => patchHeader('hour', v)} auto />
+        <Field label="Produit" value={active.header.product} onChange={(v) => patchHeader('product', v)} />
+        <Field label="Vitesse" value={active.header.speed} onChange={(v) => patchHeader('speed', v)} />
+        <Field label="M3 Lot" value={active.header.m3Lot} onChange={(v) => patchHeader('m3Lot', v)} />
+        <Field label="Épaisseur" value={active.header.thickness} onChange={(v) => patchHeader('thickness', v)} />
+        <Field label="Origine" value={active.header.origin} onChange={(v) => patchHeader('origin', v)} />
+        <Field label="Résistance" value={active.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
       </header>
 
       <Section title="Transmissions Digitales">
         <div className="measure-grid" style={{ '--cols': 2 }}>
           {TD_PAIRS.flatMap(([a, b]) => [
-            <TdCell key={a} code={a} value={state.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
-            <TdCell key={b} code={b} value={state.td[b] || ''} onChange={(v) => patchTd(b, v)} />,
+            <TdCell key={a} code={a} value={active.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
+            <TdCell key={b} code={b} value={active.td[b] || ''} onChange={(v) => patchTd(b, v)} />,
           ])}
         </div>
       </Section>
@@ -114,14 +207,14 @@ export default function ProductionTest({ poste, shiftMeta }) {
       <YabSection
         title="Optoplex"
         codes={OPTOPLEX_CODES}
-        values={state.optoplex}
+        values={active.optoplex}
         onChange={(code, axis, v) => patchYab('optoplex', code, axis, v)}
       />
 
       <YabSection
         title="Zeiss"
         codes={ZEISS_CODES}
-        values={state.zeiss}
+        values={active.zeiss}
         onChange={(code, axis, v) => patchYab('zeiss', code, axis, v)}
       />
 
@@ -136,7 +229,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
             <div key={axis} className="lab-cell">
               <input
                 inputMode="decimal"
-                value={state.stack[axis]}
+                value={active.stack[axis]}
                 onChange={(e) => patchStack(axis, e.target.value)}
               />
             </div>
@@ -148,8 +241,11 @@ export default function ProductionTest({ poste, shiftMeta }) {
         <div className="pt-comments">
           <textarea
             placeholder="Notes, anomalies, conditions particulières…"
-            value={state.comments}
-            onChange={(e) => setState((s) => ({ ...s, comments: e.target.value }))}
+            value={active.comments}
+            onChange={(e) => {
+              const v = e.target.value;
+              patchActive((t) => ({ ...t, comments: v }));
+            }}
           />
         </div>
       </Section>
@@ -170,6 +266,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
       <div className="pt-actions sticky no-print">
         <button className="btn" onClick={autofill}>↻ Auto-fill date / hour</button>
         <button className="btn ghost" onClick={reset}>Clear</button>
+        <button className="btn ghost" onClick={deleteActive}>Delete</button>
         <button className="btn" onClick={() => window.print()}>Print</button>
       </div>
     </div>
@@ -251,4 +348,3 @@ function YabRow({ code, values, onChange }) {
     </>
   );
 }
-

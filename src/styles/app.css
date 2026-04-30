@@ -774,6 +774,49 @@
   padding: 10px 0 0;
 }
 
+.pt-tests {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  margin: -4px 0 0;
+}
+
+.pt-tests::-webkit-scrollbar { height: 4px; }
+.pt-tests::-webkit-scrollbar-thumb { background: var(--line-faint); border-radius: 99px; }
+
+.pt-test-chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.pt-test-chip:hover { border-color: var(--ink); }
+
+.pt-test-chip.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.pt-test-chip.add { color: var(--accent); border-style: dashed; }
+.pt-test-chip.add .glyph { color: var(--accent); font-weight: 500; }
+.pt-test-chip.add:hover { background: color-mix(in srgb, var(--accent) 6%, var(--paper)); }
+
 /* ---------- Tablet (≤880px) ---------- */
 @media (max-width: 880px) {
   .app-main { padding: 18px; }
