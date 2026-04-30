@@ -113,7 +113,6 @@ export default function App() {
     <div className="app">
       <header className="app-header no-print">
         <div className="brand">
-          <span className="dot" />
           <span className="brand-name">Working Book</span>
         </div>
 

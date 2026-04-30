@@ -29,14 +29,6 @@
   color: var(--ink);
 }
 
-.app-header .brand .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
 .tabs {
   display: flex;
   gap: 2px;
@@ -1729,9 +1721,10 @@
 .sch-detail .sch-foot { margin-top: 12px; }
 .sch-detail-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px 28px;
   padding: 10px 14px;
   background: var(--paper-2);
   border-radius: 10px 10px 0 0;
@@ -1784,6 +1777,7 @@
 }
 .sch-row.sch-head {
   background: var(--paper-2);
+  border-bottom: 0;
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
