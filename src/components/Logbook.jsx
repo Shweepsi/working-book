@@ -99,7 +99,6 @@ export default function Logbook({ poste, shiftMeta }) {
         )}
         <div className="summary">
           <span><strong>{summary.total}</strong> events</span>
-          <span><strong>{summary.unscheduledCount}</strong> unscheduled</span>
           <span>scheduled <strong>{fmtDuration(summary.scheduledMin)}</strong></span>
           <span>unscheduled <strong>{fmtDuration(summary.unscheduledMin)}</strong></span>
           <span style={{ marginLeft: 'auto' }} className="no-print">
@@ -215,13 +214,11 @@ function PrintSignature({ poste }) {
 function computeSummary(events) {
   let scheduledMin = 0;
   let unscheduledMin = 0;
-  let unscheduledCount = 0;
   for (const e of events) {
-    if (e.flag === 'unscheduled') unscheduledCount += 1;
     const m = diffMinutes(e.start, e.end);
     if (m == null || m === 0) continue;
     if (e.flag === 'scheduled') scheduledMin += m;
     if (e.flag === 'unscheduled') unscheduledMin += m;
   }
-  return { total: events.length, unscheduledCount, scheduledMin, unscheduledMin };
+  return { total: events.length, scheduledMin, unscheduledMin };
 }
