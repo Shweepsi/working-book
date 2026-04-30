@@ -99,13 +99,13 @@ export default function Schedules() {
     return filtered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
   }, [data, selected, policy]);
 
-  // Insert a break marker before each new longueur group (skip the first).
+  // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
   const groupedRows = useMemo(() => {
     const out = [];
     let prevLongueur = null;
     for (const r of visibleRows) {
-      if (prevLongueur !== null && r.longueur !== prevLongueur) {
+      if (r.longueur !== prevLongueur) {
         out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}`, longueur: r.longueur });
       }
       out.push({ kind: 'row', row: r });
@@ -292,12 +292,12 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }) {
         </button>
         {data && (
           <button
-            className="btn ghost danger"
+            className="btn destructive"
             onClick={onClear}
             style={{ marginLeft: 'auto' }}
             title="Effacer le rapport PMS230 (la table MTO/MTS est conservée)"
           >
-            Vider
+            ⚠ Vider
           </button>
         )}
       </div>

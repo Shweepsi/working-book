@@ -76,18 +76,6 @@
   color: var(--ink-soft);
 }
 
-.shift-meta .clock {
-  font-family: 'Geist Mono', monospace;
-  font-size: 13px;
-  color: var(--ink);
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  padding: 4px 10px;
-  border: 1px solid var(--line-faint);
-  border-radius: 5px;
-  background: var(--paper);
-}
-
 .app-main {
   flex: 1;
   width: 100%;
@@ -427,6 +415,23 @@
 
 .btn.danger:hover {
   background: color-mix(in srgb, var(--accent) 8%, var(--paper));
+}
+
+.btn.destructive {
+  background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
+  border-color: var(--flag-unsched-bd);
+  color: var(--flag-unsched-fg);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.btn.destructive:hover {
+  background: var(--flag-unsched-bd);
+  border-color: var(--flag-unsched-bd);
+  color: var(--paper);
+}
+.btn.destructive:focus-visible {
+  outline: 2px solid var(--flag-unsched-bd);
+  outline-offset: 2px;
 }
 
 .form-grid {
@@ -885,7 +890,7 @@
   .app-main { padding: 14px 14px 100px; }
 
   /* Tight, single-row-friendly header on phones.
-     Keeping the shift-meta (clock + cog) inline avoids burning a whole
+     Keeping the shift-meta (settings cog) inline avoids burning a whole
      row, and the brand collapses to its dot so the row breathes. */
   .app-header {
     padding: 8px 12px;
@@ -895,7 +900,6 @@
   .app-header .brand { gap: 0; }
   .app-header .brand-name { display: none; }
   .shift-meta { gap: 8px; font-size: 11px; }
-  .shift-meta .clock { font-size: 12px; padding: 3px 8px; }
 
   .tabs { padding: 2px; }
   .tabs .tab { padding: 4px 10px; font-size: 12px; min-height: 28px; }
@@ -1393,10 +1397,6 @@
 :root[data-density='advanced'] .date-nav .date-input { font-size: 13px; min-height: 30px; }
 :root[data-density='advanced'] .date-nav .icon { width: 32px; height: 32px; min-height: 32px; font-size: 17px; }
 
-/* Header clock */
-:root[data-density='compact'] .shift-meta .clock { padding: 2px 8px; font-size: 11.5px; }
-:root[data-density='advanced'] .shift-meta .clock { padding: 5px 11px; font-size: 13.5px; }
-
 /* Settings gear / help-trigger size */
 :root[data-density='compact'] .btn.gear { width: 26px; height: 26px; min-height: 26px; font-size: 13px; }
 :root[data-density='advanced'] .btn.gear { width: 34px; height: 34px; min-height: 34px; font-size: 16px; }
@@ -1723,9 +1723,10 @@
 .sch-detail {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
   min-width: 0;
 }
+.sch-detail .sch-foot { margin-top: 12px; }
 .sch-detail-head {
   display: flex;
   align-items: baseline;
