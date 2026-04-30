@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   HEADER_DEFAULTS,
   OPTOPLEX_CODES,
+  TD_ENTER_ORDER,
   TD_PAIRS,
   ZEISS_CODES,
 } from '../data/productionTest.js';
@@ -347,13 +348,27 @@ function Section({ title, children }) {
 }
 
 function TdCell({ code, value, onChange }) {
+  function handleKeyDown(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const idx = TD_ENTER_ORDER.indexOf(code);
+    const nextCode = TD_ENTER_ORDER[idx + 1];
+    if (!nextCode) return;
+    const next = document.querySelector(`input[data-td-code="${nextCode}"]`);
+    if (next) {
+      next.focus();
+      next.select?.();
+    }
+  }
   return (
     <div className="measure-cell">
       <span className="mlabel">{code}</span>
       <input
         inputMode="decimal"
         value={value}
+        data-td-code={code}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
     </div>
   );
