@@ -5,8 +5,8 @@ export const TD_PAIRS = [
   ['T12', 'T28'], ['T15', 'T29'], ['T16', 'T31'], ['T17', 'T32'], ['T18', 'T35'],
 ];
 
-// Enter-key navigation order: walk down the left column first, then the right.
-// Pressing Enter on T4 → T6 → … → T18 → T20 → T21 → … → T35.
+// Enter-key navigation: column-major. Walk down the first column, then
+// the next column, etc. — same convention across TD / Optoplex / Zeiss.
 export const TD_ENTER_ORDER = [
   ...TD_PAIRS.map(([a]) => a),
   ...TD_PAIRS.map(([, b]) => b),
@@ -15,7 +15,17 @@ export const TD_ENTER_ORDER = [
 export const OPTOPLEX_CODES = ['C7', 'C11', 'C22', 'C27', 'C30', 'C35'];
 export const ZEISS_CODES = ['CF', 'CV', 'TR', '55'];
 
+export const YAB_AXES = ['Y', 'a*', 'b*'];
+export const STACK_AXES = ['Tsol', 'Rsol', 'Asol'];
+
+// Build the column-major Enter order for a Y/a*/b* grid: all Y values
+// first (top to bottom), then all a*, then all b*. Keys look like "C7.Y".
+export function yabEnterOrder(codes) {
+  return YAB_AXES.flatMap((axis) => codes.map((code) => `${code}.${axis}`));
+}
+
 export const HEADER_DEFAULTS = {
   product: 'SG NRG A/R Clear',
   speed: '6 m/mn',
 };
+

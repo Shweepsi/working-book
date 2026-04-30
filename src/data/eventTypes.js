@@ -3,11 +3,11 @@
 // Order matters — the type strip renders prefilled types first, then ad-hoc.
 
 export const EVENT_TYPES = [
-  { key: 'Production',        label: 'Production',        defaultFlag: 'normal',      prefill: true  },
-  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'note',        prefill: true  },
-  { key: 'Développement',     label: 'Développement',     defaultFlag: 'note',        prefill: true  },
-  { key: 'Entretien',         label: 'Entretien',         defaultFlag: 'unscheduled', prefill: true  },
-  { key: 'Conditionnement',   label: 'Conditionnement',   defaultFlag: 'normal',      prefill: true  },
+  { key: 'Production',        label: 'Production',        defaultFlag: 'ok',          prefill: true  },
+  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'scheduled',   prefill: true  },
+  { key: 'Développement',     label: 'Développement',     defaultFlag: 'scheduled',   prefill: true  },
+  { key: 'Entretien',         label: 'Entretien',         defaultFlag: 'scheduled',   prefill: true  },
+  { key: 'Conditionnement',   label: 'Conditionnement',   defaultFlag: 'scheduled',   prefill: true  },
   { key: 'Ventilation',       label: 'Ventilation',       defaultFlag: 'unscheduled', prefill: true  },
   { key: 'Brûlage',           label: 'Brûlage',           defaultFlag: 'scheduled',   prefill: true  },
   { key: 'Refroidissement',   label: 'Refroidissement',   defaultFlag: 'scheduled',   prefill: true  },

@@ -43,7 +43,7 @@ export default function Logbook({ poste, shiftMeta }) {
     setEditing({
       event: {
         start: stamp,
-        end: stamp,
+        end: '',
         type,
         desc: meta?.prefill ? meta.label : '',
         flag: meta?.defaultFlag ?? null,
