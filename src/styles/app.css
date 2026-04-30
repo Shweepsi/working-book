@@ -886,10 +886,16 @@
   .pt-actions.sticky .btn { flex: 1; }
   .pt-actions.sticky .btn.ghost { flex: 0; }
 
+  /* Column-title row is a desktop affordance — hide it on phone where
+     each event renders as a stacked card (time/dur, desc, flags). */
+  .evt-head { display: none !important; }
+
   .summary {
-    padding: 12px 14px;
-    font-size: 12px;
+    padding: 10px 14px;
+    gap: 6px 12px;
+    font-size: 11px;
   }
+  .summary .btn { padding: 4px 10px; font-size: 11px; min-height: 26px; }
 
   /* Phone sheet: full-width bottom sheet, not centered modal */
   .sheet {
