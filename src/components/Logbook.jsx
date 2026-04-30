@@ -7,11 +7,8 @@ import EventEditor from './EventEditor.jsx';
 
 const EVENT_TYPE_BY_KEY = new Map(EVENT_TYPES.map((t) => [t.key, t]));
 
-// Two visual rows: prefilled types on top, ad-hoc events on the bottom.
-const TYPE_ROWS = [
-  EVENT_TYPES.filter((t) => t.prefill),
-  EVENT_TYPES.filter((t) => !t.prefill),
-];
+// Two visual rows of type buttons; `row` on each event type drives placement.
+const TYPE_ROWS = [1, 2].map((r) => EVENT_TYPES.filter((t) => t.row === r));
 
 function storageKey(date, poste) {
   return `wb.logbook.v4.${date}.${poste}`;
@@ -47,7 +44,7 @@ export default function Logbook({ poste, shiftMeta }) {
         type,
         desc: meta?.prefill ? meta.label : '',
         flag: meta?.defaultFlag ?? null,
-        notes: [],
+        notes: meta?.openNote ? [''] : [],
       },
     });
   }
