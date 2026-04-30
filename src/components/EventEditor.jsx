@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { EVENT_TYPES, FLAGS } from '../data/eventTypes.js';
 import { fmtHM } from '../lib/time.js';
 
-const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [], bold: false };
+const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [], bold: false, danger: false };
 
 // Force "HH:MM" shape as user types: strip non-digits, cap at 4 digits, splice colon.
 // Empty stays empty so a "no-time" event is still acceptable.
@@ -41,6 +41,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
         EVENT_TYPES.find((t) => t.key === draft.type)?.defaultFlag ||
         null,
       bold: !!draft.bold,
+      danger: !!draft.danger,
     });
   }
 
@@ -147,19 +148,30 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
           <div className="form-section">
             <label className="section-label">
               Description
-              <button
-                type="button"
-                className={`mep-toggle ${draft.bold ? 'active' : ''}`}
-                onClick={() => update('bold', !draft.bold)}
-                title="Mise en page : mettre la description en gras"
-                aria-pressed={!!draft.bold}
-              >
-                <strong>B</strong>
-              </button>
+              <span className="mep-controls">
+                <button
+                  type="button"
+                  className={`mep-toggle ${draft.bold ? 'active' : ''}`}
+                  onClick={() => update('bold', !draft.bold)}
+                  title="Mise en page : mettre la description en gras"
+                  aria-pressed={!!draft.bold}
+                >
+                  <strong>B</strong>
+                </button>
+                <button
+                  type="button"
+                  className={`mep-toggle is-danger ${draft.danger ? 'active' : ''}`}
+                  onClick={() => update('danger', !draft.danger)}
+                  title="Mise en page : marquer comme consigne / danger"
+                  aria-pressed={!!draft.danger}
+                >
+                  ⚠
+                </button>
+              </span>
             </label>
             <input
               type="text"
-              className={`text-input ${draft.bold ? 'is-bold' : ''}`}
+              className={`text-input ${draft.bold ? 'is-bold' : ''} ${draft.danger ? 'is-danger' : ''}`}
               placeholder="Description (#plates work too)"
               value={draft.desc || ''}
               onChange={(e) => update('desc', e.target.value)}

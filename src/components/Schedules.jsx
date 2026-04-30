@@ -168,9 +168,11 @@ export default function Schedules() {
           <h3>Aucun rapport importé</h3>
           <p className="faint">
             Ouvrir PMS230 dans M3, effectuer la recherche dans <em>Schedule Mashup</em>,
-            puis Ctrl+A · Ctrl+C et coller ici. Importer aussi la table{' '}
-            <strong>Item number → Planning policy</strong> depuis le tableur pour
-            afficher la colonne MTO/MTS.
+            puis Ctrl+A · Ctrl+C et coller ici.
+          </p>
+          <p className="faint">
+            Importer aussi la table <strong>Item number → Planning policy</strong>
+            {' '}depuis le tableur pour afficher la colonne MTO/MTS.
           </p>
           <div className="row gap-2">
             <button className="btn primary" onClick={() => setImportMode('pms230')}>
