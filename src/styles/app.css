@@ -210,17 +210,23 @@
 /* Toggle that reveals row 2 — secondary recurring operations. */
 .type-strip .type-more {
   width: 28px;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0;
   border-radius: 999px;
+  color: var(--ink-faint);
+}
+.type-strip .type-more .chevron {
+  display: inline-block;
   font-size: 14px;
   line-height: 1;
-  color: var(--ink-soft);
+  transition: transform 200ms ease;
 }
 .type-strip .type-more[aria-expanded='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
+  color: var(--ink);
+  border-color: var(--line);
+}
+.type-strip .type-more[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
 }
 
 .type-strip button .glyph {
