@@ -478,6 +478,7 @@
   border-color: var(--ink);
   color: var(--paper);
 }
+.text-input.is-bold { font-weight: 600; }
 
 .time-range {
   display: flex;

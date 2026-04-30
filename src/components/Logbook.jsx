@@ -7,6 +7,12 @@ import EventEditor from './EventEditor.jsx';
 
 const EVENT_TYPE_BY_KEY = new Map(EVENT_TYPES.map((t) => [t.key, t]));
 
+// Two visual rows: prefilled types on top, ad-hoc events on the bottom.
+const TYPE_ROWS = [
+  EVENT_TYPES.filter((t) => t.prefill),
+  EVENT_TYPES.filter((t) => !t.prefill),
+];
+
 function storageKey(date, poste) {
   return `wb.logbook.v4.${date}.${poste}`;
 }
@@ -67,32 +73,21 @@ export default function Logbook({ poste, shiftMeta }) {
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
       <div className="type-strip no-print">
-        <div className="type-row">
-          {EVENT_TYPES.filter((t) => t.prefill).map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => openTypedEvent(t.key)}
-              title={`Log ${t.label} starting now`}
-            >
-              <span className="glyph">＋</span>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="type-row">
-          {EVENT_TYPES.filter((t) => !t.prefill).map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => openTypedEvent(t.key)}
-              title={`Log ${t.label} starting now`}
-            >
-              <span className="glyph">＋</span>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {TYPE_ROWS.map((row, i) => (
+          <div key={i} className="type-row">
+            {row.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => openTypedEvent(t.key)}
+                title={`Log ${t.label} starting now`}
+              >
+                <span className="glyph">＋</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
 
       <div className="evt-list">

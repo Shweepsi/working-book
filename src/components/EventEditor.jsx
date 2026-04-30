@@ -159,13 +159,12 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
             </label>
             <input
               type="text"
-              className="text-input"
+              className={`text-input ${draft.bold ? 'is-bold' : ''}`}
               placeholder="Description (#plates work too)"
               value={draft.desc || ''}
               onChange={(e) => update('desc', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save()}
               autoFocus={isNew}
-              style={{ fontWeight: draft.bold ? 600 : 400 }}
             />
           </div>
 
