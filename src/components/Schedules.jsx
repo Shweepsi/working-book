@@ -114,18 +114,33 @@ export default function Schedules() {
           <h3>Aucun rapport importé</h3>
           <p className="faint">
             Ouvre PMS230, exécute le <em>Post Production Report</em>, puis Ctrl+A · Ctrl+C
-            et colle ici.
+            et colle ici. Importe aussi la table <strong>Item number → Planning policy</strong>{' '}
+            depuis ton tableur pour afficher la colonne MTO/MTS.
           </p>
-          <button className="btn primary" onClick={() => setImportMode('pms230')}>
-            Importer rapport PMS230
-          </button>
+          <div className="row gap-2">
+            <button className="btn primary" onClick={() => setImportMode('pms230')}>
+              Importer rapport PMS230
+            </button>
+            <button className="btn" onClick={() => setImportMode('policy')}>
+              {policy ? `Politique chargée (${policy.count})` : 'Importer politique MTO/MTS'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {data && !policy && (
+        <div className="sch-hint">
+          <span>↪ Importe la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
+          <button className="btn mini" onClick={() => setImportMode('policy')}>Importer</button>
         </div>
       )}
 
       {data && (
         <div className="sch-body">
           <aside className="sch-rail">
-            <h4 className="sch-rail-title">Schedules</h4>
+            <h4 className="sch-rail-title">
+              Schedules <span className="faint">· {schedules.length}</span>
+            </h4>
             <ul className="sch-rail-list">
               {schedules.map((s) => (
                 <li key={s.schedule}>
@@ -133,10 +148,14 @@ export default function Schedules() {
                     type="button"
                     className={`sch-rail-item ${selected === s.schedule ? 'active' : ''}`}
                     onClick={() => setSelected(s.schedule)}
-                    title={`${s.recordCount} lignes · ${s.totalM2.toFixed(2)} m²`}
                   >
-                    <span className="mono">{s.schedule}</span>
-                    <span className="faint small">{s.itemRoot || '—'}</span>
+                    <div className="sch-rail-top">
+                      <span className="mono sch-rail-num">{s.schedule}</span>
+                      <span className="sch-rail-root">{s.itemRoot || '—'}</span>
+                    </div>
+                    <div className="sch-rail-meta faint small mono">
+                      {s.recordCount} ligne{s.recordCount > 1 ? 's' : ''} · {fmtNum(s.totalM2, 0)} m²
+                    </div>
                   </button>
                 </li>
               ))}
@@ -256,23 +275,26 @@ function ScheduleTable({ rows }) {
 const ScheduleRow = memo(function ScheduleRow({ row }) {
   const isQc = row.largeur === 0 && row.longueur === 0;
   return (
-    <div className={`sch-row ${isQc ? 'is-qc' : ''}`} role="row" title={row.customer || undefined}>
+    <div className={`sch-row ${isQc ? 'is-qc' : ''}`} role="row">
       <div className="sch-cell col-mto" role="cell">
-        <span className={`sch-mto sch-mto-${row.mtoMts.toLowerCase()}`}>{row.mtoMts}</span>
+        <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>
       </div>
       <div className="sch-cell col-date mono" role="cell">{fmtDate(row.dateDepart)}</div>
       <div className="sch-cell col-mo mono" role="cell">{row.mo}</div>
       <div className="sch-cell col-prod mono" role="cell">{row.product}</div>
-      <div className="sch-cell col-name" role="cell">{row.itemName}</div>
+      <div className="sch-cell col-name" role="cell">
+        <div className="sch-name" title={row.itemName}>{row.itemName}</div>
+        {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
+      </div>
       <div className="sch-cell col-num mono" role="cell">{row.schedLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.prodLites || 0}</div>
+      <div className="sch-cell col-num mono" role="cell">{row.prodLites ?? 0}</div>
       <div className="sch-cell col-num mono" role="cell">{row.reqLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.scraps ? fmtNum(row.scraps, 2) : 0}</div>
+      <div className="sch-cell col-num mono" role="cell">{fmtNum(row.scraps ?? 0, 2)}</div>
       <div className="sch-cell col-num mono" role="cell">{row.largeur ? fmtNum(row.largeur, 0) : ''}</div>
       <div className="sch-cell col-num mono" role="cell">{row.longueur ? fmtNum(row.longueur, 0) : ''}</div>
       <div className="sch-cell col-q mono" role="cell">{row.qualite}</div>
       <div className="sch-cell col-num mono" role="cell">{row.litesPerPack ?? ''}</div>
-      <div className="sch-cell col-pdp" role="cell">{row.pdp}</div>
+      <div className="sch-cell col-pdp" role="cell" title={row.pdp}>{row.pdp}</div>
       <div className="sch-cell col-m2 mono" role="cell">{fmtNum(row.m2, 2)}</div>
     </div>
   );
@@ -284,11 +306,10 @@ function TotalRow({ rows }) {
   const m2 = totalM2(rows);
   return (
     <div className="sch-row sch-total" role="row">
-      <div className="sch-cell col-mto" role="cell" />
-      <div className="sch-cell col-date" role="cell" />
-      <div className="sch-cell col-mo" role="cell" />
-      <div className="sch-cell col-prod" role="cell" />
-      <div className="sch-cell col-name" role="cell"><strong>Total</strong></div>
+      <div className="sch-cell sch-total-label" role="cell">
+        <span>Total</span>
+        <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
+      </div>
       <div className="sch-cell col-num mono" role="cell"><strong>{sched}</strong></div>
       <div className="sch-cell col-num mono" role="cell" />
       <div className="sch-cell col-num mono" role="cell"><strong>{req}</strong></div>
@@ -304,10 +325,11 @@ function TotalRow({ rows }) {
 }
 
 function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }) {
+  const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
   return (
     <div className="sch-foot">
-      <label className="sch-foot-vitesse">
-        <span className="faint small">Vitesse</span>
+      <label className={`sch-foot-vitesse ${!validSpeed ? 'is-invalid' : ''}`}>
+        <span className="sch-foot-label">Vitesse</span>
         <input
           type="number"
           min="0.1"
@@ -315,19 +337,21 @@ function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }) {
           className="sch-vitesse-input mono"
           value={vitesse}
           onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
+          aria-label="Vitesse en m/min"
         />
         <span className="faint small">m/min</span>
       </label>
-      <span className="sch-foot-arrow faint">→</span>
-      <span className="sch-foot-time mono">
-        <span className="faint small">à {vitesse || '?'} m/min</span>
-        <strong>{fmtHMmin(minutes)}</strong>
-      </span>
-      <span className="sch-foot-time sch-foot-dt mono">
-        <span className="faint small">+9% DT</span>
-        <strong>{fmtHMmin(minutes != null ? minutes * DOWNTIME_FACTOR : null)}</strong>
-      </span>
-      <span className="faint small">{rows.length} lignes Coater</span>
+      <div className="sch-foot-times">
+        <div className="sch-foot-time">
+          <span className="sch-foot-time-label">à {validSpeed ? vitesse : '?'} m/min</span>
+          <strong className="mono">{fmtHMmin(minutes)}</strong>
+        </div>
+        <div className="sch-foot-time sch-foot-dt">
+          <span className="sch-foot-time-label">+9% DT</span>
+          <strong className="mono">{fmtHMmin(minutes != null ? minutes * DOWNTIME_FACTOR : null)}</strong>
+        </div>
+      </div>
+      <span className="faint small sch-foot-meta">{rows.length} lignes Coater</span>
     </div>
   );
 }
