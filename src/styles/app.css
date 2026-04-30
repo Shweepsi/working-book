@@ -1280,7 +1280,6 @@
     grid-area: auto !important;
   }
   .evt .row-actions { display: none !important; }
-  .evt .notes-badge { display: none !important; }
 
   /* Show only the active flag chip; hide inactive ones */
   .evt .flags > button {
@@ -1454,20 +1453,6 @@
 }
 .evt .row-actions .iconbtn:hover { color: var(--ink); border-color: var(--line); }
 
-/* Notes-count badge — advanced only */
-.evt .notes-badge {
-  display: none;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-  font-family: 'Geist Mono', monospace;
-  font-size: 10px;
-  color: var(--ink-soft);
-  vertical-align: middle;
-}
-:root[data-density='advanced'] .evt .notes-badge { display: inline-block; }
 
 /* Compact summary: shrink stat labels, keep numbers */
 :root[data-density='compact'] .summary { gap: 10px; }

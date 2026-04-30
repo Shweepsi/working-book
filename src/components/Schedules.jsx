@@ -167,9 +167,10 @@ export default function Schedules() {
         <div className="sch-empty">
           <h3>Aucun rapport importé</h3>
           <p className="faint">
-            Ouvre PMS230, exécute le <em>Post Production Report</em>, puis Ctrl+A · Ctrl+C
-            et colle ici. Importe aussi la table <strong>Item number → Planning policy</strong>{' '}
-            depuis ton tableur pour afficher la colonne MTO/MTS.
+            Ouvrir PMS230 dans M3, effectuer la recherche dans <em>Schedule Mashup</em>,
+            puis Ctrl+A · Ctrl+C et coller ici. Importer aussi la table{' '}
+            <strong>Item number → Planning policy</strong> depuis le tableur pour
+            afficher la colonne MTO/MTS.
           </p>
           <div className="row gap-2">
             <button className="btn primary" onClick={() => setImportMode('pms230')}>
@@ -184,7 +185,7 @@ export default function Schedules() {
 
       {data && !policy && (
         <div className="sch-hint">
-          <span>↪ Importe la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
+          <span>↪ Importer la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
           <button className="btn mini" onClick={() => setImportMode('policy')}>Importer</button>
         </div>
       )}
@@ -193,7 +194,7 @@ export default function Schedules() {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Schedules <span className="faint">· {schedules.length}</span>
+              Schedule <span className="faint">· {schedules.length}</span>
             </h4>
             <ul className="sch-rail-list">
               {schedules.map((s) => {
