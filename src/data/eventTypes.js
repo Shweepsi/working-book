@@ -1,27 +1,28 @@
 // `prefill: true` opens the editor with desc set to the type label;
 // `prefill: false` opens with an empty description.
-// `row: 1 | 2` controls which row of the type strip the button lives in.
+// `row: 1 | 2` — row 1 is the primary strip, always visible.
+//   Row 2 holds the secondary recurring operations and is hidden behind
+//   a toggle in the Logbook so the daily UI stays uncluttered.
 // `openNote: true` seeds an empty note row so the editor opens with the
 //   notes section already prompting input.
 
 export const EVENT_TYPES = [
-  // Row 1 — recurring operations, prefilled description, no note prompt.
-  { key: 'Développement',     label: 'Développement',     defaultFlag: 'scheduled',   prefill: true,  row: 1 },
-  { key: 'Entretien',         label: 'Entretien',         defaultFlag: 'scheduled',   prefill: true,  row: 1 },
-  { key: 'Conditionnement',   label: 'Conditionnement',   defaultFlag: 'scheduled',   prefill: true,  row: 1 },
-  { key: 'Ventilation',       label: 'Ventilation',       defaultFlag: 'unscheduled', prefill: true,  row: 1 },
+  // Row 1 — primary, always visible.
+  { key: 'Production',        label: 'Production',        defaultFlag: 'ok',          prefill: true,  row: 1, openNote: true },
+  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'scheduled',   prefill: true,  row: 1, openNote: true },
   { key: 'Brûlage',           label: 'Brûlage',           defaultFlag: 'scheduled',   prefill: true,  row: 1 },
-  { key: 'Refroidissement',   label: 'Refroidissement',   defaultFlag: 'scheduled',   prefill: true,  row: 1 },
-  { key: 'Pompage',           label: 'Pompage',           defaultFlag: 'normal',      prefill: true,  row: 1 },
-  { key: 'Leak Test',         label: 'Leak Test',         defaultFlag: 'normal',      prefill: true,  row: 1 },
+  { key: 'Arrêt',             label: 'Arrêt',             defaultFlag: 'unscheduled', prefill: false, row: 1 },
+  { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: false, row: 1 },
+  { key: 'Note',              label: 'Note',              defaultFlag: 'note',        prefill: false, row: 1 },
 
-  // Row 2 — Production / Recherche Couleur keep their prefill but open with a
-  // note prompt; Arrêt / Qualité / Note are pure ad-hoc.
-  { key: 'Production',        label: 'Production',        defaultFlag: 'ok',          prefill: true,  row: 2, openNote: true },
-  { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'scheduled',   prefill: true,  row: 2, openNote: true },
-  { key: 'Arrêt',             label: 'Arrêt',             defaultFlag: 'unscheduled', prefill: false, row: 2 },
-  { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: false, row: 2 },
-  { key: 'Note',              label: 'Note',              defaultFlag: 'note',        prefill: false, row: 2 },
+  // Row 2 — secondary recurring operations, hidden behind a toggle.
+  { key: 'Développement',     label: 'Développement',     defaultFlag: 'scheduled',   prefill: true,  row: 2 },
+  { key: 'Entretien',         label: 'Entretien',         defaultFlag: 'scheduled',   prefill: true,  row: 2 },
+  { key: 'Conditionnement',   label: 'Conditionnement',   defaultFlag: 'scheduled',   prefill: true,  row: 2 },
+  { key: 'Ventilation',       label: 'Ventilation',       defaultFlag: 'unscheduled', prefill: true,  row: 2 },
+  { key: 'Refroidissement',   label: 'Refroidissement',   defaultFlag: 'scheduled',   prefill: true,  row: 2 },
+  { key: 'Pompage',           label: 'Pompage',           defaultFlag: 'normal',      prefill: true,  row: 2 },
+  { key: 'Leak Test',         label: 'Leak Test',         defaultFlag: 'normal',      prefill: true,  row: 2 },
 ];
 
 // Categories: Normal, OK, Scheduled, Unscheduled, Note

@@ -27,6 +27,7 @@ export default function Logbook({ poste, shiftMeta }) {
     load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
   const [editing, setEditing] = useState(null);
+  const [showSecondary, setShowSecondary] = useState(false);
 
   useEffect(() => {
     save(storageKey(date, poste), events);
@@ -70,9 +71,31 @@ export default function Logbook({ poste, shiftMeta }) {
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
       <div className="type-strip no-print">
-        {TYPE_ROWS.map((row, i) => (
-          <div key={i} className="type-row">
-            {row.map((t) => (
+        <div className="type-row">
+          {TYPE_ROWS[0].map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => openTypedEvent(t.key)}
+              title={`Log ${t.label} starting now`}
+            >
+              <span className="glyph">＋</span>
+              {t.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="type-more"
+            onClick={() => setShowSecondary((v) => !v)}
+            title={showSecondary ? 'Hide secondary types' : 'Show secondary types'}
+            aria-expanded={showSecondary}
+          >
+            {showSecondary ? '−' : '+'}
+          </button>
+        </div>
+        {showSecondary && (
+          <div className="type-row">
+            {TYPE_ROWS[1].map((t) => (
               <button
                 key={t.key}
                 type="button"
@@ -84,7 +107,7 @@ export default function Logbook({ poste, shiftMeta }) {
               </button>
             ))}
           </div>
-        ))}
+        )}
       </div>
 
       <div className="evt-list">
