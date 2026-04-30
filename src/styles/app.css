@@ -504,6 +504,7 @@
   align-items: center;
   gap: 8px;
 }
+.time-range .btn.mini { margin-left: 0; }
 
 .time-input {
   width: 100px;

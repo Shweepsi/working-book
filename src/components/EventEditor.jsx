@@ -92,6 +92,14 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
                 inputMode="numeric"
                 maxLength={5}
               />
+              <button
+                type="button"
+                className="btn ghost mini"
+                onClick={() => update('start', fmtHM())}
+                title="Set start to now"
+              >
+                now
+              </button>
               <span className="arrow">→</span>
               <input
                 type="text"
@@ -104,11 +112,9 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
               />
               <button
                 type="button"
-                className="btn ghost"
-                onClick={() => {
-                  const t = fmtHM();
-                  setDraft((d) => ({ ...d, start: d.start || t, end: t }));
-                }}
+                className="btn ghost mini"
+                onClick={() => update('end', fmtHM())}
+                title="Set end to now"
               >
                 now
               </button>
