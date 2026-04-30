@@ -1,6 +1,6 @@
 // Event types operators log during a shift, with their default category.
 // `defaultFlag` is the category we auto-assign when the operator hasn't picked one;
-// `bold` highlights state-change events (e.g. Ventilation);
+// `bold` highlights state-change events (Ventilation, Brûlage, Refroidissement);
 // `prefill` controls whether the editor opens with the description pre-filled
 // from the type label (true) or left blank for the operator to type (false).
 
@@ -12,6 +12,8 @@ export const EVENT_TYPES = [
   { key: 'Entretien',        label: 'Entretien',        defaultFlag: 'unscheduled', bold: false, prefill: true },
   { key: 'Conditionnement',  label: 'Conditionnement',  defaultFlag: 'normal',      bold: false, prefill: true },
   { key: 'Ventilation',      label: 'Ventilation',      defaultFlag: 'unscheduled', bold: true,  prefill: true },
+  { key: 'Brûlage',          label: 'Brûlage',          defaultFlag: 'scheduled',   bold: true,  prefill: true },
+  { key: 'Refroidissement',  label: 'Refroidissement',  defaultFlag: 'scheduled',   bold: true,  prefill: true },
   { key: 'Pompage',          label: 'Pompage',          defaultFlag: 'normal',      bold: false, prefill: true },
   { key: 'Leak Test',        label: 'Leak Test',        defaultFlag: 'normal',      bold: false, prefill: true },
 
