@@ -61,7 +61,6 @@ export default function Schedules() {
   const [vitesse, setVitesse] = useState(() => load(KEY_SPEED, 6));
   const [selected, setSelected] = useState(() => null);
   const [importMode, setImportMode] = useState(null); // null | 'pms230' | 'policy'
-  const [mtoFilter, setMtoFilter] = useState('all'); // 'all' | 'MTO' | 'MTS' | '?'
 
   // Persist datasets and speed.
   useEffect(() => { save(KEY_DATA, data); }, [data]);
@@ -75,9 +74,6 @@ export default function Schedules() {
       setSelected(first);
     }
   }, [data, selected]);
-
-  // Reset filter when switching schedules.
-  useEffect(() => { setMtoFilter('all'); }, [selected]);
 
   const schedules = data?.schedules ?? [];
 
@@ -103,26 +99,12 @@ export default function Schedules() {
     return filtered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
   }, [data, selected, policy]);
 
-  const filteredRows = useMemo(
-    () => mtoFilter === 'all' ? visibleRows : visibleRows.filter((r) => r.mtoMts === mtoFilter),
-    [visibleRows, mtoFilter],
-  );
-
-  // Counts of each policy value for the filter chip badge labels.
-  const mtoCounts = useMemo(() => {
-    const counts = { MTO: 0, MTS: 0, '?': 0 };
-    for (const r of visibleRows) {
-      if (r.mtoMts in counts) counts[r.mtoMts]++;
-    }
-    return counts;
-  }, [visibleRows]);
-
   // Insert a break marker before each new longueur group (skip the first).
   // Carries the longueur so the break row can render a section label.
   const groupedRows = useMemo(() => {
     const out = [];
     let prevLongueur = null;
-    for (const r of filteredRows) {
+    for (const r of visibleRows) {
       if (prevLongueur !== null && r.longueur !== prevLongueur) {
         out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}`, longueur: r.longueur });
       }
@@ -130,11 +112,11 @@ export default function Schedules() {
       prevLongueur = r.longueur;
     }
     return out;
-  }, [filteredRows]);
+  }, [visibleRows]);
 
   const coaterRows = useMemo(
-    () => filteredRows.filter((r) => r.workCenter === 'Coater'),
-    [filteredRows],
+    () => visibleRows.filter((r) => r.workCenter === 'Coater'),
+    [visibleRows],
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
 
@@ -254,13 +236,7 @@ export default function Schedules() {
               );
             })()}
 
-            <MtoFilterBar
-              counts={mtoCounts}
-              active={mtoFilter}
-              onChange={setMtoFilter}
-            />
-
-            <ScheduleTable items={groupedRows} totals={filteredRows} />
+            <ScheduleTable items={groupedRows} totals={visibleRows} />
 
             <ThroughputFooter
               rows={coaterRows}
@@ -431,34 +407,6 @@ function TotalRow({ rows }) {
       <div className="sch-cell col-num" role="cell" />
       <div className="sch-cell col-pdp" role="cell" />
       <div className="sch-cell col-m2 mono" role="cell"><strong>{fmtNum(m2, 2)}</strong></div>
-    </div>
-  );
-}
-
-function MtoFilterBar({ counts, active, onChange }) {
-  const options = [
-    { key: 'all', label: 'Tous' },
-    { key: 'MTO', label: 'MTO' },
-    { key: 'MTS', label: 'MTS' },
-    { key: '?',   label: '?' },
-  ];
-  return (
-    <div className="sch-mto-bar">
-      {options.map(({ key, label }) => {
-        const count = key === 'all' ? null : counts[key] ?? 0;
-        if (key !== 'all' && count === 0) return null;
-        return (
-          <button
-            key={key}
-            type="button"
-            className={`sch-mto-chip ${active === key ? 'active' : ''}`}
-            onClick={() => onChange(key)}
-          >
-            {label}
-            {count != null && <span className="sch-mto-chip-count">{count}</span>}
-          </button>
-        );
-      })}
     </div>
   );
 }
