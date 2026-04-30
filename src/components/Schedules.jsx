@@ -121,16 +121,17 @@ export default function Schedules() {
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
 
-  // Stats per schedule, recomputed against the same filters so the rail mirrors
-  // what the user actually sees in the table.
+  // Stats per schedule, recomputed against the same filters so the rail and
+  // detail header mirror what the user actually sees in the table.
   const railStats = useMemo(() => {
     const stats = new Map();
     for (const r of data?.records ?? []) {
       if (/^Vacuum/i.test(r.itemName)) continue;
       if (r.opStepD === 90) continue;
       if ((r.reqLites ?? 0) <= 0) continue;
-      const cur = stats.get(r.schedule) ?? { count: 0, m2: 0 };
+      const cur = stats.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
       cur.count += 1;
+      cur.lites += r.schedLites ?? 0;
       cur.m2 += r.m2;
       stats.set(r.schedule, cur);
     }
@@ -220,18 +221,21 @@ export default function Schedules() {
           </aside>
 
           <section className="sch-detail">
-            {selectedSchedule && (
-              <header className="sch-detail-head">
-                <h3>
-                  <span className="mono">{selectedSchedule.schedule}</span>
-                  <span className="faint"> — </span>
-                  <span>{selectedSchedule.itemRoot}</span>
-                </h3>
-                <span className="faint small">
-                  {selectedSchedule.recordCount} lignes · {selectedSchedule.totalLites} lites · {selectedSchedule.totalM2.toFixed(2)} m²
-                </span>
-              </header>
-            )}
+            {selectedSchedule && (() => {
+              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0 };
+              return (
+                <header className="sch-detail-head">
+                  <h3>
+                    <span className="mono">{selectedSchedule.schedule}</span>
+                    <span className="faint"> — </span>
+                    <span>{selectedSchedule.itemRoot}</span>
+                  </h3>
+                  <span className="faint small">
+                    {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
+                  </span>
+                </header>
+              );
+            })()}
 
             <ScheduleTable items={groupedRows} totals={visibleRows} />
 
@@ -358,16 +362,11 @@ const ScheduleRow = memo(function ScheduleRow({ row }) {
       <div className="sch-cell col-name" role="cell">
         <div className="sch-name" title={row.itemName}>{row.itemName}</div>
         {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
-        <div className="sch-meta-line mono">
-          {row.workCenter}
-          {row.opSteps ? ` · ${row.opSteps}` : ''}
-          {row.startTime ? ` · ${row.startDate?.slice(4, 6)}/${row.startDate?.slice(6)} ${row.startTime}` : ''}
-        </div>
       </div>
       <div className="sch-cell col-num mono" role="cell">{row.schedLites || ''}</div>
       <div className="sch-cell col-num mono" role="cell">{row.prodLites ?? 0}</div>
       <div className="sch-cell col-num mono" role="cell">{row.reqLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{fmtNum(row.scraps ?? 0, 2)}</div>
+      <div className="sch-cell col-num mono" role="cell">{row.scraps ?? 0}</div>
       <div className="sch-cell col-num mono" role="cell">{row.largeur ? fmtNum(row.largeur, 0) : ''}</div>
       <div className="sch-cell col-num mono" role="cell">{row.longueur ? fmtNum(row.longueur, 0) : ''}</div>
       <div className="sch-cell col-q mono" role="cell">{row.qualite}</div>
