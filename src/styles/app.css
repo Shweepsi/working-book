@@ -263,6 +263,26 @@
   position: relative;
 }
 
+/* Type chip only shows in advanced mode */
+.evt .type,
+.evt .type-h { display: none; }
+:root[data-density='advanced'] .evt {
+  grid-template-columns: 96px 60px 130px 1fr 110px;
+}
+:root[data-density='advanced'] .evt .type {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--paper);
+  white-space: nowrap;
+  width: fit-content;
+  letter-spacing: 0.01em;
+}
+:root[data-density='advanced'] .evt .type-h { display: block; }
+
 .evt:last-child { border-bottom: 0; }
 
 .evt.tint-yellow { background: color-mix(in srgb, var(--hl-yellow) 55%, var(--paper)); }
@@ -827,6 +847,16 @@
   .evt .desc { grid-area: desc; font-size: 14px; }
   .evt .flags { grid-area: flags; }
 
+  :root[data-density='advanced'] .evt {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'time dur'
+      'type type'
+      'desc desc'
+      'flags flags';
+  }
+  :root[data-density='advanced'] .evt .type { grid-area: type; }
+
 
   .measure-cell { grid-template-columns: 60px 1fr; }
   .measure-cell .mlabel { padding: 6px 10px; }
@@ -856,6 +886,13 @@
     padding: 14px;
     grid-template-areas:
       'time dur'
+      'desc desc'
+      'flags flags';
+  }
+  :root[data-density='advanced'] .evt {
+    grid-template-areas:
+      'time dur'
+      'type type'
       'desc desc'
       'flags flags';
   }
@@ -1168,7 +1205,7 @@
   /* Force desktop grid in print regardless of viewport */
   .evt {
     display: grid !important;
-    grid-template-columns: 60px 50px 1fr 110px !important;
+    grid-template-columns: 60px 50px 90px 1fr 110px !important;
     grid-template-areas: none !important;
     gap: 10px !important;
     padding: 6px 4px !important;
@@ -1177,7 +1214,18 @@
     font-size: 9.5pt !important;
     background: white !important;
   }
-  .evt .time, .evt .dur, .evt .desc, .evt .flags {
+  .evt .type, .evt .type-h {
+    display: inline-flex !important;
+    align-items: center;
+    padding: 1px 6px !important;
+    border: 1px solid #888 !important;
+    border-radius: 3px;
+    font-size: 9pt !important;
+    background: white !important;
+    white-space: nowrap;
+    width: fit-content;
+  }
+  .evt .time, .evt .dur, .evt .type, .evt .desc, .evt .flags {
     grid-area: auto !important;
   }
   .evt .row-actions { display: none !important; }

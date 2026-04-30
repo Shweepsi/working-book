@@ -106,6 +106,7 @@ export default function Logbook({ now, poste, shiftMeta }) {
         <div className="evt evt-head no-print" aria-hidden="true">
           <div className="time">Time</div>
           <div className="dur">Dur.</div>
+          <div className="type-h">Type</div>
           <div className="desc">Description</div>
           <div className="flags-h">Catégorie</div>
         </div>
@@ -179,6 +180,7 @@ function EventRow({ ev, onPatch, onOpen, onRemove }) {
         {ev.end && !sameStartEnd ? <span className="end"> → {ev.end}</span> : null}
       </div>
       <div className="dur">{sameStartEnd ? <span className="faint">·</span> : fmtDuration(minutes)}</div>
+      <span className="type">{ev.type}</span>
       <div className="desc">
         <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
           {ev.desc || <span className="faint">(no description)</span>}
