@@ -39,7 +39,7 @@ export default function Logbook({ poste, shiftMeta }) {
         start: stamp,
         end: stamp,
         type,
-        desc: meta?.label ?? type,
+        desc: meta?.prefill ? meta.label : '',
         flag: meta?.defaultFlag ?? null,
         notes: [],
       },
@@ -67,17 +67,32 @@ export default function Logbook({ poste, shiftMeta }) {
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
       <div className="type-strip no-print">
-        {EVENT_TYPES.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => openTypedEvent(t.key)}
-            title={`Log ${t.label} starting now`}
-          >
-            <span className="glyph">＋</span>
-            {t.label}
-          </button>
-        ))}
+        <div className="type-row">
+          {EVENT_TYPES.filter((t) => t.prefill).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => openTypedEvent(t.key)}
+              title={`Log ${t.label} starting now`}
+            >
+              <span className="glyph">＋</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="type-row">
+          {EVENT_TYPES.filter((t) => !t.prefill).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => openTypedEvent(t.key)}
+              title={`Log ${t.label} starting now`}
+            >
+              <span className="glyph">＋</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="evt-list">

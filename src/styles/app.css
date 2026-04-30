@@ -157,19 +157,26 @@
 
 /* ---------- Logbook ---------- */
 
-/* One-tap "type strip" — phone/tablet primary action */
+/* One-tap "type strip" — phone/tablet primary action.
+   Two rows: prefilled types on top, ad-hoc (Arrêt / Qualité / Note) below. */
 .type-strip {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 14px;
+}
+
+.type-row {
+  display: flex;
+  gap: 8px;
   overflow-x: auto;
-  padding: 4px 0 8px;
+  padding: 4px 0;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
 
-.type-strip::-webkit-scrollbar { height: 4px; }
-.type-strip::-webkit-scrollbar-thumb { background: var(--line-faint); border-radius: 99px; }
+.type-row::-webkit-scrollbar { height: 4px; }
+.type-row::-webkit-scrollbar-thumb { background: var(--line-faint); border-radius: 99px; }
 
 .type-strip button {
   flex-shrink: 0;
