@@ -155,6 +155,13 @@ export default function Schedules() {
         policy={policy}
         onImport={() => setImportMode('pms230')}
         onPolicy={() => setImportMode('policy')}
+        onClear={() => {
+          if (window.confirm('Effacer le rapport PMS230 et la table MTO/MTS ?')) {
+            setData(null);
+            setPolicy(null);
+            setSelected(null);
+          }
+        }}
       />
 
       {!data && (
@@ -264,7 +271,7 @@ export default function Schedules() {
   );
 }
 
-function SummaryBar({ data, policy, onImport, onPolicy }) {
+function SummaryBar({ data, policy, onImport, onPolicy, onClear }) {
   const records = data?.records?.length ?? 0;
   const schedules = data?.schedules?.length ?? 0;
   const m2 = data ? totalM2(data.records).toFixed(2) : null;
@@ -281,6 +288,16 @@ function SummaryBar({ data, policy, onImport, onPolicy }) {
         <button className={`btn ${policy ? 'ghost' : ''}`} onClick={onPolicy}>
           {policy ? `Politique MTO/MTS · ${policyCount} produits` : 'Importer politique MTO/MTS'}
         </button>
+        {(data || policy) && (
+          <button
+            className="btn ghost danger"
+            onClick={onClear}
+            style={{ marginLeft: 'auto' }}
+            title="Effacer le rapport et la table MTO/MTS"
+          >
+            Vider
+          </button>
+        )}
       </div>
       {data && (
         <div className="sch-summary-stats">
