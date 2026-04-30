@@ -358,6 +358,11 @@ const ScheduleRow = memo(function ScheduleRow({ row }) {
       <div className="sch-cell col-name" role="cell">
         <div className="sch-name" title={row.itemName}>{row.itemName}</div>
         {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
+        <div className="sch-meta-line mono">
+          {row.workCenter}
+          {row.opSteps ? ` · ${row.opSteps}` : ''}
+          {row.startTime ? ` · ${row.startDate?.slice(4, 6)}/${row.startDate?.slice(6)} ${row.startTime}` : ''}
+        </div>
       </div>
       <div className="sch-cell col-num mono" role="cell">{row.schedLites || ''}</div>
       <div className="sch-cell col-num mono" role="cell">{row.prodLites ?? 0}</div>
