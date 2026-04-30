@@ -20,6 +20,15 @@ function newId() {
   return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function stripHash(raw) {
+  return (raw || '').replace(/^#+/, '');
+}
+
+function displayTestNo(raw) {
+  const s = stripHash(raw);
+  return s ? `#${s}` : '';
+}
+
 function emptyTest() {
   const now = new Date();
   return {
@@ -147,7 +156,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
     <div className="pt">
       <div className="pt-tests no-print" role="tablist" aria-label="Tests">
         {state.tests.map((t, i) => {
-          const label = t.header.testNo?.trim() || `Test ${i + 1}`;
+          const label = displayTestNo(t.header.testNo) || `Test ${i + 1}`;
           const isActive = t.id === active.id;
           return (
             <button
@@ -176,14 +185,19 @@ export default function ProductionTest({ poste, shiftMeta }) {
       <div className="print-header print-only">
         <h1>Production Test · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
-          <span><strong>Test n°:</strong> {active.header.testNo || '____________'}</span>
+          <span><strong>Test n°:</strong> {displayTestNo(active.header.testNo) || '____________'}</span>
           <span><strong>Date:</strong> {shiftMeta.dateLabel} {active.header.hour}</span>
           <span><strong>Opérateur:</strong> {active.header.operator || '____________________'}</span>
         </div>
       </div>
 
       <header className="pt-header">
-        <Field label="Test n°" value={active.header.testNo} onChange={(v) => patchHeader('testNo', v)} />
+        <Field
+          label="Test n°"
+          prefix="#"
+          value={stripHash(active.header.testNo)}
+          onChange={(v) => patchHeader('testNo', stripHash(v))}
+        />
         <Field label="Opérateur" value={active.header.operator} onChange={(v) => patchHeader('operator', v)} />
         <Field label="Date" type="date" value={active.header.date} onChange={(v) => patchHeader('date', v)} auto />
         <Field label="Heure" value={active.header.hour} onChange={(v) => patchHeader('hour', v)} auto />
@@ -273,15 +287,25 @@ export default function ProductionTest({ poste, shiftMeta }) {
   );
 }
 
-function Field({ label, value, onChange, auto, type }) {
+function Field({ label, value, onChange, auto, type, prefix }) {
+  const input = (
+    <input
+      type={type || 'text'}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
   return (
-    <div className={`field ${auto ? 'auto' : ''}`}>
+    <div className={`field ${auto ? 'auto' : ''} ${prefix ? 'has-prefix' : ''}`}>
       <label>{label}</label>
-      <input
-        type={type || 'text'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {prefix ? (
+        <div className="field-input">
+          <span className="field-prefix" aria-hidden="true">{prefix}</span>
+          {input}
+        </div>
+      ) : (
+        input
+      )}
     </div>
   );
 }

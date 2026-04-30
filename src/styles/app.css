@@ -617,6 +617,32 @@
   font-style: italic;
 }
 
+.pt-header .field-input {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  border-bottom: 1px solid var(--line-soft);
+  min-height: 32px;
+}
+
+.pt-header .field-input:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+.pt-header .field-input input {
+  border-bottom: 0;
+  flex: 1;
+  min-width: 0;
+  padding-left: 0;
+}
+
+.pt-header .field-prefix {
+  font-family: 'Geist Mono', monospace;
+  font-size: 14px;
+  color: var(--ink-soft);
+  user-select: none;
+}
+
 .pt-section {
   background: var(--paper);
   border: 1px solid var(--line-faint);
@@ -1296,6 +1322,8 @@
   }
   .pt-header label { font-size: 8pt !important; color: #666 !important; }
   .pt-header input { font-size: 10pt !important; color: black !important; border-bottom-color: #888 !important; }
+  .pt-header .field-input { border-bottom-color: #888 !important; }
+  .pt-header .field-prefix { font-size: 10pt !important; color: black !important; }
   .measure-cell, .lab-grid .lab-cell, .lab-grid .rowlabel, .lab-grid .head, .measure-cell .mlabel {
     background: white !important;
     color: black !important;
