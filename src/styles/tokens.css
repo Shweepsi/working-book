@@ -1,42 +1,207 @@
-:root {
+/* ---------- Theme tokens ----------
+   Light is the default. Dark kicks in when:
+   - the user explicitly chose `data-theme="dark"` on <html>, OR
+   - they have system dark mode AND no explicit override (`data-theme="auto"` or no attr).
+   Explicit `data-theme="light"` always wins over system. */
+
+:root,
+:root[data-theme='light'],
+:root[data-theme='auto'] {
+  color-scheme: light;
+
   --ink: #2a2722;
   --ink-soft: #5a564f;
   --ink-faint: #8a857c;
   --line: #1f1c18;
   --line-soft: #b8b3a8;
   --line-faint: #d8d4c8;
+
   --paper: #fbfaf6;
   --paper-2: #f3f0e7;
+  --canvas: #f0eee9;
+  --paper-glass: rgba(240, 238, 233, 0.92);
+  --paper-glass-2: rgba(251, 250, 246, 0.96);
+
   --hl-yellow: #f5e9a8;
   --hl-red: #f3c8c0;
   --hl-green: #cde6c2;
   --hl-blue: #c8dcef;
+
   --accent: #c96442;
+  --accent-ink: #ffffff;
+
+  /* Per-flag, theme-aware text + border colors used by .flag-active.* */
+  --flag-normal-bg: var(--paper-2);
+  --flag-normal-bd: var(--ink-soft);
+  --flag-normal-fg: var(--ink);
+  --flag-ok-bd: #95bd83;
+  --flag-ok-fg: #2d4a25;
+  --flag-sched-bd: #d6c568;
+  --flag-sched-fg: #5a4d12;
+  --flag-unsched-bd: #d39a8c;
+  --flag-unsched-fg: #6a2818;
+  --flag-note-bd: #97b6d6;
+  --flag-note-fg: #244260;
+
+  --shadow-sheet: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --shadow-fab: 0 6px 24px rgba(201, 100, 66, 0.35), 0 2px 6px rgba(0, 0, 0, 0.12);
+  --shadow-popover: 0 10px 28px rgba(31, 28, 24, 0.18);
+  --backdrop: rgba(31, 28, 24, 0.35);
+  --focus-ring: rgba(201, 100, 66, 0.06);
 }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']),
+  :root[data-theme='auto'] {
+    color-scheme: dark;
+
+    --ink: #ece7dd;
+    --ink-soft: #a8a298;
+    --ink-faint: #6f6a62;
+    --line: #f0ece2;
+    --line-soft: #3a3631;
+    --line-faint: #2a2722;
+
+    --paper: #1c1a17;
+    --paper-2: #24211d;
+    --canvas: #14130f;
+    --paper-glass: rgba(20, 19, 15, 0.85);
+    --paper-glass-2: rgba(28, 26, 23, 0.92);
+
+    --hl-yellow: #4a3f0f;
+    --hl-red: #4a1d12;
+    --hl-green: #1f361a;
+    --hl-blue: #18324a;
+
+    --accent: #e07a55;
+    --accent-ink: #14130f;
+
+    --flag-normal-bg: var(--paper-2);
+    --flag-normal-bd: var(--ink-soft);
+    --flag-normal-fg: var(--ink);
+    --flag-ok-bd: #5a8a4b;
+    --flag-ok-fg: #d3eac6;
+    --flag-sched-bd: #93812e;
+    --flag-sched-fg: #f3e7a8;
+    --flag-unsched-bd: #a45c4a;
+    --flag-unsched-fg: #f3c5b8;
+    --flag-note-bd: #4f7aa3;
+    --flag-note-fg: #c8dcef;
+
+    --shadow-sheet: 0 12px 40px rgba(0, 0, 0, 0.6);
+    --shadow-fab: 0 6px 24px rgba(224, 122, 85, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-popover: 0 10px 28px rgba(0, 0, 0, 0.55);
+    --backdrop: rgba(0, 0, 0, 0.55);
+    --focus-ring: rgba(224, 122, 85, 0.1);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ink: #ece7dd;
+  --ink-soft: #a8a298;
+  --ink-faint: #6f6a62;
+  --line: #f0ece2;
+  --line-soft: #3a3631;
+  --line-faint: #2a2722;
+
+  --paper: #1c1a17;
+  --paper-2: #24211d;
+  --canvas: #14130f;
+  --paper-glass: rgba(20, 19, 15, 0.85);
+  --paper-glass-2: rgba(28, 26, 23, 0.92);
+
+  --hl-yellow: #4a3f0f;
+  --hl-red: #4a1d12;
+  --hl-green: #1f361a;
+  --hl-blue: #18324a;
+
+  --accent: #e07a55;
+  --accent-ink: #14130f;
+
+  --flag-normal-bg: var(--paper-2);
+  --flag-normal-bd: var(--ink-soft);
+  --flag-normal-fg: var(--ink);
+  --flag-ok-bd: #5a8a4b;
+  --flag-ok-fg: #d3eac6;
+  --flag-sched-bd: #93812e;
+  --flag-sched-fg: #f3e7a8;
+  --flag-unsched-bd: #a45c4a;
+  --flag-unsched-fg: #f3c5b8;
+  --flag-note-bd: #4f7aa3;
+  --flag-note-fg: #c8dcef;
+
+  --shadow-sheet: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-fab: 0 6px 24px rgba(224, 122, 85, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-popover: 0 10px 28px rgba(0, 0, 0, 0.55);
+  --backdrop: rgba(0, 0, 0, 0.55);
+  --focus-ring: rgba(224, 122, 85, 0.1);
+}
+
+/* ---------- Density tokens ----------
+   Normal is the default (beginner-friendly, generous touch targets).
+   Compact tightens spacing and shrinks fonts for power users.
+   Advanced is compact + reveals extra detail (.adv-only) and shows hints. */
+
+:root,
+:root[data-density='normal'] {
+  --d-pad-y: 12px;
+  --d-pad-x: 18px;
+  --d-row-min: 44px;
+  --d-evt-pad-y: 12px;
+  --d-evt-font: 13px;
+  --d-header-pad-y: 12px;
+  --d-header-pad-x: 24px;
+  --d-main-pad: 24px;
+  --d-gap: 16px;
+  --d-btn-min: 36px;
+  --d-chip-min: 32px;
+  --d-input-min: 42px;
+  --d-tab-pad-y: 6px;
+  --d-tab-font: 12px;
+}
+
+:root[data-density='compact'],
+:root[data-density='advanced'] {
+  --d-pad-y: 7px;
+  --d-pad-x: 12px;
+  --d-row-min: 32px;
+  --d-evt-pad-y: 7px;
+  --d-evt-font: 12px;
+  --d-header-pad-y: 7px;
+  --d-header-pad-x: 16px;
+  --d-main-pad: 14px;
+  --d-gap: 10px;
+  --d-btn-min: 30px;
+  --d-chip-min: 26px;
+  --d-input-min: 34px;
+  --d-tab-pad-y: 4px;
+  --d-tab-font: 11px;
+}
+
+/* Adv-only details — hidden by default, shown in advanced density */
+.adv-only { display: none; }
+:root[data-density='advanced'] .adv-only { display: inline-flex; }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #f0eee9;
+  background: var(--canvas);
   font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-button {
-  font-family: inherit;
-  color: inherit;
-}
+button { font-family: inherit; color: inherit; }
 
 .mono {
   font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.hand {
-  font-family: 'Caveat', cursive;
-}
+.hand { font-family: 'Caveat', cursive; }
+
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }

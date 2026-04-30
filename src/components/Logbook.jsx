@@ -22,6 +22,7 @@ export default function Logbook({ now, poste, shiftMeta }) {
     load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
   const [editing, setEditing] = useState(null);
+  const [tipDismissed, setTipDismissed] = useState(() => load('wb.tip.logbook', false));
 
   useEffect(() => {
     setEvents(load(storageKey(date, poste), defaultsFor(date, poste, shift.key)));
@@ -78,6 +79,25 @@ export default function Logbook({ now, poste, shiftMeta }) {
     <div>
       <PrintHeader poste={poste} shiftMeta={shiftMeta} />
 
+      {!tipDismissed && (
+        <div className="tip-banner no-print" role="note">
+          <span className="tip-icon" aria-hidden="true">i</span>
+          <div className="tip-body">
+            Welcome — <strong>tap a type below</strong> (or <strong>＋ New event</strong>) to log what's
+            happening on your shift. Everything autosaves to this device. Use <strong>Print</strong> at the
+            bottom when the shift ends.
+          </div>
+          <button
+            type="button"
+            className="tip-close"
+            aria-label="Dismiss tip"
+            onClick={() => { setTipDismissed(true); save('wb.tip.logbook', true); }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="logbook-toolbar no-print">
         <div className="toolbar-left">
           <button className="btn primary" onClick={openNewEvent}>＋ New event</button>
@@ -121,7 +141,10 @@ export default function Logbook({ now, poste, shiftMeta }) {
         {events.length === 0 && (
           <div className="evt-empty">
             <div>No events yet for Poste {poste}.</div>
-            <button className="btn primary" onClick={openNewEvent} style={{ marginTop: 10 }}>
+            <div className="faint xsmall" style={{ marginTop: 4 }}>
+              Pick a type above, or start with a blank event.
+            </div>
+            <button className="btn primary" onClick={openNewEvent} style={{ marginTop: 12 }}>
               ＋ Log first event
             </button>
           </div>
@@ -191,6 +214,11 @@ function EventRow({ ev, onPatch, onOpen }) {
         {(ev.notes || []).map((n, i) => (
           <span key={i} className="sub">{n}</span>
         ))}
+        <span className="adv-meta">
+          {`#${(ev.id || '').toString().slice(-4) || '----'}`}
+          {minutes != null ? ` · ${minutes}m` : ''}
+          {ev.flag ? ` · ${ev.flag}` : ''}
+        </span>
       </div>
       <div className="flags">
         {ev.flag ? (
