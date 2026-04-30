@@ -148,11 +148,6 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
         <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
           {ev.desc || <span className="faint">(no description)</span>}
         </span>
-        {notes.length > 0 && (
-          <span className="notes-badge" title={`${notes.length} note${notes.length > 1 ? 's' : ''}`}>
-            ✎ {notes.length}
-          </span>
-        )}
         {notes.map((n, i) => (
           <span key={i} className="sub">{n}</span>
         ))}

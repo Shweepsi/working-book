@@ -17,7 +17,7 @@ import {
 const TABS = [
   { key: 'logbook', label: 'Logbook' },
   { key: 'test', label: 'Production Test' },
-  { key: 'sched', label: 'Schedules' },
+  { key: 'sched', label: 'Schedule' },
 ];
 
 const SHIFT_TABS = [
