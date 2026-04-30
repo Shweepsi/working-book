@@ -163,7 +163,6 @@ export default function Logbook({ now, poste, shiftMeta }) {
 function EventRow({ ev, onPatch, onOpen, onRemove }) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
-  const refs = (ev.desc || '').match(/#\d+/g) || [];
   const typeMeta = EVENT_TYPES.find((t) => t.key === ev.type);
   const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
   const noteCount = (ev.notes || []).filter((n) => n && n.trim()).length;
@@ -186,7 +185,6 @@ function EventRow({ ev, onPatch, onOpen, onRemove }) {
         <span style={{ fontWeight: typeMeta?.bold ? 600 : 400 }}>
           {ev.desc || <span className="faint">(no description)</span>}
         </span>
-        {refs.length > 0 && <span className="refs">{refs.join(' · ')}</span>}
         {noteCount > 0 && (
           <span className="notes-badge" title={`${noteCount} note${noteCount > 1 ? 's' : ''}`}>
             ✎ {noteCount}
