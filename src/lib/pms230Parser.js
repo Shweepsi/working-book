@@ -113,6 +113,7 @@ function decodeRecord(slice, warnings, recordIdx) {
     schedule: slice[0],
     schedSuffix: slice[1] ?? '0',
     opSteps: [slice[2], slice[3], slice[4]].filter(Boolean).join('/'),
+    opStepD: Number(slice[3]) || 0, // second op-step; the planner's Excel filters on D!=90
     workCenter: slice[5] ?? '',
     startDate: slice[6] ?? '',
     startTime: slice[7] ?? '',

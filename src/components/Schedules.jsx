@@ -77,17 +77,65 @@ export default function Schedules() {
   }, [data, selected]);
 
   const schedules = data?.schedules ?? [];
+
+  // Filtered rows for the selected schedule. Mirrors the planner's Excel formula:
+  //   - drop QC samples (item name starting with "Vacuum")
+  //   - drop "off-coater" operations (second op-step = 90)
+  //   - drop rows with no remaining requirement (reqLites = 0)
+  // Sort by longueur DESC, PDP DESC, item name ASC — same keys as the formula.
   const visibleRows = useMemo(() => {
-    const rows = (data?.records ?? []).filter((r) => r.schedule === selected);
     const policyMap = policy?.map ?? {};
-    return rows.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
+    const filtered = (data?.records ?? [])
+      .filter((r) => r.schedule === selected)
+      .filter((r) => !/^Vacuum/i.test(r.itemName))
+      .filter((r) => r.opStepD !== 90)
+      .filter((r) => (r.reqLites ?? 0) > 0);
+
+    filtered.sort((a, b) => {
+      if (b.longueur !== a.longueur) return b.longueur - a.longueur;
+      if ((b.pdp || '') !== (a.pdp || '')) return (b.pdp || '').localeCompare(a.pdp || '');
+      return (a.itemName || '').localeCompare(b.itemName || '');
+    });
+
+    return filtered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
   }, [data, selected, policy]);
+
+  // Insert a break marker before each new longueur group (skip the first).
+  // Renders as a blank divider row, mirroring the formula's blankRow VSTACK.
+  const groupedRows = useMemo(() => {
+    const out = [];
+    let prevLongueur = null;
+    for (const r of visibleRows) {
+      if (prevLongueur !== null && r.longueur !== prevLongueur) {
+        out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}` });
+      }
+      out.push({ kind: 'row', row: r });
+      prevLongueur = r.longueur;
+    }
+    return out;
+  }, [visibleRows]);
 
   const coaterRows = useMemo(
     () => visibleRows.filter((r) => r.workCenter === 'Coater'),
     [visibleRows],
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
+
+  // Stats per schedule, recomputed against the same filters so the rail mirrors
+  // what the user actually sees in the table.
+  const railStats = useMemo(() => {
+    const stats = new Map();
+    for (const r of data?.records ?? []) {
+      if (/^Vacuum/i.test(r.itemName)) continue;
+      if (r.opStepD === 90) continue;
+      if ((r.reqLites ?? 0) <= 0) continue;
+      const cur = stats.get(r.schedule) ?? { count: 0, m2: 0 };
+      cur.count += 1;
+      cur.m2 += r.m2;
+      stats.set(r.schedule, cur);
+    }
+    return stats;
+  }, [data]);
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
@@ -142,23 +190,26 @@ export default function Schedules() {
               Schedules <span className="faint">· {schedules.length}</span>
             </h4>
             <ul className="sch-rail-list">
-              {schedules.map((s) => (
-                <li key={s.schedule}>
-                  <button
-                    type="button"
-                    className={`sch-rail-item ${selected === s.schedule ? 'active' : ''}`}
-                    onClick={() => setSelected(s.schedule)}
-                  >
-                    <div className="sch-rail-top">
-                      <span className="mono sch-rail-num">{s.schedule}</span>
-                      <span className="sch-rail-root">{s.itemRoot || '—'}</span>
-                    </div>
-                    <div className="sch-rail-meta faint small mono">
-                      {s.recordCount} ligne{s.recordCount > 1 ? 's' : ''} · {fmtNum(s.totalM2, 0)} m²
-                    </div>
-                  </button>
-                </li>
-              ))}
+              {schedules.map((s) => {
+                const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0 };
+                return (
+                  <li key={s.schedule}>
+                    <button
+                      type="button"
+                      className={`sch-rail-item ${selected === s.schedule ? 'active' : ''}`}
+                      onClick={() => setSelected(s.schedule)}
+                    >
+                      <div className="sch-rail-top">
+                        <span className="mono sch-rail-num">{s.schedule}</span>
+                        <span className="sch-rail-root">{s.itemRoot || '—'}</span>
+                      </div>
+                      <div className="sch-rail-meta faint small mono">
+                        {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </aside>
 
@@ -176,7 +227,7 @@ export default function Schedules() {
               </header>
             )}
 
-            <ScheduleTable rows={visibleRows} />
+            <ScheduleTable items={groupedRows} totals={visibleRows} />
 
             <ThroughputFooter
               rows={coaterRows}
@@ -252,9 +303,13 @@ function SummaryBar({ data, policy, onImport, onPolicy }) {
   );
 }
 
-function ScheduleTable({ rows }) {
-  if (rows.length === 0) {
-    return <div className="sch-empty-rows faint">Aucune ligne pour ce schedule.</div>;
+function ScheduleTable({ items, totals }) {
+  if (totals.length === 0) {
+    return (
+      <div className="sch-empty-rows faint">
+        Aucune ligne pour ce schedule (après filtres : pas de QC, op-step ≠ 90, requis &gt; 0).
+      </div>
+    );
   }
 
   return (
@@ -264,10 +319,12 @@ function ScheduleTable({ rows }) {
           <div key={c.key} className={`sch-cell ${c.cls}`} role="columnheader">{c.label}</div>
         ))}
       </div>
-      {rows.map((r) => (
-        <ScheduleRow key={r.id} row={r} />
-      ))}
-      <TotalRow rows={rows} />
+      {items.map((it) =>
+        it.kind === 'break'
+          ? <div key={it.id} className="sch-row sch-group-break" role="separator" aria-hidden="true" />
+          : <ScheduleRow key={it.row.id} row={it.row} />
+      )}
+      <TotalRow rows={totals} />
     </div>
   );
 }
