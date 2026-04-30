@@ -455,6 +455,30 @@
   font-weight: 600;
 }
 
+/* Minimalist mise-en-page toggle inside a section-label (currently: bold). */
+.mep-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line-faint);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink-faint);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+.mep-toggle:hover { border-color: var(--line-soft); color: var(--ink-soft); }
+.mep-toggle.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
 .time-range {
   display: flex;
   align-items: center;
