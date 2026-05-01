@@ -1874,14 +1874,19 @@
   background: var(--paper-2);
   border-bottom: 0;
   font-size: 10px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font-weight: 600;
   position: sticky;
   top: 0;
   z-index: 2;
   box-shadow: 0 1px 0 var(--line-faint);
+  user-select: none;
+}
+.sch-row.sch-head .sch-cell {
+  padding-top: 9px;
+  padding-bottom: 9px;
 }
 .sch-row.sch-group-break {
   min-height: 22px;
@@ -2117,6 +2122,7 @@
 :root[data-density='compact'] .sch-rail-meta { font-size: 9px; }
 :root[data-density='compact'] .sch-cell { padding: 3px 6px; font-size: 11px; }
 :root[data-density='compact'] .sch-row.sch-head { font-size: 9px; }
+:root[data-density='compact'] .sch-row.sch-head .sch-cell { padding-top: 6px; padding-bottom: 6px; }
 :root[data-density='compact'] .sch-row.sch-total { font-size: 12px; }
 :root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: 9px; }
 :root[data-density='compact'] .sch-customer { font-size: 9px; }
