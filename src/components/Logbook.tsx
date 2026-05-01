@@ -1,29 +1,35 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { SAMPLE_EVENTS, newId } from '../data/shift.js';
-import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes.js';
-import { diffMinutes, fmtDuration, fmtHM } from '../lib/time.js';
-import { load, save } from '../lib/storage.js';
-import EventEditor from './EventEditor.jsx';
+import { SAMPLE_EVENTS, newId } from '../data/shift.ts';
+import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes.ts';
+import { diffMinutes, fmtDuration, fmtHM } from '../lib/time.ts';
+import { load, save } from '../lib/storage.ts';
+import EventEditor from './EventEditor.tsx';
+import type { Poste, ShiftEvent, ShiftKey, ShiftMeta } from '../types.ts';
 
 const EVENT_TYPE_BY_KEY = new Map(EVENT_TYPES.map((t) => [t.key, t]));
 
-function storageKey(date, poste) {
+function storageKey(date: string, poste: Poste | null): string {
   return `wb.logbook.v4.${date}.${poste}`;
 }
 
 // Seed the canonical "demo" shift (Poste C, 28-Apr-2026 morning) from the wireframe.
 // Other (date, poste) pairs start empty.
-function defaultsFor(date, poste, shiftKey) {
+function defaultsFor(date: string, poste: Poste | null, shiftKey: ShiftKey): ShiftEvent[] {
   if (date === '2026-04-28' && poste === 'C' && shiftKey === 'M') return SAMPLE_EVENTS;
   return [];
 }
 
-export default function Logbook({ poste, shiftMeta }) {
+interface LogbookProps {
+  poste: Poste | null;
+  shiftMeta: ShiftMeta;
+}
+
+export default function Logbook({ poste, shiftMeta }: LogbookProps) {
   const { date, shift } = shiftMeta;
-  const [events, setEvents] = useState(() =>
-    load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
+  const [events, setEvents] = useState<ShiftEvent[]>(() =>
+    load<ShiftEvent[]>(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<{ event: Partial<ShiftEvent> } | null>(null);
 
   useEffect(() => {
     save(storageKey(date, poste), events);
@@ -31,7 +37,7 @@ export default function Logbook({ poste, shiftMeta }) {
 
   const summary = useMemo(() => computeSummary(events), [events]);
 
-  function openTypedEvent(type) {
+  function openTypedEvent(type: string) {
     const stamp = fmtHM();
     const meta = EVENT_TYPE_BY_KEY.get(type);
     setEditing({
@@ -46,18 +52,21 @@ export default function Logbook({ poste, shiftMeta }) {
     });
   }
 
-  const openEvent = useCallback((ev) => setEditing({ event: ev }), []);
+  const openEvent = useCallback((ev: ShiftEvent) => setEditing({ event: ev }), []);
   const removeEvent = useCallback(
-    (id) => setEvents((prev) => prev.filter((e) => e.id !== id)),
+    (id: string) => setEvents((prev) => prev.filter((e) => e.id !== id)),
     [],
   );
 
-  function saveFromEditor(payload) {
-    const normalized = { ...payload, end: payload.end || payload.start || null };
+  function saveFromEditor(payload: Partial<ShiftEvent>) {
+    const normalized: Partial<ShiftEvent> = {
+      ...payload,
+      end: payload.end || payload.start || null,
+    };
     setEvents((prev) =>
       normalized.id
-        ? prev.map((e) => (e.id === normalized.id ? { ...e, ...normalized } : e))
-        : [...prev, { ...normalized, id: newId() }],
+        ? prev.map((e) => (e.id === normalized.id ? { ...e, ...normalized } as ShiftEvent : e))
+        : [...prev, { ...(normalized as ShiftEvent), id: newId() }],
     );
     setEditing(null);
   }
@@ -121,7 +130,13 @@ export default function Logbook({ poste, shiftMeta }) {
   );
 }
 
-const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
+interface EventRowProps {
+  ev: ShiftEvent;
+  onOpen: (ev: ShiftEvent) => void;
+  onRemove: (id: string) => void;
+}
+
+const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
   const typeMeta = EVENT_TYPE_BY_KEY.get(ev.type);
@@ -181,7 +196,7 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
   );
 });
 
-function PrintHeader({ poste, shiftMeta }) {
+function PrintHeader({ poste, shiftMeta }: { poste: Poste | null; shiftMeta: ShiftMeta }) {
   return (
     <div className="print-header print-only">
       <h1>Logbook · Poste {poste} · {shiftMeta.shift.label}</h1>
@@ -194,7 +209,7 @@ function PrintHeader({ poste, shiftMeta }) {
   );
 }
 
-function PrintSignature({ poste }) {
+function PrintSignature({ poste }: { poste: Poste | null }) {
   return (
     <div className="print-signature print-only">
       <div className="sig-row">
@@ -211,7 +226,9 @@ function PrintSignature({ poste }) {
   );
 }
 
-function computeSummary(events) {
+interface Summary { total: number; scheduledMin: number; unscheduledMin: number; }
+
+function computeSummary(events: ShiftEvent[]): Summary {
   let scheduledMin = 0;
   let unscheduledMin = 0;
   for (const e of events) {

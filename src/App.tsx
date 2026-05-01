@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import Logbook from './components/Logbook.jsx';
-import ProductionTest from './components/ProductionTest.jsx';
-import Schedules from './components/Schedules.jsx';
-import Settings from './components/Settings.jsx';
-import { load, save } from './lib/storage.js';
+import Logbook from './components/Logbook.tsx';
+import ProductionTest from './components/ProductionTest.tsx';
+import Schedules from './components/Schedules.tsx';
+import Settings from './components/Settings.tsx';
+import { load, save } from './lib/storage.ts';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -12,50 +12,62 @@ import {
   fmtDateLong,
   shiftFor,
   todayISO,
-} from './lib/shiftCalendar.js';
+} from './lib/shiftCalendar.ts';
+import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types.ts';
 
-const TABS = [
+const TABS: Array<{ key: 'logbook' | 'test' | 'sched'; label: string }> = [
   { key: 'logbook', label: 'Logbook' },
   { key: 'test', label: 'Production Test' },
   { key: 'sched', label: 'Schedules' },
 ];
 
-const SHIFT_TABS = [
+type TabKey = (typeof TABS)[number]['key'];
+
+const SHIFT_TABS: Array<{ key: 'M' | 'A' | 'N'; label: string }> = [
   { key: 'M', label: 'Matin' },
   { key: 'A', label: 'Après-Midi' },
   { key: 'N', label: 'Nuit' },
 ];
 
-// Status-bar color (PWA / mobile chrome) per resolved theme
-const META_COLOR = { light: '#f0eee9', dark: '#14130f' };
+type ActiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 
-function shiftKeyForHour(hour) {
+// Status-bar color (PWA / mobile chrome) per resolved theme
+const META_COLOR: Record<'light' | 'dark', string> = { light: '#f0eee9', dark: '#14130f' };
+
+function shiftKeyForHour(hour: number): ActiveShiftKey {
   if (hour >= 6 && hour < 14) return 'M';
   if (hour >= 14 && hour < 22) return 'A';
   return 'N';
 }
 
-function posteFor(dateObj, shiftKey) {
-  return POSTES.find((p) => shiftFor(p, dateObj).key === shiftKey) || null;
+function posteFor(dateObj: Date, shiftKey: ShiftKey): Poste | null {
+  return POSTES.find((p) => shiftFor(p, dateObj).key === shiftKey) ?? null;
 }
 
-function resolvedTheme(pref) {
+function resolvedTheme(pref: Theme): 'light' | 'dark' {
   if (pref === 'light' || pref === 'dark') return pref;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-export default function App() {
-  const [tab, setTab] = useState(() => window.location.hash.replace('#', '') || 'logbook');
+function isTabKey(s: string): s is TabKey {
+  return s === 'logbook' || s === 'test' || s === 'sched';
+}
 
-  const [date, setDate] = useState(() => load('wb.date', null) || todayISO());
-  const [shiftKey, setShiftKey] = useState(() => {
-    const persisted = load('wb.shiftKey', null);
-    if (persisted && SHIFT_TABS.some((s) => s.key === persisted)) return persisted;
+export default function App() {
+  const [tab, setTab] = useState<TabKey>(() => {
+    const hash = window.location.hash.replace('#', '');
+    return isTabKey(hash) ? hash : 'logbook';
+  });
+
+  const [date, setDate] = useState<string>(() => load<string | null>('wb.date', null) || todayISO());
+  const [shiftKey, setShiftKey] = useState<ActiveShiftKey>(() => {
+    const persisted = load<string | null>('wb.shiftKey', null);
+    if (persisted && SHIFT_TABS.some((s) => s.key === persisted)) return persisted as ActiveShiftKey;
     return shiftKeyForHour(new Date().getHours());
   });
 
-  const [theme, setTheme] = useState(() => load('wb.theme', 'auto'));
-  const [density, setDensity] = useState(() => load('wb.density', 'normal'));
+  const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
+  const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const nowShiftKey = useNowShiftKey();
@@ -84,6 +96,7 @@ export default function App() {
       mql.addEventListener?.('change', apply);
       return () => mql.removeEventListener?.('change', apply);
     }
+    return undefined;
   }, [theme]);
 
   useEffect(() => {
@@ -97,7 +110,7 @@ export default function App() {
   const isToday = date === todayISO();
   const onLiveShift = isToday && shiftKey === nowShiftKey;
 
-  const shiftMeta = {
+  const shiftMeta: ShiftMeta = {
     poste,
     date,
     dateLabel: fmtDateLong(date),
@@ -211,8 +224,8 @@ export default function App() {
   );
 }
 
-function useNowShiftKey() {
-  const [key, setKey] = useState(() => shiftKeyForHour(new Date().getHours()));
+function useNowShiftKey(): ActiveShiftKey {
+  const [key, setKey] = useState<ActiveShiftKey>(() => shiftKeyForHour(new Date().getHours()));
   useEffect(() => {
     const tick = () => setKey((prev) => {
       const next = shiftKeyForHour(new Date().getHours());

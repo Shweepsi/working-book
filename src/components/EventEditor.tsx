@@ -1,27 +1,37 @@
 import { useEffect, useState } from 'react';
-import { EVENT_TYPES, FLAGS } from '../data/eventTypes.js';
-import { fmtHM } from '../lib/time.js';
+import { EVENT_TYPES, FLAGS } from '../data/eventTypes.ts';
+import { fmtHM } from '../lib/time.ts';
+import type { ShiftEvent } from '../types.ts';
 
-const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [] };
+type EditableEvent = Partial<ShiftEvent>;
+
+const EMPTY: EditableEvent = { start: '', end: '', type: '', desc: '', flag: '', notes: [] };
 
 // Force "HH:MM" shape as user types: strip non-digits, cap at 4 digits, splice colon.
 // Empty stays empty so a "no-time" event is still acceptable.
-function maskTime(raw) {
+function maskTime(raw: string): string {
   const digits = (raw || '').replace(/\D/g, '').slice(0, 4);
   if (digits.length <= 2) return digits;
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
-export default function EventEditor({ event, onSave, onDelete, onClose }) {
+interface Props {
+  event: EditableEvent | null | undefined;
+  onSave: (payload: EditableEvent) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
+
+export default function EventEditor({ event, onSave, onDelete, onClose }: Props) {
   const isNew = !event?.id;
-  const [draft, setDraft] = useState(() => ({ ...EMPTY, ...(event || {}) }));
+  const [draft, setDraft] = useState<EditableEvent>(() => ({ ...EMPTY, ...(event || {}) }));
 
   useEffect(() => {
     setDraft({ ...EMPTY, ...(event || {}) });
   }, [event]);
 
   useEffect(() => {
-    function onKey(e) {
+    function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
     window.addEventListener('keydown', onKey);
@@ -29,13 +39,13 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
   }, [onClose]);
 
   function save() {
-    if (!draft.type && !draft.desc.trim()) return;
+    if (!draft.type && !(draft.desc ?? '').trim()) return;
     onSave({
       ...draft,
       start: draft.start || null,
       end: draft.end || draft.start || null,
       type: draft.type || 'Note',
-      desc: draft.desc.trim(),
+      desc: (draft.desc ?? '').trim(),
       flag:
         draft.flag ||
         EVENT_TYPES.find((t) => t.key === draft.type)?.defaultFlag ||
@@ -43,11 +53,11 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
     });
   }
 
-  function update(field, value) {
+  function update<K extends keyof EditableEvent>(field: K, value: EditableEvent[K]) {
     setDraft((d) => ({ ...d, [field]: value }));
   }
 
-  function setNote(i, value) {
+  function setNote(i: number, value: string) {
     setDraft((d) => {
       const notes = [...(d.notes || [])];
       notes[i] = value;
@@ -59,7 +69,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
     setDraft((d) => ({ ...d, notes: [...(d.notes || []), ''] }));
   }
 
-  function removeNote(i) {
+  function removeNote(i: number) {
     setDraft((d) => {
       const notes = [...(d.notes || [])];
       notes.splice(i, 1);

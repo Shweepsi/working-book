@@ -1,9 +1,11 @@
 // Sample shift events for Poste C (06h–14h) using the new type/category set.
 
-let nextId = 1;
-const id = () => `e${nextId++}`;
+import type { ShiftEvent } from '../types.ts';
 
-export const SAMPLE_EVENTS = [
+let nextId = 1;
+const id = (): string => `e${nextId++}`;
+
+export const SAMPLE_EVENTS: ShiftEvent[] = [
   {
     id: id(),
     start: '06:00', end: '06:15', type: 'Production',
@@ -87,8 +89,8 @@ export const SAMPLE_SHIFT = {
   date: '2026-04-28',
   hours: '06h – 14h',
   operator: '',
-};
+} as const;
 
-export function newId() {
+export function newId(): string {
   return `e${++nextId}`;
 }

@@ -2,7 +2,9 @@
 // `defaultFlag` is the category we auto-assign when the operator hasn't picked one;
 // `bold` highlights state-change events (Brûlage, Refroidissement, Ventilation).
 
-export const EVENT_TYPES = [
+import type { EventType, Flag, FlagKey, FlagTint } from '../types.ts';
+
+export const EVENT_TYPES: EventType[] = [
   { key: 'Production', label: 'Production', defaultFlag: 'normal', bold: false },
   { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'note', bold: false },
   { key: 'Brûlage', label: 'Brûlage', defaultFlag: 'scheduled', bold: true },
@@ -15,7 +17,7 @@ export const EVENT_TYPES = [
 ];
 
 // Categories: Normal, OK, Scheduled, Unscheduled, Note
-export const FLAGS = {
+export const FLAGS: Record<FlagKey, Flag> = {
   normal: { key: 'normal', label: 'Normal', tint: null },
   ok: { key: 'ok', label: 'OK', tint: 'green' },
   scheduled: { key: 'scheduled', label: 'Scheduled', tint: 'yellow' },
@@ -23,6 +25,7 @@ export const FLAGS = {
   note: { key: 'note', label: 'Note', tint: 'blue' },
 };
 
-export function tintForFlag(flagKey) {
+export function tintForFlag(flagKey: FlagKey | '' | null | undefined): FlagTint {
+  if (!flagKey) return null;
   return FLAGS[flagKey]?.tint ?? null;
 }

@@ -1,41 +1,40 @@
 // Parser for the Item-number / Name / Planning-policy lookup table.
 // Source: a 3-column tab-separated paste from a spreadsheet/grid.
-//
-// Output shape:
-//   {
-//     map:   { [productCode: string]: 'MTO' | 'MTS' },
-//     names: { [productCode: string]: string },
-//     count, warnings,
-//   }
+
+import type { PastePayload, PolicyResult, PolicyValue } from '../types.ts';
 
 const PRODUCT_RE = /^33\d{7}$/;
-const POLICY_VALUES = new Set(['MTO', 'MTS']);
+const POLICY_VALUES = new Set<PolicyValue>(['MTO', 'MTS']);
 const HEADER_TOKENS = new Set(['Item number', 'Name', 'Planning policy']);
 
-function normalise(text) {
+function isPolicyValue(v: string): v is PolicyValue {
+  return POLICY_VALUES.has(v as PolicyValue);
+}
+
+function normalise(text: string): string {
   return text
     .replace(/﻿/g, '')
     .replace(/[ ​]/g, ' ')
     .replace(/\r\n?/g, '\n');
 }
 
-function rowsFromHTML(html) {
+function rowsFromHTML(html: string | null | undefined): string[][] | null {
   if (!html || typeof DOMParser === 'undefined') return null;
-  let doc;
+  let doc: Document;
   try {
     doc = new DOMParser().parseFromString(html, 'text/html');
   } catch {
     return null;
   }
-  const rows = [];
+  const rows: string[][] = [];
   for (const tr of doc.querySelectorAll('tr')) {
     const cells = Array.from(tr.querySelectorAll('th, td')).map((c) => (c.textContent ?? '').trim());
-    if (cells.length >= 3) rows.push([cells[0], cells[1], cells[2]]);
+    if (cells.length >= 3) rows.push([cells[0]!, cells[1]!, cells[2]!]);
   }
   return rows.length > 0 ? rows : null;
 }
 
-function rowsFromText(text) {
+function rowsFromText(text: string): string[][] {
   return normalise(text)
     .split('\n')
     .map((l) => l.trim())
@@ -44,19 +43,23 @@ function rowsFromText(text) {
     .filter((cells) => cells.length >= 3);
 }
 
-export function parsePolicy(textOrPayload) {
-  const html = typeof textOrPayload === 'object' ? textOrPayload.html : null;
-  const text = typeof textOrPayload === 'object' ? textOrPayload.text : textOrPayload;
+export function parsePolicy(textOrPayload: string | PastePayload): PolicyResult {
+  const html =
+    typeof textOrPayload === 'object' && textOrPayload !== null ? textOrPayload.html : null;
+  const text =
+    typeof textOrPayload === 'object' && textOrPayload !== null
+      ? textOrPayload.text
+      : textOrPayload;
 
   const rows = rowsFromHTML(html) ?? rowsFromText(text ?? '');
 
-  const map = {};
-  const names = {};
-  const warnings = [];
+  const map: Record<string, PolicyValue> = {};
+  const names: Record<string, string> = {};
+  const warnings: string[] = [];
   let count = 0;
 
   for (let i = 0; i < rows.length; i++) {
-    const [productCode, name, policy] = rows[i];
+    const [productCode, name, policy] = rows[i] as [string, string, string];
 
     if (HEADER_TOKENS.has(productCode) || HEADER_TOKENS.has(policy)) continue;
 
@@ -64,7 +67,7 @@ export function parsePolicy(textOrPayload) {
       warnings.push(`Row ${i + 1}: invalid product code "${productCode}"`);
       continue;
     }
-    if (!POLICY_VALUES.has(policy)) {
+    if (!isPolicyValue(policy)) {
       warnings.push(`Row ${i + 1} (${productCode}): unexpected policy "${policy}"`);
       continue;
     }

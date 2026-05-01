@@ -1,15 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
+import type { PastePayload } from '../types.ts';
 
 // Reusable paste sheet. Drives both PMS230 and policy imports.
 //
-// Props:
-//   parser(payload: { html, text }) -> result   // pure parser
-//   describe(result) -> string                  // success preview, e.g. "✓ 49 records across 4 schedules"
-//   showAppend                                  // when true, expose Replace + Append actions
-//   onConfirm(result, mode: 'replace' | 'append')
-//   onClose
-//   title, hint
-export default function PasteImport({
+// Generic R is the parser's result shape. We constrain it lightly so we can
+// surface a row count for the import button without forcing every parser to
+// expose the same field names.
+export interface ImportResultLike {
+  records?: unknown[];
+  count?: number;
+  warnings?: string[];
+}
+
+interface Props<R extends ImportResultLike> {
+  parser: (payload: PastePayload) => R;
+  describe: (result: R) => string;
+  showAppend?: boolean;
+  onConfirm: (result: R, mode: 'replace' | 'append') => void;
+  onClose: () => void;
+  title: string;
+  hint?: string;
+}
+
+export default function PasteImport<R extends ImportResultLike>({
   parser,
   describe,
   showAppend = false,
@@ -17,14 +30,13 @@ export default function PasteImport({
   onClose,
   title,
   hint,
-}) {
-  const [payload, setPayload] = useState({ html: '', text: '' });
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const taRef = useRef(null);
+}: Props<R>) {
+  const [result, setResult] = useState<R | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    function onKey(e) {
+    function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
     window.addEventListener('keydown', onKey);
@@ -32,38 +44,35 @@ export default function PasteImport({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  function handlePaste(e) {
+  function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
     if (!html && !text) return;
     e.preventDefault();
-    setPayload({ html, text });
     setError(null);
     try {
       const parsed = parser({ html, text });
       setResult(parsed);
     } catch (err) {
-      setError(err?.message ?? 'Parsing failed');
+      setError((err as Error)?.message ?? 'Parsing failed');
       setResult(null);
     }
     if (taRef.current) taRef.current.value = text || '(HTML payload)';
   }
 
-  function reparse(rawText) {
-    setPayload({ html: '', text: rawText });
+  function reparse(rawText: string) {
     setError(null);
     try {
       setResult(parser({ html: '', text: rawText }));
     } catch (err) {
-      setError(err?.message ?? 'Parsing failed');
+      setError((err as Error)?.message ?? 'Parsing failed');
       setResult(null);
     }
   }
 
-  const hasPayload = payload.html || payload.text;
   const summary = result ? describe(result) : null;
   const warnings = result?.warnings ?? [];
-  const ready = result && (result.records?.length || result.count) > 0;
+  const ready = !!result && ((result.records?.length ?? 0) > 0 || (result.count ?? 0) > 0);
 
   return (
     <>
@@ -115,7 +124,7 @@ export default function PasteImport({
               className="btn"
               type="button"
               disabled={!ready}
-              onClick={() => onConfirm(result, 'append')}
+              onClick={() => result && onConfirm(result, 'append')}
               title="Fusionner avec les données existantes (dédup sur schedule|MO)"
             >
               Ajouter
@@ -125,7 +134,7 @@ export default function PasteImport({
             className="btn primary"
             type="button"
             disabled={!ready}
-            onClick={() => onConfirm(result, 'replace')}
+            onClick={() => result && onConfirm(result, 'replace')}
           >
             {showAppend ? 'Remplacer' : 'Importer'}
           </button>

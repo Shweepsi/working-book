@@ -1,38 +1,50 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   HEADER_DEFAULTS,
   OPTOPLEX_CODES,
   TD_PAIRS,
   ZEISS_CODES,
-} from '../data/productionTest.js';
-import { fmtHM } from '../lib/time.js';
-import { load, save } from '../lib/storage.js';
+} from '../data/productionTest.ts';
+import { fmtHM } from '../lib/time.ts';
+import { load, save } from '../lib/storage.ts';
+import type {
+  Poste,
+  ProductionTest as ProductionTestT,
+  ProductionTestState,
+  PtHeader,
+  ShiftKey,
+  ShiftMeta,
+  StackAxis,
+  YabAxis,
+  YabGroup,
+  YabValues,
+} from '../types.ts';
 
 // A production test belongs to a specific shift (Matin / Après-Midi / Nuit),
 // not just to a date — multiple postes share the same calendar day. The key
 // is keyed by (date, shift) directly; the poste is recorded inside the test
 // header for the printout.
-function storageKey(date, shiftKey) {
+function storageKey(date: string, shiftKey: ShiftKey): string {
   return `wb.prodtest.v6.${date}.${shiftKey}`;
 }
 
 // v5 keyed by (date, poste). Since poste is bijective with shiftKey on a given
 // date, v5 data migrates 1-for-1 by looking it up under the current poste.
-function v5Key(date, poste) {
+function v5Key(date: string, poste: Poste | null): string {
   return `wb.prodtest.v5.${date}.${poste}`;
 }
 
-function v4Key(date, poste) {
+function v4Key(date: string, poste: Poste | null): string {
   return `wb.prodtest.v4.${date}.${poste}`;
 }
 
-function newId() {
+function newId(): string {
   return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
 // Test n° accepts integers 1..399. Strips non-digits, drops leading zeros,
 // clamps the high end. Returns '' for empty / zero input so the placeholder shows.
-function sanitizeTestNo(raw) {
+function sanitizeTestNo(raw: string | number | null | undefined): string {
   const digits = String(raw ?? '').replace(/\D/g, '').replace(/^0+/, '');
   if (!digits) return '';
   const n = parseInt(digits, 10);
@@ -40,12 +52,12 @@ function sanitizeTestNo(raw) {
   return String(Math.min(399, n));
 }
 
-function displayTestNo(raw) {
+function displayTestNo(raw: string | number | null | undefined): string {
   const s = sanitizeTestNo(raw);
   return s ? `#${s}` : '';
 }
 
-function emptyTest() {
+function emptyTest(): ProductionTestT {
   const now = new Date();
   return {
     id: newId(),
@@ -69,52 +81,59 @@ function emptyTest() {
   };
 }
 
-function initialState(date, shiftKey, poste) {
-  const v6 = load(storageKey(date, shiftKey), null);
+interface LegacyV4 { header?: PtHeader }
+
+function initialState(date: string, shiftKey: ShiftKey, poste: Poste | null): ProductionTestState {
+  const v6 = load<ProductionTestState | null>(storageKey(date, shiftKey), null);
   if (v6 && Array.isArray(v6.tests) && v6.tests.length > 0) {
     return v6;
   }
-  const v5 = load(v5Key(date, poste), null);
+  const v5 = load<ProductionTestState | null>(v5Key(date, poste), null);
   if (v5 && Array.isArray(v5.tests) && v5.tests.length > 0) {
     return v5;
   }
-  const legacy = load(v4Key(date, poste), null);
+  const legacy = load<LegacyV4 | null>(v4Key(date, poste), null);
   if (legacy && legacy.header) {
-    const test = { id: newId(), ...legacy };
+    const test: ProductionTestT = { ...(legacy as ProductionTestT), id: newId() };
     return { tests: [test], activeId: test.id };
   }
   const t = emptyTest();
   return { tests: [t], activeId: t.id };
 }
 
-export default function ProductionTest({ poste, shiftMeta }) {
+interface Props {
+  poste: Poste | null;
+  shiftMeta: ShiftMeta;
+}
+
+export default function ProductionTest({ poste, shiftMeta }: Props) {
   const { date, shift } = shiftMeta;
   const shiftKey = shift.key;
-  const [state, setState] = useState(() => initialState(date, shiftKey, poste));
+  const [state, setState] = useState<ProductionTestState>(() => initialState(date, shiftKey, poste));
 
   useEffect(() => {
     save(storageKey(date, shiftKey), state);
   }, [state, date, shiftKey]);
 
-  const active =
-    state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
+  const active: ProductionTestT =
+    state.tests.find((t) => t.id === state.activeId) ?? state.tests[0]!;
 
-  function patchActive(updater) {
+  function patchActive(updater: (t: ProductionTestT) => ProductionTestT) {
     setState((s) => ({
       ...s,
       tests: s.tests.map((t) => (t.id === active.id ? updater(t) : t)),
     }));
   }
 
-  function patchHeader(field, value) {
+  function patchHeader<K extends keyof PtHeader>(field: K, value: PtHeader[K]) {
     patchActive((t) => ({ ...t, header: { ...t.header, [field]: value } }));
   }
 
-  function patchTd(code, value) {
+  function patchTd(code: string, value: string) {
     patchActive((t) => ({ ...t, td: { ...t.td, [code]: value } }));
   }
 
-  function patchYab(group, code, axis, value) {
+  function patchYab(group: YabGroup, code: string, axis: YabAxis, value: string) {
     patchActive((t) => ({
       ...t,
       [group]: {
@@ -124,7 +143,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
     }));
   }
 
-  function patchStack(axis, value) {
+  function patchStack(axis: StackAxis, value: string) {
     patchActive((t) => ({ ...t, stack: { ...t.stack, [axis]: value } }));
   }
 
@@ -155,7 +174,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
     setState((s) => ({ tests: [...s.tests, t], activeId: t.id }));
   }
 
-  function selectTest(id) {
+  function selectTest(id: string) {
     setState((s) => ({ ...s, activeId: id }));
   }
 
@@ -168,7 +187,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
     setState((s) => {
       const idx = s.tests.findIndex((t) => t.id === active.id);
       const next = s.tests.filter((t) => t.id !== active.id);
-      const fallback = next[Math.min(idx, next.length - 1)].id;
+      const fallback = next[Math.min(idx, next.length - 1)]!.id;
       return { tests: next, activeId: fallback };
     });
   }
@@ -233,7 +252,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
       </header>
 
       <Section title="Transmissions Digitales">
-        <div className="measure-grid" style={{ '--cols': 2 }}>
+        <div className="measure-grid" style={{ '--cols': 2 } as CSSProperties}>
           {TD_PAIRS.flatMap(([a, b]) => [
             <TdCell key={a} code={a} value={active.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
             <TdCell key={b} code={b} value={active.td[b] || ''} onChange={(v) => patchTd(b, v)} />,
@@ -262,7 +281,7 @@ export default function ProductionTest({ poste, shiftMeta }) {
           <div className="head">Rsol</div>
           <div className="head">Asol</div>
           <div className="rowlabel">Thermal</div>
-          {['Tsol', 'Rsol', 'Asol'].map((axis) => (
+          {(['Tsol', 'Rsol', 'Asol'] as StackAxis[]).map((axis) => (
             <div key={axis} className="lab-cell">
               <input
                 inputMode="decimal"
@@ -310,7 +329,18 @@ export default function ProductionTest({ poste, shiftMeta }) {
   );
 }
 
-function Field({ label, value, onChange, auto, type, prefix, inputMode, maxLength }) {
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  auto?: boolean;
+  type?: string;
+  prefix?: string;
+  inputMode?: 'numeric' | 'decimal' | 'text' | 'search' | 'tel' | 'url' | 'email' | 'none';
+  maxLength?: number;
+}
+
+function Field({ label, value, onChange, auto, type, prefix, inputMode, maxLength }: FieldProps) {
   const input = (
     <input
       type={type || 'text'}
@@ -335,7 +365,7 @@ function Field({ label, value, onChange, auto, type, prefix, inputMode, maxLengt
   );
 }
 
-function Section({ title, children }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="pt-section">
       <header>
@@ -346,7 +376,13 @@ function Section({ title, children }) {
   );
 }
 
-function TdCell({ code, value, onChange }) {
+interface TdCellProps {
+  code: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function TdCell({ code, value, onChange }: TdCellProps) {
   return (
     <div className="measure-cell">
       <span className="mlabel">{code}</span>
@@ -359,7 +395,14 @@ function TdCell({ code, value, onChange }) {
   );
 }
 
-function YabSection({ title, codes, values, onChange }) {
+interface YabSectionProps {
+  title: string;
+  codes: string[];
+  values: Record<string, YabValues>;
+  onChange: (code: string, axis: YabAxis, value: string) => void;
+}
+
+function YabSection({ title, codes, values, onChange }: YabSectionProps) {
   return (
     <Section title={title}>
       <div className="lab-grid">
@@ -380,11 +423,17 @@ function YabSection({ title, codes, values, onChange }) {
   );
 }
 
-function YabRow({ code, values, onChange }) {
+interface YabRowProps {
+  code: string;
+  values: YabValues;
+  onChange: (axis: YabAxis, value: string) => void;
+}
+
+function YabRow({ code, values, onChange }: YabRowProps) {
   return (
     <>
       <div className="rowlabel">{code}</div>
-      {['Y', 'a*', 'b*'].map((axis) => (
+      {(['Y', 'a*', 'b*'] as YabAxis[]).map((axis) => (
         <div key={axis} className="lab-cell">
           <input
             inputMode="decimal"
@@ -396,3 +445,4 @@ function YabRow({ code, values, onChange }) {
     </>
   );
 }
+

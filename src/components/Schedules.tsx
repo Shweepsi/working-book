@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { load, save } from '../lib/storage.js';
-import { mergePMS230, parsePMS230 } from '../lib/pms230Parser.js';
-import { parsePolicy } from '../lib/policyParser.js';
+import { load, save } from '../lib/storage.ts';
+import { mergePMS230, parsePMS230 } from '../lib/pms230Parser.ts';
+import { parsePolicy } from '../lib/policyParser.ts';
 import {
   DOWNTIME_FACTOR,
   fmtHMmin,
@@ -9,8 +9,13 @@ import {
   totalLites,
   totalM2,
   totalReqLites,
-} from '../lib/coaterMath.js';
-import PasteImport from './PasteImport.jsx';
+} from '../lib/coaterMath.ts';
+import PasteImport from './PasteImport.tsx';
+import type {
+  PMS230ParseResult,
+  PMS230Record,
+  PolicyResult,
+} from '../types.ts';
 
 const KEY_DATA   = 'wb.schedules.v1';
 const KEY_POLICY = 'wb.schedules.policy.v1';
@@ -33,7 +38,15 @@ const COLUMNS = [
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2'   },
 ];
 
-function describePMS230(r) {
+type EnrichedRecord = PMS230Record & { mtoMts: string };
+
+type GroupItem =
+  | { kind: 'break'; id: string; longueur: number }
+  | { kind: 'row'; row: EnrichedRecord };
+
+interface ScheduleStat { count: number; lites: number; m2: number; }
+
+function describePMS230(r: PMS230ParseResult): string {
   const records = r.records?.length ?? 0;
   const schedules = r.schedules?.length ?? 0;
   const m2 = totalM2(r.records ?? []);
@@ -41,26 +54,26 @@ function describePMS230(r) {
   return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${m2.toFixed(2)} m²${page}`;
 }
 
-function describePolicy(r) {
+function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
-function fmtDate(yyyymmdd) {
+function fmtDate(yyyymmdd: string | null | undefined): string {
   if (!yyyymmdd || yyyymmdd.length !== 8) return '';
   return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
 }
 
-function fmtNum(n, digits = 0) {
+function fmtNum(n: number | null | undefined, digits = 0): string {
   if (n == null || !Number.isFinite(n)) return '';
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 export default function Schedules() {
-  const [data, setData] = useState(() => load(KEY_DATA, null));
-  const [policy, setPolicy] = useState(() => load(KEY_POLICY, null));
-  const [vitesse, setVitesse] = useState(() => load(KEY_SPEED, 6));
-  const [selected, setSelected] = useState(() => null);
-  const [importMode, setImportMode] = useState(null); // null | 'pms230' | 'policy'
+  const [data, setData] = useState<PMS230ParseResult | null>(() => load<PMS230ParseResult | null>(KEY_DATA, null));
+  const [policy, setPolicy] = useState<PolicyResult | null>(() => load<PolicyResult | null>(KEY_POLICY, null));
+  const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 6));
+  const [selected, setSelected] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState<null | 'pms230' | 'policy'>(null);
 
   // Persist datasets and speed.
   useEffect(() => { save(KEY_DATA, data); }, [data]);
@@ -82,7 +95,7 @@ export default function Schedules() {
   //   - drop "off-coater" operations (second op-step = 90)
   //   - drop rows with no remaining requirement (reqLites = 0)
   // Sort by longueur DESC, PDP DESC, item name ASC — same keys as the formula.
-  const visibleRows = useMemo(() => {
+  const visibleRows = useMemo<EnrichedRecord[]>(() => {
     const policyMap = policy?.map ?? {};
     const filtered = (data?.records ?? [])
       .filter((r) => r.schedule === selected)
@@ -100,10 +113,9 @@ export default function Schedules() {
   }, [data, selected, policy]);
 
   // Insert a break marker before each new longueur group (including the first).
-  // Carries the longueur so the break row can render a section label.
-  const groupedRows = useMemo(() => {
-    const out = [];
-    let prevLongueur = null;
+  const groupedRows = useMemo<GroupItem[]>(() => {
+    const out: GroupItem[] = [];
+    let prevLongueur: number | null = null;
     for (const r of visibleRows) {
       if (r.longueur !== prevLongueur) {
         out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}`, longueur: r.longueur });
@@ -122,8 +134,8 @@ export default function Schedules() {
 
   // Stats per schedule, recomputed against the same filters so the rail and
   // detail header mirror what the user actually sees in the table.
-  const railStats = useMemo(() => {
-    const stats = new Map();
+  const railStats = useMemo<Map<string, ScheduleStat>>(() => {
+    const stats = new Map<string, ScheduleStat>();
     for (const r of data?.records ?? []) {
       if (/^Vacuum/i.test(r.itemName)) continue;
       if (r.opStepD === 90) continue;
@@ -139,11 +151,11 @@ export default function Schedules() {
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
-  function handlePms230Confirm(parsed, mode) {
+  function handlePms230Confirm(parsed: PMS230ParseResult, mode: 'replace' | 'append') {
     setData((prev) => (mode === 'append' ? mergePMS230(prev, parsed) : parsed));
     setImportMode(null);
   }
-  function handlePolicyConfirm(parsed) {
+  function handlePolicyConfirm(parsed: PolicyResult) {
     setPolicy(parsed);
     setImportMode(null);
   }
@@ -197,7 +209,7 @@ export default function Schedules() {
             </h4>
             <ul className="sch-rail-list">
               {schedules.map((s) => {
-                const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0 };
+                const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0 };
                 return (
                   <li key={s.schedule}>
                     <button
@@ -249,7 +261,7 @@ export default function Schedules() {
       )}
 
       {importMode === 'pms230' && (
-        <PasteImport
+        <PasteImport<PMS230ParseResult>
           title="Importer le rapport PMS230"
           hint="Sur PMS230, va dans Post Production Report. Ctrl+A puis Ctrl+C, et colle ci-dessous."
           parser={parsePMS230}
@@ -260,7 +272,7 @@ export default function Schedules() {
         />
       )}
       {importMode === 'policy' && (
-        <PasteImport
+        <PasteImport<PolicyResult>
           title="Importer la table MTO/MTS"
           hint="Colle les colonnes Item number / Name / Planning policy depuis ton tableur."
           parser={parsePolicy}
@@ -273,13 +285,21 @@ export default function Schedules() {
   );
 }
 
-function SummaryBar({ data, policy, onImport, onPolicy, onClear }) {
+interface SummaryBarProps {
+  data: PMS230ParseResult | null;
+  policy: PolicyResult | null;
+  onImport: () => void;
+  onPolicy: () => void;
+  onClear: () => void;
+}
+
+function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarProps) {
   const records = data?.records?.length ?? 0;
   const schedules = data?.schedules?.length ?? 0;
   const m2 = data ? totalM2(data.records).toFixed(2) : null;
   const policyCount = policy?.count ?? 0;
   const importedAt = data?.importedAt ? new Date(data.importedAt) : null;
-  const pageWarn = data?.totalPages && data.totalPages > 1;
+  const pageWarn = data?.totalPages != null && data.totalPages > 1;
 
   return (
     <div className="sch-summary">
@@ -322,7 +342,9 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }) {
   );
 }
 
-function ScheduleTable({ items, totals }) {
+interface ScheduleTableProps { items: GroupItem[]; totals: EnrichedRecord[]; }
+
+function ScheduleTable({ items, totals }: ScheduleTableProps) {
   if (totals.length === 0) {
     return (
       <div className="sch-empty-rows faint">
@@ -352,7 +374,7 @@ function ScheduleTable({ items, totals }) {
   );
 }
 
-const ScheduleRow = memo(function ScheduleRow({ row }) {
+const ScheduleRow = memo(function ScheduleRow({ row }: { row: EnrichedRecord }) {
   const isQc = row.largeur === 0 && row.longueur === 0;
   return (
     <div className={`sch-row ${isQc ? 'is-qc' : ''}`} role="row">
@@ -387,7 +409,7 @@ const ScheduleRow = memo(function ScheduleRow({ row }) {
   );
 });
 
-function TotalRow({ rows }) {
+function TotalRow({ rows }: { rows: EnrichedRecord[] }) {
   const sched = totalLites(rows);
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
@@ -411,7 +433,14 @@ function TotalRow({ rows }) {
   );
 }
 
-function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }) {
+interface ThroughputFooterProps {
+  rows: EnrichedRecord[];
+  vitesse: number | string;
+  onVitesseChange: (v: number | string) => void;
+  minutes: number | null;
+}
+
+function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }: ThroughputFooterProps) {
   const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
   return (
     <div className="sch-foot">
