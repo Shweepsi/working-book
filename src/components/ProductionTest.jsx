@@ -229,11 +229,11 @@ export default function ProductionTest({ poste, shiftMeta }) {
         <Field label="Date" type="date" value={active.header.date} onChange={(v) => patchHeader('date', v)} auto />
         <Field label="Heure" value={active.header.hour} onChange={(v) => patchHeader('hour', v)} auto />
         <Field label="Produit" value={active.header.product} onChange={(v) => patchHeader('product', v)} />
-        <Field label="Vitesse" value={active.header.speed} onChange={(v) => patchHeader('speed', v)} />
         <Field label="M3 Lot" value={active.header.m3Lot} onChange={(v) => patchHeader('m3Lot', v)} />
         <Field label="Épaisseur" value={active.header.thickness} onChange={(v) => patchHeader('thickness', v)} />
         <Field label="Origine" value={active.header.origin} onChange={(v) => patchHeader('origin', v)} />
         <Field label="Résistance" value={active.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
+        <Field label="Vitesse" value={active.header.speed} onChange={(v) => patchHeader('speed', v)} />
       </header>
 
       <Section title="Transmissions Digitales">
