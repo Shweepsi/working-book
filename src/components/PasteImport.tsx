@@ -135,7 +135,16 @@ export default function PasteImport<R extends PasteImportResult>({
             className="btn primary"
             type="button"
             disabled={!ready}
-            onClick={() => result && onConfirm(result, 'replace')}
+            onClick={() => {
+              if (!result) return;
+              if (showAppend) {
+                const ok = window.confirm(
+                  'Remplacer écrase toutes les données déjà importées. Continuer ?',
+                );
+                if (!ok) return;
+              }
+              onConfirm(result, 'replace');
+            }}
           >
             {showAppend ? 'Remplacer' : 'Importer'}
           </button>

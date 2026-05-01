@@ -168,7 +168,7 @@ export default function Schedules() {
         onImport={() => setImportMode('pms230')}
         onPolicy={() => setImportMode('policy')}
         onClear={() => {
-          if (window.confirm('Effacer le rapport PMS230 ?')) {
+          if (window.confirm('Effacer le rapport Operator Mashup ?')) {
             setData(null);
             setSelected(null);
           }
@@ -179,7 +179,7 @@ export default function Schedules() {
         <div className="sch-empty">
           <h3>Aucun rapport importé</h3>
           <p className="faint">
-            Ouvrir PMS230 dans M3, effectuer la recherche dans <em>Schedule Mashup</em>,
+            Ouvrir l'<em>Operator Mashup</em> dans M3, effectuer la recherche,
             puis Ctrl+A · Ctrl+C et coller ici.
           </p>
           <p className="faint">
@@ -188,7 +188,7 @@ export default function Schedules() {
           </p>
           <div className="row gap-2">
             <button className="btn primary" onClick={() => setImportMode('pms230')}>
-              Importer rapport PMS230
+              Importer rapport Operator Mashup
             </button>
             <button className="btn" onClick={() => setImportMode('policy')}>
               {policy ? `Politique chargée (${policy.count})` : 'Importer politique MTO/MTS'}
@@ -265,8 +265,8 @@ export default function Schedules() {
 
       {importMode === 'pms230' && (
         <PasteImport<PMS230Result>
-          title="Importer le rapport PMS230"
-          hint="Sur PMS230, va dans Post Production Report. Ctrl+A puis Ctrl+C, et colle ci-dessous."
+          title="Importer le rapport Operator Mashup"
+          hint="Dans l'Operator Mashup, ouvrir Post Production Report. Ctrl+A puis Ctrl+C, et coller ci-dessous."
           parser={parsePMS230}
           describe={describePMS230}
           showAppend={!!data}
@@ -308,7 +308,7 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
     <div className="sch-summary">
       <div className="sch-summary-actions">
         <button className="btn primary" onClick={onImport}>
-          {data ? 'Réimporter rapport PMS230' : 'Importer rapport PMS230'}
+          {data ? 'Réimporter rapport Operator Mashup' : 'Importer rapport Operator Mashup'}
         </button>
         <button className={`btn ${policy ? 'ghost' : ''}`} onClick={onPolicy}>
           {policy ? `Politique MTO/MTS · ${policyCount} produits` : 'Importer politique MTO/MTS'}
@@ -318,7 +318,7 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
             className="btn destructive"
             onClick={onClear}
             style={{ marginLeft: 'auto' }}
-            title="Effacer le rapport PMS230 (la table MTO/MTS est conservée)"
+            title="Effacer le rapport Operator Mashup (la table MTO/MTS est conservée)"
           >
             ⚠ Vider
           </button>
@@ -452,24 +452,30 @@ function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }: Throughpu
     <div className="sch-foot">
       <label className={`sch-foot-vitesse ${!validSpeed ? 'is-invalid' : ''}`}>
         <span className="sch-foot-label">Vitesse</span>
-        <input
-          type="number"
-          min="0.1"
-          step="0.1"
-          className="sch-vitesse-input mono"
-          value={vitesse}
-          onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
-          aria-label="Vitesse en m/min"
-        />
-        <span className="faint small">m/min</span>
+        <span className="sch-foot-vitesse-field">
+          <input
+            type="number"
+            min="0.1"
+            step="0.1"
+            className="sch-vitesse-input mono"
+            value={vitesse}
+            onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
+            aria-label="Vitesse en m/min"
+          />
+          <span className="sch-foot-unit">m/min</span>
+        </span>
       </label>
+      <span className="sch-foot-arrow" aria-hidden="true">→</span>
       <div className="sch-foot-times">
         <div className="sch-foot-time">
-          <span className="sch-foot-time-label">à {validSpeed ? vitesse : '?'} m/min</span>
+          <span className="sch-foot-time-label">Théorique</span>
           <strong className="mono">{fmtHMmin(minutes)}</strong>
         </div>
-        <div className="sch-foot-time sch-foot-dt">
-          <span className="sch-foot-time-label">+9% DT</span>
+        <div
+          className="sch-foot-time sch-foot-dt"
+          title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %"
+        >
+          <span className="sch-foot-time-label">Avec DT +9 %</span>
           <strong className="mono">{fmtHMmin(minutes != null ? minutes * DOWNTIME_FACTOR : null)}</strong>
         </div>
       </div>
