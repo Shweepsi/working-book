@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useEscapeToClose } from '../lib/hooks';
 
 // Reusable paste sheet. Drives both PMS230 and policy imports.
 
@@ -36,30 +37,23 @@ export default function PasteImport<R extends PasteImportResult>({
   title,
   hint,
 }: PasteImportProps<R>) {
-  const [payload, setPayload] = useState<PastePayload>({ html: '', text: '' });
   const [result, setResult] = useState<R | null>(null);
   const [error, setError] = useState<string | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
+  useEscapeToClose(onClose);
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
     taRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
 
   function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
     if (!html && !text) return;
     e.preventDefault();
-    setPayload({ html, text });
     setError(null);
     try {
-      const parsed = parser({ html, text });
-      setResult(parsed);
+      setResult(parser({ html, text }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Parsing failed');
       setResult(null);
@@ -68,7 +62,6 @@ export default function PasteImport<R extends PasteImportResult>({
   }
 
   function reparse(rawText: string) {
-    setPayload({ html: '', text: rawText });
     setError(null);
     try {
       setResult(parser({ html: '', text: rawText }));
@@ -78,7 +71,6 @@ export default function PasteImport<R extends PasteImportResult>({
     }
   }
 
-  const hasPayload = payload.html || payload.text;
   const summary = result ? describe(result) : null;
   const warnings = result?.warnings ?? [];
   const ready = !!result && ((result.records?.length ?? 0) > 0 || (result.count ?? 0) > 0);

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { EVENT_TYPES, FLAGS } from '../data/eventTypes';
+import { useEscapeToClose } from '../lib/hooks';
 import { fmtHM } from '../lib/time';
-import type { FlagKey, LogEvent } from '../types';
+import type { LogEvent } from '../types';
 
 type Draft = Omit<LogEvent, 'id'> & { id?: string };
 
@@ -32,13 +33,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
     setDraft({ ...EMPTY, ...(event || {}) });
   }, [event]);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEscapeToClose(onClose);
 
   function save() {
     if (!draft.type && !draft.desc.trim()) return;
@@ -50,7 +45,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
       end: draft.end || draft.start || null,
       type: draft.type || 'Note',
       desc: draft.desc.trim(),
-      flag: (draft.flag || fallbackFlag) as FlagKey | null,
+      flag: draft.flag || fallbackFlag,
       bold: !!draft.bold,
       danger: !!draft.danger,
     });
