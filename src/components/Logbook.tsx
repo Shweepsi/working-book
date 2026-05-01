@@ -126,8 +126,8 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
 
       <div className="evt-list">
         <div className="evt evt-head no-print" aria-hidden="true">
-          <div className="time">Time</div>
-          <div className="dur">Dur.</div>
+          <div className="time">Heure</div>
+          <div className="dur">Durée</div>
           <div className="type-h">Type</div>
           <div className="desc">Description</div>
           <div className="flags-h">Catégorie</div>
