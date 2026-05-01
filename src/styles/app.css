@@ -1844,21 +1844,21 @@
 .sch-row {
   display: grid;
   grid-template-columns:
-    52px            /* MTO/MTS */
-    84px            /* Date Départ */
-    96px            /* MO */
-    88px            /* Product */
-    minmax(180px, 1.6fr)  /* Item Name (wider for customer subtitle) */
-    56px 56px 56px  /* Sched / Prod / Req */
-    64px            /* Scraps */
-    112px           /* Format (Largeur × Longueur) */
-    60px            /* Qualité */
-    62px            /* Lites/Packs */
-    minmax(96px, 1fr) /* PDP */
-    82px;           /* m² */
+    56px            /* MTO/MTS */
+    80px            /* Date Départ */
+    100px           /* MO */
+    92px            /* Produit */
+    minmax(180px, 1.6fr)  /* Article (wider for customer subtitle) */
+    62px 62px 62px  /* Sched / Prod / Req */
+    72px            /* Scraps */
+    116px           /* Format (Largeur × Longueur) */
+    68px            /* Qualité */
+    68px            /* Lites/Packs */
+    minmax(100px, 1fr) /* PDP */
+    88px;           /* m² */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1156px;
+  min-width: 1206px;
   transition: background 100ms ease;
 }
 .sch-row:last-child { border-bottom: 0; }
@@ -1874,7 +1874,7 @@
   background: var(--paper-2);
   border-bottom: 0;
   font-size: 10px;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-faint);
   font-weight: 600;
@@ -1885,8 +1885,7 @@
   user-select: none;
 }
 .sch-row.sch-head .sch-cell {
-  padding-top: 9px;
-  padding-bottom: 9px;
+  padding: 9px 5px;
 }
 .sch-row.sch-group-break {
   min-height: 22px;
@@ -1937,7 +1936,16 @@
 .sch-cell.col-num,
 .sch-cell.col-m2 { text-align: right; }
 .sch-cell.col-fmt { text-align: center; }
+.sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }
+
+/* Subtle column-group separators in the header to set rhythm:
+   identity (1-5) → quantities (6-9) → format/qualité (10-12) → PDP/m² (13-14) */
+.sch-row.sch-head .sch-cell.col-name + .sch-cell,
+.sch-row.sch-head .sch-cell.col-fmt,
+.sch-row.sch-head .sch-cell.col-pdp {
+  box-shadow: inset 1px 0 0 var(--line-soft);
+}
 .sch-cell.col-m2 {
   background: color-mix(in srgb, var(--hl-green) 55%, var(--paper));
 }
