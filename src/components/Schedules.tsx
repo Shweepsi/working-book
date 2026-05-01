@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
@@ -11,6 +11,7 @@ import {
   totalReqLites,
 } from '../lib/coaterMath';
 import PasteImport, { type ImportMode } from './PasteImport';
+import { useEscapeToClose } from '../lib/hooks';
 
 const KEY_DATA   = 'wb.schedules.v1';
 const KEY_POLICY = 'wb.schedules.policy.v1';
@@ -73,6 +74,14 @@ export default function Schedules() {
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 6));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
+
+  const openRow = useMemo(
+    () => (data?.records ?? []).find((r) => r.id === openRowId) ?? null,
+    [data, openRowId],
+  );
+
+  const handleRowOpen = useCallback((row: DisplayRow) => setOpenRowId(row.id), []);
 
   // Persist datasets and speed.
   useEffect(() => { save(KEY_DATA, data); }, [data]);
@@ -251,7 +260,7 @@ export default function Schedules() {
               );
             })()}
 
-            <ScheduleTable items={groupedRows} totals={visibleRows} />
+            <ScheduleTable items={groupedRows} totals={visibleRows} onRowOpen={handleRowOpen} />
 
             <ThroughputFooter
               rows={coaterRows}
@@ -282,6 +291,14 @@ export default function Schedules() {
           describe={describePolicy}
           onConfirm={handlePolicyConfirm}
           onClose={() => setImportMode(null)}
+        />
+      )}
+
+      {openRow && (
+        <RowDetailSheet
+          row={openRow}
+          mtoMts={policy?.map?.[openRow.product] ?? '?'}
+          onClose={() => setOpenRowId(null)}
         />
       )}
     </div>
@@ -348,9 +365,10 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
 interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
+  onRowOpen: (row: DisplayRow) => void;
 }
 
-function ScheduleTable({ items, totals }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
   if (totals.length === 0) {
     return (
       <div className="sch-empty-rows faint">
@@ -373,17 +391,34 @@ function ScheduleTable({ items, totals }: ScheduleTableProps) {
               <div className="sch-group-label">{fmtNum(it.longueur, 0)} mm</div>
             </div>
           )
-          : <ScheduleRow key={it.row.id} row={it.row} />
+          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} />
       )}
       <TotalRow rows={totals} />
     </div>
   );
 }
 
-const ScheduleRow = memo(function ScheduleRow({ row }: { row: DisplayRow }) {
+interface ScheduleRowProps {
+  row: DisplayRow;
+  onOpen: (row: DisplayRow) => void;
+}
+
+const ScheduleRow = memo(function ScheduleRow({ row, onOpen }: ScheduleRowProps) {
   const isQc = row.largeur === 0 && row.longueur === 0;
+  const open = () => onOpen(row);
   return (
-    <div className={`sch-row ${isQc ? 'is-qc' : ''}`} role="row">
+    <div
+      className={`sch-row sch-row-clickable ${isQc ? 'is-qc' : ''}`}
+      role="row"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      }}
+    >
       <div className="sch-cell col-mto" role="cell">
         <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>
       </div>
@@ -452,18 +487,16 @@ function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }: Throughpu
     <div className="sch-foot">
       <label className={`sch-foot-vitesse ${!validSpeed ? 'is-invalid' : ''}`}>
         <span className="sch-foot-label">Vitesse</span>
-        <span className="sch-foot-vitesse-field">
-          <input
-            type="number"
-            min="0.1"
-            step="0.1"
-            className="sch-vitesse-input mono"
-            value={vitesse}
-            onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
-            aria-label="Vitesse en m/min"
-          />
-          <span className="sch-foot-unit">m/min</span>
-        </span>
+        <input
+          type="number"
+          min="0.1"
+          step="0.1"
+          className="sch-vitesse-input mono"
+          value={vitesse}
+          onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
+          aria-label="Vitesse en m/min"
+        />
+        <span className="sch-foot-unit">m/min</span>
       </label>
       <span className="sch-foot-arrow" aria-hidden="true">→</span>
       <div className="sch-foot-times">
@@ -475,11 +508,138 @@ function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }: Throughpu
           className="sch-foot-time sch-foot-dt"
           title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %"
         >
-          <span className="sch-foot-time-label">Avec DT +9 %</span>
+          <span className="sch-foot-time-label">+DT 9 %</span>
           <strong className="mono">{fmtHMmin(minutes != null ? minutes * DOWNTIME_FACTOR : null)}</strong>
         </div>
       </div>
       <span className="faint small sch-foot-meta">{rows.length} lignes Coater</span>
+    </div>
+  );
+}
+
+interface RowDetailSheetProps {
+  row: PMS230Record;
+  mtoMts: string;
+  onClose: () => void;
+}
+
+function fmtDateLong(yyyymmdd: string | null | undefined): string {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return '—';
+  return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(0, 4)}`;
+}
+
+function fmtTime(hhmm: string | null | undefined): string {
+  if (!hhmm) return '';
+  if (hhmm.length === 4) return `${hhmm.slice(0, 2)}:${hhmm.slice(2)}`;
+  return hhmm;
+}
+
+function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
+  useEscapeToClose(onClose);
+
+  const format = row.largeur && row.longueur
+    ? `${fmtNum(row.largeur, 0)} × ${fmtNum(row.longueur, 0)} mm`
+    : '—';
+  const formatInch = row.largeurInch && row.longueurInch
+    ? `${row.largeurInch} × ${row.longueurInch} in`
+    : '';
+  const start = row.startDate || row.startTime
+    ? `${fmtDateLong(row.startDate)} ${fmtTime(row.startTime)}`.trim()
+    : '—';
+  const end = row.endDate || row.endTime
+    ? `${fmtDateLong(row.endDate)} ${fmtTime(row.endTime)}`.trim()
+    : '—';
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sch-row-sheet" role="dialog" aria-modal="true" aria-label="Détail de ligne">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <div className="sch-row-sheet-title">
+            <span className="sch-mto" data-mto={mtoMts}>{mtoMts}</span>
+            <h3 className="mono">{row.product}</h3>
+            <span className="faint small mono">{row.mo}</span>
+          </div>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <div className="sch-row-sheet-name">
+          <div className="sch-row-sheet-itemname">{row.itemName || <span className="faint">(sans nom)</span>}</div>
+          {row.customer && <div className="faint small">{row.customer}</div>}
+        </div>
+
+        <dl className="sch-row-sheet-grid">
+          <DetailField label="Schedule" value={<span className="mono">{row.schedule}{row.schedSuffix ? `-${row.schedSuffix}` : ''}</span>} />
+          <DetailField label="Op steps" value={<span className="mono">{row.opSteps || '—'}</span>} />
+          <DetailField label="Work center" value={row.workCenter || '—'} />
+          <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
+          <DetailField label="Qualité" value={<span className="mono">{row.qualite || '—'}</span>} />
+          <DetailField label="PDP" value={row.pdp || '—'} />
+        </dl>
+
+        <div className="sch-row-sheet-section">
+          <div className="sch-row-sheet-section-title">Quantités (lites)</div>
+          <div className="sch-row-sheet-stats">
+            <Stat label="Sched" value={row.schedLites} />
+            <Stat label="Prod" value={row.prodLites ?? 0} />
+            <Stat label="Req" value={row.reqLites} highlight />
+            <Stat label="Scraps" value={row.scraps ?? 0} />
+            <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
+          </div>
+        </div>
+
+        <div className="sch-row-sheet-section">
+          <div className="sch-row-sheet-section-title">Format</div>
+          <div className="sch-row-sheet-stats">
+            <Stat label="Largeur × Longueur" value={format} wide />
+            <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
+            {row.thickness && <Stat label="Épaisseur" value={`${row.thickness} mm`} />}
+            {formatInch && <Stat label="Pouces" value={formatInch} wide />}
+            {row.formatCode && <Stat label="Code format" value={<span className="mono">{row.formatCode}</span>} />}
+          </div>
+        </div>
+
+        {(row.startDate || row.endDate) && (
+          <div className="sch-row-sheet-section">
+            <div className="sch-row-sheet-section-title">Planning</div>
+            <dl className="sch-row-sheet-grid">
+              <DetailField label="Début" value={<span className="mono">{start}</span>} />
+              <DetailField label="Fin" value={<span className="mono">{end}</span>} />
+            </dl>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+interface DetailFieldProps {
+  label: string;
+  value: ReactNode;
+}
+
+function DetailField({ label, value }: DetailFieldProps) {
+  return (
+    <div className="sch-row-sheet-field">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+interface StatProps {
+  label: string;
+  value: ReactNode;
+  highlight?: boolean;
+  wide?: boolean;
+}
+
+function Stat({ label, value, highlight, wide }: StatProps) {
+  return (
+    <div className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''}`}>
+      <span className="sch-row-sheet-stat-label">{label}</span>
+      <strong className="mono">{value}</strong>
     </div>
   );
 }
