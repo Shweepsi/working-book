@@ -1,9 +1,10 @@
 // Sample shift events for Poste C (06h–14h) using the new type/category set.
+import type { LogEvent } from '../types';
 
 let nextId = 1;
 const id = () => `e${nextId++}`;
 
-export const SAMPLE_EVENTS = [
+export const SAMPLE_EVENTS: LogEvent[] = [
   {
     id: id(),
     start: '06:00', end: '06:15', type: 'Production',
@@ -89,6 +90,6 @@ export const SAMPLE_SHIFT = {
   operator: '',
 };
 
-export function newId() {
+export function newId(): string {
   return `e${++nextId}`;
 }

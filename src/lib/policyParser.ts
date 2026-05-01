@@ -1,41 +1,49 @@
 // Parser for the Item-number / Name / Planning-policy lookup table.
 // Source: a 3-column tab-separated paste from a spreadsheet/grid.
-//
-// Output shape:
-//   {
-//     map:   { [productCode: string]: 'MTO' | 'MTS' },
-//     names: { [productCode: string]: string },
-//     count, warnings,
-//   }
+
+export type Policy = 'MTO' | 'MTS';
+
+export interface PastePayload {
+  html?: string | null;
+  text?: string | null;
+}
+
+export interface PolicyResult {
+  map: Record<string, Policy>;
+  names: Record<string, string>;
+  count: number;
+  warnings: string[];
+  importedAt: string;
+}
 
 const PRODUCT_RE = /^33\d{7}$/;
-const POLICY_VALUES = new Set(['MTO', 'MTS']);
+const POLICY_VALUES = new Set<Policy>(['MTO', 'MTS']);
 const HEADER_TOKENS = new Set(['Item number', 'Name', 'Planning policy']);
 
-function normalise(text) {
+function normalise(text: string): string {
   return text
     .replace(/﻿/g, '')
     .replace(/[ ​]/g, ' ')
     .replace(/\r\n?/g, '\n');
 }
 
-function rowsFromHTML(html) {
+function rowsFromHTML(html: string | null | undefined): string[][] | null {
   if (!html || typeof DOMParser === 'undefined') return null;
-  let doc;
+  let doc: Document;
   try {
     doc = new DOMParser().parseFromString(html, 'text/html');
   } catch {
     return null;
   }
-  const rows = [];
+  const rows: string[][] = [];
   for (const tr of doc.querySelectorAll('tr')) {
     const cells = Array.from(tr.querySelectorAll('th, td')).map((c) => (c.textContent ?? '').trim());
-    if (cells.length >= 3) rows.push([cells[0], cells[1], cells[2]]);
+    if (cells.length >= 3) rows.push([cells[0]!, cells[1]!, cells[2]!]);
   }
   return rows.length > 0 ? rows : null;
 }
 
-function rowsFromText(text) {
+function rowsFromText(text: string): string[][] {
   return normalise(text)
     .split('\n')
     .map((l) => l.trim())
@@ -44,19 +52,27 @@ function rowsFromText(text) {
     .filter((cells) => cells.length >= 3);
 }
 
-export function parsePolicy(textOrPayload) {
-  const html = typeof textOrPayload === 'object' ? textOrPayload.html : null;
-  const text = typeof textOrPayload === 'object' ? textOrPayload.text : textOrPayload;
+function isPolicy(value: string): value is Policy {
+  return POLICY_VALUES.has(value as Policy);
+}
 
-  const rows = rowsFromHTML(html) ?? rowsFromText(text ?? '');
+export function parsePolicy(textOrPayload: string | PastePayload): PolicyResult {
+  const isPayload = typeof textOrPayload === 'object' && textOrPayload !== null;
+  const html = isPayload ? textOrPayload.html ?? null : null;
+  const text = isPayload ? textOrPayload.text ?? '' : textOrPayload;
 
-  const map = {};
-  const names = {};
-  const warnings = [];
+  const rows = rowsFromHTML(html) ?? rowsFromText(text);
+
+  const map: Record<string, Policy> = {};
+  const names: Record<string, string> = {};
+  const warnings: string[] = [];
   let count = 0;
 
   for (let i = 0; i < rows.length; i++) {
-    const [productCode, name, policy] = rows[i];
+    const row = rows[i]!;
+    const productCode = row[0] ?? '';
+    const name = row[1] ?? '';
+    const policy = row[2] ?? '';
 
     if (HEADER_TOKENS.has(productCode) || HEADER_TOKENS.has(policy)) continue;
 
@@ -64,18 +80,20 @@ export function parsePolicy(textOrPayload) {
       warnings.push(`Row ${i + 1}: invalid product code "${productCode}"`);
       continue;
     }
-    if (!POLICY_VALUES.has(policy)) {
+    if (!isPolicy(policy)) {
       warnings.push(`Row ${i + 1} (${productCode}): unexpected policy "${policy}"`);
       continue;
     }
     if (map[productCode] && map[productCode] !== policy) {
-      warnings.push(`Row ${i + 1}: duplicate ${productCode} with different policy (kept first: ${map[productCode]}, ignored: ${policy})`);
+      warnings.push(
+        `Row ${i + 1}: duplicate ${productCode} with different policy (kept first: ${map[productCode]}, ignored: ${policy})`,
+      );
       continue;
     }
     if (map[productCode]) continue;
 
     map[productCode] = policy;
-    names[productCode] = name ?? '';
+    names[productCode] = name;
     count += 1;
   }
 
