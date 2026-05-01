@@ -1,26 +1,36 @@
 import { useEffect, useRef } from 'react';
+import type { Density, Theme } from '../types';
 
 const THEMES = [
   { key: 'auto', label: 'Auto', glyph: '◐' },
   { key: 'light', label: 'Light', glyph: '☀' },
   { key: 'dark', label: 'Dark', glyph: '☾' },
-];
+] as const satisfies readonly { key: Theme; label: string; glyph: string }[];
 
 const DENSITIES = [
   { key: 'compact', label: 'Compact', help: 'Tight rows, small text — fits more on screen.' },
   { key: 'normal', label: 'Normal', help: 'Friendly spacing, larger touch targets. Recommended.' },
   { key: 'advanced', label: 'Advanced', help: 'Adds the type chip, notes count, and hover row actions.' },
-];
+] as const satisfies readonly { key: Density; label: string; help: string }[];
 
-export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange }) {
-  const wrapRef = useRef(null);
+interface SettingsProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
+  density: Density;
+  onDensityChange: (density: Density) => void;
+}
+
+export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange }: SettingsProps) {
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    function onDoc(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) onOpenChange(false);
+    function onDoc(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) onOpenChange(false);
     }
-    function onKey(e) {
+    function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onOpenChange(false);
     }
     document.addEventListener('mousedown', onDoc);

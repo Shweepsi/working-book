@@ -1,32 +1,42 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { SAMPLE_EVENTS, newId } from '../data/shift.js';
-import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes.js';
-import { diffMinutes, fmtDuration, fmtHM } from '../lib/time.js';
-import { load, save } from '../lib/storage.js';
-import EventEditor from './EventEditor.jsx';
+import { SAMPLE_EVENTS, newId } from '../data/shift';
+import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
+import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
+import { load, save } from '../lib/storage';
+import EventEditor from './EventEditor';
+import type { EventType, FlagKey, LogEvent, Poste, ShiftMeta } from '../types';
 
-const EVENT_TYPE_BY_KEY = new Map(EVENT_TYPES.map((t) => [t.key, t]));
+const EVENT_TYPE_BY_KEY = new Map<string, EventType>(EVENT_TYPES.map((t) => [t.key, t]));
 
 // Two visual rows of type buttons; `row` on each event type drives placement.
-const TYPE_ROWS = [1, 2].map((r) => EVENT_TYPES.filter((t) => t.row === r));
+const TYPE_ROWS: EventType[][] = [1, 2].map((r) => EVENT_TYPES.filter((t) => t.row === r));
 
-function storageKey(date, poste) {
+function storageKey(date: string, poste: Poste | null): string {
   return `wb.logbook.v4.${date}.${poste}`;
 }
 
 // Seed the canonical "demo" shift (Poste C, 28-Apr-2026 morning) from the wireframe.
 // Other (date, poste) pairs start empty.
-function defaultsFor(date, poste, shiftKey) {
+function defaultsFor(date: string, poste: Poste | null, shiftKey: string): LogEvent[] {
   if (date === '2026-04-28' && poste === 'C' && shiftKey === 'M') return SAMPLE_EVENTS;
   return [];
 }
 
-export default function Logbook({ poste, shiftMeta }) {
+interface LogbookProps {
+  poste: Poste | null;
+  shiftMeta: ShiftMeta;
+}
+
+interface EditingState {
+  event: Partial<LogEvent>;
+}
+
+export default function Logbook({ poste, shiftMeta }: LogbookProps) {
   const { date, shift } = shiftMeta;
-  const [events, setEvents] = useState(() =>
-    load(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
+  const [events, setEvents] = useState<LogEvent[]>(() =>
+    load<LogEvent[]>(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
   );
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
 
   useEffect(() => {
@@ -35,7 +45,7 @@ export default function Logbook({ poste, shiftMeta }) {
 
   const summary = useMemo(() => computeSummary(events), [events]);
 
-  function openTypedEvent(type) {
+  function openTypedEvent(type: string) {
     const stamp = fmtHM();
     const meta = EVENT_TYPE_BY_KEY.get(type);
     setEditing({
@@ -50,14 +60,14 @@ export default function Logbook({ poste, shiftMeta }) {
     });
   }
 
-  const openEvent = useCallback((ev) => setEditing({ event: ev }), []);
+  const openEvent = useCallback((ev: LogEvent) => setEditing({ event: ev }), []);
   const removeEvent = useCallback(
-    (id) => setEvents((prev) => prev.filter((e) => e.id !== id)),
+    (id: string) => setEvents((prev) => prev.filter((e) => e.id !== id)),
     [],
   );
 
-  function saveFromEditor(payload) {
-    const normalized = { ...payload, end: payload.end || payload.start || null };
+  function saveFromEditor(payload: LogEvent) {
+    const normalized: LogEvent = { ...payload, end: payload.end || payload.start || null };
     setEvents((prev) =>
       normalized.id
         ? prev.map((e) => (e.id === normalized.id ? { ...e, ...normalized } : e))
@@ -72,7 +82,7 @@ export default function Logbook({ poste, shiftMeta }) {
 
       <div className="type-strip no-print">
         <div className="type-row">
-          {TYPE_ROWS[0].map((t) => (
+          {TYPE_ROWS[0]!.map((t) => (
             <button
               key={t.key}
               type="button"
@@ -96,7 +106,7 @@ export default function Logbook({ poste, shiftMeta }) {
         </div>
         {showSecondary && (
           <div className="type-row">
-            {TYPE_ROWS[1].map((t) => (
+            {TYPE_ROWS[1]!.map((t) => (
               <button
                 key={t.key}
                 type="button"
@@ -152,7 +162,13 @@ export default function Logbook({ poste, shiftMeta }) {
   );
 }
 
-const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
+interface EventRowProps {
+  ev: LogEvent;
+  onOpen: (ev: LogEvent) => void;
+  onRemove: (id: string) => void;
+}
+
+const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
   const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
@@ -206,7 +222,12 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }) {
   );
 });
 
-function PrintHeader({ poste, shiftMeta }) {
+interface PrintHeaderProps {
+  poste: Poste | null;
+  shiftMeta: ShiftMeta;
+}
+
+function PrintHeader({ poste, shiftMeta }: PrintHeaderProps) {
   return (
     <div className="print-header print-only">
       <h1>Logbook · Poste {poste} · {shiftMeta.shift.label}</h1>
@@ -219,7 +240,7 @@ function PrintHeader({ poste, shiftMeta }) {
   );
 }
 
-function PrintSignature({ poste }) {
+function PrintSignature({ poste }: { poste: Poste | null }) {
   return (
     <div className="print-signature print-only">
       <div className="sig-row">
@@ -236,7 +257,13 @@ function PrintSignature({ poste }) {
   );
 }
 
-function computeSummary(events) {
+interface SummaryResult {
+  total: number;
+  scheduledMin: number;
+  unscheduledMin: number;
+}
+
+function computeSummary(events: LogEvent[]): SummaryResult {
   let scheduledMin = 0;
   let unscheduledMin = 0;
   for (const e of events) {

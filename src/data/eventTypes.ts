@@ -1,3 +1,5 @@
+import type { EventType, Flag, FlagKey, FlagTint } from '../types';
+
 // `prefill: true` opens the editor with desc set to the type label;
 // `prefill: false` opens with an empty description.
 // `row: 1 | 2` — row 1 is the primary strip, always visible.
@@ -23,10 +25,12 @@ export const EVENT_TYPES = [
   { key: 'Refroidissement',   label: 'Refroidissement',   defaultFlag: 'scheduled',   prefill: true,  row: 2 },
   { key: 'Pompage',           label: 'Pompage',           defaultFlag: 'normal',      prefill: true,  row: 2 },
   { key: 'Leak Test',         label: 'Leak Test',         defaultFlag: 'normal',      prefill: true,  row: 2 },
-];
+] as const satisfies readonly EventType[];
+
+export type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];
 
 // Categories: Normal, OK, Scheduled, Unscheduled, Note
-export const FLAGS = {
+export const FLAGS: Record<FlagKey, Flag> = {
   normal: { key: 'normal', label: 'Normal', tint: null },
   ok: { key: 'ok', label: 'OK', tint: 'green' },
   scheduled: { key: 'scheduled', label: 'Scheduled', tint: 'yellow' },
@@ -34,6 +38,7 @@ export const FLAGS = {
   note: { key: 'note', label: 'Note', tint: 'blue' },
 };
 
-export function tintForFlag(flagKey) {
+export function tintForFlag(flagKey: FlagKey | null | undefined): FlagTint {
+  if (!flagKey) return null;
   return FLAGS[flagKey]?.tint ?? null;
 }

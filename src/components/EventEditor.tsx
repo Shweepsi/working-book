@@ -1,27 +1,39 @@
 import { useEffect, useState } from 'react';
-import { EVENT_TYPES, FLAGS } from '../data/eventTypes.js';
-import { fmtHM } from '../lib/time.js';
+import { EVENT_TYPES, FLAGS } from '../data/eventTypes';
+import { fmtHM } from '../lib/time';
+import type { FlagKey, LogEvent } from '../types';
 
-const EMPTY = { start: '', end: '', type: '', desc: '', flag: '', notes: [], bold: false, danger: false };
+type Draft = Omit<LogEvent, 'id'> & { id?: string };
+
+const EMPTY: Draft = {
+  start: '', end: '', type: '', desc: '', flag: null, notes: [], bold: false, danger: false,
+};
+
+interface EventEditorProps {
+  event: Partial<LogEvent> | null;
+  onSave: (event: LogEvent) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
 
 // Force "HH:MM" shape as user types: strip non-digits, cap at 4 digits, splice colon.
 // Empty stays empty so a "no-time" event is still acceptable.
-function maskTime(raw) {
+function maskTime(raw: string): string {
   const digits = (raw || '').replace(/\D/g, '').slice(0, 4);
   if (digits.length <= 2) return digits;
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
-export default function EventEditor({ event, onSave, onDelete, onClose }) {
+export default function EventEditor({ event, onSave, onDelete, onClose }: EventEditorProps) {
   const isNew = !event?.id;
-  const [draft, setDraft] = useState(() => ({ ...EMPTY, ...(event || {}) }));
+  const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY, ...(event || {}) }));
 
   useEffect(() => {
     setDraft({ ...EMPTY, ...(event || {}) });
   }, [event]);
 
   useEffect(() => {
-    function onKey(e) {
+    function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
     window.addEventListener('keydown', onKey);
@@ -30,26 +42,25 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
 
   function save() {
     if (!draft.type && !draft.desc.trim()) return;
+    const fallbackFlag = EVENT_TYPES.find((t) => t.key === draft.type)?.defaultFlag ?? null;
     onSave({
+      id: draft.id ?? '',
       ...draft,
       start: draft.start || null,
       end: draft.end || draft.start || null,
       type: draft.type || 'Note',
       desc: draft.desc.trim(),
-      flag:
-        draft.flag ||
-        EVENT_TYPES.find((t) => t.key === draft.type)?.defaultFlag ||
-        null,
+      flag: (draft.flag || fallbackFlag) as FlagKey | null,
       bold: !!draft.bold,
       danger: !!draft.danger,
     });
   }
 
-  function update(field, value) {
+  function update<K extends keyof Draft>(field: K, value: Draft[K]) {
     setDraft((d) => ({ ...d, [field]: value }));
   }
 
-  function setNote(i, value) {
+  function setNote(i: number, value: string) {
     setDraft((d) => {
       const notes = [...(d.notes || [])];
       notes[i] = value;
@@ -61,7 +72,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
     setDraft((d) => ({ ...d, notes: [...(d.notes || []), ''] }));
   }
 
-  function removeNote(i) {
+  function removeNote(i: number) {
     setDraft((d) => {
       const notes = [...(d.notes || [])];
       notes.splice(i, 1);
@@ -145,7 +156,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }) {
                   key={f.key}
                   type="button"
                   className={`flag ${draft.flag === f.key ? `flag-active ${f.key}` : 'flag-empty'}`}
-                  onClick={() => update('flag', draft.flag === f.key ? '' : f.key)}
+                  onClick={() => update('flag', draft.flag === f.key ? null : f.key)}
                 >
                   {f.label}
                 </button>
