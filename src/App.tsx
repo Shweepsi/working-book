@@ -53,6 +53,10 @@ function isTabKey(value: string): value is TabKey {
   return value === 'logbook' || value === 'test' || value === 'sched';
 }
 
+function isLiveShiftKey(value: string): value is LiveShiftKey {
+  return SHIFT_TABS.some((s) => s.key === value);
+}
+
 export default function App() {
   const [tab, setTab] = useState<TabKey>(() => {
     const hash = window.location.hash.replace('#', '');
@@ -62,7 +66,7 @@ export default function App() {
   const [date, setDate] = useState<string>(() => load<string | null>('wb.date', null) || todayISO());
   const [shiftKey, setShiftKey] = useState<LiveShiftKey>(() => {
     const persisted = load<string | null>('wb.shiftKey', null);
-    if (persisted && SHIFT_TABS.some((s) => s.key === persisted)) return persisted as LiveShiftKey;
+    if (persisted && isLiveShiftKey(persisted)) return persisted;
     return shiftKeyForHour(new Date().getHours());
   });
 
@@ -96,7 +100,6 @@ export default function App() {
       mql.addEventListener?.('change', apply);
       return () => mql.removeEventListener?.('change', apply);
     }
-    return undefined;
   }, [theme]);
 
   useEffect(() => {

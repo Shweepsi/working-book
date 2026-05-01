@@ -9,7 +9,10 @@ import type { EventType, FlagKey, LogEvent, Poste, ShiftMeta } from '../types';
 const EVENT_TYPE_BY_KEY = new Map<string, EventType>(EVENT_TYPES.map((t) => [t.key, t]));
 
 // Two visual rows of type buttons; `row` on each event type drives placement.
-const TYPE_ROWS: EventType[][] = [1, 2].map((r) => EVENT_TYPES.filter((t) => t.row === r));
+const TYPE_ROWS = [
+  EVENT_TYPES.filter((t) => t.row === 1),
+  EVENT_TYPES.filter((t) => t.row === 2),
+] as const;
 
 function storageKey(date: string, poste: Poste | null): string {
   return `wb.logbook.v4.${date}.${poste}`;
@@ -82,7 +85,7 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
 
       <div className="type-strip no-print">
         <div className="type-row">
-          {TYPE_ROWS[0]!.map((t) => (
+          {TYPE_ROWS[0].map((t) => (
             <button
               key={t.key}
               type="button"
@@ -106,7 +109,7 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         </div>
         {showSecondary && (
           <div className="type-row">
-            {TYPE_ROWS[1]!.map((t) => (
+            {TYPE_ROWS[1].map((t) => (
               <button
                 key={t.key}
                 type="button"
