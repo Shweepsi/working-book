@@ -246,6 +246,20 @@
   font-weight: 500;
 }
 
+/* "Nouveau" — generic ad-hoc event. Mirrors .pt-test-chip.add: dashed
+   accent border so it reads as the escape-hatch for events that don't
+   match any of the prefilled types. */
+.type-strip button.type-add {
+  color: var(--accent);
+  border-style: dashed;
+  border-color: var(--accent);
+}
+.type-strip button.type-add .glyph { color: var(--accent); font-weight: 500; }
+.type-strip button.type-add:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+  border-color: var(--accent);
+}
+
 .evt-list {
   display: flex;
   flex-direction: column;
@@ -2500,9 +2514,9 @@
   white-space: nowrap;
   cursor: default;
 }
-.sv-tag.sv-tag-production { background: color-mix(in srgb, var(--hl-blue) 60%, var(--paper)); border-color: var(--flag-note-bd); color: var(--flag-note-fg); }
-.sv-tag.sv-tag-process    { background: color-mix(in srgb, var(--hl-yellow) 70%, var(--paper)); border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); }
-.sv-tag.sv-tag-dev        { background: color-mix(in srgb, var(--hl-green) 70%, var(--paper)); border-color: var(--flag-ok-bd); color: var(--flag-ok-fg); }
+.sv-tag.sv-tag-production { background: color-mix(in srgb, var(--hl-green) 70%, var(--paper)); border-color: var(--flag-ok-bd); color: var(--flag-ok-fg); }
+.sv-tag.sv-tag-process    { background: color-mix(in srgb, var(--hl-blue) 60%, var(--paper)); border-color: var(--flag-note-bd); color: var(--flag-note-fg); }
+.sv-tag.sv-tag-dev        { background: color-mix(in srgb, var(--hl-yellow) 70%, var(--paper)); border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); }
 .sv-tag.sv-tag-rec        { background: color-mix(in srgb, var(--hl-red) 70%, var(--paper)); border-color: var(--flag-unsched-bd); color: var(--flag-unsched-fg); }
 
 /* Sheet variant — chips behave like radio buttons (one selected). */
