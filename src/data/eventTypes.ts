@@ -10,13 +10,13 @@ import type { EventType, Flag, FlagKey, FlagTint } from '../types';
 
 export const EVENT_TYPES = [
   // Row 1 — primary, always visible.
+  { key: 'Nouveau',           label: 'Nouveau',           defaultFlag: 'normal',      prefill: false, row: 1 },
   { key: 'Production',        label: 'Production',        defaultFlag: 'ok',          prefill: true,  row: 1, openNote: true },
   { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'scheduled',   prefill: true,  row: 1, openNote: true },
   { key: 'Brûlage',           label: 'Brûlage',           defaultFlag: 'scheduled',   prefill: true,  row: 1 },
   { key: 'Arrêt',             label: 'Arrêt',             defaultFlag: 'unscheduled', prefill: false, row: 1 },
   { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: false, row: 1 },
   { key: 'Note',              label: 'Note',              defaultFlag: 'note',        prefill: false, row: 1 },
-  { key: 'Nouveau',           label: 'Nouveau',           defaultFlag: 'normal',      prefill: false, row: 1 },
 
   // Row 2 — secondary recurring operations, hidden behind a toggle.
   { key: 'Développement',     label: 'Développement',     defaultFlag: 'scheduled',   prefill: true,  row: 2 },
