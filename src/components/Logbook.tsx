@@ -89,6 +89,7 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
             <button
               key={t.key}
               type="button"
+              className={t.key === 'Nouveau' ? 'type-add' : ''}
               onClick={() => openTypedEvent(t.key)}
               title={`Log ${t.label} starting now`}
             >

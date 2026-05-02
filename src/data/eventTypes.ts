@@ -16,6 +16,7 @@ export const EVENT_TYPES = [
   { key: 'Arrêt',             label: 'Arrêt',             defaultFlag: 'unscheduled', prefill: false, row: 1 },
   { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: false, row: 1 },
   { key: 'Note',              label: 'Note',              defaultFlag: 'note',        prefill: false, row: 1 },
+  { key: 'Nouveau',           label: 'Nouveau',           defaultFlag: 'normal',      prefill: false, row: 1 },
 
   // Row 2 — secondary recurring operations, hidden behind a toggle.
   { key: 'Développement',     label: 'Développement',     defaultFlag: 'scheduled',   prefill: true,  row: 2 },
