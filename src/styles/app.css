@@ -2406,17 +2406,18 @@
   display: grid;
   grid-template-columns:
     72px                     /* ID */
+    120px                    /* Tag */
     140px                    /* Couleur */
     minmax(180px, 1.6fr)     /* Type de test */
     90px                     /* Origine */
     64px                     /* Ép. */
     100px                    /* Date Prod */
     160px                    /* Production stages */
-    minmax(150px, 1fr)       /* Contrôle */
+    minmax(150px, 1fr)       /* Contrôleur */
     32px;                    /* Comment indicator */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1018px;
+  min-width: 1138px;
   min-height: 44px;
   transition: background 100ms ease;
 }
@@ -2490,11 +2491,55 @@
   border-color: var(--flag-sched-bd);
   color: var(--flag-sched-fg);
 }
+.sv-stage.sv-st-fail {
+  background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
+  border-color: var(--flag-unsched-bd);
+  color: var(--flag-unsched-fg);
+}
 .sv-stage.sv-st-na {
   background: var(--line-soft);
   border-color: var(--line-soft);
   color: var(--ink-faint);
 }
+
+/* Tag chips — used in the list view (read-only) and in the sheet (toggle). */
+.sv-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--line-soft);
+  background: var(--paper);
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: default;
+}
+.sv-tag.sv-tag-production { background: color-mix(in srgb, var(--hl-blue) 60%, var(--paper)); border-color: var(--flag-note-bd); color: var(--flag-note-fg); }
+.sv-tag.sv-tag-process    { background: color-mix(in srgb, var(--hl-yellow) 70%, var(--paper)); border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); }
+.sv-tag.sv-tag-dev        { background: color-mix(in srgb, var(--hl-green) 70%, var(--paper)); border-color: var(--flag-ok-bd); color: var(--flag-ok-fg); }
+.sv-tag.sv-tag-rec        { background: color-mix(in srgb, var(--hl-red) 70%, var(--paper)); border-color: var(--flag-unsched-bd); color: var(--flag-unsched-fg); }
+
+/* Sheet variant — chips behave like radio buttons (one selected). */
+.sv-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sv-tag-row .sv-tag {
+  cursor: pointer;
+  transition: opacity 120ms ease, transform 80ms ease;
+}
+.sv-tag-row .sv-tag.is-off {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border-color: var(--line-soft);
+  opacity: 0.7;
+}
+.sv-tag-row .sv-tag.is-off:hover { opacity: 1; border-color: var(--ink); }
+.sv-tag-row .sv-tag.is-on { box-shadow: 0 0 0 2px var(--focus-ring); }
 
 .sv-ctrl-summary {
   display: inline-flex;
@@ -2587,30 +2632,19 @@
   background: color-mix(in srgb, var(--hl-yellow) 30%, var(--paper-2));
   border-color: var(--flag-sched-bd);
 }
+.sv-stage-card.sv-st-fail {
+  background: color-mix(in srgb, var(--hl-red) 30%, var(--paper-2));
+  border-color: var(--flag-unsched-bd);
+}
 .sv-stage-card.sv-st-na {
   border-color: var(--line-soft);
   opacity: 0.85;
 }
-.sv-stage-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+.sv-stage-card-name {
+  font-size: 12px;
+  font-weight: 600;
   margin-bottom: 8px;
 }
-.sv-stage-card-name { font-size: 12px; font-weight: 600; }
-.sv-stage-card-date {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 11px;
-  color: var(--ink-soft);
-  outline: 0;
-  text-align: right;
-  font-family: 'Geist Mono', monospace;
-  min-width: 0;
-}
-.sv-stage-card-date:focus { color: var(--ink); }
 
 .sv-stage-stations {
   display: grid;
@@ -2646,6 +2680,12 @@
   color: var(--flag-ok-fg);
 }
 .sv-station-btn.sv-st-ok .sv-station-btn-label { color: var(--flag-ok-fg); }
+.sv-station-btn.sv-st-nok {
+  background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
+  border-color: var(--flag-unsched-bd);
+  color: var(--flag-unsched-fg);
+}
+.sv-station-btn.sv-st-nok .sv-station-btn-label { color: var(--flag-unsched-fg); }
 .sv-station-btn.sv-st-na {
   background: var(--line-soft);
   border-color: var(--line-soft);
