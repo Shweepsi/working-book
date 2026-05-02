@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { load, save } from '../lib/storage';
 import { useEscapeToClose } from '../lib/hooks';
+import { todayISO } from '../lib/shiftCalendar';
 
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
@@ -10,7 +11,7 @@ type Process = (typeof PROCESSES)[number];
 type Station = (typeof STATIONS)[number];
 type Tag = (typeof TAGS)[number];
 type CellState = 'ok' | 'nok' | 'na' | null;
-type StageStatus = 'complete' | 'partial' | 'fail' | 'na' | 'empty';
+type StageStatus = 'complete' | 'fail' | 'na' | 'empty';
 
 interface ProcessRow {
   stations: Record<Station, CellState>;
@@ -121,20 +122,20 @@ function fmtDateShort(iso: string): string {
   });
 }
 
+// Stage rolls up the three stations into one of four states. NOK on any
+// station wins (red); otherwise any OK promotes to complete (green).
+// We deliberately don't render an 'in progress' / yellow state — the
+// strip is binary green/red plus neutral N/A and empty.
 function stageStatus(row: ProcessRow): StageStatus {
   const states = STATIONS.map((s) => row.stations[s]);
   if (states.some((s) => s === 'nok')) return 'fail';
-  const okCount = states.filter((s) => s === 'ok').length;
-  const naCount = states.filter((s) => s === 'na').length;
-  if (okCount === STATIONS.length) return 'complete';
-  if (okCount > 0) return 'partial';
-  if (naCount > 0) return 'na';
+  if (states.some((s) => s === 'ok')) return 'complete';
+  if (states.some((s) => s === 'na')) return 'na';
   return 'empty';
 }
 
 function labelForStatus(s: StageStatus): string {
   if (s === 'complete') return 'conforme';
-  if (s === 'partial') return 'en cours';
   if (s === 'fail') return 'NOK';
   if (s === 'na') return 'non applicable';
   return 'à faire';
@@ -396,6 +397,7 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
             value={entry.dateProd}
             onChange={(v) => patchHeader('dateProd', v)}
             mono
+            today
           />
           <Field
             label="Couleur"
@@ -447,6 +449,7 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
               value={entry.dateControle}
               onChange={(v) => patchHeader('dateControle', v)}
               mono
+              today
             />
           </div>
         </div>
@@ -515,12 +518,28 @@ interface FieldProps {
   type?: string;
   mono?: boolean;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  today?: boolean;
 }
 
-function Field({ label, value, onChange, type = 'text', mono, inputMode }: FieldProps) {
+function Field({ label, value, onChange, type = 'text', mono, inputMode, today }: FieldProps) {
   return (
     <label className="sv-field">
-      <span className="sv-field-label">{label}</span>
+      <span className="sv-field-label">
+        <span>{label}</span>
+        {today && (
+          <button
+            type="button"
+            className="sv-field-today"
+            onClick={(e) => {
+              e.preventDefault();
+              onChange(todayISO());
+            }}
+            title="Mettre à la date du jour"
+          >
+            Aujourd'hui
+          </button>
+        )}
+      </span>
       <input
         type={type}
         value={value}

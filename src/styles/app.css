@@ -2486,11 +2486,6 @@
   border-color: var(--flag-ok-bd);
   color: var(--flag-ok-fg);
 }
-.sv-stage.sv-st-partial {
-  background: color-mix(in srgb, var(--hl-yellow) 60%, var(--paper));
-  border-color: var(--flag-sched-bd);
-  color: var(--flag-sched-fg);
-}
 .sv-stage.sv-st-fail {
   background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
   border-color: var(--flag-unsched-bd);
@@ -2582,12 +2577,28 @@
   min-width: 0;
 }
 .sv-field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-soft);
   font-weight: 600;
 }
+.sv-field-today {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sv-field-today:hover { text-decoration: underline; }
 .sv-field input {
   border: 0;
   border-bottom: 1px solid var(--line-soft);
@@ -2627,10 +2638,6 @@
 .sv-stage-card.sv-st-complete {
   background: color-mix(in srgb, var(--hl-green) 22%, var(--paper-2));
   border-color: var(--flag-ok-bd);
-}
-.sv-stage-card.sv-st-partial {
-  background: color-mix(in srgb, var(--hl-yellow) 30%, var(--paper-2));
-  border-color: var(--flag-sched-bd);
 }
 .sv-stage-card.sv-st-fail {
   background: color-mix(in srgb, var(--hl-red) 30%, var(--paper-2));
