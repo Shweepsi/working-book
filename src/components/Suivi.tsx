@@ -151,6 +151,7 @@ function labelForCell(v: CellState): string {
 export default function Suivi() {
   const [state, setState] = useState<SuiviState>(initialState);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [activeTags, setActiveTags] = useState<Set<Tag>>(() => new Set());
   const wantOpenRef = useRef<string | null>(null);
 
   useEffect(() => { save(STORAGE_KEY, state); }, [state]);
@@ -170,6 +171,11 @@ export default function Suivi() {
     [state.entries, openId],
   );
 
+  const filtered = useMemo(() => {
+    if (activeTags.size === 0) return state.entries;
+    return state.entries.filter((e) => e.tag !== null && activeTags.has(e.tag));
+  }, [state.entries, activeTags]);
+
   function patchEntry(id: string, mut: (e: SuiviEntry) => SuiviEntry) {
     setState((s) => ({ ...s, entries: s.entries.map((e) => (e.id === id ? mut(e) : e)) }));
   }
@@ -188,15 +194,23 @@ export default function Suivi() {
     if (openId === id) setOpenId(null);
   }
 
-  const yearEnd = useMemo(() => new Date().getFullYear(), []);
-  const yearLabel = `SUIVI ${yearEnd - 1} - ${yearEnd}`;
+  function toggleFilter(t: Tag) {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
+
   const total = state.entries.length;
+  const filterActive = activeTags.size > 0;
+  const visibleCount = filtered.length;
 
   return (
     <div className="sv">
       <div className="sv-titlebar">
         <h2 className="sv-title">Suivi Cosmétiques</h2>
-        <span className="sv-year mono">{yearLabel}</span>
       </div>
 
       <div className="sv-toolbar">
@@ -204,13 +218,41 @@ export default function Suivi() {
           <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
         </button>
         <span className="faint small">
-          {total} entrée{total > 1 ? 's' : ''}
+          {filterActive ? `${visibleCount} / ${total}` : total} entrée{(filterActive ? visibleCount : total) > 1 ? 's' : ''}
         </span>
+        <div className="sv-tag-row sv-filter-row" role="group" aria-label="Filtrer par tag">
+          {TAGS.map((t) => {
+            const isOn = activeTags.has(t);
+            const cls = ['sv-tag', `sv-tag-${TAG_SLUG[t]}`];
+            if (filterActive) cls.push(isOn ? 'is-on' : 'is-off');
+            return (
+              <button
+                key={t}
+                type="button"
+                className={cls.join(' ')}
+                onClick={() => toggleFilter(t)}
+                aria-pressed={isOn}
+                title={isOn ? `Retirer le filtre ${t}` : `Filtrer sur ${t}`}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {total === 0 ? (
+      {visibleCount === 0 ? (
         <div className="sv-empty">
-          <h3>Aucune entrée</h3>
+          <h3>{filterActive ? 'Aucune entrée pour ce filtre' : 'Aucune entrée'}</h3>
+          {filterActive && (
+            <button
+              type="button"
+              className="btn ghost mini"
+              onClick={() => setActiveTags(new Set())}
+            >
+              Effacer les filtres
+            </button>
+          )}
         </div>
       ) : (
         <div className="sv-table" role="table" aria-label="Suivi Cosmétiques">
@@ -226,7 +268,7 @@ export default function Suivi() {
             <div className="sv-cell sv-c-ctrl" role="columnheader">Contrôleur</div>
             <div className="sv-cell sv-c-cmt" role="columnheader" aria-label="Commentaire">·</div>
           </div>
-          {state.entries.map((entry) => (
+          {filtered.map((entry) => (
             <SuiviRow key={entry.id} entry={entry} onOpen={() => setOpenId(entry.id)} />
           ))}
         </div>
