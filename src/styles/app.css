@@ -2329,3 +2329,499 @@
   }
 }
 
+/* ---------- Suivi Cosmétiques et DV ---------- */
+
+.sv {
+  --sv-cols:
+    72px            /* ID */
+    150px           /* Couleur */
+    minmax(180px, 1.4fr) /* Type de test */
+    100px           /* Origine */
+    72px            /* Ép. */
+    104px           /* Date Prod */
+    100px           /* Process */
+    62px 62px 62px  /* MA / CE / WH */
+    104px           /* Date (per process) */
+    160px           /* Contrôle (Contrôleur + Date contrôle) */
+    minmax(220px, 2fr); /* Résultat / Commentaire */
+  --sv-min-width: 1450px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sv-titlebar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 10px 10px 0 0;
+}
+.sv-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: inherit;
+}
+.sv-year {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-weight: 600;
+}
+
+.sv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--paper);
+  border-left: 1px solid var(--line-faint);
+  border-right: 1px solid var(--line-faint);
+}
+.sv-toolbar-hint {
+  display: none;
+}
+:root[data-density='advanced'] .sv-toolbar-hint { display: inline; }
+
+.sv-table-wrap {
+  border: 1px solid var(--line-faint);
+  border-radius: 0 0 10px 10px;
+  overflow-x: auto;
+  background: var(--paper);
+  /* Right-edge fade hints horizontal scroll, mirrors .sch-table */
+  background-image:
+    linear-gradient(to right, var(--paper) 30%, rgba(251, 250, 246, 0)),
+    linear-gradient(to right, rgba(251, 250, 246, 0), var(--paper) 70%),
+    radial-gradient(farthest-side at 0 50%, rgba(31, 28, 24, 0.10), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(31, 28, 24, 0.10), transparent);
+  background-position: 0 0, 100% 0, 0 0, 100% 0;
+  background-repeat: no-repeat;
+  background-size: 28px 100%, 28px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.sv-table {
+  display: flex;
+  flex-direction: column;
+  min-width: var(--sv-min-width);
+}
+
+/* Group header (Production label spans MA/CE/WH/Date columns) */
+.sv-row.sv-suphead {
+  display: grid;
+  grid-template-columns: var(--sv-cols);
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line-faint);
+}
+.sv-suphead-prod {
+  grid-column: 8 / 12;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 5px 8px;
+  border-left: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+}
+
+/* Column headers */
+.sv-row.sv-head {
+  display: grid;
+  grid-template-columns: var(--sv-cols);
+  background: color-mix(in srgb, var(--hl-blue) 28%, var(--paper-2));
+  border-bottom: 1px solid var(--line-soft);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--line-faint);
+}
+.sv-row.sv-head .sv-cell {
+  padding: 9px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  text-align: center;
+  white-space: nowrap;
+}
+.sv-row.sv-head .sv-c-color,
+.sv-row.sv-head .sv-c-type,
+.sv-row.sv-head .sv-c-comment {
+  text-align: left;
+}
+/* Subtle column-group separators in the header */
+.sv-row.sv-head .sv-c-proc,
+.sv-row.sv-head .sv-c-ma,
+.sv-row.sv-head .sv-c-ctrl,
+.sv-row.sv-head .sv-c-comment {
+  box-shadow: inset 1px 0 0 var(--line-soft);
+}
+
+/* Data rows: 13 columns, 4 sub-rows for the four process steps. */
+.sv-row.sv-data {
+  display: grid;
+  grid-template-columns: var(--sv-cols);
+  grid-template-rows: repeat(4, minmax(28px, auto));
+  border-bottom: 1px solid var(--line-faint);
+  background: var(--paper);
+  transition: background 120ms ease;
+}
+.sv-row.sv-data.is-alt {
+  background: color-mix(in srgb, var(--hl-blue) 12%, var(--paper));
+}
+.sv-row.sv-data.is-selected {
+  background: color-mix(in srgb, var(--accent) 5%, var(--paper));
+}
+.sv-row.sv-data.is-selected.is-alt {
+  background: color-mix(in srgb, var(--accent) 5%, color-mix(in srgb, var(--hl-blue) 12%, var(--paper)));
+}
+.sv-row.sv-data:last-child { border-bottom: 0; }
+
+/* Cell base */
+.sv-cell {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+}
+
+/* Static columns span the 4 process sub-rows */
+.sv-row.sv-data > .sv-c-id      { grid-column: 1; grid-row: 1 / 5; border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-color   { grid-column: 2; grid-row: 1 / 5; border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-type    { grid-column: 3; grid-row: 1 / 5; border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-origin  { grid-column: 4; grid-row: 1 / 5; border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-th      { grid-column: 5; grid-row: 1 / 5; border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-dprod   { grid-column: 6; grid-row: 1 / 5; border-right: 1px solid var(--line-soft); }
+.sv-row.sv-data > .sv-c-ctrl    { grid-column: 12; grid-row: 1 / 5; border-left: 1px solid var(--line-soft); border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-comment { grid-column: 13; grid-row: 1 / 5; }
+
+/* Process sub-row cells */
+.sv-row.sv-data > .sv-c-proc   { grid-column: 7; }
+.sv-row.sv-data > .sv-c-ma     { grid-column: 8;  border-left: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-c-ce     { grid-column: 9; }
+.sv-row.sv-data > .sv-c-wh     { grid-column: 10; }
+.sv-row.sv-data > .sv-c-pdate  { grid-column: 11; border-right: 1px solid var(--line-faint); }
+.sv-row.sv-data > .sv-pr-0     { grid-row: 1; }
+.sv-row.sv-data > .sv-pr-1     { grid-row: 2; }
+.sv-row.sv-data > .sv-pr-2     { grid-row: 3; }
+.sv-row.sv-data > .sv-pr-3     { grid-row: 4; }
+.sv-row.sv-data > .sv-pr-0,
+.sv-row.sv-data > .sv-pr-1,
+.sv-row.sv-data > .sv-pr-2 {
+  border-bottom: 1px solid var(--line-faint);
+}
+
+/* ID cell — large mono number, with hover-revealed remove */
+.sv-c-id {
+  position: relative;
+  background: color-mix(in srgb, var(--hl-blue) 25%, var(--paper));
+  justify-content: center;
+}
+.sv-row.sv-data.is-selected > .sv-c-id {
+  background: var(--ink);
+  color: var(--paper);
+}
+.sv-id-input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding: 8px 4px;
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: inherit;
+}
+.sv-id-input::placeholder {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+.sv-row.sv-data.is-selected .sv-id-input::placeholder { color: var(--ink-faint); }
+.sv-id-input:focus { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sv-id-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.sv-c-id:hover .sv-id-remove,
+.sv-c-id:focus-within .sv-id-remove,
+.sv-row.sv-data.is-selected .sv-id-remove { opacity: 1; }
+.sv-id-remove:hover {
+  background: var(--hl-red);
+  color: var(--flag-unsched-fg);
+}
+
+/* Inline text inputs that fill their cell */
+.sv-input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding: 8px 10px;
+  width: 100%;
+  height: 100%;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  min-width: 0;
+}
+.sv-input::placeholder { color: var(--ink-faint); }
+.sv-input:focus { background: var(--focus-ring); box-shadow: inset 0 0 0 1px var(--accent); }
+
+.sv-c-th {
+  background: color-mix(in srgb, var(--hl-red) 35%, var(--paper));
+  text-align: center;
+}
+.sv-c-th.sv-input { text-align: center; font-variant-numeric: tabular-nums; }
+.sv-row.sv-data.is-alt > .sv-c-th { background: color-mix(in srgb, var(--hl-red) 38%, var(--paper)); }
+
+/* Date cell — overlay an invisible date input on top of a formatted display */
+.sv-date-cell {
+  position: relative;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: text;
+}
+.sv-date-display {
+  font-size: 12px;
+  color: var(--ink);
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.sv-date-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  font: inherit;
+  outline: 0;
+  padding: 0;
+  cursor: pointer;
+  /* hide native chrome on Chromium where possible, but keep behavior */
+  opacity: 0;
+}
+/* Keep the picker indicator clickable on Chromium */
+.sv-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+.sv-date-cell:focus-within {
+  background: var(--focus-ring);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Process label cell */
+.sv-proc-label {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--hl-blue) 22%, var(--paper-2));
+  border-right: 1px solid var(--line-faint);
+}
+.sv-row.sv-data.is-alt .sv-proc-label {
+  background: color-mix(in srgb, var(--hl-blue) 30%, var(--paper-2));
+}
+
+/* Station cells — buttons that cycle empty → OK → N/A */
+.sv-station {
+  border: 0;
+  background: var(--paper);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  color: var(--ink);
+  border-right: 1px solid var(--line-faint);
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.sv-row.sv-data.is-alt .sv-station.sv-st-empty {
+  background: color-mix(in srgb, var(--hl-blue) 6%, var(--paper));
+}
+.sv-station:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper));
+}
+.sv-station:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sv-station.sv-st-ok {
+  background: color-mix(in srgb, var(--hl-green) 85%, var(--paper));
+  color: var(--flag-ok-fg);
+  box-shadow: inset 0 0 0 1px var(--flag-ok-bd);
+}
+.sv-station.sv-st-ok:hover {
+  background: color-mix(in srgb, var(--hl-green) 95%, var(--paper));
+}
+.sv-station.sv-st-na {
+  background: var(--line-soft);
+  color: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.sv-station.sv-st-na:hover {
+  background: color-mix(in srgb, var(--ink-faint) 65%, var(--line-soft));
+}
+
+/* Contrôle stack: two stacked fields (Contrôleur on top, Date contrôle below) */
+.sv-ctrl-stack {
+  flex-direction: column;
+  align-items: stretch;
+  background: color-mix(in srgb, var(--hl-blue) 14%, var(--paper));
+  padding: 0;
+}
+.sv-row.sv-data.is-alt .sv-ctrl-stack {
+  background: color-mix(in srgb, var(--hl-blue) 22%, var(--paper));
+}
+.sv-ctrl-input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  width: 100%;
+  text-align: center;
+}
+.sv-ctrl-input::placeholder { color: var(--flag-note-fg); font-weight: 500; }
+.sv-ctrl-input:focus { background: var(--focus-ring); box-shadow: inset 0 0 0 1px var(--accent); }
+.sv-ctrl-stack > .sv-ctrl-input {
+  flex: 1 1 50%;
+  min-height: 50%;
+  border-bottom: 1px solid var(--line-faint);
+}
+.sv-ctrl-date {
+  flex: 1 1 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: text;
+}
+.sv-ctrl-date .sv-date-display {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.sv-ctrl-date:focus-within { background: var(--focus-ring); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Résultat / Commentaire — multi-line textarea spanning the four sub-rows */
+.sv-comment-input {
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding: 8px 10px;
+  resize: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  align-self: stretch;
+  display: block;
+}
+.sv-comment-input::placeholder { color: var(--ink-faint); }
+.sv-comment-input:focus { background: var(--focus-ring); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Let the Suivi tab use the full viewport like Schedules — the table is wide. */
+.app-main:has(.sv) { max-width: none; }
+
+/* Density adjustments — keep cells legible on phones / advanced layouts. */
+:root[data-density='compact'] .sv-row.sv-data {
+  grid-template-rows: repeat(4, minmax(24px, auto));
+}
+:root[data-density='compact'] .sv-id-input { font-size: 15px; padding: 6px 4px; }
+:root[data-density='compact'] .sv-input,
+:root[data-density='compact'] .sv-station,
+:root[data-density='compact'] .sv-date-display,
+:root[data-density='compact'] .sv-ctrl-input,
+:root[data-density='compact'] .sv-comment-input { font-size: 11px; }
+:root[data-density='advanced'] .sv-row.sv-data {
+  grid-template-rows: repeat(4, minmax(34px, auto));
+}
+
+/* Tablet / phone — keep the table scrollable horizontally rather than reflowing. */
+@media (max-width: 880px) {
+  .sv {
+    --sv-min-width: 1180px;
+  }
+  .sv-titlebar { font-size: 14px; padding: 10px 14px; }
+  .sv-title { font-size: 14px; }
+  .sv-year { right: 10px; font-size: 9px; padding: 3px 8px; }
+}
+
+/* Print: landscape, allow the table to fit without horizontal scrolling. */
+@media print {
+  .sv-table-wrap {
+    overflow: visible;
+    background-image: none;
+    border: 1px solid var(--ink);
+  }
+  .sv-table { min-width: 0; }
+  .sv {
+    --sv-cols:
+      40px 110px minmax(120px, 1.4fr) 70px 50px 76px
+      78px 38px 38px 38px 76px 110px minmax(140px, 1.6fr);
+  }
+  .sv-row.sv-head,
+  .sv-row.sv-suphead { background: var(--paper-2); }
+  .sv-station,
+  .sv-input,
+  .sv-id-input,
+  .sv-ctrl-input,
+  .sv-comment-input,
+  .sv-date-input,
+  .sv-date-display { color: var(--ink) !important; }
+  .sv-station.sv-st-ok { background: var(--hl-green) !important; }
+  .sv-station.sv-st-na { background: var(--line-soft) !important; }
+  @page { size: A4 landscape; margin: 12mm; }
+}
+
