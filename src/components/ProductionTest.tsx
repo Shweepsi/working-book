@@ -123,8 +123,7 @@ function initialState(date: string, shiftKey: ShiftKey, poste: Poste | null): Te
     const test: Test = { ...emptyTest(), ...legacy, id: newId() };
     return { tests: [test], activeId: test.id };
   }
-  const t = emptyTest();
-  return { tests: [t], activeId: t.id };
+  return { tests: [], activeId: '' };
 }
 
 interface ProductionTestProps {
@@ -141,9 +140,10 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
     save(storageKey(date, shiftKey), state);
   }, [state, date, shiftKey]);
 
-  const active: Test = state.tests.find((t) => t.id === state.activeId) ?? state.tests[0]!;
+  const active: Test | undefined = state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
 
   function patchActive(updater: (t: Test) => Test) {
+    if (!active) return;
     setState((s) => ({
       ...s,
       tests: s.tests.map((t) => (t.id === active.id ? updater(t) : t)),
@@ -173,6 +173,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
   }
 
   function reset() {
+    if (!active) return;
     if (!window.confirm('Clear all measurements for this test?')) return;
     setState((s) => ({
       ...s,
@@ -204,15 +205,12 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
   }
 
   function deleteActive() {
-    if (state.tests.length === 1) {
-      reset();
-      return;
-    }
+    if (!active) return;
     if (!window.confirm('Delete this test?')) return;
     setState((s) => {
       const idx = s.tests.findIndex((t) => t.id === active.id);
       const next = s.tests.filter((t) => t.id !== active.id);
-      const fallback = next[Math.min(idx, next.length - 1)]!.id;
+      const fallback = next[Math.min(idx, next.length - 1)]?.id ?? '';
       return { tests: next, activeId: fallback };
     });
   }
@@ -220,9 +218,17 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
   return (
     <div className="pt">
       <div className="pt-tests no-print" role="tablist" aria-label="Tests">
+        <button
+          type="button"
+          className="pt-test-chip add"
+          onClick={addTest}
+          title="Add a new test"
+        >
+          <span className="glyph">＋</span> Nouveau
+        </button>
         {state.tests.map((t, i) => {
           const label = displayTestNo(t.header.testNo) || `Test ${i + 1}`;
-          const isActive = t.id === active.id;
+          const isActive = active?.id === t.id;
           return (
             <button
               key={t.id}
@@ -237,16 +243,16 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
             </button>
           );
         })}
-        <button
-          type="button"
-          className="pt-test-chip add"
-          onClick={addTest}
-          title="Add a new test"
-        >
-          <span className="glyph">＋</span> Nouveau
-        </button>
       </div>
 
+      {!active && (
+        <div className="pt-empty no-print">
+          <h3>Aucun test en cours</h3>
+          <p className="faint">Cliquer sur <strong>＋ Nouveau</strong> pour commencer un test.</p>
+        </div>
+      )}
+
+      {active && (<>
       <div className="print-header print-only">
         <h1>Production Test · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
@@ -364,6 +370,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
         <button className="btn ghost" onClick={deleteActive}>Delete</button>
         <button className="btn" onClick={() => window.print()}>Print</button>
       </div>
+      </>)}
     </div>
   );
 }

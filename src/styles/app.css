@@ -158,13 +158,25 @@
 /* ---------- Logbook ---------- */
 
 /* One-tap "type strip" — phone/tablet primary action.
-   Two rows: prefilled types on top, ad-hoc (Arrêt / Qualité / Note) below. */
+   Two rows: prefilled types on top, ad-hoc (Arrêt / Qualité / Note) below.
+   Sticks below the app-header so the +type buttons stay reachable while
+   scrolling a long event list. */
 .type-strip {
+  --type-strip-offset: 64px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-bottom: 14px;
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + var(--type-strip-offset));
+  z-index: 5;
+  background: var(--paper-glass);
+  backdrop-filter: saturate(160%) blur(8px);
+  padding: 6px 0;
 }
+
+:root[data-density='compact'] .type-strip { --type-strip-offset: 56px; }
+:root[data-density='advanced'] .type-strip { --type-strip-offset: 60px; }
 
 .type-row {
   display: flex;
@@ -947,9 +959,23 @@
   border-color: var(--ink);
 }
 
-.pt-test-chip.add { color: var(--accent); border-style: dashed; }
+.pt-test-chip.add { color: var(--accent); border-style: dashed; border-color: var(--accent); }
 .pt-test-chip.add .glyph { color: var(--accent); font-weight: 500; }
-.pt-test-chip.add:hover { background: color-mix(in srgb, var(--accent) 6%, var(--paper)); }
+.pt-test-chip.add:hover { background: color-mix(in srgb, var(--accent) 6%, var(--paper)); border-color: var(--accent); }
+
+.pt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 28px;
+  margin-top: 12px;
+  border: 1px dashed var(--line-soft);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.pt-empty h3 { margin: 0; font-size: 15px; }
+.pt-empty p { margin: 0; line-height: 1.5; }
 
 /* ---------- Tablet (≤880px) ---------- */
 @media (max-width: 880px) {
@@ -986,6 +1012,19 @@
   .measure-cell .mlabel { padding: 6px 10px; }
   .lab-grid { grid-template-columns: 60px repeat(3, 1fr); }
   .lab-grid .rowlabel { padding: 8px 10px; }
+}
+
+/* Tablet-only (≥601px and ≤880px): tighten event rows to fit more on
+   screen — phones keep the roomier card layout from the ≤600px block. */
+@media (min-width: 601px) and (max-width: 880px) {
+  .evt {
+    row-gap: 4px;
+    padding: 8px 12px;
+  }
+  .evt .time { font-size: 12px; }
+  .evt .dur { font-size: 12px; }
+  .evt .desc { font-size: 13px; }
+  .flag { padding: 2px 8px; min-height: 22px; font-size: 10px; }
 }
 
 /* ---------- Phone (≤600px) ---------- */
@@ -2323,8 +2362,10 @@
 /* Layout: let the Schedules tab use the full viewport width since the table is wide. */
 .app-main:has(.sch) { max-width: none; }
 
-/* Tablet / phone */
-@media (max-width: 880px) {
+/* Tablet / phone — schedule navigator moves on top of the detail rather
+   than sitting in a side rail, since the detail table itself is wide
+   (min-width 1206px) and tablets in landscape don't have room for both. */
+@media (max-width: 1280px) {
   .sch-body {
     grid-template-columns: 1fr;
   }
