@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { load, save } from '../lib/storage';
+import { useEscapeToClose } from '../lib/hooks';
 
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
@@ -7,6 +8,7 @@ const STATIONS = ['MA', 'CE', 'WH'] as const;
 type Process = (typeof PROCESSES)[number];
 type Station = (typeof STATIONS)[number];
 type CellState = 'ok' | 'na' | null;
+type StageStatus = 'complete' | 'partial' | 'na' | 'empty';
 
 interface ProcessRow {
   stations: Record<Station, CellState>;
@@ -29,13 +31,19 @@ interface SuiviEntry {
 
 interface SuiviState {
   entries: SuiviEntry[];
-  selectedId: string | null;
 }
 
 const STORAGE_KEY = 'wb.suivi.v1';
 const COLOR_DEFAULT = 'SG NRG A/R Clear';
 const ORIGIN_DEFAULT = 'PILK DE';
 const THICKNESS_DEFAULT = '2.1 mm';
+
+const STAGE_LETTER: Record<Process, string> = {
+  'Découpe': 'D',
+  'Trempe': 'T',
+  'Montage': 'M',
+  'Vitrine': 'V',
+};
 
 function newId(): string {
   return `sv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -80,11 +88,8 @@ function emptyEntry(serial = ''): SuiviEntry {
 
 function initialState(): SuiviState {
   const persisted = load<SuiviState | null>(STORAGE_KEY, null);
-  if (persisted && Array.isArray(persisted.entries) && persisted.entries.length > 0) {
-    return persisted;
-  }
-  const e = emptyEntry('1');
-  return { entries: [e], selectedId: e.id };
+  if (persisted && Array.isArray(persisted.entries)) return persisted;
+  return { entries: [] };
 }
 
 function cycleCell(state: CellState): CellState {
@@ -93,7 +98,7 @@ function cycleCell(state: CellState): CellState {
   return null;
 }
 
-function fmtDateProd(iso: string): string {
+function fmtDateShort(iso: string): string {
   if (!iso || iso.length < 10) return '';
   const d = new Date(iso + 'T00:00:00Z');
   if (Number.isNaN(d.getTime())) return iso;
@@ -105,44 +110,58 @@ function fmtDateProd(iso: string): string {
   });
 }
 
+function stageStatus(row: ProcessRow): StageStatus {
+  const okCount = STATIONS.reduce((n, s) => n + (row.stations[s] === 'ok' ? 1 : 0), 0);
+  const naCount = STATIONS.reduce((n, s) => n + (row.stations[s] === 'na' ? 1 : 0), 0);
+  if (okCount === STATIONS.length) return 'complete';
+  if (okCount > 0) return 'partial';
+  if (naCount > 0) return 'na';
+  return 'empty';
+}
+
 export default function Suivi() {
   const [state, setState] = useState<SuiviState>(initialState);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const wantOpenRef = useRef<string | null>(null);
 
+  useEffect(() => { save(STORAGE_KEY, state); }, [state]);
+
+  // Open the entry queued by addAndOpen once it actually exists in state.
+  // Survives React 18 strict-mode double-invocation of state updaters.
   useEffect(() => {
-    save(STORAGE_KEY, state);
-  }, [state]);
+    const wanted = wantOpenRef.current;
+    if (wanted && state.entries.some((e) => e.id === wanted)) {
+      setOpenId(wanted);
+      wantOpenRef.current = null;
+    }
+  }, [state.entries]);
+
+  const open = useMemo(
+    () => state.entries.find((e) => e.id === openId) ?? null,
+    [state.entries, openId],
+  );
 
   function patchEntry(id: string, mut: (e: SuiviEntry) => SuiviEntry) {
     setState((s) => ({ ...s, entries: s.entries.map((e) => (e.id === id ? mut(e) : e)) }));
   }
 
-  function addEntry() {
+  function addAndOpen() {
     setState((s) => {
-      const e = emptyEntry(nextSerial(s.entries));
-      return { entries: [...s.entries, e], selectedId: e.id };
+      const entry = emptyEntry(nextSerial(s.entries));
+      wantOpenRef.current = entry.id;
+      return { ...s, entries: [...s.entries, entry] };
     });
   }
 
   function deleteEntry(id: string) {
     if (!window.confirm('Supprimer cette entrée ?')) return;
-    setState((s) => {
-      const remaining = s.entries.filter((e) => e.id !== id);
-      if (remaining.length === 0) {
-        const e = emptyEntry('1');
-        return { entries: [e], selectedId: e.id };
-      }
-      const selected = s.selectedId === id ? remaining[0]!.id : s.selectedId;
-      return { entries: remaining, selectedId: selected };
-    });
+    setState((s) => ({ ...s, entries: s.entries.filter((e) => e.id !== id) }));
+    if (openId === id) setOpenId(null);
   }
 
-  function selectEntry(id: string) {
-    setState((s) => (s.selectedId === id ? s : { ...s, selectedId: id }));
-  }
-
-  const total = state.entries.length;
   const yearEnd = useMemo(() => new Date().getFullYear(), []);
   const yearLabel = `SUIVI ${yearEnd - 1} - ${yearEnd}`;
+  const total = state.entries.length;
 
   return (
     <div className="sv">
@@ -151,32 +170,24 @@ export default function Suivi() {
         <span className="sv-year mono">{yearLabel}</span>
       </div>
 
-      <div className="sv-toolbar no-print">
-        <button className="btn primary" onClick={addEntry}>
+      <div className="sv-toolbar">
+        <button className="btn primary" onClick={addAndOpen}>
           <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
         </button>
         <span className="faint small">
           {total} entrée{total > 1 ? 's' : ''}
         </span>
-        <span className="faint small sv-toolbar-hint">
-          Cliquer une cellule MA/CE/WH pour cycler · vide → OK → N/A
-        </span>
-        <button
-          type="button"
-          className="btn ghost"
-          style={{ marginLeft: 'auto' }}
-          onClick={() => window.print()}
-          title="Imprimer le suivi"
-        >
-          Imprimer
-        </button>
       </div>
 
-      <div className="sv-table-wrap">
+      {total === 0 ? (
+        <div className="sv-empty">
+          <h3>Aucune entrée</h3>
+          <p className="faint">
+            Créer une entrée pour suivre une vitre dans Découpe, Trempe, Montage et Vitrine.
+          </p>
+        </div>
+      ) : (
         <div className="sv-table" role="table" aria-label="Suivi Cosmétiques et DV">
-          <div className="sv-row sv-suphead" role="row" aria-hidden="true">
-            <div className="sv-cell sv-suphead-prod">Production</div>
-          </div>
           <div className="sv-row sv-head" role="row">
             <div className="sv-cell sv-c-id" role="columnheader">ID</div>
             <div className="sv-cell sv-c-color" role="columnheader">Couleur</div>
@@ -184,189 +195,300 @@ export default function Suivi() {
             <div className="sv-cell sv-c-origin" role="columnheader">Origine</div>
             <div className="sv-cell sv-c-th" role="columnheader">Ép.</div>
             <div className="sv-cell sv-c-dprod" role="columnheader">Date Prod</div>
-            <div className="sv-cell sv-c-proc" role="columnheader">Process</div>
-            <div className="sv-cell sv-c-ma" role="columnheader">MA</div>
-            <div className="sv-cell sv-c-ce" role="columnheader">CE</div>
-            <div className="sv-cell sv-c-wh" role="columnheader">WH</div>
-            <div className="sv-cell sv-c-pdate" role="columnheader">Date</div>
+            <div className="sv-cell sv-c-prog" role="columnheader">Production</div>
             <div className="sv-cell sv-c-ctrl" role="columnheader">Contrôle</div>
-            <div className="sv-cell sv-c-comment" role="columnheader">Résultat / Commentaire</div>
+            <div className="sv-cell sv-c-cmt" role="columnheader" aria-label="Commentaire">·</div>
           </div>
-
-          {state.entries.map((entry, idx) => (
-            <SuiviEntryRow
-              key={entry.id}
-              entry={entry}
-              alt={idx % 2 === 1}
-              selected={state.selectedId === entry.id}
-              onSelect={() => selectEntry(entry.id)}
-              onChange={(mut) => patchEntry(entry.id, mut)}
-              onDelete={() => deleteEntry(entry.id)}
-            />
+          {state.entries.map((entry) => (
+            <SuiviRow key={entry.id} entry={entry} onOpen={() => setOpenId(entry.id)} />
           ))}
         </div>
-      </div>
+      )}
+
+      {open && (
+        <SuiviSheet
+          entry={open}
+          onClose={() => setOpenId(null)}
+          onChange={(mut) => patchEntry(open.id, mut)}
+          onDelete={() => deleteEntry(open.id)}
+        />
+      )}
     </div>
   );
 }
 
 interface RowProps {
   entry: SuiviEntry;
-  alt: boolean;
-  selected: boolean;
-  onSelect: () => void;
+  onOpen: () => void;
+}
+
+function SuiviRow({ entry, onOpen }: RowProps) {
+  return (
+    <div
+      className="sv-row sv-data"
+      role="row"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div className="sv-cell sv-c-id mono">
+        <strong>{entry.serial || '—'}</strong>
+      </div>
+      <div className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</div>
+      <div className="sv-cell sv-c-type" title={entry.testType}>
+        {entry.testType || <span className="faint">(sans type)</span>}
+      </div>
+      <div className="sv-cell sv-c-origin mono">{entry.origin || <span className="faint">—</span>}</div>
+      <div className="sv-cell sv-c-th mono">{entry.thickness || ''}</div>
+      <div className="sv-cell sv-c-dprod mono">
+        {fmtDateShort(entry.dateProd) || <span className="faint">—</span>}
+      </div>
+      <div className="sv-cell sv-c-prog">
+        <div className="sv-stages" aria-label="Avancement production">
+          {PROCESSES.map((p) => {
+            const status = stageStatus(entry.process[p]);
+            return (
+              <span
+                key={p}
+                className={`sv-stage sv-st-${status}`}
+                title={`${p} · ${labelForStatus(status)}`}
+              >
+                {STAGE_LETTER[p]}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div className="sv-cell sv-c-ctrl">
+        {entry.controleur || entry.dateControle ? (
+          <div className="sv-ctrl-summary">
+            {entry.controleur && <span>{entry.controleur}</span>}
+            {entry.dateControle && (
+              <span className="faint mono small">{fmtDateShort(entry.dateControle)}</span>
+            )}
+          </div>
+        ) : (
+          <span className="faint">—</span>
+        )}
+      </div>
+      <div className="sv-cell sv-c-cmt">
+        {entry.comment ? (
+          <span
+            className="sv-cmt-dot"
+            aria-label="Commentaire présent"
+            title={entry.comment}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function labelForStatus(s: StageStatus): string {
+  if (s === 'complete') return 'conforme';
+  if (s === 'partial') return 'en cours';
+  if (s === 'na') return 'non applicable';
+  return 'à faire';
+}
+
+interface SheetProps {
+  entry: SuiviEntry;
+  onClose: () => void;
   onChange: (mut: (e: SuiviEntry) => SuiviEntry) => void;
   onDelete: () => void;
 }
 
-function SuiviEntryRow({ entry, alt, selected, onSelect, onChange, onDelete }: RowProps) {
+function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
+  useEscapeToClose(onClose);
+
+  function patchHeader<K extends keyof SuiviEntry>(key: K, value: SuiviEntry[K]) {
+    onChange((e) => ({ ...e, [key]: value }));
+  }
   function patchProcess(p: Process, mut: (r: ProcessRow) => ProcessRow) {
     onChange((e) => ({ ...e, process: { ...e.process, [p]: mut(e.process[p]) } }));
   }
   function toggleStation(p: Process, st: Station) {
-    onSelect();
     patchProcess(p, (r) => ({
       ...r,
       stations: { ...r.stations, [st]: cycleCell(r.stations[st]) },
     }));
   }
-  function patchHeader<K extends keyof SuiviEntry>(key: K, value: SuiviEntry[K]) {
-    onChange((e) => ({ ...e, [key]: value }));
-  }
-
-  const cls = ['sv-row', 'sv-data'];
-  if (alt) cls.push('is-alt');
-  if (selected) cls.push('is-selected');
 
   return (
-    <div className={cls.join(' ')} role="row" onMouseDown={onSelect}>
-      <div className="sv-cell sv-c-id sv-id-cell">
-        <input
-          type="text"
-          inputMode="numeric"
-          className="sv-id-input mono"
-          value={entry.serial}
-          onChange={(ev) => patchHeader('serial', ev.target.value.replace(/\D/g, '').slice(0, 4))}
-          onFocus={onSelect}
-          aria-label="ID"
-          placeholder="—"
-        />
-        <button
-          type="button"
-          className="sv-id-remove no-print"
-          onClick={onDelete}
-          aria-label="Supprimer cette entrée"
-          title="Supprimer cette entrée"
-        >
-          ✕
-        </button>
-      </div>
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sv-sheet" role="dialog" aria-modal="true" aria-label="Éditer l'entrée">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <div className="sv-sheet-title">
+            <span className="sv-sheet-id mono">#{entry.serial || '—'}</span>
+            <h3>Suivi cosmétique</h3>
+          </div>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
 
-      <input
-        className="sv-cell sv-c-color sv-input"
-        value={entry.color}
-        onChange={(ev) => patchHeader('color', ev.target.value)}
-        placeholder="Couleur"
-      />
-      <input
-        className="sv-cell sv-c-type sv-input"
-        value={entry.testType}
-        onChange={(ev) => patchHeader('testType', ev.target.value)}
-        placeholder="Cosmétique …"
-      />
-      <input
-        className="sv-cell sv-c-origin sv-input"
-        value={entry.origin}
-        onChange={(ev) => patchHeader('origin', ev.target.value)}
-        placeholder="Origine"
-      />
-      <input
-        className="sv-cell sv-c-th sv-input"
-        value={entry.thickness}
-        onChange={(ev) => patchHeader('thickness', ev.target.value)}
-        placeholder="Ép."
-      />
-      <label className="sv-cell sv-c-dprod sv-date-cell">
-        <span className="sv-date-display mono" aria-hidden="true">
-          {fmtDateProd(entry.dateProd) || <span className="faint">—</span>}
-        </span>
+        <div className="sv-sheet-grid">
+          <Field
+            label="ID"
+            value={entry.serial}
+            onChange={(v) => patchHeader('serial', v.replace(/\D/g, '').slice(0, 4))}
+            mono
+            inputMode="numeric"
+          />
+          <Field
+            label="Date Prod"
+            type="date"
+            value={entry.dateProd}
+            onChange={(v) => patchHeader('dateProd', v)}
+            mono
+          />
+          <Field
+            label="Couleur"
+            value={entry.color}
+            onChange={(v) => patchHeader('color', v)}
+          />
+          <Field
+            label="Type de test"
+            value={entry.testType}
+            onChange={(v) => patchHeader('testType', v)}
+          />
+          <Field
+            label="Origine"
+            value={entry.origin}
+            onChange={(v) => patchHeader('origin', v)}
+          />
+          <Field
+            label="Épaisseur"
+            value={entry.thickness}
+            onChange={(v) => patchHeader('thickness', v)}
+          />
+        </div>
+
+        <div className="sv-sheet-section">
+          <div className="sv-sheet-section-title">Production</div>
+          <div className="sv-stages-grid">
+            {PROCESSES.map((p) => (
+              <StageCard
+                key={p}
+                process={p}
+                row={entry.process[p]}
+                onToggle={(st) => toggleStation(p, st)}
+                onDate={(v) => patchProcess(p, (r) => ({ ...r, date: v }))}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="sv-sheet-section">
+          <div className="sv-sheet-section-title">Contrôle</div>
+          <div className="sv-sheet-grid">
+            <Field
+              label="Contrôleur"
+              value={entry.controleur}
+              onChange={(v) => patchHeader('controleur', v)}
+            />
+            <Field
+              label="Date contrôle"
+              type="date"
+              value={entry.dateControle}
+              onChange={(v) => patchHeader('dateControle', v)}
+              mono
+            />
+          </div>
+        </div>
+
+        <div className="sv-sheet-section">
+          <div className="sv-sheet-section-title">Commentaires</div>
+          <textarea
+            className="sv-sheet-textarea"
+            value={entry.comment}
+            onChange={(e) => patchHeader('comment', e.target.value)}
+            placeholder="Résultat, anomalies, conditions…"
+            rows={3}
+          />
+        </div>
+
+        <div className="sv-sheet-actions">
+          <button className="btn destructive" onClick={onDelete}>Supprimer</button>
+          <button className="btn primary" style={{ marginLeft: 'auto' }} onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+interface StageCardProps {
+  process: Process;
+  row: ProcessRow;
+  onToggle: (st: Station) => void;
+  onDate: (v: string) => void;
+}
+
+function StageCard({ process, row, onToggle, onDate }: StageCardProps) {
+  const status = stageStatus(row);
+  return (
+    <div className={`sv-stage-card sv-st-${status}`}>
+      <div className="sv-stage-card-head">
+        <span className="sv-stage-card-name">{process}</span>
         <input
           type="date"
-          className="sv-date-input"
-          value={entry.dateProd}
-          onChange={(ev) => patchHeader('dateProd', ev.target.value)}
-          aria-label="Date de production"
+          className="sv-stage-card-date mono"
+          value={row.date}
+          onChange={(e) => onDate(e.target.value)}
+          aria-label={`Date ${process}`}
         />
-      </label>
-
-      {PROCESSES.map((p, i) => (
-        <Fragment key={p}>
-          <div
-            className={`sv-cell sv-c-proc sv-proc-label sv-pr-${i}`}
-            role="rowheader"
-          >
-            {p}
-          </div>
-          {STATIONS.map((st) => {
-            const v = entry.process[p].stations[st];
-            return (
-              <button
-                key={st}
-                type="button"
-                className={`sv-cell sv-c-${st.toLowerCase()} sv-station sv-st-${v ?? 'empty'} sv-pr-${i}`}
-                onClick={() => toggleStation(p, st)}
-                aria-label={`${p} · ${st} · ${v === 'ok' ? 'OK' : v === 'na' ? 'N/A' : 'vide'}`}
-                title={`${p} · ${st}`}
-              >
-                {v === 'ok' ? 'OK' : ''}
-              </button>
-            );
-          })}
-          <label className={`sv-cell sv-c-pdate sv-date-cell sv-pr-${i}`}>
-            <span className="sv-date-display mono" aria-hidden="true">
-              {fmtDateProd(entry.process[p].date) || ''}
-            </span>
-            <input
-              type="date"
-              className="sv-date-input"
-              value={entry.process[p].date}
-              onChange={(ev) => patchProcess(p, (r) => ({ ...r, date: ev.target.value }))}
-              aria-label={`Date ${p}`}
-            />
-          </label>
-        </Fragment>
-      ))}
-
-      <div className="sv-cell sv-c-ctrl sv-ctrl-stack">
-        <input
-          className="sv-input sv-ctrl-input"
-          value={entry.controleur}
-          onChange={(ev) => patchHeader('controleur', ev.target.value)}
-          placeholder="Contrôleur"
-          aria-label="Contrôleur"
-        />
-        <label className="sv-ctrl-date">
-          <span className="sv-date-display mono" aria-hidden="true">
-            {fmtDateProd(entry.dateControle) || (
-              <span className="faint">Date contrôle</span>
-            )}
-          </span>
-          <input
-            type="date"
-            className="sv-date-input"
-            value={entry.dateControle}
-            onChange={(ev) => patchHeader('dateControle', ev.target.value)}
-            aria-label="Date contrôle"
-          />
-        </label>
       </div>
-
-      <textarea
-        className="sv-cell sv-c-comment sv-comment-input"
-        value={entry.comment}
-        onChange={(ev) => patchHeader('comment', ev.target.value)}
-        placeholder="Résultat, anomalies, conditions…"
-      />
+      <div className="sv-stage-stations">
+        {STATIONS.map((st) => {
+          const v = row.stations[st];
+          return (
+            <button
+              key={st}
+              type="button"
+              className={`sv-station-btn sv-st-${v ?? 'empty'}`}
+              onClick={() => onToggle(st)}
+              aria-label={`${st} · ${v === 'ok' ? 'OK' : v === 'na' ? 'N/A' : 'vide'}`}
+              title={`${st} · ${v === 'ok' ? 'conforme' : v === 'na' ? 'non applicable' : 'à faire'}`}
+            >
+              <span className="sv-station-btn-label">{st}</span>
+              <span className="sv-station-btn-state mono">
+                {v === 'ok' ? 'OK' : v === 'na' ? 'N/A' : '—'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  mono?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+}
+
+function Field({ label, value, onChange, type = 'text', mono, inputMode }: FieldProps) {
+  return (
+    <label className="sv-field">
+      <span className="sv-field-label">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode={inputMode}
+        className={mono ? 'mono' : ''}
+      />
+    </label>
   );
 }
