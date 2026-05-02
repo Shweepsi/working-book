@@ -436,7 +436,6 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
         </div>
 
         <div className="sv-sheet-section">
-          <div className="sv-sheet-section-title">Contrôleur</div>
           <div className="sv-sheet-grid">
             <Field
               label="Contrôleur"
