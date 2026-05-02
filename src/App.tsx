@@ -3,6 +3,7 @@ import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
 import Settings from './components/Settings';
+import Suivi from './components/Suivi';
 import { load, save } from './lib/storage';
 import {
   POSTES,
@@ -15,12 +16,13 @@ import {
 } from './lib/shiftCalendar';
 import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types';
 
-type TabKey = 'logbook' | 'test' | 'sched';
+type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
 const TABS = [
   { key: 'logbook', label: 'Logbook' },
   { key: 'test', label: 'Production Test' },
   { key: 'sched', label: 'Schedule' },
+  { key: 'suivi', label: 'Suivi' },
 ] as const satisfies readonly { key: TabKey; label: string }[];
 
 const SHIFT_TABS = [
@@ -50,7 +52,7 @@ function resolvedTheme(pref: Theme): 'light' | 'dark' {
 }
 
 function isTabKey(value: string): value is TabKey {
-  return value === 'logbook' || value === 'test' || value === 'sched';
+  return value === 'logbook' || value === 'test' || value === 'sched' || value === 'suivi';
 }
 
 function isLiveShiftKey(value: string): value is LiveShiftKey {
@@ -222,6 +224,7 @@ export default function App() {
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
         {tab === 'sched' && <Schedules />}
+        {tab === 'suivi' && <Suivi />}
       </main>
     </div>
   );

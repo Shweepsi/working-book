@@ -2329,3 +2329,364 @@
   }
 }
 
+/* ---------- Suivi Cosmétiques et DV ----------
+   Compact list (one row per entry) with a 4-stage progress chip strip.
+   Editing happens in a centered sheet that reuses the project's .sheet
+   chrome — same pattern Schedules uses for row detail. */
+
+.sv {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sv-titlebar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 10px 10px 0 0;
+}
+.sv-title { margin: 0; font-size: 15px; font-weight: 600; color: inherit; }
+.sv-year {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.sv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--paper);
+  border-left: 1px solid var(--line-faint);
+  border-right: 1px solid var(--line-faint);
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.sv-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+  padding: 32px 24px;
+  border: 1px solid var(--line-faint);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  background: var(--paper);
+}
+.sv-empty h3 { margin: 0; font-size: 15px; }
+.sv-empty p { margin: 0; max-width: 50ch; line-height: 1.5; }
+
+.sv-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-faint);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  overflow-x: auto;
+  background: var(--paper);
+}
+
+.sv-row {
+  display: grid;
+  grid-template-columns:
+    72px                     /* ID */
+    140px                    /* Couleur */
+    minmax(180px, 1.6fr)     /* Type de test */
+    90px                     /* Origine */
+    64px                     /* Ép. */
+    100px                    /* Date Prod */
+    160px                    /* Production stages */
+    minmax(150px, 1fr)       /* Contrôle */
+    32px;                    /* Comment indicator */
+  align-items: center;
+  border-bottom: 1px solid var(--line-faint);
+  min-width: 1018px;
+  min-height: 44px;
+  transition: background 100ms ease;
+}
+.sv-row:last-child { border-bottom: 0; }
+
+.sv-row.sv-head {
+  background: var(--paper-2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  user-select: none;
+  min-height: 36px;
+  box-shadow: 0 1px 0 var(--line-faint);
+}
+
+.sv-row.sv-data { cursor: pointer; }
+.sv-row.sv-data:hover { background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
+.sv-row.sv-data:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sv-cell {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.sv-cell.sv-c-id strong { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.sv-cell.sv-c-th {
+  text-align: center;
+  background: color-mix(in srgb, var(--hl-red) 28%, transparent);
+}
+.sv-cell.sv-c-cmt { text-align: center; padding: 0; }
+
+/* 4-stage progress chip strip */
+.sv-stages {
+  display: inline-flex;
+  gap: 4px;
+}
+.sv-stage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  border-radius: 4px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--line-faint);
+  background: var(--paper);
+  color: var(--ink-faint);
+}
+.sv-stage.sv-st-complete {
+  background: color-mix(in srgb, var(--hl-green) 80%, var(--paper));
+  border-color: var(--flag-ok-bd);
+  color: var(--flag-ok-fg);
+}
+.sv-stage.sv-st-partial {
+  background: color-mix(in srgb, var(--hl-yellow) 60%, var(--paper));
+  border-color: var(--flag-sched-bd);
+  color: var(--flag-sched-fg);
+}
+.sv-stage.sv-st-na {
+  background: var(--line-soft);
+  border-color: var(--line-soft);
+  color: var(--ink-faint);
+}
+
+.sv-ctrl-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sv-cmt-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- Edit sheet ---------- */
+.sv-sheet { width: min(640px, calc(100% - 40px)); }
+.sv-sheet-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.sv-sheet-id { font-size: 14px; color: var(--ink-soft); }
+
+.sv-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.sv-field-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.sv-field input {
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  padding: 6px 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  outline: 0;
+  min-height: 32px;
+}
+.sv-field input:focus { border-bottom-color: var(--accent); }
+
+.sv-sheet-section { margin-bottom: 16px; }
+.sv-sheet-section:last-of-type { margin-bottom: 0; }
+.sv-sheet-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.sv-stages-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.sv-stage-card {
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-radius: 8px;
+  padding: 10px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.sv-stage-card.sv-st-complete {
+  background: color-mix(in srgb, var(--hl-green) 22%, var(--paper-2));
+  border-color: var(--flag-ok-bd);
+}
+.sv-stage-card.sv-st-partial {
+  background: color-mix(in srgb, var(--hl-yellow) 30%, var(--paper-2));
+  border-color: var(--flag-sched-bd);
+}
+.sv-stage-card.sv-st-na {
+  border-color: var(--line-soft);
+  opacity: 0.85;
+}
+.sv-stage-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sv-stage-card-name { font-size: 12px; font-weight: 600; }
+.sv-stage-card-date {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ink-soft);
+  outline: 0;
+  text-align: right;
+  font-family: 'Geist Mono', monospace;
+  min-width: 0;
+}
+.sv-stage-card-date:focus { color: var(--ink); }
+
+.sv-stage-stations {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.sv-station-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.sv-station-btn:hover { border-color: var(--ink); }
+.sv-station-btn-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.sv-station-btn-state { font-size: 12px; font-weight: 700; }
+.sv-station-btn.sv-st-ok {
+  background: color-mix(in srgb, var(--hl-green) 70%, var(--paper));
+  border-color: var(--flag-ok-bd);
+  color: var(--flag-ok-fg);
+}
+.sv-station-btn.sv-st-ok .sv-station-btn-label { color: var(--flag-ok-fg); }
+.sv-station-btn.sv-st-na {
+  background: var(--line-soft);
+  border-color: var(--line-soft);
+  color: var(--ink-faint);
+}
+.sv-station-btn.sv-st-na .sv-station-btn-label { color: var(--ink-faint); }
+.sv-station-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sv-sheet-textarea {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  background: var(--paper);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  outline: 0;
+  resize: vertical;
+  min-height: 70px;
+}
+.sv-sheet-textarea:focus { border-color: var(--accent); }
+
+.sv-sheet-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-faint);
+}
+
+/* Phone — single column for the stage cards, hide low-priority columns. */
+@media (max-width: 880px) {
+  .sv-stages-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .sv-titlebar { padding: 10px 12px; }
+  .sv-title { font-size: 13px; }
+  .sv-year { right: 10px; font-size: 9px; padding: 3px 8px; }
+}
+
