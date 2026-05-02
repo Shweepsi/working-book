@@ -4,15 +4,16 @@ import { useEscapeToClose } from '../lib/hooks';
 
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
+const TAGS = ['Production', 'Process', 'Développement', 'Réclamation'] as const;
 
 type Process = (typeof PROCESSES)[number];
 type Station = (typeof STATIONS)[number];
-type CellState = 'ok' | 'na' | null;
-type StageStatus = 'complete' | 'partial' | 'na' | 'empty';
+type Tag = (typeof TAGS)[number];
+type CellState = 'ok' | 'nok' | 'na' | null;
+type StageStatus = 'complete' | 'partial' | 'fail' | 'na' | 'empty';
 
 interface ProcessRow {
   stations: Record<Station, CellState>;
-  date: string;
 }
 
 interface SuiviEntry {
@@ -23,6 +24,7 @@ interface SuiviEntry {
   origin: string;
   thickness: string;
   dateProd: string;
+  tag: Tag | null;
   process: Record<Process, ProcessRow>;
   controleur: string;
   dateControle: string;
@@ -45,12 +47,19 @@ const STAGE_LETTER: Record<Process, string> = {
   'Vitrine': 'V',
 };
 
+const TAG_SLUG: Record<Tag, string> = {
+  'Production': 'production',
+  'Process': 'process',
+  'Développement': 'dev',
+  'Réclamation': 'rec',
+};
+
 function newId(): string {
   return `sv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function emptyProcessRow(): ProcessRow {
-  return { stations: { MA: null, CE: null, WH: null }, date: '' };
+  return { stations: { MA: null, CE: null, WH: null } };
 }
 
 function emptyProcess(): Record<Process, ProcessRow> {
@@ -79,6 +88,7 @@ function emptyEntry(serial = ''): SuiviEntry {
     origin: ORIGIN_DEFAULT,
     thickness: THICKNESS_DEFAULT,
     dateProd: '',
+    tag: null,
     process: emptyProcess(),
     controleur: '',
     dateControle: '',
@@ -94,7 +104,8 @@ function initialState(): SuiviState {
 
 function cycleCell(state: CellState): CellState {
   if (state === null) return 'ok';
-  if (state === 'ok') return 'na';
+  if (state === 'ok') return 'nok';
+  if (state === 'nok') return 'na';
   return null;
 }
 
@@ -111,12 +122,29 @@ function fmtDateShort(iso: string): string {
 }
 
 function stageStatus(row: ProcessRow): StageStatus {
-  const okCount = STATIONS.reduce((n, s) => n + (row.stations[s] === 'ok' ? 1 : 0), 0);
-  const naCount = STATIONS.reduce((n, s) => n + (row.stations[s] === 'na' ? 1 : 0), 0);
+  const states = STATIONS.map((s) => row.stations[s]);
+  if (states.some((s) => s === 'nok')) return 'fail';
+  const okCount = states.filter((s) => s === 'ok').length;
+  const naCount = states.filter((s) => s === 'na').length;
   if (okCount === STATIONS.length) return 'complete';
   if (okCount > 0) return 'partial';
   if (naCount > 0) return 'na';
   return 'empty';
+}
+
+function labelForStatus(s: StageStatus): string {
+  if (s === 'complete') return 'conforme';
+  if (s === 'partial') return 'en cours';
+  if (s === 'fail') return 'NOK';
+  if (s === 'na') return 'non applicable';
+  return 'à faire';
+}
+
+function labelForCell(v: CellState): string {
+  if (v === 'ok') return 'conforme';
+  if (v === 'nok') return 'NOK';
+  if (v === 'na') return 'non applicable';
+  return 'à faire';
 }
 
 export default function Suivi() {
@@ -166,7 +194,7 @@ export default function Suivi() {
   return (
     <div className="sv">
       <div className="sv-titlebar">
-        <h2 className="sv-title">Suivi Cosmétiques et DV</h2>
+        <h2 className="sv-title">Suivi Cosmétiques</h2>
         <span className="sv-year mono">{yearLabel}</span>
       </div>
 
@@ -182,21 +210,19 @@ export default function Suivi() {
       {total === 0 ? (
         <div className="sv-empty">
           <h3>Aucune entrée</h3>
-          <p className="faint">
-            Créer une entrée pour suivre une vitre dans Découpe, Trempe, Montage et Vitrine.
-          </p>
         </div>
       ) : (
-        <div className="sv-table" role="table" aria-label="Suivi Cosmétiques et DV">
+        <div className="sv-table" role="table" aria-label="Suivi Cosmétiques">
           <div className="sv-row sv-head" role="row">
             <div className="sv-cell sv-c-id" role="columnheader">ID</div>
+            <div className="sv-cell sv-c-tag" role="columnheader">Tag</div>
             <div className="sv-cell sv-c-color" role="columnheader">Couleur</div>
             <div className="sv-cell sv-c-type" role="columnheader">Type de test</div>
             <div className="sv-cell sv-c-origin" role="columnheader">Origine</div>
             <div className="sv-cell sv-c-th" role="columnheader">Ép.</div>
             <div className="sv-cell sv-c-dprod" role="columnheader">Date Prod</div>
             <div className="sv-cell sv-c-prog" role="columnheader">Production</div>
-            <div className="sv-cell sv-c-ctrl" role="columnheader">Contrôle</div>
+            <div className="sv-cell sv-c-ctrl" role="columnheader">Contrôleur</div>
             <div className="sv-cell sv-c-cmt" role="columnheader" aria-label="Commentaire">·</div>
           </div>
           {state.entries.map((entry) => (
@@ -238,6 +264,13 @@ function SuiviRow({ entry, onOpen }: RowProps) {
     >
       <div className="sv-cell sv-c-id mono">
         <strong>{entry.serial || '—'}</strong>
+      </div>
+      <div className="sv-cell sv-c-tag">
+        {entry.tag ? (
+          <span className={`sv-tag sv-tag-${TAG_SLUG[entry.tag]}`}>{entry.tag}</span>
+        ) : (
+          <span className="faint">—</span>
+        )}
       </div>
       <div className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</div>
       <div className="sv-cell sv-c-type" title={entry.testType}>
@@ -289,13 +322,6 @@ function SuiviRow({ entry, onOpen }: RowProps) {
   );
 }
 
-function labelForStatus(s: StageStatus): string {
-  if (s === 'complete') return 'conforme';
-  if (s === 'partial') return 'en cours';
-  if (s === 'na') return 'non applicable';
-  return 'à faire';
-}
-
 interface SheetProps {
   entry: SuiviEntry;
   onClose: () => void;
@@ -318,6 +344,9 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
       stations: { ...r.stations, [st]: cycleCell(r.stations[st]) },
     }));
   }
+  function toggleTag(t: Tag) {
+    patchHeader('tag', entry.tag === t ? null : t);
+  }
 
   return (
     <>
@@ -330,6 +359,27 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
             <h3>Suivi cosmétique</h3>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+
+        <div className="sv-sheet-section">
+          <div className="sv-sheet-section-title">Tag</div>
+          <div className="sv-tag-row" role="radiogroup" aria-label="Tag">
+            {TAGS.map((t) => {
+              const on = entry.tag === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className={`sv-tag sv-tag-${TAG_SLUG[t]} ${on ? 'is-on' : 'is-off'}`}
+                  onClick={() => toggleTag(t)}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="sv-sheet-grid">
@@ -378,14 +428,13 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
                 process={p}
                 row={entry.process[p]}
                 onToggle={(st) => toggleStation(p, st)}
-                onDate={(v) => patchProcess(p, (r) => ({ ...r, date: v }))}
               />
             ))}
           </div>
         </div>
 
         <div className="sv-sheet-section">
-          <div className="sv-sheet-section-title">Contrôle</div>
+          <div className="sv-sheet-section-title">Contrôleur</div>
           <div className="sv-sheet-grid">
             <Field
               label="Contrôleur"
@@ -428,23 +477,13 @@ interface StageCardProps {
   process: Process;
   row: ProcessRow;
   onToggle: (st: Station) => void;
-  onDate: (v: string) => void;
 }
 
-function StageCard({ process, row, onToggle, onDate }: StageCardProps) {
+function StageCard({ process, row, onToggle }: StageCardProps) {
   const status = stageStatus(row);
   return (
     <div className={`sv-stage-card sv-st-${status}`}>
-      <div className="sv-stage-card-head">
-        <span className="sv-stage-card-name">{process}</span>
-        <input
-          type="date"
-          className="sv-stage-card-date mono"
-          value={row.date}
-          onChange={(e) => onDate(e.target.value)}
-          aria-label={`Date ${process}`}
-        />
-      </div>
+      <div className="sv-stage-card-name">{process}</div>
       <div className="sv-stage-stations">
         {STATIONS.map((st) => {
           const v = row.stations[st];
@@ -454,12 +493,12 @@ function StageCard({ process, row, onToggle, onDate }: StageCardProps) {
               type="button"
               className={`sv-station-btn sv-st-${v ?? 'empty'}`}
               onClick={() => onToggle(st)}
-              aria-label={`${st} · ${v === 'ok' ? 'OK' : v === 'na' ? 'N/A' : 'vide'}`}
-              title={`${st} · ${v === 'ok' ? 'conforme' : v === 'na' ? 'non applicable' : 'à faire'}`}
+              aria-label={`${st} · ${labelForCell(v)}`}
+              title={`${st} · ${labelForCell(v)}`}
             >
               <span className="sv-station-btn-label">{st}</span>
               <span className="sv-station-btn-state mono">
-                {v === 'ok' ? 'OK' : v === 'na' ? 'N/A' : '—'}
+                {v === 'ok' ? 'OK' : v === 'nok' ? 'NOK' : v === 'na' ? 'N/A' : '—'}
               </span>
             </button>
           );
