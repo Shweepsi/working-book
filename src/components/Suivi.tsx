@@ -210,10 +210,12 @@ export default function Suivi() {
   return (
     <div className="sv">
       <div className="sv-toolbar">
-        <h2 className="sv-title">Suivi Cosmétiques</h2>
-        <span className="sv-count faint small" aria-live="polite">
-          {filterActive ? `${visibleCount} / ${total}` : total} entrée{(filterActive ? visibleCount : total) > 1 ? 's' : ''}
-        </span>
+        <div className="sv-toolbar-lead">
+          <h2 className="sv-title">Suivi Cosmétiques</h2>
+          <span className="sv-count" aria-live="polite">
+            {filterActive ? `${visibleCount} / ${total}` : total}
+          </span>
+        </div>
         <div className="sv-tag-row sv-filter-row" role="group" aria-label="Filtrer par tag">
           {TAGS.map((t) => {
             const isOn = activeTags.has(t);
@@ -322,7 +324,7 @@ function SuiviRow({ entry, onOpen }: RowProps) {
       </div>
       <div className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</div>
       <div className="sv-cell sv-c-type" title={entry.testType}>
-        {entry.testType || <span className="faint">(sans type)</span>}
+        {entry.testType || <span className="faint sv-placeholder">sans type</span>}
       </div>
       <div className="sv-cell sv-c-origin mono">{entry.origin || <span className="faint">—</span>}</div>
       <div className="sv-cell sv-c-th mono">{entry.thickness || ''}</div>
