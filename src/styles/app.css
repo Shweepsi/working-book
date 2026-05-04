@@ -2448,15 +2448,17 @@
 .sv-empty {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 28px;
   border: 1px solid var(--line-faint);
   border-top: 0;
   border-radius: 0 0 10px 10px;
   background: var(--paper);
+  text-align: center;
 }
-.sv-empty h3 { margin: 0; font-size: 15px; }
+.sv-empty h3 { margin: 0; font-size: 15px; color: var(--ink-soft); font-weight: 600; }
 .sv-empty p { margin: 0; max-width: 60ch; line-height: 1.5; }
 
 .sv-table {
@@ -2473,19 +2475,19 @@
   display: grid;
   grid-template-columns:
     64px                     /* ID */
-    112px                    /* Tag */
+    120px                    /* Tag */
     minmax(140px, 1fr)       /* Couleur */
     minmax(200px, 2fr)       /* Type de test */
     88px                     /* Origine */
     56px                     /* Ép. */
-    96px                     /* Date Prod */
+    100px                    /* Date Prod */
     148px                    /* Production stages */
     minmax(160px, 1.2fr)     /* Contrôleur */
-    28px;                    /* Comment indicator */
+    32px;                    /* Comment indicator */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1092px;
-  min-height: 44px;
+  min-width: 1108px;
+  min-height: 46px;
   transition: background 100ms ease;
 }
 .sv-row:last-child { border-bottom: 0; }
@@ -2496,25 +2498,30 @@
   top: 0;
   z-index: 2;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-faint);
   font-weight: 600;
   user-select: none;
-  min-height: 34px;
+  min-height: 36px;
 }
 
 .sv-row.sv-data { cursor: pointer; }
-.sv-row.sv-data:hover { background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
+.sv-row.sv-data:nth-child(even of .sv-data) {
+  background: color-mix(in srgb, var(--paper-2) 50%, var(--paper));
+}
+.sv-row.sv-data:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--paper));
+}
 .sv-row.sv-data:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 .sv-cell {
-  padding: 8px 10px;
-  font-size: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -2522,8 +2529,19 @@
   min-width: 0;
 }
 .sv-cell.sv-c-id strong { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.sv-cell.sv-c-tag { padding-right: 4px; }
+.sv-cell.sv-c-tag .sv-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sv-cell.sv-c-th { text-align: center; }
-.sv-cell.sv-c-cmt { text-align: center; padding: 0; }
+.sv-cell.sv-c-cmt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
 
 /* 4-stage progress chip strip */
 .sv-stages {
