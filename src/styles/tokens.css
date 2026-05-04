@@ -143,8 +143,8 @@
    Three distinct levels:
    - compact:  smallest, tightest. Power users / overview-on-one-screen.
    - normal:   balanced default. Comfortable touch targets.
-   - advanced: same comfort as normal, plus extra controls/metadata revealed
-               (notes count, kb hints, hover row actions). */
+   - advanced: roomier than normal, plus extra controls/metadata revealed
+               (Logbook type chip, hover row actions, Schedules customer name). */
 
 :root,
 :root[data-density='normal'] {

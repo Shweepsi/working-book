@@ -10,7 +10,7 @@ const THEMES = [
 const DENSITIES = [
   { key: 'compact', label: 'Compact', help: 'Tight rows, small text — fits more on screen.' },
   { key: 'normal', label: 'Normal', help: 'Friendly spacing, larger touch targets. Recommended.' },
-  { key: 'advanced', label: 'Advanced', help: 'Adds the type chip, notes count, and hover row actions.' },
+  { key: 'advanced', label: 'Advanced', help: 'Roomier rows with the type chip and hover row actions.' },
 ] as const satisfies readonly { key: Density; label: string; help: string }[];
 
 interface SettingsProps {
