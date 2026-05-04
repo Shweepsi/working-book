@@ -2396,32 +2396,53 @@
   gap: 0;
 }
 
-.sv-titlebar {
-  display: flex;
+.sv-toolbar-lead {
+  display: inline-flex;
   align-items: baseline;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--paper-2);
-  color: var(--ink);
-  border: 1px solid var(--line-faint);
-  border-radius: 10px 10px 0 0;
+  gap: 8px;
+  min-width: 0;
 }
-.sv-title { margin: 0; font-size: 14px; font-weight: 600; color: inherit; }
+
+.sv-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.sv-count {
+  display: inline-flex;
+  align-items: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 .sv-filter-row { margin-left: auto; }
+
+.sv-new-btn { margin-left: 0; }
 
 .sv-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   padding: 10px 14px;
-  background: var(--paper);
-  border-left: 1px solid var(--line-faint);
-  border-right: 1px solid var(--line-faint);
-  border-bottom: 1px solid var(--line-faint);
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-radius: 10px 10px 0 0;
 }
+
+.sv-placeholder { font-style: italic; }
 
 .sv-empty {
   display: flex;
@@ -2450,19 +2471,19 @@
 .sv-row {
   display: grid;
   grid-template-columns:
-    72px                     /* ID */
-    120px                    /* Tag */
+    64px                     /* ID */
+    112px                    /* Tag */
     140px                    /* Couleur */
     minmax(180px, 1.6fr)     /* Type de test */
-    90px                     /* Origine */
-    64px                     /* Ép. */
-    100px                    /* Date Prod */
-    160px                    /* Production stages */
-    minmax(150px, 1fr)       /* Contrôleur */
-    32px;                    /* Comment indicator */
+    88px                     /* Origine */
+    56px                     /* Ép. */
+    96px                     /* Date Prod */
+    148px                    /* Production stages */
+    minmax(140px, 1fr)       /* Contrôleur */
+    28px;                    /* Comment indicator */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1138px;
+  min-width: 1092px;
   min-height: 44px;
   transition: background 100ms ease;
 }
@@ -2480,8 +2501,7 @@
   color: var(--ink-faint);
   font-weight: 600;
   user-select: none;
-  min-height: 36px;
-  box-shadow: 0 1px 0 var(--line-faint);
+  min-height: 34px;
 }
 
 .sv-row.sv-data { cursor: pointer; }
@@ -2501,44 +2521,41 @@
   min-width: 0;
 }
 .sv-cell.sv-c-id strong { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
-.sv-cell.sv-c-th {
-  text-align: center;
-  background: color-mix(in srgb, var(--hl-red) 28%, transparent);
-}
+.sv-cell.sv-c-th { text-align: center; }
 .sv-cell.sv-c-cmt { text-align: center; padding: 0; }
 
 /* 4-stage progress chip strip */
 .sv-stages {
   display: inline-flex;
-  gap: 4px;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
 }
 .sv-stage {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 26px;
-  height: 24px;
+  height: 22px;
   border-radius: 4px;
   font-family: 'Geist Mono', monospace;
   font-size: 11px;
   font-weight: 700;
-  border: 1px solid var(--line-faint);
-  background: var(--paper);
+  background: transparent;
   color: var(--ink-faint);
 }
 .sv-stage.sv-st-complete {
   background: color-mix(in srgb, var(--hl-green) 80%, var(--paper));
-  border-color: var(--flag-ok-bd);
   color: var(--flag-ok-fg);
 }
 .sv-stage.sv-st-fail {
   background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
-  border-color: var(--flag-unsched-bd);
   color: var(--flag-unsched-fg);
 }
 .sv-stage.sv-st-na {
   background: var(--line-soft);
-  border-color: var(--line-soft);
   color: var(--ink-faint);
 }
 
@@ -2592,10 +2609,11 @@
 
 .sv-cmt-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* ---------- Edit sheet ---------- */
@@ -2666,6 +2684,8 @@
   color: var(--ink-soft);
   font-weight: 600;
   margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-faint);
 }
 
 .sv-stages-grid {
@@ -2777,8 +2797,9 @@
   .sv-stages-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .sv-titlebar { padding: 10px 12px; }
+  .sv-toolbar { padding: 10px 12px; gap: 8px; }
   .sv-title { font-size: 13px; }
-  .sv-year { right: 10px; font-size: 9px; padding: 3px 8px; }
+  .sv-filter-row { margin-left: 0; order: 3; flex-basis: 100%; }
+  .sv-new-btn { margin-left: auto; }
 }
 
