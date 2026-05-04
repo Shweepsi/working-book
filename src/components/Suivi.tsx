@@ -313,7 +313,14 @@ function SuiviRow({ entry, onOpen }: RowProps) {
       }}
     >
       <div className="sv-cell sv-c-id mono">
-        <strong>{entry.serial || '—'}</strong>
+        {entry.serial ? (
+          <strong>
+            <span className="sv-id-hash">#</span>
+            {entry.serial}
+          </strong>
+        ) : (
+          <span className="faint">—</span>
+        )}
       </div>
       <div className="sv-cell sv-c-tag">
         {entry.tag ? (
