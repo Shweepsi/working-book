@@ -42,6 +42,14 @@ function shiftKeyForHour(hour: number): LiveShiftKey {
   return 'N';
 }
 
+// The night shift (22h–06h) spans two calendar days but belongs to the day it
+// started on. Between 00h and 06h the active shift is yesterday's night shift.
+function liveDateAndShift(now: Date = new Date()): { date: string; shiftKey: LiveShiftKey } {
+  const hour = now.getHours();
+  if (hour < 6) return { date: addDaysISO(todayISO(now), -1), shiftKey: 'N' };
+  return { date: todayISO(now), shiftKey: shiftKeyForHour(hour) };
+}
+
 function posteFor(dateObj: Date, shiftKey: ShiftKey): Poste | null {
   return POSTES.find((p) => shiftFor(p, dateObj).key === shiftKey) ?? null;
 }
@@ -65,18 +73,20 @@ export default function App() {
     return isTabKey(hash) ? hash : 'logbook';
   });
 
-  const [date, setDate] = useState<string>(() => load<string | null>('wb.date', null) || todayISO());
+  const [date, setDate] = useState<string>(
+    () => load<string | null>('wb.date', null) || liveDateAndShift().date,
+  );
   const [shiftKey, setShiftKey] = useState<LiveShiftKey>(() => {
     const persisted = load<string | null>('wb.shiftKey', null);
     if (persisted && isLiveShiftKey(persisted)) return persisted;
-    return shiftKeyForHour(new Date().getHours());
+    return liveDateAndShift().shiftKey;
   });
 
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const nowShiftKey = useNowShiftKey();
+  const live = useNowLive();
 
   useEffect(() => {
     window.location.hash = tab;
@@ -112,8 +122,7 @@ export default function App() {
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
   const shift = SHIFT_TYPES[shiftKey];
-  const isToday = date === todayISO();
-  const onLiveShift = isToday && shiftKey === nowShiftKey;
+  const onLiveShift = date === live.date && shiftKey === live.shiftKey;
 
   const shiftMeta: ShiftMeta = {
     poste,
@@ -123,8 +132,9 @@ export default function App() {
   };
 
   function jumpLive() {
-    setDate(todayISO());
-    setShiftKey(shiftKeyForHour(new Date().getHours()));
+    const { date: liveDate, shiftKey: liveShift } = liveDateAndShift();
+    setDate(liveDate);
+    setShiftKey(liveShift);
   }
 
   return (
@@ -176,7 +186,7 @@ export default function App() {
             disabled={onLiveShift}
             title={
               onLiveShift ? 'Already on the live shift'
-                : isToday ? 'Snap to the live shift'
+                : date === live.date ? 'Snap to the live shift'
                 : 'Jump to the live shift'
             }
           >
@@ -187,7 +197,7 @@ export default function App() {
         <div className="shift-switch" role="group" aria-label="Shift">
           {SHIFT_TABS.map((s) => {
             const p = posteFor(dateObj, s.key);
-            const isLive = isToday && nowShiftKey === s.key;
+            const isLive = date === live.date && live.shiftKey === s.key;
             return (
               <button
                 key={s.key}
@@ -230,15 +240,15 @@ export default function App() {
   );
 }
 
-function useNowShiftKey(): LiveShiftKey {
-  const [key, setKey] = useState<LiveShiftKey>(() => shiftKeyForHour(new Date().getHours()));
+function useNowLive(): { date: string; shiftKey: LiveShiftKey } {
+  const [live, setLive] = useState(() => liveDateAndShift());
   useEffect(() => {
-    const tick = () => setKey((prev) => {
-      const next = shiftKeyForHour(new Date().getHours());
-      return next === prev ? prev : next;
+    const tick = () => setLive((prev) => {
+      const next = liveDateAndShift();
+      return next.date === prev.date && next.shiftKey === prev.shiftKey ? prev : next;
     });
     const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
-  return key;
+  return live;
 }
