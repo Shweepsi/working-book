@@ -2360,8 +2360,9 @@
   letter-spacing: 0.01em;
 }
 
-/* Layout: let the Schedules tab use the full viewport width since the table is wide. */
-.app-main:has(.sch) { max-width: none; }
+/* Layout: let the Schedules and Suivi tabs use the full viewport width since their tables are wide. */
+.app-main:has(.sch),
+.app-main:has(.sv) { max-width: none; }
 
 /* Tablet / phone — schedule navigator moves on top of the detail rather
    than sitting in a side rail, since the detail table itself is wide
@@ -2447,15 +2448,17 @@
 .sv-empty {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 28px;
   border: 1px solid var(--line-faint);
   border-top: 0;
   border-radius: 0 0 10px 10px;
   background: var(--paper);
+  text-align: center;
 }
-.sv-empty h3 { margin: 0; font-size: 15px; }
+.sv-empty h3 { margin: 0; font-size: 15px; color: var(--ink-soft); font-weight: 600; }
 .sv-empty p { margin: 0; max-width: 60ch; line-height: 1.5; }
 
 .sv-table {
@@ -2472,19 +2475,19 @@
   display: grid;
   grid-template-columns:
     64px                     /* ID */
-    112px                    /* Tag */
-    140px                    /* Couleur */
-    minmax(180px, 1.6fr)     /* Type de test */
+    120px                    /* Tag */
+    minmax(140px, 1fr)       /* Couleur */
+    minmax(200px, 2fr)       /* Type de test */
     88px                     /* Origine */
     56px                     /* Ép. */
-    96px                     /* Date Prod */
+    100px                    /* Date Prod */
     148px                    /* Production stages */
-    minmax(140px, 1fr)       /* Contrôleur */
-    28px;                    /* Comment indicator */
+    minmax(160px, 1.2fr)     /* Contrôleur */
+    32px;                    /* Comment indicator */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1092px;
-  min-height: 44px;
+  min-width: 1108px;
+  min-height: 46px;
   transition: background 100ms ease;
 }
 .sv-row:last-child { border-bottom: 0; }
@@ -2495,25 +2498,35 @@
   top: 0;
   z-index: 2;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-faint);
   font-weight: 600;
   user-select: none;
-  min-height: 34px;
+  min-height: 36px;
 }
 
-.sv-row.sv-data { cursor: pointer; }
-.sv-row.sv-data:hover { background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
+.sv-row.sv-data {
+  cursor: pointer;
+  position: relative;
+  box-shadow: inset 3px 0 0 transparent;
+}
+.sv-row.sv-data:nth-child(even of .sv-data) {
+  background: color-mix(in srgb, var(--paper-2) 50%, var(--paper));
+}
+.sv-row.sv-data:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--paper));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 .sv-row.sv-data:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 .sv-cell {
-  padding: 8px 10px;
-  font-size: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -2521,8 +2534,23 @@
   min-width: 0;
 }
 .sv-cell.sv-c-id strong { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.sv-id-hash { color: var(--ink-faint); font-weight: 500; margin-right: 1px; }
+.sv-cell.sv-c-origin,
+.sv-cell.sv-c-th,
+.sv-cell.sv-c-dprod { color: var(--ink-soft); }
+.sv-cell.sv-c-tag { padding-right: 4px; }
+.sv-cell.sv-c-tag .sv-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sv-cell.sv-c-th { text-align: center; }
-.sv-cell.sv-c-cmt { text-align: center; padding: 0; }
+.sv-cell.sv-c-cmt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
 
 /* 4-stage progress chip strip */
 .sv-stages {
@@ -2617,7 +2645,7 @@
 }
 
 /* ---------- Edit sheet ---------- */
-.sv-sheet { width: min(640px, calc(100% - 40px)); }
+.sv-sheet { width: min(720px, calc(100% - 40px)); }
 .sv-sheet-title {
   display: flex;
   align-items: baseline;
