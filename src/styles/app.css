@@ -2207,6 +2207,9 @@
 :root[data-density='advanced'] .sch-row.sch-head { font-size: 11px; }
 :root[data-density='advanced'] .sch-row.sch-total { font-size: 14px; }
 :root[data-density='advanced'] .sch-foot { padding: 10px 14px; gap: 12px; }
+:root[data-density='advanced'] .sch-foot-time strong { font-size: 14px; }
+:root[data-density='advanced'] .sch-vitesse-input { width: 56px; font-size: 14px; }
+:root[data-density='advanced'] .sch-mto { padding: 3px 8px; font-size: 11px; }
 
 /* Paste-import sheet */
 .sch-import { width: min(720px, 92vw); }
@@ -2818,13 +2821,19 @@
 :root[data-density='compact'] .sv-toolbar { padding: 6px 12px; gap: 8px; }
 :root[data-density='compact'] .sv-title { font-size: 13px; }
 :root[data-density='compact'] .sv-count { height: 16px; padding: 0 6px; font-size: 10px; }
-:root[data-density='compact'] .sv-row { min-height: 36px; }
-:root[data-density='compact'] .sv-row.sv-head { min-height: 28px; font-size: 10px; }
+:root[data-density='compact'] .sv-row { min-height: 34px; }
+:root[data-density='compact'] .sv-row.sv-head { min-height: 26px; font-size: 10px; letter-spacing: 0.05em; }
 :root[data-density='compact'] .sv-cell { padding: 4px 10px; font-size: 12px; }
 :root[data-density='compact'] .sv-cell.sv-c-id strong { font-size: 13px; }
 :root[data-density='compact'] .sv-stage { width: 22px; height: 18px; font-size: 10px; }
 :root[data-density='compact'] .sv-stages { gap: 2px; padding: 1px; }
 :root[data-density='compact'] .sv-tag { padding: 2px 7px; font-size: 10px; }
+:root[data-density='compact'] .sv-empty { padding: 32px 20px; }
+:root[data-density='compact'] .sv-sheet-grid { gap: 8px; margin-bottom: 12px; }
+:root[data-density='compact'] .sv-sheet-section { margin-bottom: 12px; }
+:root[data-density='compact'] .sv-stage-card { padding: 8px; }
+:root[data-density='compact'] .sv-station-btn { min-height: 40px; padding: 4px; }
+:root[data-density='compact'] .sv-sheet-textarea { min-height: 56px; font-size: 12px; }
 
 :root[data-density='advanced'] .sv-toolbar { padding: 12px 16px; gap: 14px; }
 :root[data-density='advanced'] .sv-title { font-size: 15px; }
@@ -2836,6 +2845,10 @@
 :root[data-density='advanced'] .sv-stage { width: 30px; height: 26px; font-size: 12px; }
 :root[data-density='advanced'] .sv-stages { gap: 4px; padding: 3px; }
 :root[data-density='advanced'] .sv-tag { padding: 4px 11px; font-size: 12px; }
+:root[data-density='advanced'] .sv-empty { padding: 72px 32px; }
+:root[data-density='advanced'] .sv-sheet-grid { gap: 16px; margin-bottom: 20px; }
+:root[data-density='advanced'] .sv-sheet-section { margin-bottom: 20px; }
 :root[data-density='advanced'] .sv-stage-card { padding: 14px; }
 :root[data-density='advanced'] .sv-station-btn { min-height: 52px; }
+:root[data-density='advanced'] .sv-sheet-textarea { min-height: 88px; font-size: 14px; }
 
