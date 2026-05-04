@@ -2360,8 +2360,9 @@
   letter-spacing: 0.01em;
 }
 
-/* Layout: let the Schedules tab use the full viewport width since the table is wide. */
-.app-main:has(.sch) { max-width: none; }
+/* Layout: let the Schedules and Suivi tabs use the full viewport width since their tables are wide. */
+.app-main:has(.sch),
+.app-main:has(.sv) { max-width: none; }
 
 /* Tablet / phone — schedule navigator moves on top of the detail rather
    than sitting in a side rail, since the detail table itself is wide
@@ -2473,13 +2474,13 @@
   grid-template-columns:
     64px                     /* ID */
     112px                    /* Tag */
-    140px                    /* Couleur */
-    minmax(180px, 1.6fr)     /* Type de test */
+    minmax(140px, 1fr)       /* Couleur */
+    minmax(200px, 2fr)       /* Type de test */
     88px                     /* Origine */
     56px                     /* Ép. */
     96px                     /* Date Prod */
     148px                    /* Production stages */
-    minmax(140px, 1fr)       /* Contrôleur */
+    minmax(160px, 1.2fr)     /* Contrôleur */
     28px;                    /* Comment indicator */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
