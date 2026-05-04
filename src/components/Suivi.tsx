@@ -209,15 +209,9 @@ export default function Suivi() {
 
   return (
     <div className="sv">
-      <div className="sv-titlebar">
-        <h2 className="sv-title">Suivi Cosmétiques</h2>
-      </div>
-
       <div className="sv-toolbar">
-        <button className="btn primary" onClick={addAndOpen}>
-          <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
-        </button>
-        <span className="faint small">
+        <h2 className="sv-title">Suivi Cosmétiques</h2>
+        <span className="sv-count faint small" aria-live="polite">
           {filterActive ? `${visibleCount} / ${total}` : total} entrée{(filterActive ? visibleCount : total) > 1 ? 's' : ''}
         </span>
         <div className="sv-tag-row sv-filter-row" role="group" aria-label="Filtrer par tag">
@@ -239,18 +233,29 @@ export default function Suivi() {
             );
           })}
         </div>
+        <button className="btn primary sv-new-btn" onClick={addAndOpen}>
+          <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
+        </button>
       </div>
 
       {visibleCount === 0 ? (
         <div className="sv-empty">
           <h3>{filterActive ? 'Aucune entrée pour ce filtre' : 'Aucune entrée'}</h3>
-          {filterActive && (
+          {filterActive ? (
             <button
               type="button"
               className="btn ghost mini"
               onClick={() => setActiveTags(new Set())}
             >
               Effacer les filtres
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn primary mini"
+              onClick={addAndOpen}
+            >
+              <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
             </button>
           )}
         </div>
@@ -266,7 +271,7 @@ export default function Suivi() {
             <div className="sv-cell sv-c-dprod" role="columnheader">Date Prod</div>
             <div className="sv-cell sv-c-prog" role="columnheader">Production</div>
             <div className="sv-cell sv-c-ctrl" role="columnheader">Contrôleur</div>
-            <div className="sv-cell sv-c-cmt" role="columnheader" aria-label="Commentaire">·</div>
+            <div className="sv-cell sv-c-cmt" role="columnheader" aria-label="Commentaire"></div>
           </div>
           {filtered.map((entry) => (
             <SuiviRow key={entry.id} entry={entry} onOpen={() => setOpenId(entry.id)} />

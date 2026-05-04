@@ -2396,20 +2396,19 @@
   gap: 0;
 }
 
-.sv-titlebar {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--paper-2);
+.sv-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--ink);
-  border: 1px solid var(--line-faint);
-  border-radius: 10px 10px 0 0;
+  white-space: nowrap;
 }
-.sv-title { margin: 0; font-size: 14px; font-weight: 600; color: inherit; }
 
-.sv-filter-row { margin-left: auto; }
+.sv-count { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.sv-filter-row { margin-left: 4px; }
+
+.sv-new-btn { margin-left: auto; }
 
 .sv-toolbar {
   display: flex;
@@ -2417,10 +2416,9 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 10px 14px;
-  background: var(--paper);
-  border-left: 1px solid var(--line-faint);
-  border-right: 1px solid var(--line-faint);
-  border-bottom: 1px solid var(--line-faint);
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-radius: 10px 10px 0 0;
 }
 
 .sv-empty {
@@ -2450,19 +2448,19 @@
 .sv-row {
   display: grid;
   grid-template-columns:
-    72px                     /* ID */
-    120px                    /* Tag */
+    64px                     /* ID */
+    112px                    /* Tag */
     140px                    /* Couleur */
     minmax(180px, 1.6fr)     /* Type de test */
-    90px                     /* Origine */
-    64px                     /* Ép. */
-    100px                    /* Date Prod */
-    160px                    /* Production stages */
-    minmax(150px, 1fr)       /* Contrôleur */
-    32px;                    /* Comment indicator */
+    88px                     /* Origine */
+    56px                     /* Ép. */
+    96px                     /* Date Prod */
+    148px                    /* Production stages */
+    minmax(140px, 1fr)       /* Contrôleur */
+    28px;                    /* Comment indicator */
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1138px;
+  min-width: 1092px;
   min-height: 44px;
   transition: background 100ms ease;
 }
@@ -2501,10 +2499,7 @@
   min-width: 0;
 }
 .sv-cell.sv-c-id strong { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
-.sv-cell.sv-c-th {
-  text-align: center;
-  background: color-mix(in srgb, var(--hl-red) 28%, transparent);
-}
+.sv-cell.sv-c-th { text-align: center; }
 .sv-cell.sv-c-cmt { text-align: center; padding: 0; }
 
 /* 4-stage progress chip strip */
@@ -2777,8 +2772,9 @@
   .sv-stages-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .sv-titlebar { padding: 10px 12px; }
+  .sv-toolbar { padding: 10px 12px; gap: 8px; }
   .sv-title { font-size: 13px; }
-  .sv-year { right: 10px; font-size: 9px; padding: 3px 8px; }
+  .sv-new-btn { margin-left: 0; }
+  .sv-filter-row { margin-left: 0; flex-basis: 100%; }
 }
 
