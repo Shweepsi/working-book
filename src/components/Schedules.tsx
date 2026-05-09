@@ -195,14 +195,6 @@ export default function Schedules() {
             Importer aussi la table <strong>Item number → Planning policy</strong>
             {' '}depuis le tableur pour afficher la colonne MTO/MTS.
           </p>
-          <div className="row gap-2">
-            <button className="btn primary" onClick={() => setImportMode('pms230')}>
-              Importer rapport Operator Mashup
-            </button>
-            <button className="btn" onClick={() => setImportMode('policy')}>
-              {policy ? `Politique chargée (${policy.count})` : 'Importer politique MTO/MTS'}
-            </button>
-          </div>
         </div>
       )}
 
