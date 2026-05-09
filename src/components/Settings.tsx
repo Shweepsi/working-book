@@ -1,4 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { SYNC_ENABLED } from '../lib/api';
+import { getSyncMode, setSyncMode, type SyncMode } from '../lib/sync';
 import type { Density, Theme } from '../types';
 
 const THEMES = [
@@ -13,6 +15,11 @@ const DENSITIES = [
   { key: 'advanced', label: 'Avancé', help: 'Lignes plus spacieuses avec la puce de type et les actions au survol.' },
 ] as const satisfies readonly { key: Density; label: string; help: string }[];
 
+const SYNC_MODES = [
+  { key: 'auto',  label: 'Sync',  glyph: '↻', help: 'Les modifications sont envoyées au serveur dès que possible.' },
+  { key: 'local', label: 'Local', glyph: '○', help: 'Les modifications restent sur cet appareil. La politique MTO/MTS reste synchronisée.' },
+] as const satisfies readonly { key: SyncMode; label: string; glyph: string; help: string }[];
+
 interface SettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +33,12 @@ interface SettingsProps {
 
 export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange, printPreview, onPrintPreviewChange }: SettingsProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const [syncMode, setSyncModeState] = useState<SyncMode>(() => getSyncMode());
+
+  function changeSyncMode(next: SyncMode) {
+    setSyncMode(next);
+    setSyncModeState(next);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -44,6 +57,7 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
   }, [open, onOpenChange]);
 
   const densityHelp = DENSITIES.find((d) => d.key === density)?.help;
+  const syncHelp = SYNC_MODES.find((s) => s.key === syncMode)?.help;
 
   return (
     <div className="settings-wrap" ref={wrapRef}>
@@ -93,6 +107,26 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
             </div>
             {densityHelp && <div className="popover-help">{densityHelp}</div>}
           </div>
+          {SYNC_ENABLED && (
+            <div>
+              <h4>Synchronisation</h4>
+              <div className="seg" role="group" aria-label="Mode de synchronisation">
+                {SYNC_MODES.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className={syncMode === s.key ? 'active' : ''}
+                    onClick={() => changeSyncMode(s.key)}
+                    aria-pressed={syncMode === s.key}
+                  >
+                    <span className="glyph" aria-hidden="true">{s.glyph}</span>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {syncHelp && <div className="popover-help">{syncHelp}</div>}
+            </div>
+          )}
           <div>
             <h4>Impression</h4>
             <button

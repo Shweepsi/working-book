@@ -6,11 +6,45 @@ import { save } from './storage';
 // Worker is hydrated in the background and mutations are queued for replay.
 // Conflict policy is last-write-wins per partition (whichever PUT lands last).
 
-export type SyncDomain = 'logbook' | 'prodtest' | 'suivi';
+export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy';
 
 export interface SyncRemote {
   domain: SyncDomain;
   params: Record<string, string>;
+  // Bypass the user's "local-only" preference. Used by data that is shared
+  // across every client (e.g. the MTO/MTS policy).
+  alwaysSync?: boolean;
+}
+
+export type SyncMode = 'auto' | 'local';
+const MODE_KEY = 'wb.sync.mode';
+
+let syncMode: SyncMode = (() => {
+  if (typeof window === 'undefined') return 'auto';
+  const raw = window.localStorage.getItem(MODE_KEY);
+  return raw === 'local' ? 'local' : 'auto';
+})();
+
+export function getSyncMode(): SyncMode {
+  return syncMode;
+}
+
+export function setSyncMode(mode: SyncMode): void {
+  if (mode === syncMode) return;
+  syncMode = mode;
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(MODE_KEY, mode);
+  }
+  emit();
+  // Flush whatever queued during local-only the moment the user turns sync on
+  // again — alwaysSync entries may have accumulated.
+  if (mode === 'auto') scheduleFlush();
+}
+
+function isRemoteAllowed(remote: SyncRemote): boolean {
+  if (!SYNC_ENABLED) return false;
+  if (remote.alwaysSync) return true;
+  return syncMode === 'auto';
 }
 
 interface Mutation {
@@ -18,6 +52,7 @@ interface Mutation {
   path: string;
   payload: unknown;
   attempts: number;
+  alwaysSync?: boolean;
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'queued' | 'offline' | 'error' | 'disabled';
@@ -47,8 +82,11 @@ const listeners = new Set<() => void>();
 let cachedSnapshot: SyncSnapshot = computeSnapshot();
 
 function computeSnapshot(): SyncSnapshot {
+  // In local-only mode the chip should read "Local" — but if there are queued
+  // alwaysSync entries we still flag them so the user notices.
   let status: SyncStatus;
   if (!SYNC_ENABLED) status = 'disabled';
+  else if (syncMode === 'local' && !queue.some((m) => m.alwaysSync)) status = 'disabled';
   else if (!onlineState) status = 'offline';
   else if (isFlushing) status = 'syncing';
   else if (queue.length > 0) {
@@ -130,15 +168,15 @@ async function flush(): Promise<void> {
 }
 
 export function enqueueMutation(remote: SyncRemote, payload: unknown): void {
-  if (!SYNC_ENABLED) return;
+  if (!isRemoteAllowed(remote)) return;
   const path = buildPath(remote);
   // Coalesce: a newer payload for the same partition supersedes any pending
   // mutation. Last-write-wins means we never need to replay intermediate states.
   const idx = queue.findIndex((m) => m.path === path);
   if (idx >= 0) {
-    queue[idx] = { ...queue[idx], payload, attempts: 0 };
+    queue[idx] = { ...queue[idx], payload, attempts: 0, alwaysSync: !!remote.alwaysSync };
   } else {
-    queue.push({ id: makeId(), path, payload, attempts: 0 });
+    queue.push({ id: makeId(), path, payload, attempts: 0, alwaysSync: !!remote.alwaysSync });
   }
   persistQueue();
   scheduleFlush();
@@ -203,7 +241,7 @@ export function useSyncedState<T>(
     setValueState(initRef.current());
     dirtyRef.current = false;
     const r = remoteRef.current;
-    if (!r || !SYNC_ENABLED) return;
+    if (!r || !isRemoteAllowed(r)) return;
     let cancelled = false;
     apiGet<T>(buildPath(r))
       .then((envelope) => {

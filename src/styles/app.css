@@ -543,6 +543,13 @@
   min-width: 0;
 }
 
+.sheet-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
 .sheet-head-sub {
   font-size: var(--fs-sm);
   color: var(--ink-soft);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useEscapeToClose } from '../lib/hooks';
 
 // Reusable paste sheet. Drives both PMS230 and policy imports.
@@ -26,6 +26,9 @@ export interface PasteImportProps<R extends PasteImportResult> {
   onClose: () => void;
   title: string;
   hint?: string;
+  // Extra controls rendered to the left of the close button in the sheet
+  // header — used by the PMS230 importer to expose the MTO policy cog.
+  headerActions?: ReactNode;
 }
 
 export default function PasteImport<R extends PasteImportResult>({
@@ -36,6 +39,7 @@ export default function PasteImport<R extends PasteImportResult>({
   onClose,
   title,
   hint,
+  headerActions,
 }: PasteImportProps<R>) {
   const [result, setResult] = useState<R | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +122,10 @@ export default function PasteImport<R extends PasteImportResult>({
         <div className="grabber" />
         <div className="sheet-head">
           <h3>{title}</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <div className="sheet-head-actions">
+            {headerActions}
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          </div>
         </div>
 
         {hint && <p className="faint small sch-import-hint">{hint}</p>}

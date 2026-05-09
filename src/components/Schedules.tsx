@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
+import { useSyncedState } from '../lib/sync';
 import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
 import {
@@ -120,7 +121,15 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
 
 export default function Schedules() {
   const [data, setData] = useState<PMS230Result | null>(() => load<PMS230Result | null>(KEY_DATA, null));
-  const [policy, setPolicy] = useState<PolicyResult | null>(() => load<PolicyResult | null>(KEY_POLICY, null));
+  // Policy is shared across every operator: it always syncs, regardless of
+  // the user's local-only preference, so the MTO/MTS classification is
+  // consistent across clients.
+  const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
+  const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
+    KEY_POLICY,
+    { domain: 'policy', params: {}, alwaysSync: true },
+    policyInit,
+  );
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 6));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
@@ -142,7 +151,6 @@ export default function Schedules() {
 
   // Persist datasets and speed.
   useEffect(() => { save(KEY_DATA, data); }, [data]);
-  useEffect(() => { save(KEY_POLICY, policy); }, [policy]);
   useEffect(() => { save(KEY_SPEED, vitesse); }, [vitesse]);
 
   // Auto-select the first schedule once data loads.
@@ -328,7 +336,6 @@ export default function Schedules() {
         data={data}
         policy={policy}
         onImport={() => setImportMode('pms230')}
-        onPolicy={() => setImportMode('policy')}
         onClear={() => {
           const snapshot = data;
           const snapshotSelected = selected;
@@ -354,7 +361,9 @@ export default function Schedules() {
       {data && !policy && (
         <div className="sch-hint">
           <span>↪ Importer la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
-          <button className="btn mini" onClick={() => setImportMode('policy')}>Importer</button>
+          <button className="btn mini" onClick={() => setImportMode('policy')} title="Ouvrir l'importation de la politique MTO/MTS">
+            Importer
+          </button>
         </div>
       )}
 
@@ -440,12 +449,27 @@ export default function Schedules() {
       {importMode === 'pms230' && (
         <PasteImport<PMS230Result>
           title="Importer le rapport Operator Mashup"
-          hint="Dans l'Operator Mashup, ouvrir Post Production Report. Ctrl+A puis Ctrl+C, et coller ci-dessous."
+          hint="Dans l'Operator Mashup, faites votre recherche. Ctrl+A puis Ctrl+C, et coller ci-dessous."
           parser={parsePMS230}
           describe={describePMS230}
           showAppend={!!data}
           onConfirm={handlePms230Confirm}
           onClose={() => setImportMode(null)}
+          headerActions={
+            <button
+              type="button"
+              className="btn ghost icon"
+              onClick={() => setImportMode('policy')}
+              aria-label="Importer la politique MTO/MTS"
+              title={
+                policy
+                  ? `Politique MTO/MTS · ${policy.count} produits — réimporter`
+                  : 'Importer la politique MTO/MTS'
+              }
+            >
+              ⚙
+            </button>
+          }
         />
       )}
       {importMode === 'policy' && (
@@ -474,11 +498,10 @@ interface SummaryBarProps {
   data: PMS230Result | null;
   policy: PolicyResult | null;
   onImport: () => void;
-  onPolicy: () => void;
   onClear: () => void;
 }
 
-function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarProps) {
+function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
   const records = data?.records?.length ?? 0;
   const schedules = data?.schedules?.length ?? 0;
   const m2 = data ? totalM2(data.records).toFixed(2) : null;
@@ -491,9 +514,6 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
       <div className="sch-summary-actions">
         <button className="btn primary" onClick={onImport}>
           {data ? 'Réimporter rapport Operator Mashup' : 'Importer rapport Operator Mashup'}
-        </button>
-        <button className={`btn ${policy ? 'ghost' : ''}`} onClick={onPolicy}>
-          {policy ? `Politique MTO/MTS · ${policyCount} produits` : 'Importer politique MTO/MTS'}
         </button>
         {data && (
           <button
@@ -511,6 +531,11 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
           <span><strong className="mono">{schedules}</strong> schedules</span>
           <span><strong className="mono">{records}</strong> lignes</span>
           <span><strong className="mono">{m2}</strong> m²</span>
+          {policy && (
+            <span className="faint small" title="Politique MTO/MTS chargée">
+              MTO/MTS · {policyCount} produits
+            </span>
+          )}
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
