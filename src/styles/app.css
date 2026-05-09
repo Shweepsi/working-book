@@ -561,40 +561,6 @@
   text-overflow: ellipsis;
 }
 
-.advanced-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  background: transparent;
-  border: 1px dashed var(--line-soft);
-  border-radius: var(--radius-md);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: var(--fs-md);
-  cursor: pointer;
-  text-align: left;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-.advanced-toggle:hover { border-color: var(--line); color: var(--ink); }
-.advanced-toggle .advanced-toggle-label { font-weight: 600; letter-spacing: 0.01em; }
-.advanced-toggle .advanced-toggle-hint { margin-left: auto; }
-.advanced-toggle .chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--fs-base);
-  line-height: 1;
-  transform: translateY(-1px);
-  transition: transform 200ms ease;
-  color: var(--ink-faint);
-}
-.advanced-toggle .chevron.is-open { transform: translateY(1px) rotate(180deg); }
-.advanced-toggle[aria-expanded='true'] {
-  border-style: solid;
-  background: var(--paper-2);
-}
-
 .form-row-when-type {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -604,22 +570,6 @@
 .form-row-when-type > .form-section { min-width: 0; }
 @media (max-width: 520px) {
   .form-row-when-type { grid-template-columns: 1fr; gap: var(--space-6); }
-}
-
-.form-grid-nested {
-  margin-top: 4px;
-  padding: var(--space-6);
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-md);
-  animation: nested-reveal 180ms ease-out;
-}
-@keyframes nested-reveal {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .form-grid-nested { animation: none; }
 }
 
 .sheet h3 {
@@ -2871,7 +2821,7 @@
   letter-spacing: 0.01em;
 }
 
-/* Layout: let the Schedules and Suivi tabs use the full viewport width since their tables are wide. */
+/* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),
 .app-main:has(.sv) { max-width: none; }
 
@@ -2897,7 +2847,7 @@
   }
 }
 
-/* ---------- Suivi Cosmétiques et DV ----------
+/* ---------- Cosmétique tab (sv-* selectors) ----------
    Compact list (one row per entry) with a 4-stage progress chip strip.
    Editing happens in a centered sheet that reuses the project's .sheet
    chrome — same pattern Schedules uses for row detail. */
@@ -3363,7 +3313,7 @@
   .sv-new-btn { margin-left: auto; }
 }
 
-/* Suivi density variants. Compact tightens row height and font sizes for
+/* Cosmétique density variants. Compact tightens row height and font sizes for
    denser scanning; advanced gives more breathing room and slightly larger
    text for at-a-glance reading from a distance. */
 :root[data-density='compact'] .sv-toolbar { padding: 6px 12px; gap: 8px; }

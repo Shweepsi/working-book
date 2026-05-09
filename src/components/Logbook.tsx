@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useId, useMemo, useState } from 'react';
 import { newId } from '../data/shift';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
@@ -110,7 +110,6 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
   const [fabOpen, setFabOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeFlags, setActiveFlags] = useState<Set<FlagKey>>(() => new Set());
-  const queryInputRef = useRef<HTMLInputElement>(null);
   const queryInputId = useId();
   const toast = useToast();
 
@@ -263,7 +262,6 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
           <span className="evt-filterbar-glyph" aria-hidden="true">⌕</span>
           <input
             id={queryInputId}
-            ref={queryInputRef}
             type="search"
             className="evt-filterbar-input"
             placeholder="Rechercher description, notes, type…"
