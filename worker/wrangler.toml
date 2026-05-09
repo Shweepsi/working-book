@@ -12,8 +12,8 @@ account_id = "5ed16f85af827a8d3c10bc075a66e4fb"
 name = "working-book-api-dev"
 
 [env.dev.vars]
-# Comma-separated list of allowed origins (no spaces). Set to "*" only for local hacking.
-ALLOWED_ORIGINS = "http://localhost:5173,https://shweepsi.github.io"
+# Supports exact origins and wildcard subdomains (*.foo.dev).
+ALLOWED_ORIGINS = "http://localhost:5173,*.working-book.pages.dev"
 
 [[env.dev.d1_databases]]
 binding = "DB"
@@ -25,7 +25,7 @@ migrations_dir = "migrations"
 name = "working-book-api"
 
 [env.production.vars]
-ALLOWED_ORIGINS = "https://working-book.pages.dev"
+ALLOWED_ORIGINS = "https://working-book.pages.dev,*.working-book.pages.dev"
 
 [[env.production.d1_databases]]
 binding = "DB"

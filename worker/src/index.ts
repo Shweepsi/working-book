@@ -42,15 +42,19 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+function originAllowed(patterns: string[], origin: string): boolean {
+  return patterns.some((p) => {
+    if (p === '*') return true;
+    if (p.startsWith('*.')) return origin.endsWith(p.slice(1)); // *.foo.dev → .foo.dev
+    return origin === p;
+  });
+}
+
 function corsHeaders(env: Env, origin: string | null): Record<string, string> {
   const raw = (env.ALLOWED_ORIGINS ?? '').trim();
-  const wildcard = raw === '*';
-  const allowed = raw.split(',').map((s) => s.trim()).filter(Boolean);
-  const allowOrigin = wildcard
-    ? '*'
-    : origin && allowed.includes(origin)
-      ? origin
-      : allowed[0] ?? 'null';
+  const patterns = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const allowOrigin =
+    origin && originAllowed(patterns, origin) ? origin : (patterns[0] ?? 'null');
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
