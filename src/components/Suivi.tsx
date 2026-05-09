@@ -8,6 +8,7 @@ import { todayISO } from '../lib/shiftCalendar';
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
 const TAGS = ['Production', 'Process', 'Développement', 'Réclamation'] as const;
+const TEST_TYPES = ['Cosmétique', 'Contrôle Couleur'] as const;
 
 type Process = (typeof PROCESSES)[number];
 type Station = (typeof STATIONS)[number];
@@ -271,7 +272,7 @@ export default function Suivi() {
           })}
         </div>
         <button className="btn primary sv-new-btn" onClick={addAndOpen}>
-          <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
+          + Nouveau
         </button>
       </div>
 
@@ -439,27 +440,6 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
-        <div className="sv-sheet-section">
-          <div className="sv-sheet-section-title">Tag</div>
-          <div className="sv-tag-row" role="radiogroup" aria-label="Tag">
-            {TAGS.map((t) => {
-              const on = entry.tag === t;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  className={`sv-tag sv-tag-${TAG_SLUG[t]} ${on ? 'is-on' : 'is-off'}`}
-                  onClick={() => toggleTag(t)}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         <div className="sv-sheet-grid">
           <Field
             label="ID"
@@ -476,16 +456,50 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
             mono
             today
           />
+          <div className="sv-field sv-field-tag">
+            <span className="sv-field-label"><span>Tag</span></span>
+            <div className="sv-tag-row" role="radiogroup" aria-label="Tag">
+              {TAGS.map((t) => {
+                const on = entry.tag === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    className={`sv-tag sv-tag-${TAG_SLUG[t]} ${on ? 'is-on' : 'is-off'}`}
+                    onClick={() => toggleTag(t)}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <Field
             label="Couleur"
             value={entry.color}
             onChange={(v) => patchHeader('color', v)}
           />
-          <Field
-            label="Type de test"
-            value={entry.testType}
-            onChange={(v) => patchHeader('testType', v)}
-          />
+          <div className="sv-field sv-field-test-type">
+            <span className="sv-field-label"><span>Type de test</span></span>
+            <div className="seg sv-test-type" role="group" aria-label="Type de test">
+              {TEST_TYPES.map((t) => {
+                const on = entry.testType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    className={on ? 'active' : ''}
+                    onClick={() => patchHeader('testType', on ? '' : t)}
+                    aria-pressed={on}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <Field
             label="Origine"
             value={entry.origin}

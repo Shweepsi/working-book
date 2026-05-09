@@ -3178,6 +3178,23 @@
 }
 .sv-field input:focus { border-bottom-color: var(--accent); }
 
+/* Wide form fields (chips / segmented) span the whole grid row to avoid
+   awkward wrapping inside a 160px cell. */
+.sv-field-tag,
+.sv-field-test-type {
+  grid-column: 1 / -1;
+}
+.sv-field-tag .sv-tag-row {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: 4px;
+}
+.sv-test-type {
+  margin-top: 4px;
+  width: auto;
+  max-width: 320px;
+}
+
 .sv-sheet-section { margin-bottom: 16px; }
 .sv-sheet-section:last-of-type { margin-bottom: 0; }
 .sv-sheet-section-title {
