@@ -1869,10 +1869,10 @@
   background: var(--paper);
   /* Right-edge fade hints at horizontal scroll */
   background-image:
-    linear-gradient(to right, var(--paper) 30%, rgba(251, 250, 246, 0)),
-    linear-gradient(to right, rgba(251, 250, 246, 0), var(--paper) 70%),
-    radial-gradient(farthest-side at 0 50%, rgba(31, 28, 24, 0.10), transparent),
-    radial-gradient(farthest-side at 100% 50%, rgba(31, 28, 24, 0.10), transparent);
+    linear-gradient(to right, var(--paper) 30%, transparent),
+    linear-gradient(to right, transparent, var(--paper) 70%),
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--ink) 10%, transparent), transparent),
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--ink) 10%, transparent), transparent);
   background-position: 0 0, 100% 0, 0 0, 100% 0;
   background-repeat: no-repeat;
   background-size: 28px 100%, 28px 100%, 14px 100%, 14px 100%;
