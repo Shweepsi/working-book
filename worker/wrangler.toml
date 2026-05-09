@@ -1,11 +1,12 @@
 name = "working-book-api"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+account_id = "5ed16f85af827a8d3c10bc075a66e4fb"
 
-# Two environments share the same Worker code but bind to separate D1 databases.
-# Replace the `database_id` placeholders below with the IDs returned by:
-#   wrangler d1 create working-book-dev
-#   wrangler d1 create working-book-prod
+# Two environments share the same Worker code, each bound to its own D1.
+# Both databases are pre-provisioned (region WEUR) and already have the
+# 0001_init.sql schema applied — `wrangler deploy --env <name>` is enough to
+# ship.
 
 [env.dev]
 name = "working-book-api-dev"
@@ -17,7 +18,7 @@ ALLOWED_ORIGINS = "http://localhost:5173,https://shweepsi.github.io"
 [[env.dev.d1_databases]]
 binding = "DB"
 database_name = "working-book-dev"
-database_id = "REPLACE_WITH_DEV_D1_ID"
+database_id = "67d3ea83-4067-495e-97e0-02dd46f18cbe"
 migrations_dir = "migrations"
 
 [env.production]
@@ -29,5 +30,5 @@ ALLOWED_ORIGINS = "https://working-book.pages.dev"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "working-book-prod"
-database_id = "REPLACE_WITH_PROD_D1_ID"
+database_id = "98426291-1638-4dfa-94a7-63109c5300fc"
 migrations_dir = "migrations"
