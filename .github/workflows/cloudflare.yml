@@ -60,6 +60,9 @@ jobs:
     needs: [preflight, worker]
     if: needs.preflight.outputs.configured == 'true'
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,9 +75,8 @@ jobs:
         env:
           # Production build hits the Worker prod environment / working-book-prod D1.
           VITE_API_URL: ${{ secrets.VITE_API_URL_PROD }}
+      - name: Create Pages project (idempotent)
+        # Creates the project on first deploy; exits 0 if it already exists.
+        run: npx wrangler@3.114.17 pages project create working-book --production-branch=main || true
       - name: Publish to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=working-book --branch=main
+        run: npx wrangler@3.114.17 pages deploy dist --project-name=working-book --branch=main
