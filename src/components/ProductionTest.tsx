@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import {
   HEADER_DEFAULTS,
   OPTOPLEX_CODES,
@@ -12,7 +12,8 @@ import {
   type YabAxis,
 } from '../data/productionTest';
 import { fmtHM } from '../lib/time';
-import { load, save } from '../lib/storage';
+import { load } from '../lib/storage';
+import { useSyncedState } from '../lib/sync';
 import type { Poste, ShiftKey, ShiftMeta } from '../types';
 
 interface TestHeader {
@@ -134,11 +135,16 @@ interface ProductionTestProps {
 export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps) {
   const { date, shift } = shiftMeta;
   const shiftKey = shift.key;
-  const [state, setState] = useState<TestState>(() => initialState(date, shiftKey, poste));
-
-  useEffect(() => {
-    save(storageKey(date, shiftKey), state);
-  }, [state, date, shiftKey]);
+  const cacheKey = storageKey(date, shiftKey);
+  const init = useCallback(
+    () => initialState(date, shiftKey, poste),
+    [date, shiftKey, poste],
+  );
+  const [state, setState] = useSyncedState<TestState>(
+    cacheKey,
+    { domain: 'prodtest', params: { date, shift: shiftKey } },
+    init,
+  );
 
   const active: Test | undefined = state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
 
