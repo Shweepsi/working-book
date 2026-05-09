@@ -246,21 +246,13 @@ export default function Suivi() {
       {visibleCount === 0 ? (
         <div className="sv-empty">
           <h3>{filterActive ? 'Aucune entrée pour ce filtre' : 'Aucune entrée'}</h3>
-          {filterActive ? (
+          {filterActive && (
             <button
               type="button"
               className="btn ghost mini"
               onClick={() => setActiveTags(new Set())}
             >
               Effacer les filtres
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn primary mini"
-              onClick={addAndOpen}
-            >
-              <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
             </button>
           )}
         </div>
