@@ -187,22 +187,6 @@ export default function Schedules() {
       {!data && (
         <div className="sch-empty">
           <h3>Aucun rapport importé</h3>
-          <p className="faint">
-            Ouvrir l'<em>Operator Mashup</em> dans M3, effectuer la recherche,
-            puis Ctrl+A · Ctrl+C et coller ici.
-          </p>
-          <p className="faint">
-            Importer aussi la table <strong>Item number → Planning policy</strong>
-            {' '}depuis le tableur pour afficher la colonne MTO/MTS.
-          </p>
-          <div className="row gap-2">
-            <button className="btn primary" onClick={() => setImportMode('pms230')}>
-              Importer rapport Operator Mashup
-            </button>
-            <button className="btn" onClick={() => setImportMode('policy')}>
-              {policy ? `Politique chargée (${policy.count})` : 'Importer politique MTO/MTS'}
-            </button>
-          </div>
         </div>
       )}
 

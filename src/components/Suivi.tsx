@@ -206,7 +206,6 @@ export default function Suivi() {
     });
   }
 
-  const total = state.entries.length;
   const filterActive = activeTags.size > 0;
   const visibleCount = filtered.length;
 
@@ -215,9 +214,6 @@ export default function Suivi() {
       <div className="sv-toolbar">
         <div className="sv-toolbar-lead">
           <h2 className="sv-title">Suivi Cosmétiques</h2>
-          <span className="sv-count" aria-live="polite">
-            {filterActive ? `${visibleCount} / ${total}` : total}
-          </span>
         </div>
         <div className="sv-tag-row sv-filter-row" role="group" aria-label="Filtrer par tag">
           {TAGS.map((t) => {
@@ -246,21 +242,13 @@ export default function Suivi() {
       {visibleCount === 0 ? (
         <div className="sv-empty">
           <h3>{filterActive ? 'Aucune entrée pour ce filtre' : 'Aucune entrée'}</h3>
-          {filterActive ? (
+          {filterActive && (
             <button
               type="button"
               className="btn ghost mini"
               onClick={() => setActiveTags(new Set())}
             >
               Effacer les filtres
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn primary mini"
-              onClick={addAndOpen}
-            >
-              <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
             </button>
           )}
         </div>

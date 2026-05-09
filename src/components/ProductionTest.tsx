@@ -254,7 +254,6 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
       {!active && (
         <div className="pt-empty no-print">
           <h3>Aucun test en cours</h3>
-          <p className="faint">Cliquer sur <strong>＋ Nouveau</strong> pour commencer un test.</p>
         </div>
       )}
 

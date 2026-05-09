@@ -143,7 +143,6 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         {events.length === 0 && (
           <div className="evt-empty no-print">
             <div>Aucun événement pour Poste {poste}.</div>
-            <div className="faint xsmall">Appuyer sur un type ci-dessus pour en enregistrer un.</div>
           </div>
         )}
         <div className="summary">
@@ -238,7 +237,7 @@ interface PrintHeaderProps {
 function PrintHeader({ poste, shiftMeta }: PrintHeaderProps) {
   return (
     <div className="print-header print-only">
-      <h1>Carnet · Poste {poste} · {shiftMeta.shift.label}</h1>
+      <h1>Logbook · Poste {poste} · {shiftMeta.shift.label}</h1>
       <div className="meta">
         <span><strong>Date:</strong> {shiftMeta.dateLabel}</span>
         <span><strong>Horaires:</strong> {shiftMeta.shift.hours}</span>
