@@ -139,6 +139,52 @@
   --focus-ring: rgba(224, 122, 85, 0.1);
 }
 
+/* ---------- Static scale tokens ----------
+   Theme-independent. Density-driven values live in --d-* below. */
+:root {
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
+  --radius-3xl: 18px;
+  --radius-pill: 999px;
+
+  --fs-2xs: 10px;
+  --fs-xs: 10.5px;
+  --fs-sm: 11px;
+  --fs-md: 12px;
+  --fs-base: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 15px;
+  --fs-2xl: 16px;
+  --fs-3xl: 28px;
+
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 14px;
+  --space-8: 16px;
+  --space-9: 18px;
+  --space-10: 22px;
+}
+
+@media print {
+  :root {
+    --print-ink-strong: #000;
+    --print-ink: #444;
+    --print-ink-soft: #666;
+    --print-line: #888;
+    --print-line-faint: #999;
+    --print-bg-tint: #eee;
+    --print-bg: #fff;
+  }
+}
+
 /* ---------- Density tokens ----------
    Three distinct levels:
    - compact:  smallest, tightest. Power users / overview-on-one-screen.
