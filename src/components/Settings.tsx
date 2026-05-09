@@ -3,14 +3,14 @@ import type { Density, Theme } from '../types';
 
 const THEMES = [
   { key: 'auto', label: 'Auto', glyph: '◐' },
-  { key: 'light', label: 'Light', glyph: '☀' },
-  { key: 'dark', label: 'Dark', glyph: '☾' },
+  { key: 'light', label: 'Clair', glyph: '☀' },
+  { key: 'dark', label: 'Sombre', glyph: '☾' },
 ] as const satisfies readonly { key: Theme; label: string; glyph: string }[];
 
 const DENSITIES = [
-  { key: 'compact', label: 'Compact', help: 'Tight rows, small text — fits more on screen.' },
-  { key: 'normal', label: 'Normal', help: 'Friendly spacing, larger touch targets. Recommended.' },
-  { key: 'advanced', label: 'Advanced', help: 'Roomier rows with the type chip and hover row actions.' },
+  { key: 'compact', label: 'Compact', help: 'Lignes serrées, petit texte — tient plus à l’écran.' },
+  { key: 'normal', label: 'Normal', help: 'Espacement convivial, cibles tactiles plus grandes. Recommandé.' },
+  { key: 'advanced', label: 'Avancé', help: 'Lignes plus spacieuses avec la puce de type et les actions au survol.' },
 ] as const satisfies readonly { key: Density; label: string; help: string }[];
 
 interface SettingsProps {
@@ -50,16 +50,16 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
         className="btn gear"
         onClick={() => onOpenChange(!open)}
         aria-expanded={open}
-        aria-label="Settings"
-        title="Settings"
+        aria-label="Paramètres"
+        title="Paramètres"
       >
         ⚙
       </button>
       {open && (
-        <div className="popover" role="dialog" aria-label="Settings">
+        <div className="popover" role="dialog" aria-label="Paramètres">
           <div>
-            <h4>Theme</h4>
-            <div className="seg" role="group" aria-label="Theme">
+            <h4>Thème</h4>
+            <div className="seg" role="group" aria-label="Thème">
               {THEMES.map((t) => (
                 <button
                   key={t.key}
@@ -75,8 +75,8 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
             </div>
           </div>
           <div>
-            <h4>Density</h4>
-            <div className="seg" role="group" aria-label="Density">
+            <h4>Densité</h4>
+            <div className="seg" role="group" aria-label="Densité">
               {DENSITIES.map((d) => (
                 <button
                   key={d.key}

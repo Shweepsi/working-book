@@ -180,7 +180,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
   function reset() {
     if (!active) return;
-    if (!window.confirm('Clear all measurements for this test?')) return;
+    if (!window.confirm('Effacer toutes les mesures de ce test ?')) return;
     setState((s) => ({
       ...s,
       tests: s.tests.map((t) =>
@@ -212,7 +212,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
   function deleteActive() {
     if (!active) return;
-    if (!window.confirm('Delete this test?')) return;
+    if (!window.confirm('Supprimer ce test ?')) return;
     setState((s) => {
       const idx = s.tests.findIndex((t) => t.id === active.id);
       const next = s.tests.filter((t) => t.id !== active.id);
@@ -228,7 +228,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
           type="button"
           className="pt-test-chip add"
           onClick={addTest}
-          title="Add a new test"
+          title="Ajouter un nouveau test"
         >
           <span className="glyph">＋</span> Nouveau
         </button>
@@ -243,7 +243,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
               aria-selected={isActive}
               className={`pt-test-chip ${isActive ? 'active' : ''}`}
               onClick={() => selectTest(t.id)}
-              title={`Switch to ${label}`}
+              title={`Aller à ${label}`}
             >
               {label}
             </button>
@@ -260,7 +260,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
       {active && (<>
       <div className="print-header print-only">
-        <h1>Production Test · Poste {poste} · {shiftMeta.shift.label}</h1>
+        <h1>Test production · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
           <span><strong>Test n°:</strong> {displayTestNo(active.header.testNo) || '____________'}</span>
           <span><strong>Date:</strong> {shiftMeta.dateLabel} {active.header.hour}</span>
@@ -371,10 +371,10 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
       </div>
 
       <div className="pt-actions sticky no-print">
-        <button className="btn" onClick={autofill}>↻ Auto-fill date / hour</button>
-        <button className="btn ghost" onClick={reset}>Clear</button>
-        <button className="btn ghost" onClick={deleteActive}>Delete</button>
-        <button className="btn" onClick={() => window.print()}>Print</button>
+        <button className="btn" onClick={autofill}>↻ Remplir auto date / heure</button>
+        <button className="btn ghost" onClick={reset}>Effacer</button>
+        <button className="btn ghost" onClick={deleteActive}>Supprimer</button>
+        <button className="btn" onClick={() => window.print()}>Imprimer</button>
       </div>
       </>)}
     </div>

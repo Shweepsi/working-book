@@ -217,7 +217,7 @@ export default function Schedules() {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Schedule <span className="faint">· {schedules.length}</span>
+              Planning <span className="faint">· {schedules.length}</span>
             </h4>
             <ul className="sch-rail-list">
               {schedules.map((s) => {
@@ -561,7 +561,7 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             <h3 className="mono">{row.product}</h3>
             <span className="faint small mono">{row.mo}</span>
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <div className="sch-row-sheet-name">
@@ -570,9 +570,9 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         </div>
 
         <dl className="sch-row-sheet-grid">
-          <DetailField label="Schedule" value={<span className="mono">{row.schedule}{row.schedSuffix ? `-${row.schedSuffix}` : ''}</span>} />
-          <DetailField label="Op steps" value={<span className="mono">{row.opSteps || '—'}</span>} />
-          <DetailField label="Work center" value={row.workCenter || '—'} />
+          <DetailField label="Planning" value={<span className="mono">{row.schedule}{row.schedSuffix ? `-${row.schedSuffix}` : ''}</span>} />
+          <DetailField label="Étapes" value={<span className="mono">{row.opSteps || '—'}</span>} />
+          <DetailField label="Centre de travail" value={row.workCenter || '—'} />
           <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
           <DetailField label="Qualité" value={<span className="mono">{row.qualite || '—'}</span>} />
           <DetailField label="PDP" value={row.pdp || '—'} />
