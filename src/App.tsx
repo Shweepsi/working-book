@@ -6,7 +6,9 @@ import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
+import { registerServiceWorker } from './lib/pwa';
 import { load, save } from './lib/storage';
+import { useToast } from './lib/toast';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -91,10 +93,25 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
 
   const live = useNowLive();
+  const toast = useToast();
 
   useEffect(() => {
     window.location.hash = tab;
   }, [tab]);
+
+  // Service-worker registration is gated behind a user-visible toast so the
+  // operator decides when to reload (autoUpdate would refresh mid-edit).
+  useEffect(() => {
+    registerServiceWorker({
+      onNeedRefresh(apply) {
+        toast.show({
+          message: 'Nouvelle version disponible',
+          action: { label: 'Recharger', run: apply },
+          ttl: 30_000,
+        });
+      },
+    });
+  }, [toast]);
 
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);

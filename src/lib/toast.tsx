@@ -3,10 +3,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 // Lightweight toast system. Drives the "destructive action + Annuler" pattern
 // that replaces the native confirm() dialogs across the app.
 
+interface ToastAction {
+  label: string;
+  run: () => void;
+}
+
 interface Toast {
   id: string;
   message: string;
   undo?: () => void;
+  action?: ToastAction;
   ttl: number;
   variant: 'default' | 'danger';
 }
@@ -14,6 +20,9 @@ interface Toast {
 interface ShowOptions {
   message: string;
   undo?: () => void;
+  // Custom action button (e.g. "Mettre à jour"). Distinct from `undo`,
+  // which is reserved for the destructive-action / Annuler pattern.
+  action?: ToastAction;
   ttl?: number;
   variant?: 'default' | 'danger';
 }
@@ -51,6 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         id,
         message: opts.message,
         undo: opts.undo,
+        action: opts.action,
         ttl,
         variant: opts.variant ?? 'default',
       };
@@ -106,9 +116,18 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     toast.undo?.();
     onDismiss();
   }
+  function handleAction() {
+    toast.action?.run();
+    onDismiss();
+  }
   return (
     <div className={`toast toast-${toast.variant}`} style={{ ['--toast-ttl' as string]: `${toast.ttl}ms` }}>
       <span className="toast-msg">{toast.message}</span>
+      {toast.action && (
+        <button type="button" className="toast-undo toast-action" onClick={handleAction}>
+          {toast.action.label}
+        </button>
+      )}
       {toast.undo && (
         <button type="button" className="toast-undo" onClick={handleUndo}>
           Annuler

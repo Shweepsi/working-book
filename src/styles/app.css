@@ -1,7 +1,30 @@
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* Lets the FAB / sheet drop into the iOS home-indicator area without the
+     main scroll container leaking behind it. */
+  overscroll-behavior-y: contain;
+}
+
+/* Global touch/PWA chrome polish.
+   - Suppress the gray iOS tap flash; we drive feedback via :active / :hover.
+   - Stop the OS from autolinking dates / phone numbers in the body copy.
+   - Prevent text selection on UI chrome so a long-press doesn't open a
+     selection bubble over a button. Selectable surfaces (inputs, table
+     cells, descriptions) re-enable user-select locally below. */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+html { overscroll-behavior-y: none; }
+body { user-select: none; -webkit-user-select: none; }
+input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app-header {
@@ -522,7 +545,9 @@
   box-shadow: var(--shadow-sheet);
   animation: pop-in 180ms ease-out;
   max-height: calc(100vh - 60px);
+  max-height: calc(100dvh - 60px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--line-faint);
 }
 
@@ -1172,16 +1197,16 @@
   .shift-meta { gap: 8px; font-size: var(--fs-sm); }
 
   .tabs { padding: 2px; }
-  .tabs .tab { padding: 4px 10px; font-size: var(--fs-md); min-height: 28px; }
+  .tabs .tab { padding: 6px 12px; font-size: var(--fs-md); min-height: 34px; }
 
-  .date-nav { gap: 0; padding: 1px; }
-  .date-nav .icon { width: 26px; height: 26px; min-height: 26px; }
-  .date-nav .date-input { font-size: var(--fs-sm); padding: 3px 4px; min-height: 26px; }
-  .date-nav .live-btn { padding: 0 8px; font-size: var(--fs-sm); min-height: 26px; }
+  .date-nav { gap: 0; padding: 2px; }
+  .date-nav .icon { width: 32px; height: 32px; min-height: 32px; }
+  .date-nav .date-input { font-size: var(--fs-sm); padding: 4px 6px; min-height: 30px; }
+  .date-nav .live-btn { padding: 0 10px; font-size: var(--fs-sm); min-height: 30px; }
 
-  .shift-switch { gap: 3px; }
-  .shift-chip { padding: 3px 5px 3px 9px; gap: 5px; font-size: var(--fs-sm); min-height: 28px; }
-  .shift-chip .shift-poste { padding: 1px 5px; font-size: 9px; }
+  .shift-switch { gap: 4px; }
+  .shift-chip { padding: 4px 6px 4px 10px; gap: 6px; font-size: var(--fs-sm); min-height: 32px; }
+  .shift-chip .shift-poste { padding: 1px 6px; font-size: 10px; }
 
   .type-strip {
     margin: 0 -14px 14px;
@@ -1253,9 +1278,11 @@
     width: 100%;
     max-width: 100%;
     border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
-    padding: 14px 16px env(safe-area-inset-bottom, 20px);
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
     animation: slide-up-phone 220ms ease-out;
     max-height: 92vh;
+    max-height: 92dvh;
+    overscroll-behavior: contain;
   }
   .sheet .grabber {
     display: block;
@@ -1270,6 +1297,19 @@
 @keyframes slide-up-phone {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
+}
+
+/* Very short viewports (landscape phones, foldables): tighten sheets so
+   the form actions stay reachable without scrolling the whole sheet. */
+@media (max-height: 520px) and (max-width: 900px) {
+  .sheet {
+    max-height: 100dvh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    padding-top: 8px;
+  }
+  .sheet h3 { font-size: var(--fs-lg); }
+  .sheet .grabber { margin-bottom: 6px; }
+  .sheet-head { margin-bottom: 10px; }
 }
 
 /* Date nav */
@@ -3643,6 +3683,17 @@ button.as-row:focus-visible {
 .toast-undo:hover {
   background: color-mix(in srgb, var(--paper) 12%, transparent);
   border-color: var(--paper);
+}
+
+/* Confirmation variant — used for "Recharger", "Réessayer", etc. Stronger
+   visual weight than the .toast-undo (Annuler) to nudge the user. */
+.toast-undo.toast-action {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--paper);
+}
+.toast-undo.toast-action:hover {
+  background: color-mix(in srgb, var(--paper) 90%, var(--accent));
 }
 
 .toast-close {
