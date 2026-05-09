@@ -91,10 +91,11 @@ jobs:
         id: deploy
         run: |
           BRANCH="${{ github.head_ref || github.ref_name }}"
-          # Cloudflare sanitizes branch names: lowercase, slashes→hyphens
-          SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | tr '/' '-' | tr '_' '-')
-          npx wrangler@3.114.17 pages deploy dist --project-name=working-book --branch="$BRANCH"
-          echo "preview_url=https://${SLUG}.working-book.pages.dev" >> "$GITHUB_OUTPUT"
+          OUTPUT=$(npx wrangler@3.114.17 pages deploy dist --project-name=working-book --branch="$BRANCH" 2>&1)
+          echo "$OUTPUT"
+          # Extract the deployment URL from wrangler output (e.g. "https://abc123.working-book.pages.dev")
+          URL=$(echo "$OUTPUT" | grep -oE 'https://[a-f0-9]+\.working-book\.pages\.dev' | tail -1)
+          echo "preview_url=${URL}" >> "$GITHUB_OUTPUT"
 
       - name: Comment preview URL on PR
         if: github.event_name == 'pull_request'
