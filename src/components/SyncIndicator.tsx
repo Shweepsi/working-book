@@ -11,7 +11,7 @@ const DESCRIPTORS: Record<SyncStatus, Descriptor> = {
   idle:     { cls: 'is-idle',    glyph: '●', short: 'Sync.' },
   syncing:  { cls: 'is-syncing', glyph: '↻', short: 'Sync…' },
   queued:   { cls: 'is-queued',  glyph: '↑', short: 'En file' },
-  offline:  { cls: 'is-offline', glyph: '⚠', short: 'Hors ligne' },
+  offline:  { cls: 'is-offline', glyph: '⊘', short: 'Hors ligne' },
   error:    { cls: 'is-error',   glyph: '⚠', short: 'Échec' },
   disabled: { cls: 'is-disabled', glyph: '○', short: 'Local' },
 };

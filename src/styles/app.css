@@ -345,7 +345,10 @@
 @media (max-width: 600px) {
   .evt-filterbar { padding: var(--space-3); gap: var(--space-3); }
   .evt-filterbar-label { flex-basis: 100%; }
-  .evt-filterbar-flags .flag.flag-filter { font-size: var(--fs-2xs); padding: 2px var(--space-4); }
+  .evt-filterbar-input { padding: var(--space-3) 0; font-size: var(--fs-base); }
+  .evt-filterbar-flags { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+  .evt-filterbar-flags::-webkit-scrollbar { height: 0; }
+  .evt-filterbar-flags .flag.flag-filter { font-size: var(--fs-sm); padding: 4px var(--space-5); min-height: 28px; flex-shrink: 0; }
 }
 
 .evt-list {
@@ -579,6 +582,14 @@
   background: var(--paper-2);
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-md);
+  animation: nested-reveal 180ms ease-out;
+}
+@keyframes nested-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-grid-nested { animation: none; }
 }
 
 .sheet h3 {
@@ -2130,11 +2141,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3) var(--space-5);
-  padding: var(--space-3) var(--space-5);
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-4) var(--space-6);
   border: 1px solid var(--line-faint);
   border-bottom: 0;
   background: var(--paper);
+}
+.sch-controls .sch-filter-group + .sch-filter-group {
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--line-faint);
 }
 .sch-detail .sch-controls + .sch-table { border-top: 0; border-radius: 0; }
 .sch-detail .sch-controls { border-radius: 0; }
@@ -3251,8 +3266,15 @@ button.as-row {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  background: inherit;
+  border: 0;
+  padding: 0;
 }
 button.as-row::-moz-focus-inner { border: 0; padding: 0; }
+button.as-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 
 /* ---------- Keyboard help sheet ---------- */
 .kbd-help-trigger {
@@ -3269,7 +3291,7 @@ button.as-row::-moz-focus-inner { border: 0; padding: 0; }
 }
 .kbd-help-row {
   display: grid;
-  grid-template-columns: minmax(140px, auto) 1fr;
+  grid-template-columns: 1fr minmax(140px, auto);
   align-items: center;
   gap: var(--space-6);
   padding: var(--space-3) var(--space-4);
@@ -3277,15 +3299,18 @@ button.as-row::-moz-focus-inner { border: 0; padding: 0; }
 }
 .kbd-help-row:last-child { border-bottom: 0; }
 .kbd-help-row dt {
+  order: 2;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
 .kbd-help-row dd {
+  order: 1;
   margin: 0;
   font-size: var(--fs-md);
-  color: var(--ink-soft);
+  color: var(--ink);
 }
 .kbd-help-plus {
   color: var(--ink-faint);
@@ -3345,24 +3370,34 @@ button.as-row::-moz-focus-inner { border: 0; padding: 0; }
 
 .fab-sheet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
+}
+@media (max-width: 360px) {
+  .fab-sheet-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .fab-type-btn {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  padding: 14px var(--space-5);
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: var(--fs-base);
-  min-height: 48px;
+  font-size: var(--fs-sm);
+  text-align: center;
+  line-height: 1.2;
+  min-height: 64px;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+.fab-type-btn .fab-type-label {
+  display: block;
+  word-break: break-word;
 }
 .fab-type-btn:hover { border-color: var(--ink); background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
 .fab-type-btn:active { transform: scale(0.97); }
@@ -3449,6 +3484,17 @@ button.as-row::-moz-focus-inner { border: 0; padding: 0; }
   gap: var(--space-3);
   pointer-events: none;
   width: min(440px, calc(100% - 24px));
+}
+
+/* On phones the FAB sits at bottom-right; anchor toasts to bottom-left so the
+   two never collide. */
+@media (max-width: 600px) {
+  .toast-viewport {
+    left: 12px;
+    right: 88px;
+    transform: none;
+    width: auto;
+  }
 }
 
 .toast {
