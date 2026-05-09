@@ -219,20 +219,16 @@ export default function App() {
             density={density}
             onDensityChange={setDensity}
           />
-          <button
-            type="button"
-            className="btn ghost icon settings-btn"
-            aria-label="Paramètres"
-            onClick={() => setSettingsOpen(true)}
-          >
-            ⚙️
-          </button>
         </div>
       </header>
 
       <main className="app-main">
-        {tab === 'logbook' && <Logbook shiftMeta={shiftMeta} />}
-        {tab === 'test' && <ProductionTest shiftMeta={shiftMeta} />}
+        {tab === 'logbook' && (
+          <Logbook key={`lb-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
+        )}
+        {tab === 'test' && (
+          <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
+        )}
         {tab === 'sched' && <Schedules />}
         {tab === 'suivi' && <Suivi />}
       </main>
@@ -240,10 +236,14 @@ export default function App() {
   );
 }
 
-function useNowLive() {
-  const [live, setLive] = useState(liveDateAndShift);
+function useNowLive(): { date: string; shiftKey: LiveShiftKey } {
+  const [live, setLive] = useState(() => liveDateAndShift());
   useEffect(() => {
-    const id = setInterval(() => setLive(liveDateAndShift()), 60_000);
+    const tick = () => setLive((prev) => {
+      const next = liveDateAndShift();
+      return next.date === prev.date && next.shiftKey === prev.shiftKey ? prev : next;
+    });
+    const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
   return live;
