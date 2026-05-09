@@ -1,49 +1,63 @@
 # Working Book API (Cloudflare Worker)
 
-Persists logbook, production-test and suivi data into D1, behind a thin
-JSON HTTP API. Two environments share the same Worker code:
+Persists logbook, production-test and suivi data into D1 behind a thin JSON
+HTTP API. Two environments share the same Worker code:
 
-| env          | Worker name              | D1 database         | Used by                                          |
-| ------------ | ------------------------ | ------------------- | ------------------------------------------------ |
-| `dev`        | `working-book-api-dev`   | `working-book-dev`  | GitHub Pages preview build, `wrangler dev`, local |
-| `production` | `working-book-api`       | `working-book-prod` | Cloudflare Pages production build                |
+| env          | Worker name              | D1 database         | D1 ID                                      | Used by                                          |
+| ------------ | ------------------------ | ------------------- | ------------------------------------------ | ------------------------------------------------ |
+| `dev`        | `working-book-api-dev`   | `working-book-dev`  | `67d3ea83-4067-495e-97e0-02dd46f18cbe`     | GitHub Pages preview build, `wrangler dev`, local |
+| `production` | `working-book-api`       | `working-book-prod` | `98426291-1638-4dfa-94a7-63109c5300fc`     | Cloudflare Pages production build                |
 
-## First-time setup
+Both D1 databases live in region `WEUR` and already have the `0001_init.sql`
+schema applied (provisioned through the Cloudflare MCP connector). `account_id`
+is hard-coded in `wrangler.toml`.
+
+## What CI needs (one-off)
+
+Add the following repository secrets in GitHub Settings → Secrets and variables
+→ Actions:
+
+| Secret                | Value |
+| --------------------- | ----- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token with `Workers Scripts: Edit`, `D1: Edit`, `Cloudflare Pages: Edit` (create at <https://dash.cloudflare.com/profile/api-tokens>) |
+| `CLOUDFLARE_ACCOUNT_ID` | `5ed16f85af827a8d3c10bc075a66e4fb` |
+| `VITE_API_URL_DEV`      | URL of the deployed dev Worker (e.g. `https://working-book-api-dev.<subdomain>.workers.dev`) |
+| `VITE_API_URL_PROD`     | URL of the deployed prod Worker (e.g. `https://working-book-api.<subdomain>.workers.dev`) |
+
+Until `CLOUDFLARE_API_TOKEN` is set, the `Deploy to Cloudflare (production)`
+workflow skips itself; nothing fails.
+
+## Local development
 
 ```bash
 cd worker
 npm install
 npx wrangler login
 
-# Create the two D1 databases — copy the printed IDs into wrangler.toml.
-npm run db:create:dev
-npm run db:create:prod
-
-# Apply schema migrations (initial table creation) to both remotes.
-npm run db:migrate:dev
-npm run db:migrate:prod
-
-# Deploy.
-npm run deploy:dev
-npm run deploy:prod
-```
-
-After deploying, note both Worker URLs (e.g. `https://working-book-api-dev.<your-account>.workers.dev`)
-and register them as `VITE_API_URL_DEV` / `VITE_API_URL_PROD` repository secrets so the
-front-end CI can inject them at build time.
-
-## Local development
-
-```bash
-# Start the Worker locally with the dev D1 (uses local SQLite by default).
+# Start the Worker locally with the dev D1 (uses the local SQLite sandbox).
 npm run dev
 
-# Apply migrations to the local sandbox.
+# Apply migrations to the local sandbox if you reset it.
 npm run db:migrate:dev:local
 ```
 
-When `wrangler dev` is running, point the front at it with
-`VITE_API_URL=http://127.0.0.1:8787 npm run dev` from the repo root.
+When `wrangler dev` is running, point the front at it from the repo root with:
+
+```bash
+VITE_API_URL=http://127.0.0.1:8787 npm run dev
+```
+
+## Manual ops (only if needed)
+
+```bash
+# Re-apply migrations to the remote D1s (idempotent, IF NOT EXISTS).
+npm run db:migrate:dev
+npm run db:migrate:prod
+
+# Manual deploy.
+npm run deploy:dev
+npm run deploy:prod
+```
 
 ## API surface
 
