@@ -294,7 +294,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
       {active && (<>
       <div className="print-header print-only">
-        <h1>Test production · Poste {poste} · {shiftMeta.shift.label}</h1>
+        <h1>Test · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
           <span><strong>Test n°:</strong> {displayTestNo(active.header.testNo) || '____________'}</span>
           <span><strong>Date:</strong> {shiftMeta.dateLabel} {active.header.hour}</span>
@@ -405,10 +405,26 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
       </div>
 
       <div className="pt-actions sticky no-print">
-        <button className="btn" onClick={autofill}>↻ Remplir auto date / heure</button>
-        <button className="btn ghost" onClick={reset}>Effacer</button>
-        <button className="btn ghost" onClick={deleteActive}>Supprimer</button>
-        <button className="btn" onClick={() => window.print()}>Imprimer</button>
+        <button
+          className="btn"
+          onClick={autofill}
+          title="Remplir automatiquement la date et l'heure"
+        >
+          <span className="lbl-full">↻ Remplir auto date / heure</span>
+          <span className="lbl-short">↻ Auto</span>
+        </button>
+        <button className="btn ghost" onClick={reset} title="Effacer les valeurs saisies">
+          <span className="lbl-full">Effacer</span>
+          <span className="lbl-short" aria-hidden="true">⌫</span>
+        </button>
+        <button className="btn ghost" onClick={deleteActive} title="Supprimer ce test">
+          <span className="lbl-full">Supprimer</span>
+          <span className="lbl-short" aria-hidden="true">🗑</span>
+        </button>
+        <button className="btn" onClick={() => window.print()} title="Imprimer le test">
+          <span className="lbl-full">Imprimer</span>
+          <span className="lbl-short" aria-hidden="true">🖨</span>
+        </button>
       </div>
       </>)}
     </div>

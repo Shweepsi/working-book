@@ -39,41 +39,77 @@ export default function PasteImport<R extends PasteImportResult>({
 }: PasteImportProps<R>) {
   const [result, setResult] = useState<R | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const canReadClipboard =
+    typeof navigator !== 'undefined' && !!navigator.clipboard?.readText;
 
   useEscapeToClose(onClose);
   useEffect(() => {
     taRef.current?.focus();
   }, []);
 
-  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const html = e.clipboardData.getData('text/html');
-    const text = e.clipboardData.getData('text/plain');
-    if (!html && !text) return;
-    e.preventDefault();
+  function applyParse(payload: PastePayload) {
     setError(null);
     try {
-      setResult(parser({ html, text }));
+      setResult(parser(payload));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec de l’analyse');
       setResult(null);
     }
-    if (taRef.current) taRef.current.value = text || '(HTML payload)';
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const html = e.clipboardData.getData('text/html');
+    const txt = e.clipboardData.getData('text/plain');
+    if (!html && !txt) return;
+    e.preventDefault();
+    const display = txt || '(HTML uniquement)';
+    setText(display);
+    applyParse({ html, text: txt });
   }
 
   function reparse(rawText: string) {
-    setError(null);
-    try {
-      setResult(parser({ html: '', text: rawText }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de l’analyse');
+    setText(rawText);
+    if (!rawText.trim()) {
       setResult(null);
+      setError(null);
+      return;
     }
+    applyParse({ html: '', text: rawText });
+  }
+
+  async function pasteFromClipboard() {
+    if (!canReadClipboard || busy) return;
+    setBusy(true);
+    try {
+      const txt = await navigator.clipboard.readText();
+      if (!txt) {
+        setError('Presse-papiers vide.');
+        return;
+      }
+      setText(txt);
+      applyParse({ html: '', text: txt });
+      taRef.current?.focus();
+    } catch {
+      setError('Accès au presse-papiers refusé. Utilisez Ctrl+V.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clearAll() {
+    setText('');
+    setResult(null);
+    setError(null);
+    taRef.current?.focus();
   }
 
   const summary = result ? describe(result) : null;
   const warnings = result?.warnings ?? [];
   const ready = !!result && ((result.records?.length ?? 0) > 0 || (result.count ?? 0) > 0);
+  const lineCount = text ? text.split(/\r?\n/).filter((l) => l.trim()).length : 0;
 
   return (
     <>
@@ -87,10 +123,44 @@ export default function PasteImport<R extends PasteImportResult>({
 
         {hint && <p className="faint small sch-import-hint">{hint}</p>}
 
+        <div className="sch-import-toolbar">
+          {canReadClipboard && (
+            <button
+              type="button"
+              className="btn"
+              onClick={pasteFromClipboard}
+              disabled={busy}
+              title="Coller depuis le presse-papiers"
+            >
+              ⎘ Coller
+            </button>
+          )}
+          {text && (
+            <button
+              type="button"
+              className="btn ghost mini"
+              onClick={clearAll}
+              title="Vider la zone"
+            >
+              Vider
+            </button>
+          )}
+          <span className="sch-import-stats faint small" aria-live="polite">
+            {lineCount > 0
+              ? `${lineCount} ligne${lineCount > 1 ? 's' : ''}`
+              : 'Aucun contenu'}
+          </span>
+        </div>
+
         <textarea
           ref={taRef}
           className="sch-import-area mono"
-          placeholder="Coller ici (Ctrl+V)…"
+          placeholder={
+            canReadClipboard
+              ? 'Coller ici (Ctrl+V) ou cliquer ⎘ Coller…'
+              : 'Coller ici (Ctrl+V)…'
+          }
+          value={text}
           onPaste={handlePaste}
           onChange={(e) => reparse(e.target.value)}
           spellCheck={false}

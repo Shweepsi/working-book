@@ -22,7 +22,7 @@ type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
 const TABS = [
   { key: 'logbook', label: 'Logbook' },
-  { key: 'test', label: 'Test production' },
+  { key: 'test', label: 'Test' },
   { key: 'sched', label: 'Planning' },
   { key: 'suivi', label: 'Suivi' },
 ] as const satisfies readonly { key: TabKey; label: string }[];
