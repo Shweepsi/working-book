@@ -1751,7 +1751,7 @@
   background: var(--paper);
 }
 .sch-empty h3,
-.pt-empty h3 { margin: 0; font-size: var(--fs-xl); }
+.pt-empty h3 { margin: 0; font-size: var(--fs-xl); color: var(--ink-soft); font-weight: 600; }
 .sch-empty p,
 .pt-empty p { margin: 0; max-width: 60ch; line-height: 1.5; }
 
