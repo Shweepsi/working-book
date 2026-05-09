@@ -289,7 +289,17 @@ export default function App() {
 
       <main className="app-main">
         {tab === 'logbook' && (
-          <Logbook key={`lb-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
+          <Logbook
+            key={`lb-${date}-${shiftKey}`}
+            poste={poste}
+            shiftMeta={shiftMeta}
+            onNavigate={(d, p) => {
+              const sk = shiftFor(p, d).key;
+              if (sk !== 'M' && sk !== 'A' && sk !== 'N') return;
+              setDate(d);
+              setShiftKey(sk);
+            }}
+          />
         )}
         {tab === 'test' && (
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />

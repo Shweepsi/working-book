@@ -28,13 +28,75 @@ function storageKey(date: string, poste: Poste | null): string {
 interface LogbookProps {
   poste: Poste | null;
   shiftMeta: ShiftMeta;
+  onNavigate?: (date: string, poste: Poste) => void;
+}
+
+interface OtherMatch {
+  ev: LogEvent;
+  date: string;
+  poste: Poste;
+}
+
+const STORAGE_PREFIX = 'wb.logbook.v4.';
+
+// Scan localStorage for matching events outside the current shift. Used to
+// expose log entries from other dates/postes that the operator may be looking
+// for — e.g. searching for "#375" finds the plate across every shift.
+function searchOtherShifts(
+  currentDate: string,
+  currentPoste: Poste | null,
+  query: string,
+  activeFlags: Set<FlagKey>,
+): OtherMatch[] {
+  if (typeof window === 'undefined') return [];
+  if (!query.trim() && activeFlags.size === 0) return [];
+  const q = query.trim().toLowerCase();
+  const results: OtherMatch[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i);
+    if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+    const tail = key.slice(STORAGE_PREFIX.length);
+    const dot = tail.lastIndexOf('.');
+    if (dot < 0) continue;
+    const date = tail.slice(0, dot);
+    const poste = tail.slice(dot + 1) as Poste;
+    if (date === currentDate && poste === currentPoste) continue;
+    let events: LogEvent[];
+    try {
+      const raw = window.localStorage.getItem(key);
+      events = raw ? (JSON.parse(raw) as LogEvent[]) : [];
+    } catch {
+      continue;
+    }
+    for (const ev of events) {
+      if (activeFlags.size > 0 && (!ev.flag || !activeFlags.has(ev.flag))) continue;
+      if (q) {
+        const haystack = [ev.desc, ev.type, ...(ev.notes || [])]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) continue;
+      }
+      results.push({ ev, date, poste });
+    }
+  }
+  results.sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return a.poste.localeCompare(b.poste);
+  });
+  return results;
+}
+
+function fmtShortDate(iso: string): string {
+  const [, m, d] = iso.split('-');
+  return `${d}/${m}`;
 }
 
 interface EditingState {
   event: Partial<LogEvent>;
 }
 
-export default function Logbook({ poste, shiftMeta }: LogbookProps) {
+export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) {
   const { date } = shiftMeta;
   const cacheKey = storageKey(date, poste);
   const init = useCallback(() => load<LogEvent[]>(cacheKey, []), [cacheKey]);
@@ -68,6 +130,13 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
   const summary = useMemo(() => computeSummary(filteredEvents), [filteredEvents]);
   const filteringActive = query.trim() !== '' || activeFlags.size > 0;
   const hiddenCount = events.length - filteredEvents.length;
+
+  // Cross-shift / cross-date results live alongside the current shift's list
+  // so the operator never has to navigate to find a past entry.
+  const otherMatches = useMemo(
+    () => (filteringActive ? searchOtherShifts(date, poste, query, activeFlags) : []),
+    [filteringActive, date, poste, query, activeFlags],
+  );
 
   function toggleFlagFilter(f: FlagKey) {
     setActiveFlags((prev) => {
@@ -206,13 +275,16 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
           {FILTER_FLAGS.map((f) => {
             const meta = FLAGS[f];
             const on = activeFlags.has(f);
+            const cls = ['flag', 'flag-filter', 'flag-active', f];
+            if (activeFlags.size > 0) cls.push(on ? 'is-on' : 'is-off');
             return (
               <button
                 key={f}
                 type="button"
-                className={`flag flag-filter ${on ? `flag-active ${f}` : 'flag-empty'}`}
+                className={cls.join(' ')}
                 onClick={() => toggleFlagFilter(f)}
                 aria-pressed={on}
+                title={on ? `Retirer le filtre ${meta.label}` : `Filtrer sur ${meta.label}`}
               >
                 {meta.label}
               </button>
@@ -241,17 +313,45 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         {filteredEvents.map((ev) => (
           <EventRow key={ev.id} ev={ev} onOpen={openEvent} onRemove={removeEvent} />
         ))}
-        {filteredEvents.length === 0 && events.length === 0 && (
+        {filteredEvents.length === 0 && events.length === 0 && !filteringActive && (
           <div className="evt-empty no-print">
             <div>Aucun événement pour Poste {poste}.</div>
           </div>
         )}
-        {filteredEvents.length === 0 && events.length > 0 && (
+        {filteredEvents.length === 0 && filteringActive && (
           <div className="evt-empty no-print">
-            <div>Aucun événement ne correspond au filtre.</div>
-            <button type="button" className="btn ghost mini" onClick={clearFilters}>
-              Effacer les filtres
-            </button>
+            <div>
+              {events.length > 0
+                ? 'Aucun résultat dans ce shift.'
+                : 'Aucun résultat pour ce shift.'}
+            </div>
+            {otherMatches.length === 0 && (
+              <button type="button" className="btn ghost mini" onClick={clearFilters}>
+                Effacer les filtres
+              </button>
+            )}
+          </div>
+        )}
+        {otherMatches.length > 0 && (
+          <div className="evt-other-matches no-print">
+            <div className="evt-other-head">
+              <span className="evt-other-title">Autres shifts</span>
+              <span className="evt-other-count faint small">
+                {otherMatches.length} résultat{otherMatches.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            {otherMatches.slice(0, 50).map((m) => (
+              <OtherMatchRow
+                key={`${m.date}.${m.poste}.${m.ev.id}`}
+                match={m}
+                onNavigate={onNavigate}
+              />
+            ))}
+            {otherMatches.length > 50 && (
+              <div className="evt-other-more faint small">
+                + {otherMatches.length - 50} autres — affinez la recherche pour les voir.
+              </div>
+            )}
           </div>
         )}
         <div className="summary">
@@ -397,6 +497,60 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
     </div>
   );
 });
+
+interface OtherMatchRowProps {
+  match: OtherMatch;
+  onNavigate?: (date: string, poste: Poste) => void;
+}
+
+function OtherMatchRow({ match, onNavigate }: OtherMatchRowProps) {
+  const { ev, date, poste } = match;
+  const tint = tintForFlag(ev.flag);
+  const minutes = diffMinutes(ev.start, ev.end);
+  const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
+  const navigable = !!onNavigate;
+  const go = () => onNavigate?.(date, poste);
+
+  return (
+    <div
+      className={`evt evt-other ${tint ? `tint-${tint}` : ''} ${ev.danger ? 'is-danger' : ''} ${navigable ? 'is-clickable' : ''}`}
+      onClick={navigable ? go : undefined}
+      role={navigable ? 'button' : undefined}
+      tabIndex={navigable ? 0 : undefined}
+      aria-label={`Voir ${fmtShortDate(date)} Poste ${poste}`}
+      onKeyDown={
+        navigable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                go();
+              }
+            }
+          : undefined
+      }
+    >
+      <div className="time">
+        {ev.start ? <span className="start">{ev.start}</span> : <span className="faint">—</span>}
+        {ev.end && !sameStartEnd ? <span className="end"> → {ev.end}</span> : null}
+      </div>
+      <div className="dur">{sameStartEnd ? <span className="faint">·</span> : fmtDuration(minutes)}</div>
+      <span className="type">{ev.type}</span>
+      <div className="desc">
+        <span className="evt-other-tag mono">{fmtShortDate(date)} · Poste {poste}</span>
+        <span style={{ fontWeight: ev.bold ? 600 : 400 }}>
+          {ev.desc || <span className="faint">(sans description)</span>}
+        </span>
+      </div>
+      <div className="flags">
+        {ev.flag ? (
+          <span className={`flag flag-active ${ev.flag}`}>{FLAGS[ev.flag].label}</span>
+        ) : (
+          <span className="flag flag-empty muted">—</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface PrintHeaderProps {
   poste: Poste | null;
