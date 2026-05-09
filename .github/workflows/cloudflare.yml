@@ -13,6 +13,9 @@ concurrency:
   group: cloudflare-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  WRANGLER: npx wrangler@3.114.17
+
 jobs:
   preflight:
     name: Check Cloudflare credentials
@@ -38,6 +41,9 @@ jobs:
     # Only redeploy Workers on pushes to main — PRs reuse the already-deployed Workers.
     if: needs.preflight.outputs.configured == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -48,19 +54,14 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: worker/package-lock.json
-      - working-directory: worker
-        run: npm ci
+      - run: npm ci
       - name: Apply D1 migrations (dev)
-        working-directory: worker
         run: npx wrangler d1 migrations apply working-book-dev --env dev --remote
       - name: Deploy Worker (dev)
-        working-directory: worker
         run: npx wrangler deploy --env dev
       - name: Apply D1 migrations (production)
-        working-directory: worker
         run: npx wrangler d1 migrations apply working-book-prod --env production --remote
       - name: Deploy Worker (production)
-        working-directory: worker
         run: npx wrangler deploy --env production
 
   pages:
@@ -87,16 +88,21 @@ jobs:
           # main → prod Worker + D1 prod; any branch/PR → dev Worker + D1 dev.
           VITE_API_URL: ${{ github.ref == 'refs/heads/main' && secrets.VITE_API_URL_PROD || secrets.VITE_API_URL_DEV }}
       - name: Create Pages project (idempotent — no-op if already exists)
-        run: npx wrangler@3.114.17 pages project create working-book --production-branch=main || true
+        run: ${{ env.WRANGLER }} pages project create working-book --production-branch=main || true
       - name: Deploy to Cloudflare Pages
         id: deploy
         run: |
           BRANCH="${{ github.head_ref || github.ref_name }}"
-          OUTPUT=$(npx wrangler@3.114.17 pages deploy dist --project-name=working-book --branch="$BRANCH" 2>&1)
+          OUTPUT=$(${{ env.WRANGLER }} pages deploy dist --project-name=working-book --branch="$BRANCH" 2>&1)
           echo "$OUTPUT"
-          # Extract the deployment URL from wrangler output (e.g. "https://abc123.working-book.pages.dev")
           URL=$(echo "$OUTPUT" | grep -oE 'https://[a-f0-9]+\.working-book\.pages\.dev' | tail -1)
+          if [ -z "$URL" ]; then
+            echo "::error::Could not extract deployment URL from wrangler output"
+            exit 1
+          fi
           echo "preview_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "### 🌐 Cloudflare Pages preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "${URL}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment preview URL on PR
         if: github.event_name == 'pull_request'
@@ -105,7 +111,7 @@ jobs:
           script: |
             const url = '${{ steps.deploy.outputs.preview_url }}';
             const marker = '<!-- cf-preview-url -->';
-            const body = `${marker}\n\u{1F310} **Cloudflare Pages preview:** ${url}`;
+            const body = `${marker}\n🌐 **Cloudflare Pages preview:** ${url}`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
