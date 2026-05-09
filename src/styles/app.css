@@ -204,9 +204,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-.type-strip button {
   transition: background 140ms ease, border-color 140ms ease, transform 80ms ease;
 }
 
@@ -258,16 +255,18 @@
   font-weight: 500;
 }
 
-/* "Nouveau" — generic ad-hoc event. Mirrors .pt-test-chip.add: dashed
-   accent border so it reads as the escape-hatch for events that don't
-   match any of the prefilled types. */
-.type-strip button.type-add {
+/* "Nouveau" — generic ad-hoc event / new test. Dashed accent border so it
+   reads as the escape-hatch for events that don't match any prefilled type. */
+.type-strip button.type-add,
+.pt-test-chip.add {
   color: var(--accent);
   border-style: dashed;
   border-color: var(--accent);
 }
-.type-strip button.type-add .glyph { color: var(--accent); font-weight: 500; }
-.type-strip button.type-add:hover {
+.type-strip button.type-add .glyph,
+.pt-test-chip.add .glyph { color: var(--accent); font-weight: 500; }
+.type-strip button.type-add:hover,
+.pt-test-chip.add:hover {
   background: color-mix(in srgb, var(--accent) 6%, var(--paper));
   border-color: var(--accent);
 }
@@ -953,23 +952,9 @@
   border-color: var(--ink);
 }
 
-.pt-test-chip.add { color: var(--accent); border-style: dashed; border-color: var(--accent); }
-.pt-test-chip.add .glyph { color: var(--accent); font-weight: 500; }
-.pt-test-chip.add:hover { background: color-mix(in srgb, var(--accent) 6%, var(--paper)); border-color: var(--accent); }
-
 .pt-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: 28px;
   margin-top: 12px;
-  border: 1px dashed var(--line-soft);
-  border-radius: var(--radius-xl);
-  background: var(--paper);
 }
-.pt-empty h3 { margin: 0; font-size: var(--fs-xl); }
-.pt-empty p { margin: 0; max-width: 60ch; line-height: 1.5; }
 
 /* ---------- Tablet (≤880px) ---------- */
 @media (max-width: 880px) {
@@ -1753,7 +1738,9 @@
 }
 .sch-hint .btn.mini { padding: 4px 12px; min-height: 26px; }
 
-.sch-empty {
+/* Shared empty-card pattern: dashed-bordered tray for "nothing here yet" states. */
+.sch-empty,
+.pt-empty {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1763,8 +1750,10 @@
   border-radius: var(--radius-xl);
   background: var(--paper);
 }
-.sch-empty h3 { margin: 0; font-size: var(--fs-xl); }
-.sch-empty p { margin: 0; max-width: 60ch; line-height: 1.5; }
+.sch-empty h3,
+.pt-empty h3 { margin: 0; font-size: var(--fs-xl); }
+.sch-empty p,
+.pt-empty p { margin: 0; max-width: 60ch; line-height: 1.5; }
 
 .sch-body {
   display: grid;
