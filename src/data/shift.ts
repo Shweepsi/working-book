@@ -91,5 +91,5 @@ export const SAMPLE_SHIFT = {
 };
 
 export function newId(): string {
-  return `e${++nextId}`;
+  return `e${nextId++}`;
 }
