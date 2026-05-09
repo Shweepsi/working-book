@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (preview)
 
 on:
   push:
@@ -28,6 +28,10 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
+          # Points the preview build at the Worker dev environment, which is
+          # backed by the working-book-dev D1 database. Set this in repo
+          # Settings → Secrets and variables → Actions.
+          VITE_API_URL: ${{ secrets.VITE_API_URL_DEV }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

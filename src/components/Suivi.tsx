@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { load, save } from '../lib/storage';
+import { load } from '../lib/storage';
+import { useSyncedState } from '../lib/sync';
 import { useEscapeToClose } from '../lib/hooks';
 import { todayISO } from '../lib/shiftCalendar';
 
@@ -149,12 +150,14 @@ function labelForCell(v: CellState): string {
 }
 
 export default function Suivi() {
-  const [state, setState] = useState<SuiviState>(initialState);
+  const [state, setState] = useSyncedState<SuiviState>(
+    STORAGE_KEY,
+    { domain: 'suivi', params: {} },
+    initialState,
+  );
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeTags, setActiveTags] = useState<Set<Tag>>(() => new Set());
   const wantOpenRef = useRef<string | null>(null);
-
-  useEffect(() => { save(STORAGE_KEY, state); }, [state]);
 
   // Open the entry queued by addAndOpen once it actually exists in state.
   // Survives React 18 strict-mode double-invocation of state updaters.

@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { SAMPLE_EVENTS, newId } from '../data/shift';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
-import { load, save } from '../lib/storage';
+import { load } from '../lib/storage';
+import { useSyncedState } from '../lib/sync';
 import EventEditor from './EventEditor';
 import type { EventType, FlagKey, LogEvent, Poste, ShiftMeta } from '../types';
 
@@ -36,15 +37,18 @@ interface EditingState {
 
 export default function Logbook({ poste, shiftMeta }: LogbookProps) {
   const { date, shift } = shiftMeta;
-  const [events, setEvents] = useState<LogEvent[]>(() =>
-    load<LogEvent[]>(storageKey(date, poste), defaultsFor(date, poste, shift.key)),
+  const cacheKey = storageKey(date, poste);
+  const init = useCallback(
+    () => load<LogEvent[]>(cacheKey, defaultsFor(date, poste, shift.key)),
+    [cacheKey, date, poste, shift.key],
+  );
+  const [events, setEvents] = useSyncedState<LogEvent[]>(
+    cacheKey,
+    poste ? { domain: 'logbook', params: { date, poste } } : null,
+    init,
   );
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
-
-  useEffect(() => {
-    save(storageKey(date, poste), events);
-  }, [events, date, poste]);
 
   const summary = useMemo(() => computeSummary(events), [events]);
 

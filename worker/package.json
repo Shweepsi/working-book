@@ -1,0 +1,22 @@
+{
+  "name": "working-book-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "deploy:dev": "wrangler deploy --env dev",
+    "deploy:prod": "wrangler deploy --env production",
+    "db:create:dev": "wrangler d1 create working-book-dev",
+    "db:create:prod": "wrangler d1 create working-book-prod",
+    "db:migrate:dev:local": "wrangler d1 migrations apply working-book-dev --env dev --local",
+    "db:migrate:dev": "wrangler d1 migrations apply working-book-dev --env dev --remote",
+    "db:migrate:prod": "wrangler d1 migrations apply working-book-prod --env production --remote",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^3.91.0"
+  }
+}
