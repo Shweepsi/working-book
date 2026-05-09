@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
 import { useEscapeToClose } from '../lib/hooks';
+import { useToast } from '../lib/toast';
 import { todayISO } from '../lib/shiftCalendar';
 
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
@@ -31,6 +32,9 @@ interface SuiviEntry {
   controleur: string;
   dateControle: string;
   comment: string;
+  // Audit timestamps (epoch ms). Optional for legacy compatibility.
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 interface SuiviState {
@@ -82,6 +86,7 @@ function nextSerial(entries: SuiviEntry[]): string {
 }
 
 function emptyEntry(serial = ''): SuiviEntry {
+  const now = Date.now();
   return {
     id: newId(),
     serial,
@@ -95,6 +100,8 @@ function emptyEntry(serial = ''): SuiviEntry {
     controleur: '',
     dateControle: '',
     comment: '',
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -158,6 +165,7 @@ export default function Suivi() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeTags, setActiveTags] = useState<Set<Tag>>(() => new Set());
   const wantOpenRef = useRef<string | null>(null);
+  const toast = useToast();
 
   // Open the entry queued by addAndOpen once it actually exists in state.
   // Survives React 18 strict-mode double-invocation of state updaters.
@@ -180,7 +188,15 @@ export default function Suivi() {
   }, [state.entries, activeTags]);
 
   function patchEntry(id: string, mut: (e: SuiviEntry) => SuiviEntry) {
-    setState((s) => ({ ...s, entries: s.entries.map((e) => (e.id === id ? mut(e) : e)) }));
+    const now = Date.now();
+    setState((s) => ({
+      ...s,
+      entries: s.entries.map((e) =>
+        e.id === id
+          ? { ...mut(e), createdAt: e.createdAt ?? now, updatedAt: now }
+          : e,
+      ),
+    }));
   }
 
   function addAndOpen() {
@@ -192,9 +208,29 @@ export default function Suivi() {
   }
 
   function deleteEntry(id: string) {
-    if (!window.confirm('Supprimer cette entrée ?')) return;
-    setState((s) => ({ ...s, entries: s.entries.filter((e) => e.id !== id) }));
+    let removed: SuiviEntry | undefined;
+    let removedIndex = -1;
+    setState((s) => {
+      removedIndex = s.entries.findIndex((e) => e.id === id);
+      if (removedIndex < 0) return s;
+      removed = s.entries[removedIndex];
+      return { ...s, entries: s.entries.filter((e) => e.id !== id) };
+    });
     if (openId === id) setOpenId(null);
+    if (!removed) return;
+    const restored = removed;
+    const insertAt = removedIndex;
+    toast.show({
+      message: `Entrée #${restored.serial || '—'} supprimée`,
+      undo: () => {
+        setState((s) => {
+          if (s.entries.some((e) => e.id === restored.id)) return s;
+          const next = [...s.entries];
+          next.splice(Math.min(insertAt, next.length), 0, restored);
+          return { ...s, entries: next };
+        });
+      },
+    });
   }
 
   function toggleFilter(t: Tag) {
@@ -291,19 +327,13 @@ interface RowProps {
 
 function SuiviRow({ entry, onOpen }: RowProps) {
   return (
-    <div
-      className="sv-row sv-data"
-      role="row"
-      tabIndex={0}
+    <button
+      type="button"
+      className="sv-row sv-data as-row"
       onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
+      aria-label={`Entrée ${entry.serial || ''} ${entry.color || ''}`.trim()}
     >
-      <div className="sv-cell sv-c-id mono">
+      <span className="sv-cell sv-c-id mono">
         {entry.serial ? (
           <strong>
             <span className="sv-id-hash">#</span>
@@ -312,25 +342,25 @@ function SuiviRow({ entry, onOpen }: RowProps) {
         ) : (
           <span className="faint">—</span>
         )}
-      </div>
-      <div className="sv-cell sv-c-tag">
+      </span>
+      <span className="sv-cell sv-c-tag">
         {entry.tag ? (
           <span className={`sv-tag sv-tag-${TAG_SLUG[entry.tag]}`}>{entry.tag}</span>
         ) : (
           <span className="faint">—</span>
         )}
-      </div>
-      <div className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</div>
-      <div className="sv-cell sv-c-type" title={entry.testType}>
+      </span>
+      <span className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</span>
+      <span className="sv-cell sv-c-type" title={entry.testType}>
         {entry.testType || <span className="faint sv-placeholder">sans type</span>}
-      </div>
-      <div className="sv-cell sv-c-origin mono">{entry.origin || <span className="faint">—</span>}</div>
-      <div className="sv-cell sv-c-th mono">{entry.thickness || ''}</div>
-      <div className="sv-cell sv-c-dprod mono">
+      </span>
+      <span className="sv-cell sv-c-origin mono">{entry.origin || <span className="faint">—</span>}</span>
+      <span className="sv-cell sv-c-th mono">{entry.thickness || ''}</span>
+      <span className="sv-cell sv-c-dprod mono">
         {fmtDateShort(entry.dateProd) || <span className="faint">—</span>}
-      </div>
-      <div className="sv-cell sv-c-prog">
-        <div className="sv-stages" aria-label="Avancement production">
+      </span>
+      <span className="sv-cell sv-c-prog">
+        <span className="sv-stages" aria-label="Avancement production">
           {PROCESSES.map((p) => {
             const status = stageStatus(entry.process[p]);
             return (
@@ -343,21 +373,21 @@ function SuiviRow({ entry, onOpen }: RowProps) {
               </span>
             );
           })}
-        </div>
-      </div>
-      <div className="sv-cell sv-c-ctrl">
+        </span>
+      </span>
+      <span className="sv-cell sv-c-ctrl">
         {entry.controleur || entry.dateControle ? (
-          <div className="sv-ctrl-summary">
+          <span className="sv-ctrl-summary">
             {entry.controleur && <span>{entry.controleur}</span>}
             {entry.dateControle && (
               <span className="faint mono small">{fmtDateShort(entry.dateControle)}</span>
             )}
-          </div>
+          </span>
         ) : (
           <span className="faint">—</span>
         )}
-      </div>
-      <div className="sv-cell sv-c-cmt">
+      </span>
+      <span className="sv-cell sv-c-cmt">
         {entry.comment ? (
           <span
             className="sv-cmt-dot"
@@ -365,8 +395,8 @@ function SuiviRow({ entry, onOpen }: RowProps) {
             title={entry.comment}
           />
         ) : null}
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -513,6 +543,11 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
 
         <div className="sv-sheet-actions">
           <button className="btn destructive" onClick={onDelete}>Supprimer</button>
+          {entry.updatedAt && (
+            <span className="faint small mono sv-sheet-meta">
+              Modifié {new Date(entry.updatedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+            </span>
+          )}
           <button className="btn primary" style={{ marginLeft: 'auto' }} onClick={onClose}>
             Fermer
           </button>

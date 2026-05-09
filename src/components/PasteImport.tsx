@@ -137,12 +137,6 @@ export default function PasteImport<R extends PasteImportResult>({
             disabled={!ready}
             onClick={() => {
               if (!result) return;
-              if (showAppend) {
-                const ok = window.confirm(
-                  'Remplacer écrase toutes les données déjà importées. Continuer ?',
-                );
-                if (!ok) return;
-              }
               onConfirm(result, 'replace');
             }}
           >

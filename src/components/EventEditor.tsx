@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { EVENT_TYPES, FLAGS } from '../data/eventTypes';
 import { useEscapeToClose } from '../lib/hooks';
 import { fmtHM } from '../lib/time';
@@ -25,15 +25,42 @@ function maskTime(raw: string): string {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
+// Auto-expand the "Plus d'options" panel when the event being edited already
+// carries data in any of the collapsed sections — otherwise the user wouldn't
+// see (or be able to edit) those values without poking at the toggle.
+function shouldExpandAdvanced(d: Draft): boolean {
+  if (d.end && d.end !== d.start) return true;
+  if (d.bold || d.danger) return true;
+  if ((d.notes || []).some((n) => n && n.trim())) return true;
+  return false;
+}
+
 export default function EventEditor({ event, onSave, onDelete, onClose }: EventEditorProps) {
   const isNew = !event?.id;
   const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY, ...(event || {}) }));
+  const [advancedOpen, setAdvancedOpen] = useState(() =>
+    shouldExpandAdvanced({ ...EMPTY, ...(event || {}) }),
+  );
 
   useEffect(() => {
-    setDraft({ ...EMPTY, ...(event || {}) });
+    const next: Draft = { ...EMPTY, ...(event || {}) };
+    setDraft(next);
+    setAdvancedOpen(shouldExpandAdvanced(next));
   }, [event]);
 
   useEscapeToClose(onClose);
+
+  // The header summary line shows "10:42 → maintenant · Production · Planifié",
+  // so the operator can verify the auto-filled values without expanding.
+  const summary = useMemo(() => {
+    const parts: string[] = [];
+    if (draft.start) {
+      parts.push(draft.end && draft.end !== draft.start ? `${draft.start} → ${draft.end}` : draft.start);
+    }
+    if (draft.type) parts.push(draft.type);
+    if (draft.flag) parts.push(FLAGS[draft.flag].label);
+    return parts.join(' · ');
+  }, [draft.start, draft.end, draft.type, draft.flag]);
 
   function save() {
     if (!draft.type && !draft.desc.trim()) return;
@@ -65,6 +92,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
 
   function addNote() {
     setDraft((d) => ({ ...d, notes: [...(d.notes || []), ''] }));
+    setAdvancedOpen(true);
   }
 
   function removeNote(i: number) {
@@ -81,84 +109,14 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grabber" />
         <div className="sheet-head">
-          <h3>{isNew ? 'Nouvel événement' : 'Modifier l’événement'}</h3>
+          <div className="sheet-head-titles">
+            <h3>{isNew ? 'Nouvel événement' : 'Modifier l’événement'}</h3>
+            {summary && <div className="sheet-head-sub mono">{summary}</div>}
+          </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <div className="form-grid">
-          <div className="form-section">
-            <label className="section-label">Quand</label>
-            <div className="time-range">
-              <input
-                type="text"
-                className="time-input"
-                placeholder="HH:MM"
-                value={draft.start || ''}
-                onChange={(e) => update('start', maskTime(e.target.value))}
-                inputMode="numeric"
-                maxLength={5}
-              />
-              <button
-                type="button"
-                className="now-btn"
-                onClick={() => update('start', fmtHM())}
-                title="Définir le début à maintenant"
-                aria-label="Définir le début à maintenant"
-              >
-                ◷
-              </button>
-              <span className="arrow">→</span>
-              <input
-                type="text"
-                className="time-input"
-                placeholder="HH:MM"
-                value={draft.end || ''}
-                onChange={(e) => update('end', maskTime(e.target.value))}
-                inputMode="numeric"
-                maxLength={5}
-              />
-              <button
-                type="button"
-                className="now-btn"
-                onClick={() => update('end', fmtHM())}
-                title="Définir la fin à maintenant"
-                aria-label="Définir la fin à maintenant"
-              >
-                ◷
-              </button>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <label className="section-label">Type</label>
-            <select
-              className="type-select"
-              value={draft.type || ''}
-              onChange={(e) => update('type', e.target.value)}
-            >
-              <option value="">Sélectionner…</option>
-              {EVENT_TYPES.map((t) => (
-                <option key={t.key} value={t.key}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-section">
-            <label className="section-label">Catégorie</label>
-            <div className="flag-pick">
-              {Object.values(FLAGS).map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  className={`flag ${draft.flag === f.key ? `flag-active ${f.key}` : 'flag-empty'}`}
-                  onClick={() => update('flag', draft.flag === f.key ? null : f.key)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="form-section">
             <label className="section-label">
               Description
@@ -195,32 +153,141 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
           </div>
 
           <div className="form-section">
-            <label className="section-label">
-              Notes
-              <button className="btn ghost mini" type="button" onClick={addNote}>+ ajouter</button>
-            </label>
-            {(draft.notes || []).length === 0 && (
-              <span className="faint small">Aucune note.</span>
-            )}
-            {(draft.notes || []).map((n, i) => (
-              <div key={i} className="note-row">
-                <input
-                  type="text"
-                  placeholder="e.g. Première plaque #375 à 06:35"
-                  value={n}
-                  onChange={(e) => setNote(i, e.target.value)}
-                />
+            <label className="section-label">Catégorie</label>
+            <div className="flag-pick">
+              {Object.values(FLAGS).map((f) => (
                 <button
-                  className="btn ghost icon"
+                  key={f.key}
                   type="button"
-                  onClick={() => removeNote(i)}
-                  aria-label="Supprimer la note"
+                  className={`flag ${draft.flag === f.key ? `flag-active ${f.key}` : 'flag-empty'}`}
+                  onClick={() => update('flag', draft.flag === f.key ? null : f.key)}
                 >
-                  ✕
+                  {f.label}
                 </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+
+          {!draft.type && (
+            <div className="form-section">
+              <label className="section-label">Type</label>
+              <select
+                className="type-select"
+                value={draft.type || ''}
+                onChange={(e) => update('type', e.target.value)}
+              >
+                <option value="">Sélectionner…</option>
+                {EVENT_TYPES.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="advanced-toggle"
+            onClick={() => setAdvancedOpen((v) => !v)}
+            aria-expanded={advancedOpen}
+          >
+            <span className="advanced-toggle-label">
+              {advancedOpen ? 'Moins d’options' : 'Plus d’options'}
+            </span>
+            <span className="advanced-toggle-hint faint small">
+              Heure de fin · Type · Notes
+            </span>
+            <span className={`chevron ${advancedOpen ? 'is-open' : ''}`} aria-hidden="true">⌄</span>
+          </button>
+
+          {advancedOpen && (
+            <div className="form-grid form-grid-nested">
+              <div className="form-section">
+                <label className="section-label">Quand</label>
+                <div className="time-range">
+                  <input
+                    type="text"
+                    className="time-input"
+                    placeholder="HH:MM"
+                    value={draft.start || ''}
+                    onChange={(e) => update('start', maskTime(e.target.value))}
+                    inputMode="numeric"
+                    maxLength={5}
+                  />
+                  <button
+                    type="button"
+                    className="now-btn"
+                    onClick={() => update('start', fmtHM())}
+                    title="Définir le début à maintenant"
+                    aria-label="Définir le début à maintenant"
+                  >
+                    ◷
+                  </button>
+                  <span className="arrow">→</span>
+                  <input
+                    type="text"
+                    className="time-input"
+                    placeholder="HH:MM"
+                    value={draft.end || ''}
+                    onChange={(e) => update('end', maskTime(e.target.value))}
+                    inputMode="numeric"
+                    maxLength={5}
+                  />
+                  <button
+                    type="button"
+                    className="now-btn"
+                    onClick={() => update('end', fmtHM())}
+                    title="Définir la fin à maintenant"
+                    aria-label="Définir la fin à maintenant"
+                  >
+                    ◷
+                  </button>
+                </div>
+              </div>
+
+              {draft.type && (
+                <div className="form-section">
+                  <label className="section-label">Type</label>
+                  <select
+                    className="type-select"
+                    value={draft.type || ''}
+                    onChange={(e) => update('type', e.target.value)}
+                  >
+                    {EVENT_TYPES.map((t) => (
+                      <option key={t.key} value={t.key}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-section">
+                <label className="section-label">
+                  Notes
+                  <button className="btn ghost mini" type="button" onClick={addNote}>+ ajouter</button>
+                </label>
+                {(draft.notes || []).length === 0 && (
+                  <span className="faint small">Aucune note.</span>
+                )}
+                {(draft.notes || []).map((n, i) => (
+                  <div key={i} className="note-row">
+                    <input
+                      type="text"
+                      placeholder="e.g. Première plaque #375 à 06:35"
+                      value={n}
+                      onChange={(e) => setNote(i, e.target.value)}
+                    />
+                    <button
+                      className="btn ghost icon"
+                      type="button"
+                      onClick={() => removeNote(i)}
+                      aria-label="Supprimer la note"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="actions">
@@ -239,7 +306,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
           <button className="btn primary" type="button" onClick={save}>
-            {isNew ? 'Enregistrer' : 'Enregistrer'}
+            Enregistrer
           </button>
         </div>
       </div>

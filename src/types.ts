@@ -41,6 +41,10 @@ export interface LogEvent {
   notes?: string[];
   bold?: boolean;
   danger?: boolean;
+  // Audit timestamps (epoch ms). Optional so legacy entries from older versions
+  // load without migration. Set on first save and bumped on every edit.
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface ShiftMeta {

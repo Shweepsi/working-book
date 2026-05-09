@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
@@ -12,10 +12,12 @@ import {
 } from '../lib/coaterMath';
 import PasteImport, { type ImportMode } from './PasteImport';
 import { useEscapeToClose } from '../lib/hooks';
+import { useToast } from '../lib/toast';
 
 const KEY_DATA   = 'wb.schedules.v1';
 const KEY_POLICY = 'wb.schedules.policy.v1';
 const KEY_SPEED  = 'wb.schedules.vitesse';
+const KEY_TABLE  = 'wb.schedules.table.v1';
 
 type DisplayRow = PMS230Record & { mtoMts: string };
 
@@ -29,22 +31,70 @@ interface RailStat {
   m2: number;
 }
 
-const COLUMNS = [
-  { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'  },
-  { key: 'dateDepart', label: 'Départ',   cls: 'col-date' },
-  { key: 'mo',         label: 'MO',       cls: 'col-mo'   },
-  { key: 'product',    label: 'Produit',  cls: 'col-prod' },
-  { key: 'itemName',   label: 'Article',  cls: 'col-name' },
-  { key: 'schedLites', label: 'Sched',    cls: 'col-num'  },
-  { key: 'prodLites',  label: 'Prod',     cls: 'col-num'  },
-  { key: 'reqLites',   label: 'Req',      cls: 'col-num'  },
-  { key: 'scraps',     label: 'Scraps',   cls: 'col-num'  },
-  { key: 'format',     label: 'Format',   cls: 'col-fmt'  },
-  { key: 'qualite',    label: 'Qualité',  cls: 'col-q'    },
-  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'  },
-  { key: 'pdp',        label: 'PDP',      cls: 'col-pdp'  },
-  { key: 'm2',         label: 'm² rest.', cls: 'col-m2'   },
+type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'scraps' | 'qualite' | 'pdp' | 'm2';
+type SortDir = 'asc' | 'desc';
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  cls: string;
+  sortKey?: SortKey;
+  optional?: boolean; // only optional cols can be hidden via the menu
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'                                       },
+  { key: 'dateDepart', label: 'Départ',   cls: 'col-date',                  sortKey: 'dateDepart', optional: true },
+  { key: 'mo',         label: 'MO',       cls: 'col-mo',                                        optional: true },
+  { key: 'product',    label: 'Produit',  cls: 'col-prod',                  sortKey: 'product'   },
+  { key: 'itemName',   label: 'Article',  cls: 'col-name',                  sortKey: 'itemName'  },
+  { key: 'schedLites', label: 'Sched',    cls: 'col-num',                   sortKey: 'schedLites' },
+  { key: 'prodLites',  label: 'Prod',     cls: 'col-num',                   sortKey: 'prodLites' },
+  { key: 'reqLites',   label: 'Req',      cls: 'col-num',                   sortKey: 'reqLites'  },
+  { key: 'scraps',     label: 'Scraps',   cls: 'col-num',                   sortKey: 'scraps',   optional: true },
+  { key: 'format',     label: 'Format',   cls: 'col-fmt',                   sortKey: 'longueur'  },
+  { key: 'qualite',    label: 'Qualité',  cls: 'col-q',                     sortKey: 'qualite'   },
+  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num',                                       optional: true },
+  { key: 'pdp',        label: 'PDP',      cls: 'col-pdp',                   sortKey: 'pdp'       },
+  { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
+
+const OPTIONAL_COLUMN_KEYS = COLUMNS.filter((c) => c.optional).map((c) => c.key);
+
+interface TableSettings {
+  sortKey: SortKey;
+  sortDir: SortDir;
+  hidden: string[];
+  qualite: string[];
+  pdp: string[];
+  mtoMts: ('MTO' | 'MTS' | '?')[];
+}
+
+const DEFAULT_TABLE_SETTINGS: TableSettings = {
+  sortKey: 'longueur',
+  sortDir: 'desc',
+  hidden: [],
+  qualite: [],
+  pdp: [],
+  mtoMts: [],
+};
+
+function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): number {
+  const sign = dir === 'asc' ? 1 : -1;
+  switch (key) {
+    case 'longueur':   return sign * (a.longueur - b.longueur);
+    case 'schedLites': return sign * (a.schedLites - b.schedLites);
+    case 'prodLites':  return sign * ((a.prodLites ?? 0) - (b.prodLites ?? 0));
+    case 'reqLites':   return sign * (a.reqLites - b.reqLites);
+    case 'scraps':     return sign * ((a.scraps ?? 0) - (b.scraps ?? 0));
+    case 'm2':         return sign * (a.m2 - b.m2);
+    case 'dateDepart': return sign * String(a.dateDepart || '').localeCompare(String(b.dateDepart || ''));
+    case 'product':    return sign * String(a.product || '').localeCompare(String(b.product || ''));
+    case 'itemName':   return sign * String(a.itemName || '').localeCompare(String(b.itemName || ''));
+    case 'qualite':    return sign * String(a.qualite || '').localeCompare(String(b.qualite || ''));
+    case 'pdp':        return sign * String(a.pdp || '').localeCompare(String(b.pdp || ''));
+  }
+}
 
 function describePMS230(r: PMS230Result): string {
   const records = r.records?.length ?? 0;
@@ -75,6 +125,13 @@ export default function Schedules() {
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const [tableSettings, setTableSettings] = useState<TableSettings>(
+    () => ({ ...DEFAULT_TABLE_SETTINGS, ...(load<Partial<TableSettings>>(KEY_TABLE, {})) }),
+  );
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => { save(KEY_TABLE, tableSettings); }, [tableSettings]);
 
   const openRow = useMemo(
     () => (data?.records ?? []).find((r) => r.id === openRowId) ?? null,
@@ -102,23 +159,101 @@ export default function Schedules() {
   //   - drop QC samples (item name starting with "Vacuum")
   //   - drop "off-coater" operations (second op-step = 90)
   //   - drop rows with no remaining requirement (reqLites = 0)
-  // Sort by longueur DESC, PDP DESC, item name ASC — same keys as the formula.
+  // Then layer the user-driven filters (qualité / pdp / mtoMts) and the
+  // active sort. Default sort matches the planner's Excel formula
+  // (longueur DESC, PDP DESC, name ASC).
   const visibleRows: DisplayRow[] = useMemo(() => {
     const policyMap = policy?.map ?? {};
-    const filtered = (data?.records ?? [])
+    const baseFiltered = (data?.records ?? [])
       .filter((r) => r.schedule === selected)
       .filter((r) => !/^Vacuum/i.test(r.itemName))
       .filter((r) => r.opStepD !== 90)
       .filter((r) => (r.reqLites ?? 0) > 0);
 
-    filtered.sort((a, b) => {
-      if (b.longueur !== a.longueur) return b.longueur - a.longueur;
+    const decorated: DisplayRow[] = baseFiltered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
+
+    const userFiltered = decorated.filter((r) => {
+      if (tableSettings.qualite.length > 0 && !tableSettings.qualite.includes(r.qualite)) return false;
+      if (tableSettings.pdp.length > 0 && !tableSettings.pdp.includes(r.pdp)) return false;
+      if (tableSettings.mtoMts.length > 0 && !tableSettings.mtoMts.includes(r.mtoMts as 'MTO' | 'MTS' | '?')) return false;
+      return true;
+    });
+
+    userFiltered.sort((a, b) => {
+      const primary = compareRows(a, b, tableSettings.sortKey, tableSettings.sortDir);
+      if (primary !== 0) return primary;
+      // Stable secondary tiebreakers preserving the planner's intent.
+      if (tableSettings.sortKey !== 'longueur' && b.longueur !== a.longueur) return b.longueur - a.longueur;
       if ((b.pdp || '') !== (a.pdp || '')) return (b.pdp || '').localeCompare(a.pdp || '');
       return (a.itemName || '').localeCompare(b.itemName || '');
     });
 
-    return filtered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
+    return userFiltered;
+  }, [data, selected, policy, tableSettings]);
+
+  // Available filter values come from the unfiltered, schedule-scoped pool so
+  // the menu doesn't shrink as the user picks options.
+  const availableFilters = useMemo(() => {
+    const policyMap = policy?.map ?? {};
+    const pool = (data?.records ?? [])
+      .filter((r) => r.schedule === selected)
+      .filter((r) => !/^Vacuum/i.test(r.itemName))
+      .filter((r) => r.opStepD !== 90)
+      .filter((r) => (r.reqLites ?? 0) > 0);
+    const qualites = new Set<string>();
+    const pdps = new Set<string>();
+    const mtos = new Set<string>();
+    for (const r of pool) {
+      if (r.qualite) qualites.add(r.qualite);
+      if (r.pdp) pdps.add(r.pdp);
+      mtos.add(policyMap[r.product] ?? '?');
+    }
+    return {
+      qualites: [...qualites].sort(),
+      pdps: [...pdps].sort(),
+      mtos: [...mtos].sort(),
+    };
   }, [data, selected, policy]);
+
+  const filteringActive =
+    tableSettings.qualite.length > 0 ||
+    tableSettings.pdp.length > 0 ||
+    tableSettings.mtoMts.length > 0;
+
+  function toggleSort(key: SortKey) {
+    setTableSettings((s) => {
+      if (s.sortKey === key) {
+        return { ...s, sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' };
+      }
+      // Numeric/date columns default to descending; text to ascending.
+      const numeric: SortKey[] = ['longueur', 'schedLites', 'prodLites', 'reqLites', 'scraps', 'm2', 'dateDepart'];
+      return { ...s, sortKey: key, sortDir: numeric.includes(key) ? 'desc' : 'asc' };
+    });
+  }
+
+  function toggleFilterValue(field: 'qualite' | 'pdp' | 'mtoMts', value: string) {
+    setTableSettings((s) => {
+      const list = s[field] as string[];
+      const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+      return { ...s, [field]: next } as TableSettings;
+    });
+  }
+
+  function clearFilters() {
+    setTableSettings((s) => ({ ...s, qualite: [], pdp: [], mtoMts: [] }));
+  }
+
+  function toggleColumnVisibility(key: string) {
+    setTableSettings((s) => {
+      const hidden = s.hidden.includes(key) ? s.hidden.filter((k) => k !== key) : [...s.hidden, key];
+      return { ...s, hidden };
+    });
+  }
+
+  const visibleColumns = useMemo(
+    () => COLUMNS.filter((c) => !tableSettings.hidden.includes(c.key)),
+    [tableSettings.hidden],
+  );
 
   // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
@@ -161,12 +296,30 @@ export default function Schedules() {
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
+    const snapshot = data;
+    const snapshotSelected = selected;
     setData((prev) => (mode === 'append' ? mergePMS230(prev, parsed) : parsed));
     setImportMode(null);
+    if (mode === 'replace' && snapshot) {
+      toast.show({
+        message: 'Rapport remplacé',
+        undo: () => {
+          setData(snapshot);
+          setSelected(snapshotSelected);
+        },
+      });
+    }
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
+    const snapshot = policy;
     setPolicy(parsed);
     setImportMode(null);
+    if (snapshot) {
+      toast.show({
+        message: 'Table MTO/MTS remplacée',
+        undo: () => setPolicy(snapshot),
+      });
+    }
   }
 
   return (
@@ -177,10 +330,18 @@ export default function Schedules() {
         onImport={() => setImportMode('pms230')}
         onPolicy={() => setImportMode('policy')}
         onClear={() => {
-          if (window.confirm('Effacer le rapport Operator Mashup ?')) {
-            setData(null);
-            setSelected(null);
-          }
+          const snapshot = data;
+          const snapshotSelected = selected;
+          setData(null);
+          setSelected(null);
+          if (!snapshot) return;
+          toast.show({
+            message: 'Rapport Operator Mashup effacé',
+            undo: () => {
+              setData(snapshot);
+              setSelected(snapshotSelected);
+            },
+          });
         }}
       />
 
@@ -244,7 +405,27 @@ export default function Schedules() {
               );
             })()}
 
-            <ScheduleTable items={groupedRows} totals={visibleRows} onRowOpen={handleRowOpen} />
+            <TableControls
+              settings={tableSettings}
+              available={availableFilters}
+              filteringActive={filteringActive}
+              colsMenuOpen={colsMenuOpen}
+              onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
+              onColsMenuClose={() => setColsMenuOpen(false)}
+              onToggleFilterValue={toggleFilterValue}
+              onClearFilters={clearFilters}
+              onToggleColumn={toggleColumnVisibility}
+            />
+
+            <ScheduleTable
+              items={groupedRows}
+              totals={visibleRows}
+              onRowOpen={handleRowOpen}
+              columns={visibleColumns}
+              sortKey={tableSettings.sortKey}
+              sortDir={tableSettings.sortDir}
+              onSort={toggleSort}
+            />
 
             <ThroughputFooter
               rows={coaterRows}
@@ -350,23 +531,89 @@ interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
   onRowOpen: (row: DisplayRow) => void;
+  columns: ColumnDef[];
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
 }
 
-function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
+// Per-column track widths matching the original fixed grid. Optional columns
+// drop out when hidden, so the grid template is recomposed from `columns`.
+const COL_WIDTHS: Record<string, string> = {
+  mtoMts: '56px',
+  dateDepart: '80px',
+  mo: '100px',
+  product: '92px',
+  itemName: 'minmax(180px, 1.6fr)',
+  schedLites: '62px',
+  prodLites: '62px',
+  reqLites: '62px',
+  scraps: '72px',
+  format: '116px',
+  qualite: '68px',
+  litesPerPack: '68px',
+  pdp: 'minmax(100px, 1fr)',
+  m2: '88px',
+};
+
+function ScheduleTable({ items, totals, onRowOpen, columns, sortKey, sortDir, onSort }: ScheduleTableProps) {
   if (totals.length === 0) {
     return (
       <div className="sch-empty-rows faint">
-        Aucune ligne pour ce schedule (après filtres : pas de QC, op-step ≠ 90, requis &gt; 0).
+        Aucune ligne pour ce schedule.
       </div>
     );
   }
 
+  const gridTemplate = columns.map((c) => COL_WIDTHS[c.key] || 'auto').join(' ');
+  // Sum the numeric components to set a reasonable min-width that keeps the
+  // table from collapsing in narrow viewports.
+  const minPx = columns.reduce((acc, c) => {
+    const w = COL_WIDTHS[c.key] || '';
+    const m = /^(\d+)px$/.exec(w);
+    if (m) return acc + parseInt(m[1], 10);
+    if (w.includes('minmax')) {
+      const mm = /minmax\((\d+)px/.exec(w);
+      if (mm) return acc + parseInt(mm[1], 10);
+    }
+    return acc + 80;
+  }, 0);
+
   return (
-    <div className="sch-table" role="table">
+    <div
+      className="sch-table"
+      role="table"
+      style={{ ['--sch-grid' as string]: gridTemplate, ['--sch-min' as string]: `${minPx}px` }}
+    >
       <div className="sch-row sch-head" role="row">
-        {COLUMNS.map((c) => (
-          <div key={c.key} className={`sch-cell ${c.cls}`} role="columnheader">{c.label}</div>
-        ))}
+        {columns.map((c) => {
+          const sortable = !!c.sortKey;
+          const isSorted = sortable && c.sortKey === sortKey;
+          const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
+          return (
+            <div
+              key={c.key}
+              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}`}
+              role="columnheader"
+              aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+              tabIndex={sortable ? 0 : undefined}
+              onClick={sortable ? () => onSort(c.sortKey!) : undefined}
+              onKeyDown={
+                sortable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSort(c.sortKey!);
+                      }
+                    }
+                  : undefined
+              }
+            >
+              {c.label}
+              {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
+            </div>
+          );
+        })}
       </div>
       {items.map((it) =>
         it.kind === 'break'
@@ -375,9 +622,138 @@ function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
               <div className="sch-group-label">{fmtNum(it.longueur, 0)} mm</div>
             </div>
           )
-          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} />
+          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={columns} />
       )}
-      <TotalRow rows={totals} />
+      <TotalRow rows={totals} columns={columns} />
+    </div>
+  );
+}
+
+interface TableControlsProps {
+  settings: TableSettings;
+  available: { qualites: string[]; pdps: string[]; mtos: string[] };
+  filteringActive: boolean;
+  colsMenuOpen: boolean;
+  onColsMenuToggle: () => void;
+  onColsMenuClose: () => void;
+  onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
+  onClearFilters: () => void;
+  onToggleColumn: (key: string) => void;
+}
+
+function TableControls({
+  settings,
+  available,
+  filteringActive,
+  colsMenuOpen,
+  onColsMenuToggle,
+  onColsMenuClose,
+  onToggleFilterValue,
+  onClearFilters,
+  onToggleColumn,
+}: TableControlsProps) {
+  const colsBtnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!colsMenuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (colsBtnRef.current && !colsBtnRef.current.contains(e.target as Node)) onColsMenuClose();
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [colsMenuOpen, onColsMenuClose]);
+
+  return (
+    <div className="sch-controls no-print">
+      {available.mtos.length > 1 && (
+        <FilterGroup
+          label="MTO/MTS"
+          options={available.mtos}
+          selected={settings.mtoMts}
+          onToggle={(v) => onToggleFilterValue('mtoMts', v)}
+        />
+      )}
+      {available.qualites.length > 1 && (
+        <FilterGroup
+          label="Qualité"
+          options={available.qualites}
+          selected={settings.qualite}
+          onToggle={(v) => onToggleFilterValue('qualite', v)}
+        />
+      )}
+      {available.pdps.length > 1 && (
+        <FilterGroup
+          label="PDP"
+          options={available.pdps}
+          selected={settings.pdp}
+          onToggle={(v) => onToggleFilterValue('pdp', v)}
+        />
+      )}
+      {filteringActive && (
+        <button type="button" className="btn ghost mini" onClick={onClearFilters}>
+          Effacer filtres
+        </button>
+      )}
+      <div className="sch-cols-wrap" ref={colsBtnRef} style={{ marginLeft: 'auto' }}>
+        <button
+          type="button"
+          className="btn ghost mini"
+          onClick={onColsMenuToggle}
+          aria-expanded={colsMenuOpen}
+        >
+          Colonnes ⌄
+        </button>
+        {colsMenuOpen && (
+          <div className="popover sch-cols-menu" role="menu">
+            <h4>Afficher les colonnes</h4>
+            {OPTIONAL_COLUMN_KEYS.map((k) => {
+              const col = COLUMNS.find((c) => c.key === k)!;
+              const visible = !settings.hidden.includes(k);
+              return (
+                <label key={k} className="sch-cols-opt">
+                  <input
+                    type="checkbox"
+                    checked={visible}
+                    onChange={() => onToggleColumn(k)}
+                  />
+                  <span>{col.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface FilterGroupProps {
+  label: string;
+  options: string[];
+  selected: string[];
+  onToggle: (value: string) => void;
+}
+
+function FilterGroup({ label, options, selected, onToggle }: FilterGroupProps) {
+  return (
+    <div className="sch-filter-group">
+      <span className="sch-filter-label">{label}</span>
+      <div className="sch-filter-chips">
+        {options.map((v) => {
+          const on = selected.includes(v);
+          return (
+            <button
+              key={v}
+              type="button"
+              className={`sch-filter-chip ${on ? 'is-on' : ''}`}
+              onClick={() => onToggle(v)}
+              aria-pressed={on}
+            >
+              {v || '—'}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -385,75 +761,110 @@ function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
 interface ScheduleRowProps {
   row: DisplayRow;
   onOpen: (row: DisplayRow) => void;
+  columns: ColumnDef[];
 }
 
-const ScheduleRow = memo(function ScheduleRow({ row, onOpen }: ScheduleRowProps) {
+function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
+  switch (col.key) {
+    case 'mtoMts':
+      return <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>;
+    case 'dateDepart':   return fmtDate(row.dateDepart);
+    case 'mo':           return row.mo;
+    case 'product':      return row.product;
+    case 'itemName':
+      return (
+        <>
+          <div className="sch-name" title={row.itemName}>{row.itemName}</div>
+          {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
+        </>
+      );
+    case 'schedLites':   return row.schedLites || '';
+    case 'prodLites':    return row.prodLites ?? 0;
+    case 'reqLites':     return row.reqLites || '';
+    case 'scraps':       return row.scraps ?? 0;
+    case 'format':
+      return row.largeur && row.longueur ? (
+        <>
+          {fmtNum(row.largeur, 0)}
+          <span className="sch-fmt-x faint"> × </span>
+          {fmtNum(row.longueur, 0)}
+        </>
+      ) : '';
+    case 'qualite':      return row.qualite;
+    case 'litesPerPack': return row.litesPerPack ?? '';
+    case 'pdp':          return row.pdp;
+    case 'm2':           return fmtNum(row.m2, 2);
+    default:             return null;
+  }
+}
+
+const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: ScheduleRowProps) {
   const isQc = row.largeur === 0 && row.longueur === 0;
   const open = () => onOpen(row);
   return (
-    <div
-      className={`sch-row sch-row-clickable ${isQc ? 'is-qc' : ''}`}
-      role="row"
-      tabIndex={0}
+    <button
+      type="button"
+      className={`sch-row sch-row-clickable as-row ${isQc ? 'is-qc' : ''}`}
       onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          open();
-        }
-      }}
+      aria-label={`Détails ${row.product} ${row.itemName}`}
     >
-      <div className="sch-cell col-mto" role="cell">
-        <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>
-      </div>
-      <div className="sch-cell col-date mono" role="cell">{fmtDate(row.dateDepart)}</div>
-      <div className="sch-cell col-mo mono" role="cell">{row.mo}</div>
-      <div className="sch-cell col-prod mono" role="cell">{row.product}</div>
-      <div className="sch-cell col-name" role="cell">
-        <div className="sch-name" title={row.itemName}>{row.itemName}</div>
-        {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
-      </div>
-      <div className="sch-cell col-num mono" role="cell">{row.schedLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.prodLites ?? 0}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.reqLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.scraps ?? 0}</div>
-      <div className="sch-cell col-fmt mono" role="cell">
-        {row.largeur && row.longueur ? (
-          <>
-            {fmtNum(row.largeur, 0)}
-            <span className="sch-fmt-x faint"> × </span>
-            {fmtNum(row.longueur, 0)}
-          </>
-        ) : ''}
-      </div>
-      <div className="sch-cell col-q mono" role="cell">{row.qualite}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.litesPerPack ?? ''}</div>
-      <div className="sch-cell col-pdp" role="cell" title={row.pdp}>{row.pdp}</div>
-      <div className="sch-cell col-m2 mono" role="cell">{fmtNum(row.m2, 2)}</div>
-    </div>
+      {columns.map((c) => {
+        const monoExtra =
+          c.key === 'dateDepart' || c.key === 'mo' || c.key === 'product' ||
+          c.key === 'schedLites' || c.key === 'prodLites' || c.key === 'reqLites' ||
+          c.key === 'scraps' || c.key === 'format' || c.key === 'qualite' ||
+          c.key === 'litesPerPack' || c.key === 'm2'
+            ? 'mono'
+            : '';
+        const titleAttr = c.key === 'pdp' ? row.pdp : undefined;
+        return (
+          <span
+            key={c.key}
+            className={`sch-cell ${c.cls} ${monoExtra}`}
+            title={titleAttr}
+          >
+            {renderRowCell(c, row)}
+          </span>
+        );
+      })}
+    </button>
   );
 });
 
-function TotalRow({ rows }: { rows: DisplayRow[] }) {
+function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] }) {
   const sched = totalLites(rows);
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
+  const labelEndIdx = columns.findIndex((c) => c.key === 'schedLites');
   return (
     <div className="sch-row sch-total" role="row">
-      <div className="sch-cell sch-total-label" role="cell">
-        <span>Total</span>
-        <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
-      </div>
-      <div className="sch-cell col-num mono" role="cell"><strong>{sched}</strong></div>
-      <div className="sch-cell col-num mono" role="cell"><strong>{prod}</strong></div>
-      <div className="sch-cell col-num mono" role="cell"><strong>{req}</strong></div>
-      <div className="sch-cell col-num mono" role="cell" />
-      <div className="sch-cell col-fmt" role="cell" />
-      <div className="sch-cell col-q" role="cell" />
-      <div className="sch-cell col-num" role="cell" />
-      <div className="sch-cell col-pdp" role="cell" />
-      <div className="sch-cell col-m2 mono" role="cell"><strong>{fmtNum(m2, 2)}</strong></div>
+      {columns.map((c, i) => {
+        if (labelEndIdx > 0 && i < labelEndIdx) {
+          if (i === 0) {
+            return (
+              <div
+                key={c.key}
+                className="sch-cell sch-total-label"
+                role="cell"
+                style={{ gridColumn: `1 / ${labelEndIdx + 1}` }}
+              >
+                <span>Total</span>
+                <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
+              </div>
+            );
+          }
+          return null;
+        }
+        let content: ReactNode = '';
+        if (c.key === 'schedLites') content = <strong>{sched}</strong>;
+        else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
+        else if (c.key === 'reqLites') content = <strong>{req}</strong>;
+        else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
+        return (
+          <div key={c.key} className={`sch-cell ${c.cls} mono`} role="cell">{content}</div>
+        );
+      })}
     </div>
   );
 }

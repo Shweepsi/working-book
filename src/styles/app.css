@@ -271,6 +271,83 @@
   border-color: var(--accent);
 }
 
+/* Filter bar above the event list — search input + flag chips. Hidden in
+   print so the printout never shows a partial / filtered view. */
+.evt-filterbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+}
+.evt-filterbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 4px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
+  background: var(--paper-2);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.evt-filterbar-label:focus-within {
+  border-color: var(--accent);
+  background: var(--paper);
+}
+.evt-filterbar-glyph {
+  font-size: var(--fs-md);
+  color: var(--ink-faint);
+  line-height: 1;
+}
+.evt-filterbar-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  padding: 4px 0;
+  outline: 0;
+}
+.evt-filterbar-input::-webkit-search-cancel-button {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  background: var(--ink-faint);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M18 6L6 18M6 6l12 12' stroke='black' stroke-width='2' fill='none' stroke-linecap='round'/></svg>") center/contain no-repeat;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M18 6L6 18M6 6l12 12' stroke='black' stroke-width='2' fill='none' stroke-linecap='round'/></svg>") center/contain no-repeat;
+  cursor: pointer;
+}
+.evt-filterbar-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.evt-filterbar-flags .flag.flag-filter {
+  cursor: pointer;
+  min-height: 26px;
+  padding: 3px var(--space-5);
+  font-size: var(--fs-sm);
+}
+.evt-filterbar-flags .flag.flag-filter.flag-empty { opacity: 0.7; }
+.evt-filterbar-flags .flag.flag-filter:hover { opacity: 1; }
+.evt-filterbar-clear { margin-left: var(--space-2); }
+
+@media (max-width: 600px) {
+  .evt-filterbar { padding: var(--space-3); gap: var(--space-3); }
+  .evt-filterbar-label { flex-basis: 100%; }
+  .evt-filterbar-flags .flag.flag-filter { font-size: var(--fs-2xs); padding: 2px var(--space-4); }
+}
+
 .evt-list {
   display: flex;
   flex-direction: column;
@@ -443,6 +520,65 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
+  gap: var(--space-5);
+}
+
+.sheet-head-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sheet-head-sub {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  border: 1px dashed var(--line-soft);
+  border-radius: var(--radius-md);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--fs-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.advanced-toggle:hover { border-color: var(--line); color: var(--ink); }
+.advanced-toggle .advanced-toggle-label { font-weight: 600; letter-spacing: 0.01em; }
+.advanced-toggle .advanced-toggle-hint { margin-left: auto; }
+.advanced-toggle .chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-base);
+  line-height: 1;
+  transform: translateY(-1px);
+  transition: transform 200ms ease;
+  color: var(--ink-faint);
+}
+.advanced-toggle .chevron.is-open { transform: translateY(1px) rotate(180deg); }
+.advanced-toggle[aria-expanded='true'] {
+  border-style: solid;
+  background: var(--paper-2);
+}
+
+.form-grid-nested {
+  margin-top: 4px;
+  padding: var(--space-6);
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
 }
 
 .sheet h3 {
@@ -1311,6 +1447,145 @@
 /* Print-only blocks */
 .print-only { display: none; }
 
+/* ---------- Print preview (screen) ----------
+   Mirrors the @media print rules below so the user can validate the paper
+   layout without invoking the OS print dialog. Triggered by toggling the
+   `is-print-preview` class on <html>; styled to look like an A4 sheet
+   centered on a neutral backdrop. */
+:root.is-print-preview {
+  --print-ink-strong: #000;
+  --print-ink: #444;
+  --print-ink-soft: #666;
+  --print-line: #888;
+  --print-line-faint: #999;
+  --print-bg-tint: #eee;
+  --print-bg: #fff;
+}
+:root.is-print-preview body {
+  background: #d8d6d0;
+  color: var(--print-ink-strong);
+}
+:root.is-print-preview .app-header,
+:root.is-print-preview .type-strip,
+:root.is-print-preview .evt-filterbar,
+:root.is-print-preview .pt-actions,
+:root.is-print-preview .pt-tests,
+:root.is-print-preview .sch-controls,
+:root.is-print-preview .sch-summary,
+:root.is-print-preview .sch-rail,
+:root.is-print-preview .sch-foot,
+:root.is-print-preview .sv-toolbar,
+:root.is-print-preview .sheet,
+:root.is-print-preview .sheet-backdrop,
+:root.is-print-preview .fab,
+:root.is-print-preview .toast-viewport,
+:root.is-print-preview .no-print {
+  display: none !important;
+}
+:root.is-print-preview .app-main {
+  max-width: 210mm;
+  margin: 24px auto 80px;
+  padding: 14mm 12mm 18mm;
+  background: var(--print-bg);
+  color: var(--print-ink-strong);
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+  font-size: 10pt;
+}
+:root.is-print-preview .print-only { display: block; }
+:root.is-print-preview .print-header {
+  margin-bottom: 12px;
+  border-bottom: 1.5px solid var(--print-ink-strong);
+  padding-bottom: 8px;
+}
+:root.is-print-preview .print-header h1 { margin: 0 0 6px; font-size: 16pt; font-weight: 600; }
+:root.is-print-preview .print-header .meta { display: flex; flex-wrap: wrap; gap: 18px; font-size: 10pt; }
+:root.is-print-preview .print-signature { margin-top: 24px; }
+:root.is-print-preview .print-signature .sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+:root.is-print-preview .print-signature .sig-line { border-top: 1px solid var(--print-ink-strong); margin-top: 32px; }
+:root.is-print-preview .print-signature .sig-label { font-size: 9pt; color: var(--print-ink); margin-top: 4px; }
+:root.is-print-preview .evt {
+  display: grid !important;
+  grid-template-columns: 60px 50px 90px 1fr 110px !important;
+  grid-template-areas: none !important;
+  gap: 10px !important;
+  padding: 6px 4px !important;
+  border-bottom: 0.5px solid var(--print-line-faint) !important;
+  font-size: 9.5pt !important;
+  background: var(--print-bg) !important;
+  color: var(--print-ink-strong);
+}
+:root.is-print-preview .evt .type, :root.is-print-preview .evt .type-h {
+  display: inline-flex !important;
+  padding: 1px 6px !important;
+  border: 1px solid var(--print-line) !important;
+  border-radius: 3px;
+  font-size: 9pt !important;
+  background: var(--print-bg) !important;
+}
+:root.is-print-preview .evt .row-actions { display: none !important; }
+:root.is-print-preview .evt-list {
+  border: 1px solid var(--print-ink-strong) !important;
+  border-radius: 0 !important;
+}
+:root.is-print-preview .evt-head {
+  display: grid !important;
+  background: var(--print-bg-tint) !important;
+  color: var(--print-ink-strong) !important;
+  font-size: 8.5pt !important;
+  padding: 6px 4px !important;
+}
+:root.is-print-preview .summary {
+  background: var(--print-bg) !important;
+  border-top: 1px solid var(--print-ink-strong) !important;
+  padding: 8px 4px !important;
+  font-size: 9pt !important;
+}
+:root.is-print-preview .pt-section {
+  border: 1px solid var(--print-line) !important;
+  border-radius: 0 !important;
+  margin-bottom: 8px;
+  background: var(--print-bg);
+}
+:root.is-print-preview .pt-section header {
+  background: var(--print-bg-tint) !important;
+  padding: 4px 8px !important;
+}
+:root.is-print-preview .pt-header {
+  border: 1px solid var(--print-line) !important;
+  border-radius: 0 !important;
+  padding: 10px !important;
+  background: var(--print-bg);
+  color: var(--print-ink-strong);
+}
+
+/* Floating bar across the bottom while preview is on. */
+.print-preview-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sheet);
+  font-size: var(--fs-md);
+  max-width: calc(100% - 40px);
+}
+.print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
+.print-preview-bar .btn.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+
+/* Settings popover action button */
+.popover-action {
+  width: 100%;
+  justify-content: center;
+}
+
 /* ---------- Real print (A4 portrait) ---------- */
 @media print {
   @page { size: A4 portrait; margin: 14mm 12mm 18mm; }
@@ -1848,6 +2123,99 @@
   gap: 0;
   min-width: 0;
 }
+
+/* Table controls: filter chips + column-visibility menu. Wraps to multiple
+   lines on narrow viewports; sits between the schedule header and the table. */
+.sch-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--line-faint);
+  border-bottom: 0;
+  background: var(--paper);
+}
+.sch-detail .sch-controls + .sch-table { border-top: 0; border-radius: 0; }
+.sch-detail .sch-controls { border-radius: 0; }
+.sch-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.sch-filter-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.sch-filter-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.sch-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  min-height: 22px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.sch-filter-chip:hover { color: var(--ink); border-color: var(--line-soft); }
+.sch-filter-chip.is-on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.sch-cols-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.sch-cols-menu {
+  right: 0;
+  left: auto;
+  min-width: 180px;
+  gap: var(--space-2);
+}
+.sch-cols-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+.sch-cols-opt input { accent-color: var(--accent); }
+
+/* Sortable column headers — pointer cursor + hover affordance + sort arrow. */
+.sch-row.sch-head .sch-cell.is-sortable { cursor: pointer; }
+.sch-row.sch-head .sch-cell.is-sortable:hover { color: var(--ink); }
+.sch-row.sch-head .sch-cell.is-sortable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
+.sch-sort-arrow {
+  margin-left: 4px;
+  font-size: 8px;
+  color: var(--accent);
+}
+
 .sch-detail .sch-foot { margin-top: 12px; }
 .sch-detail-head {
   display: flex;
@@ -1883,22 +2251,12 @@
 }
 .sch-row {
   display: grid;
-  grid-template-columns:
-    56px            /* MTO/MTS */
-    80px            /* Date Départ */
-    100px           /* MO */
-    92px            /* Produit */
-    minmax(180px, 1.6fr)  /* Article (wider for customer subtitle) */
-    62px 62px 62px  /* Sched / Prod / Req */
-    72px            /* Scraps */
-    116px           /* Format (Largeur × Longueur) */
-    68px            /* Qualité */
-    68px            /* Lites/Packs */
-    minmax(100px, 1fr) /* PDP */
-    88px;           /* m² */
+  /* Track template comes from `--sch-grid` set inline by ScheduleTable, so the
+     column visibility menu can recompose the grid by simply changing it. */
+  grid-template-columns: var(--sch-grid, 56px 80px 100px 92px minmax(180px, 1.6fr) 62px 62px 62px 72px 116px 68px 68px minmax(100px, 1fr) 88px);
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1206px;
+  min-width: var(--sch-min, 1206px);
   transition: background 100ms ease;
 }
 .sch-row:last-child { border-bottom: 0; }
@@ -2815,7 +3173,10 @@
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line-faint);
+  align-items: center;
+  flex-wrap: wrap;
 }
+.sv-sheet-meta { letter-spacing: 0; }
 
 /* Phone — single column for the stage cards, hide low-priority columns. */
 @media (max-width: 880px) {
@@ -2876,3 +3237,292 @@
 :root[data-density='advanced'] .sv-cmt-dot { width: 9px; height: 9px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
 :root[data-density='advanced'] .sv-row.sv-data:hover { box-shadow: inset 4px 0 0 var(--accent); }
 
+/* ---------- Semantic row-buttons ----------
+   When a row-shaped surface is rendered as a real <button> (so the screen
+   reader announces it as such and the focus ring/keyboard work for free),
+   we have to undo the browser's button defaults to let the grid layout +
+   row chrome shine through. */
+button.as-row {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+button.as-row::-moz-focus-inner { border: 0; padding: 0; }
+
+/* ---------- Keyboard help sheet ---------- */
+.kbd-help-trigger {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.kbd-help-sheet { width: min(480px, calc(100% - 40px)); }
+.kbd-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+.kbd-help-row {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.kbd-help-row:last-child { border-bottom: 0; }
+.kbd-help-row dt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.kbd-help-row dd {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+}
+.kbd-help-plus {
+  color: var(--ink-faint);
+  font-size: var(--fs-sm);
+}
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--line-soft);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* ---------- Mobile FAB ----------
+   Floating "+" for the Logbook on phones. Hidden on desktop/tablet where the
+   sticky type-strip already provides the same one-tap action within thumb
+   reach. Opens a bottom-sheet picker that lists every EVENT_TYPE on a single
+   touch-friendly grid. */
+.fab {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 18px;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: var(--shadow-fab);
+    z-index: 30;
+    transition: transform 100ms ease, box-shadow 120ms ease;
+  }
+  .fab:active { transform: scale(0.94); }
+  .fab .fab-glyph { font-weight: 500; transform: translateY(-1px); }
+}
+
+.fab-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+.fab-type-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: 14px var(--space-5);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-base);
+  min-height: 48px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+.fab-type-btn:hover { border-color: var(--ink); background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
+.fab-type-btn:active { transform: scale(0.97); }
+.fab-type-btn .glyph { color: var(--accent); font-size: var(--fs-lg); line-height: 1; }
+.fab-type-btn.is-add {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- Sync indicator ----------
+   Compact chip that surfaces the background sync state in the header.
+   Stays out of the way when idle; warms up to color when something needs
+   the user's attention (queue piling, offline, error). */
+.sync-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: default;
+  user-select: none;
+  min-height: 22px;
+}
+.sync-chip .sync-glyph {
+  font-size: var(--fs-md);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sync-chip .sync-count {
+  font-size: var(--fs-2xs);
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.sync-chip.is-idle .sync-glyph { color: var(--flag-ok-bd); }
+.sync-chip.is-syncing { border-color: var(--flag-note-bd); color: var(--flag-note-fg); background: color-mix(in srgb, var(--hl-blue) 30%, var(--paper)); }
+.sync-chip.is-syncing .sync-glyph { animation: sync-spin 1.2s linear infinite; }
+.sync-chip.is-queued { border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); background: color-mix(in srgb, var(--hl-yellow) 35%, var(--paper)); }
+.sync-chip.is-offline,
+.sync-chip.is-error { border-color: var(--flag-unsched-bd); color: var(--flag-unsched-fg); background: color-mix(in srgb, var(--hl-red) 35%, var(--paper)); }
+
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-chip.is-syncing .sync-glyph { animation: none; }
+}
+
+/* On phones, drop the verbose label; the glyph + count is enough. */
+@media (max-width: 600px) {
+  .sync-chip { padding: 2px 6px; }
+  .sync-chip .sync-label { display: none; }
+}
+
+/* ---------- Toasts ----------
+   Stack of feedback chips at the bottom of the viewport. Each toast carries its
+   own TTL via `--toast-ttl`; the progress bar consumes the bar from full to
+   empty so users can see the Annuler window shrinking. */
+.toast-viewport {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: var(--space-5) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+  width: min(440px, calc(100% - 24px));
+}
+
+.toast {
+  --toast-ttl: 6000ms;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sheet);
+  font-size: var(--fs-md);
+  pointer-events: auto;
+  overflow: hidden;
+  animation: toast-in 200ms ease-out;
+}
+
+.toast-msg { flex: 1; min-width: 0; }
+
+.toast-undo {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--paper) 35%, transparent);
+  color: var(--paper);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.toast-undo:hover {
+  background: color-mix(in srgb, var(--paper) 12%, transparent);
+  border-color: var(--paper);
+}
+
+.toast-close {
+  background: transparent;
+  border: 0;
+  color: color-mix(in srgb, var(--paper) 70%, transparent);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.toast-close:hover { color: var(--paper); }
+
+.toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: color-mix(in srgb, var(--accent) 90%, transparent);
+  transform-origin: left center;
+  animation: toast-progress var(--toast-ttl) linear forwards;
+}
+
+.toast-danger { background: var(--flag-unsched-bd); }
+.toast-danger .toast-progress { background: color-mix(in srgb, var(--paper) 60%, transparent); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+  .toast-progress { animation: none; opacity: 0.4; }
+}

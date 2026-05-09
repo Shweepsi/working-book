@@ -1,11 +1,17 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useId, useMemo, useRef, useState } from 'react';
 import { SAMPLE_EVENTS, newId } from '../data/shift';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
 import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
+import { useToast } from '../lib/toast';
 import EventEditor from './EventEditor';
 import type { EventType, FlagKey, LogEvent, Poste, ShiftMeta } from '../types';
+
+// Order matches the visual order in the filter row; null is implicit when no
+// chip is active. Note "normal" is intentionally absent: untagged events are
+// caught by the "Sans" pseudo-filter further down.
+const FILTER_FLAGS: FlagKey[] = ['ok', 'scheduled', 'unscheduled', 'note'];
 
 const EVENT_TYPE_BY_KEY = new Map<string, EventType>(EVENT_TYPES.map((t) => [t.key, t]));
 
@@ -49,8 +55,43 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
   );
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeFlags, setActiveFlags] = useState<Set<FlagKey>>(() => new Set());
+  const queryInputRef = useRef<HTMLInputElement>(null);
+  const queryInputId = useId();
+  const toast = useToast();
 
-  const summary = useMemo(() => computeSummary(events), [events]);
+  const filteredEvents = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return events.filter((e) => {
+      if (activeFlags.size > 0 && (!e.flag || !activeFlags.has(e.flag))) return false;
+      if (!q) return true;
+      const haystack = [e.desc, e.type, ...(e.notes || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [events, query, activeFlags]);
+
+  const summary = useMemo(() => computeSummary(filteredEvents), [filteredEvents]);
+  const filteringActive = query.trim() !== '' || activeFlags.size > 0;
+  const hiddenCount = events.length - filteredEvents.length;
+
+  function toggleFlagFilter(f: FlagKey) {
+    setActiveFlags((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
+  }
+
+  function clearFilters() {
+    setQuery('');
+    setActiveFlags(new Set());
+  }
 
   function openTypedEvent(type: string) {
     const stamp = fmtHM();
@@ -65,20 +106,49 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         notes: meta?.openNote ? [''] : [],
       },
     });
+    setFabOpen(false);
   }
 
   const openEvent = useCallback((ev: LogEvent) => setEditing({ event: ev }), []);
   const removeEvent = useCallback(
-    (id: string) => setEvents((prev) => prev.filter((e) => e.id !== id)),
-    [],
+    (id: string) => {
+      let removed: LogEvent | undefined;
+      let removedIndex = -1;
+      setEvents((prev) => {
+        removedIndex = prev.findIndex((e) => e.id === id);
+        if (removedIndex < 0) return prev;
+        removed = prev[removedIndex];
+        return prev.filter((e) => e.id !== id);
+      });
+      if (!removed) return;
+      const restored = removed;
+      const insertAt = removedIndex;
+      toast.show({
+        message: 'Événement supprimé',
+        undo: () => {
+          setEvents((prev) => {
+            if (prev.some((e) => e.id === restored.id)) return prev;
+            const next = [...prev];
+            next.splice(Math.min(insertAt, next.length), 0, restored);
+            return next;
+          });
+        },
+      });
+    },
+    [setEvents, toast],
   );
 
   function saveFromEditor(payload: LogEvent) {
+    const now = Date.now();
     const normalized: LogEvent = { ...payload, end: payload.end || payload.start || null };
     setEvents((prev) =>
       normalized.id
-        ? prev.map((e) => (e.id === normalized.id ? { ...e, ...normalized } : e))
-        : [...prev, { ...normalized, id: newId() }],
+        ? prev.map((e) =>
+            e.id === normalized.id
+              ? { ...e, ...normalized, createdAt: e.createdAt ?? now, updatedAt: now }
+              : e,
+          )
+        : [...prev, { ...normalized, id: newId(), createdAt: now, updatedAt: now }],
     );
     setEditing(null);
   }
@@ -129,6 +199,47 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         )}
       </div>
 
+      <div className="evt-filterbar no-print" role="search">
+        <label htmlFor={queryInputId} className="evt-filterbar-label">
+          <span className="evt-filterbar-glyph" aria-hidden="true">⌕</span>
+          <input
+            id={queryInputId}
+            ref={queryInputRef}
+            type="search"
+            className="evt-filterbar-input"
+            placeholder="Rechercher description, notes, type…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <div className="evt-filterbar-flags" role="group" aria-label="Filtrer par catégorie">
+          {FILTER_FLAGS.map((f) => {
+            const meta = FLAGS[f];
+            const on = activeFlags.has(f);
+            return (
+              <button
+                key={f}
+                type="button"
+                className={`flag flag-filter ${on ? `flag-active ${f}` : 'flag-empty'}`}
+                onClick={() => toggleFlagFilter(f)}
+                aria-pressed={on}
+              >
+                {meta.label}
+              </button>
+            );
+          })}
+          {filteringActive && (
+            <button
+              type="button"
+              className="btn ghost mini evt-filterbar-clear"
+              onClick={clearFilters}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="evt-list">
         <div className="evt evt-head no-print" aria-hidden="true">
           <div className="time">Heure</div>
@@ -137,18 +248,29 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
           <div className="desc">Description</div>
           <div className="flags-h">Catégorie</div>
         </div>
-        {events.map((ev) => (
+        {filteredEvents.map((ev) => (
           <EventRow key={ev.id} ev={ev} onOpen={openEvent} onRemove={removeEvent} />
         ))}
-        {events.length === 0 && (
+        {filteredEvents.length === 0 && events.length === 0 && (
           <div className="evt-empty no-print">
             <div>Aucun événement pour Poste {poste}.</div>
+          </div>
+        )}
+        {filteredEvents.length === 0 && events.length > 0 && (
+          <div className="evt-empty no-print">
+            <div>Aucun événement ne correspond au filtre.</div>
+            <button type="button" className="btn ghost mini" onClick={clearFilters}>
+              Effacer les filtres
+            </button>
           </div>
         )}
         <div className="summary">
           <span><strong>{summary.total}</strong> événements</span>
           <span>planifié <strong>{fmtDuration(summary.scheduledMin)}</strong></span>
           <span>non planifié <strong>{fmtDuration(summary.unscheduledMin)}</strong></span>
+          {filteringActive && hiddenCount > 0 && (
+            <span className="faint no-print">{hiddenCount} masqué{hiddenCount > 1 ? 's' : ''}</span>
+          )}
           <span style={{ marginLeft: 'auto' }} className="no-print">
             <button className="btn ghost" onClick={() => window.print()}>Imprimer</button>
           </span>
@@ -156,6 +278,23 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
       </div>
 
       <PrintSignature poste={poste} />
+
+      <button
+        type="button"
+        className="fab no-print"
+        onClick={() => setFabOpen(true)}
+        aria-label="Nouvel événement"
+        title="Nouvel événement"
+      >
+        <span className="fab-glyph" aria-hidden="true">＋</span>
+      </button>
+
+      {fabOpen && (
+        <FabTypeSheet
+          onPick={openTypedEvent}
+          onClose={() => setFabOpen(false)}
+        />
+      )}
 
       {editing && (
         <EventEditor
@@ -166,6 +305,39 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         />
       )}
     </div>
+  );
+}
+
+interface FabTypeSheetProps {
+  onPick: (type: string) => void;
+  onClose: () => void;
+}
+
+function FabTypeSheet({ onPick, onClose }: FabTypeSheetProps) {
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet fab-sheet" role="dialog" aria-modal="true" aria-label="Choisir un type d'événement">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <h3>Nouvel événement</h3>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+        <div className="fab-sheet-grid">
+          {EVENT_TYPES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={`fab-type-btn ${t.key === 'Nouveau' ? 'is-add' : ''}`}
+              onClick={() => onPick(t.key)}
+            >
+              <span className="glyph" aria-hidden="true">＋</span>
+              <span className="fab-type-label">{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -189,7 +361,13 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
       onClick={open}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}
+      aria-label={`${ev.start || 'Événement'} ${ev.type} ${ev.desc || ''}`.trim()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      }}
     >
       <div className="time">
         {ev.start ? <span className="start">{ev.start}</span> : <span className="faint">—</span>}
@@ -212,14 +390,15 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
           <span className="flag flag-empty muted">—</span>
         )}
       </div>
-      <div className="row-actions no-print" aria-hidden="true">
+      <div className="row-actions no-print">
         <button
           type="button"
           className="btn ghost icon"
           title="Supprimer l’événement"
+          aria-label="Supprimer l’événement"
           onClick={(e) => {
             e.stopPropagation();
-            if (window.confirm('Supprimer cet événement ?')) onRemove(ev.id);
+            onRemove(ev.id);
           }}
         >
           ✕

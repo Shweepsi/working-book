@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { apiGet, apiPut, SYNC_ENABLED } from './api';
 import { save } from './storage';
 
@@ -20,6 +20,16 @@ interface Mutation {
   attempts: number;
 }
 
+export type SyncStatus = 'idle' | 'syncing' | 'queued' | 'offline' | 'error' | 'disabled';
+
+export interface SyncSnapshot {
+  status: SyncStatus;
+  pending: number;
+  online: boolean;
+  lastSuccessAt: number | null;
+  lastErrorAt: number | null;
+}
+
 const QUEUE_KEY = 'wb.sync.queue.v1';
 const FLUSH_DEBOUNCE_MS = 400;
 const RETRY_BACKOFF_MS = [2_000, 5_000, 15_000, 60_000];
@@ -29,9 +39,38 @@ let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let isFlushing = false;
 let initialized = false;
+let lastSuccessAt: number | null = null;
+let lastErrorAt: number | null = null;
+let onlineState: boolean = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+
+const listeners = new Set<() => void>();
+let cachedSnapshot: SyncSnapshot = computeSnapshot();
+
+function computeSnapshot(): SyncSnapshot {
+  let status: SyncStatus;
+  if (!SYNC_ENABLED) status = 'disabled';
+  else if (!onlineState) status = 'offline';
+  else if (isFlushing) status = 'syncing';
+  else if (queue.length > 0) {
+    status = queue.some((m) => m.attempts > 0) ? 'error' : 'queued';
+  } else status = 'idle';
+  return {
+    status,
+    pending: queue.length,
+    online: onlineState,
+    lastSuccessAt,
+    lastErrorAt,
+  };
+}
+
+function emit(): void {
+  cachedSnapshot = computeSnapshot();
+  listeners.forEach((l) => l());
+}
 
 function persistQueue(): void {
   save(QUEUE_KEY, queue);
+  emit();
 }
 
 function buildPath(remote: SyncRemote): string {
@@ -67,15 +106,18 @@ function scheduleRetry(attempts: number): void {
 async function flush(): Promise<void> {
   if (!SYNC_ENABLED || isFlushing || queue.length === 0 || !isOnline()) return;
   isFlushing = true;
+  emit();
   try {
     while (queue.length > 0) {
       const m = queue[0];
       try {
         await apiPut(m.path, m.payload);
         queue.shift();
+        lastSuccessAt = Date.now();
         persistQueue();
       } catch {
         m.attempts++;
+        lastErrorAt = Date.now();
         persistQueue();
         scheduleRetry(m.attempts);
         return;
@@ -83,6 +125,7 @@ async function flush(): Promise<void> {
     }
   } finally {
     isFlushing = false;
+    emit();
   }
 }
 
@@ -112,10 +155,31 @@ export function initSync(): void {
   } catch {
     queue = [];
   }
+  onlineState = navigator.onLine !== false;
+  emit();
   if (!SYNC_ENABLED) return;
-  window.addEventListener('online', scheduleFlush);
+  const refreshOnline = () => {
+    onlineState = navigator.onLine !== false;
+    emit();
+    scheduleFlush();
+  };
+  window.addEventListener('online', refreshOnline);
+  window.addEventListener('offline', refreshOnline);
   window.addEventListener('focus', scheduleFlush);
   if (queue.length > 0) scheduleFlush();
+}
+
+export function subscribeSync(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getSyncSnapshot(): SyncSnapshot {
+  return cachedSnapshot;
+}
+
+export function useSyncStatus(): SyncSnapshot {
+  return useSyncExternalStore(subscribeSync, getSyncSnapshot, getSyncSnapshot);
 }
 
 type Updater<T> = T | ((prev: T) => T);
