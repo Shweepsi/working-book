@@ -458,16 +458,18 @@ export default function Schedules() {
           headerActions={
             <button
               type="button"
-              className="btn ghost icon"
+              className="btn ghost mini sch-import-policy-btn"
               onClick={() => setImportMode('policy')}
               aria-label="Importer la politique MTO/MTS"
               title={
                 policy
-                  ? `Politique MTO/MTS · ${policy.count} produits — réimporter`
-                  : 'Importer la politique MTO/MTS'
+                  ? `Politique MTO/MTS · ${policy.count} produits chargés — cliquer pour réimporter`
+                  : 'Importer la table de politique MTO/MTS'
               }
             >
-              ⚙
+              <span className="glyph" aria-hidden="true">⚙</span>
+              <span className="lbl-full">Politique MTO/MTS</span>
+              <span className="lbl-short" aria-hidden="true">MTO</span>
             </button>
           }
         />
@@ -532,8 +534,12 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
           <span><strong className="mono">{records}</strong> lignes</span>
           <span><strong className="mono">{m2}</strong> m²</span>
           {policy && (
-            <span className="faint small" title="Politique MTO/MTS chargée">
-              MTO/MTS · {policyCount} produits
+            <span
+              className="sch-policy-chip"
+              title="Politique MTO/MTS chargée — partagée entre les opérateurs"
+            >
+              <span className="sch-policy-chip-glyph" aria-hidden="true">⚙</span>
+              MTO/MTS · <strong className="mono">{policyCount}</strong>
             </span>
           )}
           {importedAt && (

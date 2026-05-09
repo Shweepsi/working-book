@@ -337,15 +337,15 @@
   min-height: 26px;
   padding: 3px var(--space-5);
   font-size: var(--fs-sm);
-  transition: opacity 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  transition: opacity 120ms ease, box-shadow 120ms ease, border-color 120ms ease, filter 120ms ease;
 }
 .evt-filterbar-flags .flag.flag-filter.is-off {
-  opacity: 0.45;
-  filter: saturate(0.7);
+  opacity: 0.55;
+  filter: saturate(0.65);
 }
 .evt-filterbar-flags .flag.flag-filter.is-off:hover {
-  opacity: 0.85;
-  filter: none;
+  opacity: 0.9;
+  filter: saturate(0.95);
 }
 .evt-filterbar-flags .flag.flag-filter.is-on {
   box-shadow: 0 0 0 2px var(--focus-ring);
@@ -549,6 +549,8 @@
   gap: var(--space-2);
   margin-left: auto;
 }
+.sch-import-policy-btn { display: inline-flex; align-items: center; gap: 6px; }
+.sch-import-policy-btn .glyph { color: var(--ink-faint); }
 
 .sheet-head-sub {
   font-size: var(--fs-sm);
@@ -737,7 +739,7 @@
   box-shadow: inset 3px 0 0 0 var(--flag-unsched-bd);
   color: var(--flag-unsched-fg);
 }
-.text-input.is-danger::placeholder { color: color-mix(in srgb, var(--flag-unsched-fg) 50%, transparent); }
+.text-input.is-danger::placeholder { color: color-mix(in srgb, var(--flag-unsched-fg) 65%, transparent); }
 
 .time-range {
   display: flex;
@@ -1505,24 +1507,37 @@
 
 /* Results from other shifts/dates surfaced when searching globally. */
 .evt-other-matches {
-  border-top: 1px solid var(--line-faint);
+  border-top: 1px dashed var(--line);
   background: color-mix(in srgb, var(--paper-2) 60%, var(--paper));
 }
 .evt-other-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-4);
-  padding: var(--space-3) var(--d-pad-x);
+  padding: var(--space-4) var(--d-pad-x);
   border-bottom: 1px solid var(--line-faint);
 }
 .evt-other-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-soft);
   font-weight: 600;
 }
-.evt-other-count { color: var(--ink-faint); }
+.evt-other-icon { color: var(--ink-faint); font-size: var(--fs-base); }
+.evt-other-count {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+}
 .evt-other-more {
   padding: var(--space-3) var(--d-pad-x);
   color: var(--ink-faint);
@@ -1541,6 +1556,7 @@
 }
 .evt.evt-other.is-clickable { cursor: pointer; }
 .evt.evt-other.is-clickable:hover { background-color: color-mix(in srgb, var(--ink) 4%, var(--paper)); }
+.evt.evt-other.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .evt-empty::before {
   content: '✎';
@@ -2106,6 +2122,19 @@
   font-size: var(--fs-sm);
   border: 1px solid var(--flag-sched-bd);
 }
+.sch-policy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+.sch-policy-chip-glyph { color: var(--ink-faint); font-size: var(--fs-md); line-height: 1; }
+.sch-policy-chip strong { color: var(--ink); font-weight: 600; }
 
 .sch-hint {
   display: flex;
@@ -2684,7 +2713,10 @@
 .sch-import-stats {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
 }
+.sch-import-stats strong { color: var(--ink); font-weight: 600; }
 .sch-import-area {
   width: 100%;
   resize: vertical;
@@ -3189,10 +3221,15 @@
   gap: var(--space-3);
   margin-top: 4px;
 }
-.sv-test-type {
+.sv-field-test-type .sv-test-type {
   margin-top: 4px;
   width: auto;
-  max-width: 320px;
+  max-width: 360px;
+}
+.sv-field-test-type .sv-test-type button {
+  font-size: var(--fs-md);
+  padding: var(--space-3) var(--space-5);
+  min-height: 32px;
 }
 
 .sv-sheet-section { margin-bottom: 16px; }
@@ -3574,6 +3611,8 @@ button.as-row:focus-visible {
 .sync-chip.is-queued { border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); background: color-mix(in srgb, var(--hl-yellow) 35%, var(--paper)); }
 .sync-chip.is-offline,
 .sync-chip.is-error { border-color: var(--flag-unsched-bd); color: var(--flag-unsched-fg); background: color-mix(in srgb, var(--hl-red) 35%, var(--paper)); }
+.sync-chip.is-local { color: var(--ink-soft); background: var(--paper-2); border-style: dashed; }
+.sync-chip.is-local .sync-glyph { color: var(--ink-faint); }
 
 @keyframes sync-spin {
   from { transform: rotate(0deg); }

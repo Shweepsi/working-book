@@ -335,8 +335,11 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
         {otherMatches.length > 0 && (
           <div className="evt-other-matches no-print">
             <div className="evt-other-head">
-              <span className="evt-other-title">Autres shifts</span>
-              <span className="evt-other-count faint small">
+              <span className="evt-other-title">
+                <span className="evt-other-icon" aria-hidden="true">⤴</span>
+                Autres shifts
+              </span>
+              <span className="evt-other-count">
                 {otherMatches.length} résultat{otherMatches.length > 1 ? 's' : ''}
               </span>
             </div>

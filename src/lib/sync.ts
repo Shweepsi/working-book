@@ -55,7 +55,17 @@ interface Mutation {
   alwaysSync?: boolean;
 }
 
-export type SyncStatus = 'idle' | 'syncing' | 'queued' | 'offline' | 'error' | 'disabled';
+export type SyncStatus =
+  | 'idle'
+  | 'syncing'
+  | 'queued'
+  | 'offline'
+  | 'error'
+  // No backend configured at build time — chip is hidden.
+  | 'disabled'
+  // Backend is reachable but the user opted into local-only mode. Distinct
+  // from 'disabled' so the chip can show "Local" to confirm the choice.
+  | 'local';
 
 export interface SyncSnapshot {
   status: SyncStatus;
@@ -82,16 +92,18 @@ const listeners = new Set<() => void>();
 let cachedSnapshot: SyncSnapshot = computeSnapshot();
 
 function computeSnapshot(): SyncSnapshot {
-  // In local-only mode the chip should read "Local" — but if there are queued
-  // alwaysSync entries we still flag them so the user notices.
+  // Active activity (syncing / queued / error / offline-with-pending) wins
+  // over the static "Local" chip so the user always notices when alwaysSync
+  // mutations are still in flight.
   let status: SyncStatus;
   if (!SYNC_ENABLED) status = 'disabled';
-  else if (syncMode === 'local' && !queue.some((m) => m.alwaysSync)) status = 'disabled';
-  else if (!onlineState) status = 'offline';
   else if (isFlushing) status = 'syncing';
+  else if (queue.length > 0 && !onlineState) status = 'offline';
   else if (queue.length > 0) {
     status = queue.some((m) => m.attempts > 0) ? 'error' : 'queued';
-  } else status = 'idle';
+  } else if (syncMode === 'local') status = 'local';
+  else if (!onlineState) status = 'offline';
+  else status = 'idle';
   return {
     status,
     pending: queue.length,

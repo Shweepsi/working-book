@@ -139,7 +139,7 @@ export default function PasteImport<R extends PasteImportResult>({
               disabled={busy}
               title="Coller depuis le presse-papiers"
             >
-              ⎘ Coller
+              <span aria-hidden="true">📋</span> Coller
             </button>
           )}
           {text && (
@@ -152,10 +152,15 @@ export default function PasteImport<R extends PasteImportResult>({
               Vider
             </button>
           )}
-          <span className="sch-import-stats faint small" aria-live="polite">
-            {lineCount > 0
-              ? `${lineCount} ligne${lineCount > 1 ? 's' : ''}`
-              : 'Aucun contenu'}
+          <span className="sch-import-stats" aria-live="polite">
+            {lineCount > 0 ? (
+              <>
+                <strong className="mono">{lineCount}</strong>{' '}
+                ligne{lineCount > 1 ? 's' : ''}
+              </>
+            ) : (
+              <span className="faint">vide</span>
+            )}
           </span>
         </div>
 
@@ -164,7 +169,7 @@ export default function PasteImport<R extends PasteImportResult>({
           className="sch-import-area mono"
           placeholder={
             canReadClipboard
-              ? 'Coller ici (Ctrl+V) ou cliquer ⎘ Coller…'
+              ? 'Coller ici (Ctrl+V) ou utiliser le bouton Coller…'
               : 'Coller ici (Ctrl+V)…'
           }
           value={text}

@@ -250,7 +250,7 @@ export default function Suivi() {
     <div className="sv">
       <div className="sv-toolbar">
         <div className="sv-toolbar-lead">
-          <h2 className="sv-title">Suivi Cosmétiques</h2>
+          <h2 className="sv-title">Cosmétique</h2>
         </div>
         <div className="sv-tag-row sv-filter-row" role="group" aria-label="Filtrer par tag">
           {TAGS.map((t) => {
@@ -278,7 +278,11 @@ export default function Suivi() {
 
       {visibleCount === 0 ? (
         <div className="sv-empty">
-          <h3>{filterActive ? 'Aucune entrée pour ce filtre' : 'Aucune entrée'}</h3>
+          <h3>
+            {filterActive
+              ? 'Aucun test pour ce filtre'
+              : 'Aucun test cosmétique'}
+          </h3>
           {filterActive && (
             <button
               type="button"
@@ -290,7 +294,7 @@ export default function Suivi() {
           )}
         </div>
       ) : (
-        <div className="sv-table" role="table" aria-label="Suivi Cosmétiques">
+        <div className="sv-table" role="table" aria-label="Tests cosmétiques">
           <div className="sv-row sv-head" role="row">
             <div className="sv-cell sv-c-id" role="columnheader">ID</div>
             <div className="sv-cell sv-c-tag" role="columnheader">Tag</div>
@@ -430,12 +434,12 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sv-sheet" role="dialog" aria-modal="true" aria-label="Éditer l'entrée">
+      <div className="sheet sv-sheet" role="dialog" aria-modal="true" aria-label="Éditer le test cosmétique">
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sv-sheet-title">
             <span className="sv-sheet-id mono">#{entry.serial || '—'}</span>
-            <h3>Suivi cosmétique</h3>
+            <h3>Cosmétique</h3>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
