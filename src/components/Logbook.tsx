@@ -143,7 +143,6 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         {events.length === 0 && (
           <div className="evt-empty no-print">
             <div>Aucun événement pour Poste {poste}.</div>
-            <div className="faint xsmall">Appuyer sur un type ci-dessus pour en enregistrer un.</div>
           </div>
         )}
         <div className="summary">
