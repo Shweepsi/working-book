@@ -238,7 +238,7 @@ interface PrintHeaderProps {
 function PrintHeader({ poste, shiftMeta }: PrintHeaderProps) {
   return (
     <div className="print-header print-only">
-      <h1>Carnet · Poste {poste} · {shiftMeta.shift.label}</h1>
+      <h1>Logbook · Poste {poste} · {shiftMeta.shift.label}</h1>
       <div className="meta">
         <span><strong>Date:</strong> {shiftMeta.dateLabel}</span>
         <span><strong>Horaires:</strong> {shiftMeta.shift.hours}</span>
