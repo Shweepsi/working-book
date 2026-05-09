@@ -184,11 +184,7 @@ export default function App() {
             className="btn ghost mini live-btn"
             onClick={jumpLive}
             disabled={onLiveShift}
-            title={
-              onLiveShift ? 'Déjà sur le shift en cours'
-                : date === live.date ? 'Aller au shift en cours'
-                : 'Aller au shift en cours'
-            }
+            title={onLiveShift ? 'Déjà sur le shift en cours' : 'Aller au shift en cours'}
           >
             En cours
           </button>

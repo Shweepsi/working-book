@@ -265,7 +265,7 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   while (i < slice.length) {
     const t = slice[i]!;
     if (
-      /^I[A-Z0-9]+L?$/.test(t) && t !== 'O' && t.length >= 4 ||  // I11L, ILLT1
+      (/^I[A-Z0-9]+L?$/.test(t) && t !== 'O' && t.length >= 4) ||  // I11L, ILLT1
       INCHES_RE.test(t) ||
       THICKNESS_RE.test(t)
     ) break;
