@@ -23,7 +23,7 @@ jobs:
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - working-directory: worker
-        run: npm install --no-audit --no-fund
+        run: npm ci
       - working-directory: worker
         run: npx wrangler d1 migrations apply working-book-prod --env production --remote
         env:
