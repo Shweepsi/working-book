@@ -19,7 +19,7 @@ import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types';
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
 const TABS = [
-  { key: 'logbook', label: 'Carnet' },
+  { key: 'logbook', label: 'Logbook' },
   { key: 'test', label: 'Test production' },
   { key: 'sched', label: 'Planning' },
   { key: 'suivi', label: 'Suivi' },
@@ -190,7 +190,7 @@ export default function App() {
                 : 'Aller au shift en cours'
             }
           >
-            En cours
+            Live
           </button>
         </div>
 
