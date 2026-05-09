@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { SAMPLE_EVENTS, newId } from '../data/shift';
+import { newId } from '../data/shift';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
 import { load } from '../lib/storage';
@@ -19,13 +19,6 @@ function storageKey(date: string, poste: Poste | null): string {
   return `wb.logbook.v4.${date}.${poste}`;
 }
 
-// Seed the canonical "demo" shift (Poste C, 28-Apr-2026 morning) from the wireframe.
-// Other (date, poste) pairs start empty.
-function defaultsFor(date: string, poste: Poste | null, shiftKey: string): LogEvent[] {
-  if (date === '2026-04-28' && poste === 'C' && shiftKey === 'M') return SAMPLE_EVENTS;
-  return [];
-}
-
 interface LogbookProps {
   poste: Poste | null;
   shiftMeta: ShiftMeta;
@@ -36,12 +29,9 @@ interface EditingState {
 }
 
 export default function Logbook({ poste, shiftMeta }: LogbookProps) {
-  const { date, shift } = shiftMeta;
+  const { date } = shiftMeta;
   const cacheKey = storageKey(date, poste);
-  const init = useCallback(
-    () => load<LogEvent[]>(cacheKey, defaultsFor(date, poste, shift.key)),
-    [cacheKey, date, poste, shift.key],
-  );
+  const init = useCallback(() => load<LogEvent[]>(cacheKey, []), [cacheKey]);
   const [events, setEvents] = useSyncedState<LogEvent[]>(
     cacheKey,
     poste ? { domain: 'logbook', params: { date, poste } } : null,
