@@ -215,7 +215,7 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
       <div className="row-actions no-print" aria-hidden="true">
         <button
           type="button"
-          className="iconbtn"
+          className="btn ghost icon"
           title="Supprimer l’événement"
           onClick={(e) => {
             e.stopPropagation();

@@ -89,7 +89,7 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
                 </button>
               ))}
             </div>
-            {densityHelp && <div className="popover-help" style={{ marginTop: 6 }}>{densityHelp}</div>}
+            {densityHelp && <div className="popover-help">{densityHelp}</div>}
           </div>
         </div>
       )}
