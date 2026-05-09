@@ -1296,7 +1296,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  border: 1px dashed var(--line-soft);
+  border: 1px solid var(--line-faint);
   border-radius: var(--radius-xl);
   background: var(--paper);
 }
@@ -1741,7 +1741,7 @@
 }
 .sch-hint .btn.mini { padding: 4px 12px; min-height: 26px; }
 
-/* Shared empty-card pattern: dashed-bordered tray for "nothing here yet" states. */
+/* Shared empty-card pattern: solid-bordered tray for "nothing here yet" states. */
 .sch-empty,
 .pt-empty {
   display: flex;
@@ -1749,7 +1749,7 @@
   align-items: flex-start;
   gap: var(--space-4);
   padding: 28px;
-  border: 1px dashed var(--line-soft);
+  border: 1px solid var(--line-faint);
   border-radius: var(--radius-xl);
   background: var(--paper);
 }
@@ -2454,7 +2454,7 @@
   gap: var(--space-6);
   padding: 56px 28px;
   margin-top: 12px;
-  border: 1px dashed var(--line-soft);
+  border: 1px solid var(--line-faint);
   border-radius: var(--radius-xl);
   background: var(--paper);
   text-align: center;
