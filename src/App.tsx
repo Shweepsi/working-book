@@ -184,11 +184,7 @@ export default function App() {
             className="btn ghost mini live-btn"
             onClick={jumpLive}
             disabled={onLiveShift}
-            title={
-              onLiveShift ? 'Déjà sur le shift en cours'
-                : date === live.date ? 'Aller au shift en cours'
-                : 'Aller au shift en cours'
-            }
+            title={onLiveShift ? 'Déjà sur le shift en cours' : 'Aller au shift en cours'}
           >
             En cours
           </button>
@@ -223,16 +219,20 @@ export default function App() {
             density={density}
             onDensityChange={setDensity}
           />
+          <button
+            type="button"
+            className="btn ghost icon settings-btn"
+            aria-label="Paramètres"
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙️
+          </button>
         </div>
       </header>
 
       <main className="app-main">
-        {tab === 'logbook' && (
-          <Logbook key={`lb-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
-        )}
-        {tab === 'test' && (
-          <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
-        )}
+        {tab === 'logbook' && <Logbook shiftMeta={shiftMeta} />}
+        {tab === 'test' && <ProductionTest shiftMeta={shiftMeta} />}
         {tab === 'sched' && <Schedules />}
         {tab === 'suivi' && <Suivi />}
       </main>
@@ -240,14 +240,10 @@ export default function App() {
   );
 }
 
-function useNowLive(): { date: string; shiftKey: LiveShiftKey } {
-  const [live, setLive] = useState(() => liveDateAndShift());
+function useNowLive() {
+  const [live, setLive] = useState(liveDateAndShift);
   useEffect(() => {
-    const tick = () => setLive((prev) => {
-      const next = liveDateAndShift();
-      return next.date === prev.date && next.shiftKey === prev.shiftKey ? prev : next;
-    });
-    const id = setInterval(tick, 30_000);
+    const id = setInterval(() => setLive(liveDateAndShift()), 60_000);
     return () => clearInterval(id);
   }, []);
   return live;
