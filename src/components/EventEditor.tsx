@@ -81,13 +81,13 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grabber" />
         <div className="sheet-head">
-          <h3>{isNew ? 'Log event' : 'Edit event'}</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button>
+          <h3>{isNew ? 'Nouvel événement' : 'Modifier l’événement'}</h3>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <div className="form-grid">
           <div className="form-section">
-            <label className="section-label">When</label>
+            <label className="section-label">Quand</label>
             <div className="time-range">
               <input
                 type="text"
@@ -102,8 +102,8 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                 type="button"
                 className="now-btn"
                 onClick={() => update('start', fmtHM())}
-                title="Set start to now"
-                aria-label="Set start to now"
+                title="Définir le début à maintenant"
+                aria-label="Définir le début à maintenant"
               >
                 ◷
               </button>
@@ -121,8 +121,8 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                 type="button"
                 className="now-btn"
                 onClick={() => update('end', fmtHM())}
-                title="Set end to now"
-                aria-label="Set end to now"
+                title="Définir la fin à maintenant"
+                aria-label="Définir la fin à maintenant"
               >
                 ◷
               </button>
@@ -136,7 +136,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
               value={draft.type || ''}
               onChange={(e) => update('type', e.target.value)}
             >
-              <option value="">Select…</option>
+              <option value="">Sélectionner…</option>
               {EVENT_TYPES.map((t) => (
                 <option key={t.key} value={t.key}>{t.label}</option>
               ))}
@@ -186,7 +186,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
             <input
               type="text"
               className={`text-input ${draft.bold ? 'is-bold' : ''} ${draft.danger ? 'is-danger' : ''}`}
-              placeholder="Description (#plates work too)"
+              placeholder="Description (#plaques aussi)"
               value={draft.desc || ''}
               onChange={(e) => update('desc', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save()}
@@ -197,10 +197,10 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
           <div className="form-section">
             <label className="section-label">
               Notes
-              <button className="btn ghost mini" type="button" onClick={addNote}>+ add</button>
+              <button className="btn ghost mini" type="button" onClick={addNote}>+ ajouter</button>
             </label>
             {(draft.notes || []).length === 0 && (
-              <span className="faint small">No notes yet.</span>
+              <span className="faint small">Aucune note.</span>
             )}
             {(draft.notes || []).map((n, i) => (
               <div key={i} className="note-row">
@@ -214,7 +214,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                   className="btn ghost icon"
                   type="button"
                   onClick={() => removeNote(i)}
-                  aria-label="Remove note"
+                  aria-label="Supprimer la note"
                 >
                   ✕
                 </button>
@@ -233,13 +233,13 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                 onClose();
               }}
             >
-              Delete
+              Supprimer
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <button className="btn ghost" type="button" onClick={onClose}>Cancel</button>
+          <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
           <button className="btn primary" type="button" onClick={save}>
-            {isNew ? 'Log' : 'Save'}
+            {isNew ? 'Enregistrer' : 'Enregistrer'}
           </button>
         </div>
       </div>

@@ -55,7 +55,7 @@ export default function PasteImport<R extends PasteImportResult>({
     try {
       setResult(parser({ html, text }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Parsing failed');
+      setError(err instanceof Error ? err.message : 'Échec de l’analyse');
       setResult(null);
     }
     if (taRef.current) taRef.current.value = text || '(HTML payload)';
@@ -66,7 +66,7 @@ export default function PasteImport<R extends PasteImportResult>({
     try {
       setResult(parser({ html: '', text: rawText }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Parsing failed');
+      setError(err instanceof Error ? err.message : 'Échec de l’analyse');
       setResult(null);
     }
   }
@@ -82,7 +82,7 @@ export default function PasteImport<R extends PasteImportResult>({
         <div className="grabber" />
         <div className="sheet-head">
           <h3>{title}</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Close">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         {hint && <p className="faint small sch-import-hint">{hint}</p>}
@@ -105,13 +105,13 @@ export default function PasteImport<R extends PasteImportResult>({
         )}
         {warnings.length > 0 && (
           <details className="sch-import-warnings">
-            <summary>{warnings.length} warning{warnings.length > 1 ? 's' : ''}</summary>
+            <summary>{warnings.length} avertissement{warnings.length > 1 ? 's' : ''}</summary>
             <ul>
               {warnings.slice(0, 30).map((w, i) => (
                 <li key={i} className="small">{w}</li>
               ))}
               {warnings.length > 30 && (
-                <li className="small faint">…and {warnings.length - 30} more</li>
+                <li className="small faint">…et {warnings.length - 30} de plus</li>
               )}
             </ul>
           </details>

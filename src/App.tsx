@@ -19,9 +19,9 @@ import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types';
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
 const TABS = [
-  { key: 'logbook', label: 'Logbook' },
-  { key: 'test', label: 'Production Test' },
-  { key: 'sched', label: 'Schedule' },
+  { key: 'logbook', label: 'Carnet' },
+  { key: 'test', label: 'Test production' },
+  { key: 'sched', label: 'Planning' },
   { key: 'suivi', label: 'Suivi' },
 ] as const satisfies readonly { key: TabKey; label: string }[];
 
@@ -161,7 +161,7 @@ export default function App() {
             type="button"
             className="btn ghost icon"
             onClick={() => setDate(addDaysISO(date, -1))}
-            aria-label="Previous day"
+            aria-label="Jour précédent"
           >
             ‹
           </button>
@@ -175,7 +175,7 @@ export default function App() {
             type="button"
             className="btn ghost icon"
             onClick={() => setDate(addDaysISO(date, +1))}
-            aria-label="Next day"
+            aria-label="Jour suivant"
           >
             ›
           </button>
@@ -185,12 +185,12 @@ export default function App() {
             onClick={jumpLive}
             disabled={onLiveShift}
             title={
-              onLiveShift ? 'Already on the live shift'
-                : date === live.date ? 'Snap to the live shift'
-                : 'Jump to the live shift'
+              onLiveShift ? 'Déjà sur le shift en cours'
+                : date === live.date ? 'Aller au shift en cours'
+                : 'Aller au shift en cours'
             }
           >
-            Live
+            En cours
           </button>
         </div>
 

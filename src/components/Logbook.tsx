@@ -95,7 +95,7 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
               type="button"
               className={t.key === 'Nouveau' ? 'type-add' : ''}
               onClick={() => openTypedEvent(t.key)}
-              title={`Log ${t.label} starting now`}
+              title={`Enregistrer ${t.label} maintenant`}
             >
               <span className="glyph">＋</span>
               {t.label}
@@ -105,9 +105,9 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
             type="button"
             className="type-more"
             onClick={() => setShowSecondary((v) => !v)}
-            title={showSecondary ? 'Hide secondary types' : 'Show secondary types'}
+            title={showSecondary ? 'Masquer les types secondaires' : 'Afficher les types secondaires'}
             aria-expanded={showSecondary}
-            aria-label="Toggle secondary types"
+            aria-label="Basculer les types secondaires"
           >
             <span className="chevron" aria-hidden="true">⌄</span>
           </button>
@@ -119,7 +119,7 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
                 key={t.key}
                 type="button"
                 onClick={() => openTypedEvent(t.key)}
-                title={`Log ${t.label} starting now`}
+                title={`Enregistrer ${t.label} maintenant`}
               >
                 <span className="glyph">＋</span>
                 {t.label}
@@ -142,16 +142,16 @@ export default function Logbook({ poste, shiftMeta }: LogbookProps) {
         ))}
         {events.length === 0 && (
           <div className="evt-empty no-print">
-            <div>No events yet for Poste {poste}.</div>
-            <div className="faint xsmall">Tap a type above to log one.</div>
+            <div>Aucun événement pour Poste {poste}.</div>
+            <div className="faint xsmall">Appuyer sur un type ci-dessus pour en enregistrer un.</div>
           </div>
         )}
         <div className="summary">
-          <span><strong>{summary.total}</strong> events</span>
-          <span>scheduled <strong>{fmtDuration(summary.scheduledMin)}</strong></span>
-          <span>unscheduled <strong>{fmtDuration(summary.unscheduledMin)}</strong></span>
+          <span><strong>{summary.total}</strong> événements</span>
+          <span>planifié <strong>{fmtDuration(summary.scheduledMin)}</strong></span>
+          <span>non planifié <strong>{fmtDuration(summary.unscheduledMin)}</strong></span>
           <span style={{ marginLeft: 'auto' }} className="no-print">
-            <button className="btn ghost" onClick={() => window.print()}>Print</button>
+            <button className="btn ghost" onClick={() => window.print()}>Imprimer</button>
           </span>
         </div>
       </div>
@@ -200,7 +200,7 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
       <span className="type">{ev.type}</span>
       <div className="desc">
         <span style={{ fontWeight: ev.bold ? 600 : 400 }}>
-          {ev.desc || <span className="faint">(no description)</span>}
+          {ev.desc || <span className="faint">(sans description)</span>}
         </span>
         {notes.map((n, i) => (
           <span key={i} className="sub">{n}</span>
@@ -217,10 +217,10 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
         <button
           type="button"
           className="iconbtn"
-          title="Delete event"
+          title="Supprimer l’événement"
           onClick={(e) => {
             e.stopPropagation();
-            if (window.confirm('Delete this event?')) onRemove(ev.id);
+            if (window.confirm('Supprimer cet événement ?')) onRemove(ev.id);
           }}
         >
           ✕
@@ -238,7 +238,7 @@ interface PrintHeaderProps {
 function PrintHeader({ poste, shiftMeta }: PrintHeaderProps) {
   return (
     <div className="print-header print-only">
-      <h1>Logbook · Poste {poste} · {shiftMeta.shift.label}</h1>
+      <h1>Carnet · Poste {poste} · {shiftMeta.shift.label}</h1>
       <div className="meta">
         <span><strong>Date:</strong> {shiftMeta.dateLabel}</span>
         <span><strong>Horaires:</strong> {shiftMeta.shift.hours}</span>

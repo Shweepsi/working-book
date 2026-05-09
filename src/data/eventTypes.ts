@@ -34,8 +34,8 @@ export type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];
 export const FLAGS: Record<FlagKey, Flag> = {
   normal: { key: 'normal', label: 'Normal', tint: null },
   ok: { key: 'ok', label: 'OK', tint: 'green' },
-  scheduled: { key: 'scheduled', label: 'Scheduled', tint: 'yellow' },
-  unscheduled: { key: 'unscheduled', label: 'Unscheduled', tint: 'red' },
+  scheduled: { key: 'scheduled', label: 'Planifié', tint: 'yellow' },
+  unscheduled: { key: 'unscheduled', label: 'Non planifié', tint: 'red' },
   note: { key: 'note', label: 'Note', tint: 'blue' },
 };
 
