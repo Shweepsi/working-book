@@ -31,6 +31,8 @@ interface RailStat {
   count: number;
   lites: number;
   m2: number;
+  shortName: string;
+  nameCounts: Map<string, number>;
 }
 
 type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'scraps' | 'qualite' | 'pdp' | 'm2';
@@ -290,11 +292,26 @@ export default function Schedules() {
       if (/^Vacuum/i.test(r.itemName)) continue;
       if (r.opStepD === 90) continue;
       if ((r.reqLites ?? 0) <= 0) continue;
-      const cur = stats.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      let cur = stats.get(r.schedule);
+      if (!cur) {
+        cur = { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
+        stats.set(r.schedule, cur);
+      }
       cur.count += 1;
       cur.lites += r.schedLites ?? 0;
       cur.m2 += r.m2;
-      stats.set(r.schedule, cur);
+      const short = shortItemName(r.itemName);
+      if (short) cur.nameCounts.set(short, (cur.nameCounts.get(short) ?? 0) + 1);
+    }
+    // Resolve the dominant short name per schedule from the full itemNames so
+    // the rail isn't tied to the (potentially lossy) cached itemRoot.
+    for (const stat of stats.values()) {
+      let best = '';
+      let bestCount = 0;
+      for (const [name, n] of stat.nameCounts) {
+        if (n > bestCount) { best = name; bestCount = n; }
+      }
+      stat.shortName = best;
     }
     return stats;
   }, [data]);
@@ -388,7 +405,7 @@ export default function Schedules() {
             </h4>
             <ul className="sch-rail-list">
               {visibleSchedules.map((s) => {
-                const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0 };
+                const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
                 return (
                   <li key={s.schedule}>
                     <button
@@ -398,7 +415,7 @@ export default function Schedules() {
                     >
                       <div className="sch-rail-top">
                         <span className="mono sch-rail-num">{s.schedule}</span>
-                        <span className="sch-rail-root">{shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
+                        <span className="sch-rail-root">{stat.shortName || shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
                       </div>
                       <div className="sch-rail-meta faint small mono">
                         {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
@@ -412,13 +429,13 @@ export default function Schedules() {
 
           <section className="sch-detail">
             {selectedSchedule && (() => {
-              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0 };
+              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
               return (
                 <header className="sch-detail-head">
                   <h3>
                     <span className="mono">{selectedSchedule.schedule}</span>
                     <span className="faint"> — </span>
-                    <span>{shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
+                    <span>{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
                   </h3>
                   <span className="faint small">
                     {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
