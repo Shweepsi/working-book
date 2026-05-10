@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
+import { EVENT_TYPES, FLAGS } from '../data/eventTypes';
 import { useEscapeToClose } from '../lib/hooks';
 import { fmtHM } from '../lib/time';
 import type { LogEvent } from '../types';
@@ -215,7 +215,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
             </div>
           </div>
 
-          <div className={`form-section notes-section ${tintForFlag(draft.flag) ? `tint-${tintForFlag(draft.flag)}` : ''}`}>
+          <div className="form-section">
             <label className="section-label">
               Notes
               <button className="btn ghost mini" type="button" onClick={addNote}>+ ajouter</button>
