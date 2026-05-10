@@ -860,6 +860,20 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 .note-row input:focus { border-color: var(--accent); }
 
+/* Tinted notes section — mirrors the row tint of the active category so
+   the editor previews how the entry will look in the table. The accent
+   sits as a left bar (the "bandeau") plus a soft background wash. */
+.notes-section {
+  position: relative;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+.notes-section.tint-green  { background: color-mix(in srgb, var(--hl-green)  35%, var(--paper)); box-shadow: inset 3px 0 0 0 var(--flag-ok-bd); }
+.notes-section.tint-yellow { background: color-mix(in srgb, var(--hl-yellow) 35%, var(--paper)); box-shadow: inset 3px 0 0 0 var(--flag-sched-bd); }
+.notes-section.tint-red    { background: color-mix(in srgb, var(--hl-red)    35%, var(--paper)); box-shadow: inset 3px 0 0 0 var(--flag-unsched-bd); }
+.notes-section.tint-blue   { background: color-mix(in srgb, var(--hl-blue)   35%, var(--paper)); box-shadow: inset 3px 0 0 0 var(--flag-note-bd); }
+
 .sheet .actions {
   display: flex;
   gap: var(--space-4);
