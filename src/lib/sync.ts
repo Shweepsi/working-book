@@ -11,8 +11,9 @@ export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedule
 export interface SyncRemote {
   domain: SyncDomain;
   params: Record<string, string>;
-  // Bypass the user's "local-only" preference. Used by data that is shared
-  // across every client (e.g. the MTO/MTS policy).
+  // Bypass the user's "local-only" preference. Default for shared data
+  // (logbook, suivi, prodtest, policy). The PMS230 schedule report is the
+  // only domain that still respects the toggle.
   alwaysSync?: boolean;
 }
 

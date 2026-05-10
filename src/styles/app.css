@@ -2797,6 +2797,39 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   overflow-y: auto;
 }
 
+.sch-import-extras {
+  margin-top: 12px;
+}
+.sch-import-sync {
+  border: 1px dashed var(--line-faint);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  background: var(--paper-2);
+}
+.sch-import-sync-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sch-import-sync-label {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.sch-import-sync .seg-mini {
+  width: auto;
+  margin-left: auto;
+}
+.sch-import-sync .seg-mini button {
+  padding: 3px 10px;
+  min-height: 26px;
+  font-size: var(--fs-sm);
+}
+.sch-import-sync-help {
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
 .sch-import .actions {
   margin-top: 14px;
   display: flex;

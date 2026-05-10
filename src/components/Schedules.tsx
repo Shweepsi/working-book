@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { SYNC_ENABLED } from '../lib/api';
 import { load, save } from '../lib/storage';
-import { useSyncedState } from '../lib/sync';
+import { getSyncMode, setSyncMode, useSyncedState, type SyncMode } from '../lib/sync';
 import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
 import {
@@ -120,17 +121,15 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
 }
 
 export default function Schedules() {
-  // The PMS230 report follows the user's local/sync mode (no alwaysSync) —
-  // each operator can decide whether to share their imported report.
+  // The PMS230 report is the only domain that still follows the user's
+  // sync/local toggle (exposed inside the import modal). Every other
+  // surface — logbook, suivi, prodtest, policy — alwaysSync regardless.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
   const [data, setData] = useSyncedState<PMS230Result | null>(
     KEY_DATA,
     { domain: 'schedules', params: {} },
     dataInit,
   );
-  // Policy is shared across every operator: it always syncs, regardless of
-  // the user's local-only preference, so the MTO/MTS classification is
-  // consistent across clients.
   const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
   const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
     KEY_POLICY,
@@ -479,6 +478,7 @@ export default function Schedules() {
               <span className="lbl-short" aria-hidden="true">MTO</span>
             </button>
           }
+          footerExtras={SYNC_ENABLED ? <SyncModeField /> : null}
         />
       )}
       {importMode === 'policy' && (
@@ -1073,6 +1073,45 @@ function Stat({ label, value, highlight, wide }: StatProps) {
     <div className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''}`}>
       <span className="sch-row-sheet-stat-label">{label}</span>
       <strong className="mono">{value}</strong>
+    </div>
+  );
+}
+
+const SYNC_MODES: { key: SyncMode; label: string; glyph: string; help: string }[] = [
+  { key: 'auto',  label: 'Sync',  glyph: '↻', help: 'Le rapport est partagé avec les autres opérateurs.' },
+  { key: 'local', label: 'Local', glyph: '○', help: 'Le rapport reste sur cet appareil.' },
+];
+
+// Per-operator scope for the imported PMS230 report. The Logbook, le suivi des
+// tests et la politique MTO/MTS restent toujours synchronisés — ce toggle ne
+// gouverne plus que ce rapport.
+function SyncModeField() {
+  const [mode, setMode] = useState<SyncMode>(() => getSyncMode());
+  function change(next: SyncMode) {
+    setSyncMode(next);
+    setMode(next);
+  }
+  const help = SYNC_MODES.find((s) => s.key === mode)?.help;
+  return (
+    <div className="sch-import-sync">
+      <div className="sch-import-sync-head">
+        <span className="sch-import-sync-label">Partage du rapport</span>
+        <div className="seg seg-mini" role="group" aria-label="Partage du rapport">
+          {SYNC_MODES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={mode === s.key ? 'active' : ''}
+              onClick={() => change(s.key)}
+              aria-pressed={mode === s.key}
+            >
+              <span className="glyph" aria-hidden="true">{s.glyph}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {help && <div className="sch-import-sync-help faint small">{help}</div>}
     </div>
   );
 }
