@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode
 import { SYNC_ENABLED } from '../lib/api';
 import { load, save } from '../lib/storage';
 import { getSyncMode, setSyncMode, useSyncedState, type SyncMode } from '../lib/sync';
-import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -812,7 +812,7 @@ function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
     case 'itemName':
       return (
         <>
-          <div className="sch-name" title={row.itemName}>{row.itemName}</div>
+          <div className="sch-name" title={row.itemName}>{shortItemName(row.itemName) || row.itemName}</div>
           {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
         </>
       );
@@ -998,7 +998,9 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         </div>
 
         <div className="sch-row-sheet-name">
-          <div className="sch-row-sheet-itemname">{row.itemName || <span className="faint">(sans nom)</span>}</div>
+          <div className="sch-row-sheet-itemname" title={row.itemName}>
+            {shortItemName(row.itemName) || row.itemName || <span className="faint">(sans nom)</span>}
+          </div>
           {row.customer && <div className="faint small">{row.customer}</div>}
         </div>
 

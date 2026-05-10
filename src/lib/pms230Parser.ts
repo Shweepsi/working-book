@@ -300,18 +300,39 @@ function rowM2(r: DecodedRecord): number {
   return (r.largeur * r.longueur * r.schedLites) / 1_000_000;
 }
 
-function itemRoot(itemName: string): string {
-  // CSGSN51XC0400 -> CSGSN51, CSGSN70/35XC0600 -> CSGSN70/35
-  const m = itemName.match(/^([A-Z]+\d+(?:\/\d+)?)/);
-  return m ? m[1]! : '';
+// Operator-facing rendering of an item code:
+//   CSGSNX50HXC0600TPF -> SNX50HT   (H in body + T suffix)
+//   CSGSNX70XC0600     -> SNX70
+//   CSGSN40/23TXC0600  -> SN40/23HT (trailing T = trempé, expand to HT)
+//   CGSGNRGARCL0210    -> SGNRGAR
+//   CIRRCBCL0160       -> IRRCB
+// Strips a leading C/CG/CSG prefix, drops the dimension code (2 letters + 4
+// digits) and any tail past it, and normalizes the heat-treatment flag so a
+// trailing T renders as HT.
+export function shortItemName(itemName: string): string {
+  if (!itemName) return '';
+  let body = itemName;
+  for (const p of ['CSG', 'CG', 'C']) {
+    if (body.startsWith(p)) { body = body.slice(p.length); break; }
+  }
+  const dim = body.match(/[A-Z]{2}\d{4}/);
+  const head = dim ? body.slice(0, dim.index!) : body;
+  const tail = dim ? body.slice(dim.index! + dim[0].length) : '';
+  const tailTreated = tail.startsWith('T');
+  const headHasH = /H$/.test(head);
+  const headEndsT = /T$/.test(head);
+  if (headHasH && tailTreated) return head + 'T';
+  if (headEndsT && !headHasH)  return head.slice(0, -1) + 'HT';
+  if (tailTreated)             return head + 'HT';
+  return head;
 }
 
 function dominantItemRoot(records: PMS230Record[]): string {
-  // Pick the root that covers the most rows among glass records (skip QC samples).
+  // Pick the short form that covers the most rows among glass records (skip QC samples).
   const counts = new Map<string, number>();
   for (const r of records) {
     if (r.largeur === 0 && r.longueur === 0) continue;
-    const root = itemRoot(r.itemName);
+    const root = shortItemName(r.itemName);
     if (!root) continue;
     counts.set(root, (counts.get(root) ?? 0) + 1);
   }
@@ -320,7 +341,7 @@ function dominantItemRoot(records: PMS230Record[]): string {
   for (const [root, n] of counts) {
     if (n > bestCount) { best = root; bestCount = n; }
   }
-  return best || itemRoot(records[0]?.itemName ?? '') || '';
+  return best || shortItemName(records[0]?.itemName ?? '') || '';
 }
 
 function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
