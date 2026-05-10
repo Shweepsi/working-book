@@ -510,12 +510,17 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   gap: var(--space-9);
   padding: var(--space-6) var(--space-8);
   background: var(--paper-2);
-  border-top: 1px solid var(--line-faint);
+  /* No border-top: the previous row (.evt or .evt-other-matches) already
+     paints its own bottom border, and stacking the two produced a visible
+     double line. */
   font-size: var(--fs-md);
   color: var(--ink-soft);
   flex-wrap: wrap;
   align-items: center;
 }
+/* Restore a separator when the row immediately above the summary has no
+   bottom border of its own (empty state, search-empty state). */
+.evt-empty + .summary { border-top: 1px solid var(--line-faint); }
 
 .summary strong {
   color: var(--ink);
@@ -588,13 +593,23 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 .form-row-when-type {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto auto;
   gap: var(--space-7);
   align-items: end;
+  justify-content: start;
 }
 .form-row-when-type > .form-section { min-width: 0; }
+.form-row-when-type .type-select {
+  width: auto;
+  min-width: 160px;
+  max-width: 220px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-md);
+  min-height: 34px;
+}
 @media (max-width: 520px) {
   .form-row-when-type { grid-template-columns: 1fr; gap: var(--space-6); }
+  .form-row-when-type .type-select { width: 100%; max-width: none; }
 }
 
 .sheet h3 {
@@ -793,13 +808,15 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .flag-pick {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
+/* Match the Logbook filter-bar chip metrics so the editor's Catégorie
+   picker reads as the same control at the same size. */
 .flag-pick .flag {
-  padding: var(--space-3) var(--space-7);
-  font-size: var(--fs-md);
-  min-height: 32px;
+  min-height: 26px;
+  padding: 3px var(--space-5);
+  font-size: var(--fs-sm);
 }
 
 .note-row {
@@ -1136,6 +1153,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   .app-header { padding: 10px 16px; gap: 12px; }
   .shift-meta { gap: 10px; font-size: var(--fs-sm); }
 
+  /* Column titles only make sense on the wide desktop grid; on tablet and
+     phone the rows already render as cards so the head wraps awkwardly. */
+  .evt-head { display: none !important; }
+
   .evt {
     grid-template-columns: 1fr auto;
     grid-template-areas:
@@ -1256,10 +1277,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   }
   .pt-actions.sticky .btn:first-child { flex: 1 1 auto; }
   .pt-actions.sticky .btn.ghost { flex: 0 0 auto; min-width: 38px; padding: 4px 6px; }
-
-  /* Column-title row is a desktop affordance — hide it on phone where
-     each event renders as a stacked card (time/dur, desc, flags). */
-  .evt-head { display: none !important; }
 
   .summary {
     padding: var(--space-5) var(--space-7);
