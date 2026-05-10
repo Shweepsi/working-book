@@ -128,7 +128,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
             <input
               type="text"
               className={`text-input ${draft.bold ? 'is-bold' : ''} ${draft.danger ? 'is-danger' : ''}`}
-              placeholder="Description (#plaques aussi)"
+              placeholder="Description"
               value={draft.desc || ''}
               onChange={(e) => update('desc', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save()}
@@ -223,7 +223,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
               <div key={i} className="note-row">
                 <input
                   type="text"
-                  placeholder="e.g. Première plaque #375 à 06:35"
+                  placeholder="ex: #123"
                   value={n}
                   onChange={(e) => setNote(i, e.target.value)}
                 />
