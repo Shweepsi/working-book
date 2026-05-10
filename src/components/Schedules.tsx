@@ -120,7 +120,14 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
 }
 
 export default function Schedules() {
-  const [data, setData] = useState<PMS230Result | null>(() => load<PMS230Result | null>(KEY_DATA, null));
+  // The PMS230 report follows the user's local/sync mode (no alwaysSync) —
+  // each operator can decide whether to share their imported report.
+  const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
+  const [data, setData] = useSyncedState<PMS230Result | null>(
+    KEY_DATA,
+    { domain: 'schedules', params: {} },
+    dataInit,
+  );
   // Policy is shared across every operator: it always syncs, regardless of
   // the user's local-only preference, so the MTO/MTS classification is
   // consistent across clients.
@@ -149,8 +156,8 @@ export default function Schedules() {
 
   const handleRowOpen = useCallback((row: DisplayRow) => setOpenRowId(row.id), []);
 
-  // Persist datasets and speed.
-  useEffect(() => { save(KEY_DATA, data); }, [data]);
+  // Persist speed (data + policy go through useSyncedState which handles
+  // its own write-back to localStorage).
   useEffect(() => { save(KEY_SPEED, vitesse); }, [vitesse]);
 
   // Auto-select the first schedule once data loads.

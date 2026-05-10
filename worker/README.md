@@ -72,6 +72,8 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `PUT  /api/suivi` body: `SuiviState`
 - `GET  /api/policy` → `{ data: PolicyResult | null, updated_at }` — MTO/MTS lookup, always synced
 - `PUT  /api/policy` body: `PolicyResult`
+- `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
+- `PUT  /api/schedules` body: `PMS230Result | null`
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.

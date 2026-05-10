@@ -6,7 +6,7 @@ import { save } from './storage';
 // Worker is hydrated in the background and mutations are queued for replay.
 // Conflict policy is last-write-wins per partition (whichever PUT lands last).
 
-export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy';
+export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedules';
 
 export interface SyncRemote {
   domain: SyncDomain;
