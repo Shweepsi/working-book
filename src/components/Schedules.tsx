@@ -144,6 +144,7 @@ export default function Schedules() {
     () => ({ ...DEFAULT_TABLE_SETTINGS, ...(load<Partial<TableSettings>>(KEY_TABLE, {})) }),
   );
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const toast = useToast();
 
   useEffect(() => { save(KEY_TABLE, tableSettings); }, [tableSettings]);
@@ -177,22 +178,46 @@ export default function Schedules() {
     return stats;
   }, [data]);
 
-  // Hide schedules with nothing left to do — they clutter the rail with
-  // "0 ligne · 0 m²" rows. The SummaryBar still surfaces the raw totals so
-  // the operator can verify their paste was complete.
-  const totalScheduleCount = data?.schedules?.length ?? 0;
-  const schedules = useMemo(
+  // Same accumulator without the reqLites>0 gate — drives the count shown
+  // when the operator expands the archived section, so they see how many
+  // lines were already produced for those finished schedules.
+  const archiveStats = useMemo(() => {
+    const stats = new Map<string, RailStat>();
+    for (const r of data?.records ?? []) {
+      if (/^Vacuum/i.test(r.itemName)) continue;
+      if (r.opStepD === 90) continue;
+      if (railStats.has(r.schedule)) continue;
+      const cur = stats.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      cur.count += 1;
+      cur.lites += r.schedLites ?? 0;
+      cur.m2 += r.m2;
+      stats.set(r.schedule, cur);
+    }
+    return stats;
+  }, [data, railStats]);
+
+  // Active rail (work remaining) is shown by default; archived rail (finished
+  // schedules) hides behind the "+N" toggle so the operator can still reach
+  // the lines that were already produced.
+  const activeSchedules = useMemo(
     () => (data?.schedules ?? []).filter((s) => railStats.has(s.schedule)),
     [data, railStats],
   );
-  const hiddenScheduleCount = totalScheduleCount - schedules.length;
+  const archivedSchedules = useMemo(
+    () => (data?.schedules ?? []).filter((s) => !railStats.has(s.schedule)),
+    [data, railStats],
+  );
+  const hiddenScheduleCount = archivedSchedules.length;
+  const isArchivedSelected = selected != null && !railStats.has(selected);
 
-  // Auto-select the first non-empty schedule once data loads.
+  // Auto-select the first non-empty schedule once data loads. Don't kick the
+  // user off an archived schedule they explicitly opened.
   useEffect(() => {
     if (!data) return;
-    if (selected && schedules.some((s) => s.schedule === selected)) return;
-    setSelected(schedules[0]?.schedule ?? null);
-  }, [data, schedules, selected]);
+    const all = [...activeSchedules, ...archivedSchedules];
+    if (selected && all.some((s) => s.schedule === selected)) return;
+    setSelected(activeSchedules[0]?.schedule ?? archivedSchedules[0]?.schedule ?? null);
+  }, [data, activeSchedules, archivedSchedules, selected]);
 
   // Filtered rows for the selected schedule. Mirrors the planner's Excel formula:
   //   - drop QC samples (item name starting with "Vacuum")
@@ -203,11 +228,14 @@ export default function Schedules() {
   // (longueur DESC, PDP DESC, name ASC).
   const visibleRows: DisplayRow[] = useMemo(() => {
     const policyMap = policy?.map ?? {};
+    // For an archived schedule (no remaining work) we lift the reqLites>0
+    // gate so the operator can still inspect the lines that were already
+    // produced. Active schedules keep the planner's filter intact.
     const baseFiltered = (data?.records ?? [])
       .filter((r) => r.schedule === selected)
       .filter((r) => !/^Vacuum/i.test(r.itemName))
       .filter((r) => r.opStepD !== 90)
-      .filter((r) => (r.reqLites ?? 0) > 0);
+      .filter((r) => isArchivedSelected || (r.reqLites ?? 0) > 0);
 
     const decorated: DisplayRow[] = baseFiltered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
 
@@ -228,7 +256,7 @@ export default function Schedules() {
     });
 
     return userFiltered;
-  }, [data, selected, policy, tableSettings]);
+  }, [data, selected, isArchivedSelected, policy, tableSettings]);
 
   // Available filter values come from the unfiltered, schedule-scoped pool so
   // the menu doesn't shrink as the user picks options.
@@ -238,7 +266,7 @@ export default function Schedules() {
       .filter((r) => r.schedule === selected)
       .filter((r) => !/^Vacuum/i.test(r.itemName))
       .filter((r) => r.opStepD !== 90)
-      .filter((r) => (r.reqLites ?? 0) > 0);
+      .filter((r) => isArchivedSelected || (r.reqLites ?? 0) > 0);
     const qualites = new Set<string>();
     const pdps = new Set<string>();
     const mtos = new Set<string>();
@@ -252,7 +280,7 @@ export default function Schedules() {
       pdps: [...pdps].sort(),
       mtos: [...mtos].sort(),
     };
-  }, [data, selected, policy]);
+  }, [data, selected, isArchivedSelected, policy]);
 
   const filteringActive =
     tableSettings.qualite.length > 0 ||
@@ -315,7 +343,7 @@ export default function Schedules() {
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
 
-  const selectedSchedule = schedules.find((s) => s.schedule === selected);
+  const selectedSchedule = (data?.schedules ?? []).find((s) => s.schedule === selected);
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
     const snapshot = data;
@@ -385,18 +413,25 @@ export default function Schedules() {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Planning <span className="faint">· {schedules.length}</span>
+              Planning <span className="faint">· {activeSchedules.length}</span>
               {hiddenScheduleCount > 0 && (
-                <span
-                  className="faint small sch-rail-hidden"
-                  title={`${hiddenScheduleCount} schedule${hiddenScheduleCount > 1 ? 's' : ''} sans travail restant — masqué${hiddenScheduleCount > 1 ? 's' : ''}`}
+                <button
+                  type="button"
+                  className={`sch-rail-hidden${showArchived ? ' is-open' : ''}`}
+                  onClick={() => setShowArchived((v) => !v)}
+                  aria-expanded={showArchived}
+                  title={
+                    showArchived
+                      ? 'Masquer les schedules terminés'
+                      : `${hiddenScheduleCount} schedule${hiddenScheduleCount > 1 ? 's' : ''} terminé${hiddenScheduleCount > 1 ? 's' : ''} — afficher`
+                  }
                 >
-                  +{hiddenScheduleCount}
-                </span>
+                  {showArchived ? `−${hiddenScheduleCount}` : `+${hiddenScheduleCount}`}
+                </button>
               )}
             </h4>
             <ul className="sch-rail-list">
-              {schedules.map((s) => {
+              {activeSchedules.map((s) => {
                 const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0 };
                 return (
                   <li key={s.schedule}>
@@ -416,18 +451,53 @@ export default function Schedules() {
                   </li>
                 );
               })}
+              {showArchived && archivedSchedules.length > 0 && (
+                <>
+                  <li className="sch-rail-divider faint small" aria-hidden="true">
+                    Terminés · {archivedSchedules.length}
+                  </li>
+                  {archivedSchedules.map((s) => {
+                    const stat = archiveStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0 };
+                    return (
+                      <li key={s.schedule}>
+                        <button
+                          type="button"
+                          className={`sch-rail-item is-archived ${selected === s.schedule ? 'active' : ''}`}
+                          onClick={() => setSelected(s.schedule)}
+                        >
+                          <div className="sch-rail-top">
+                            <span className="mono sch-rail-num">{s.schedule}</span>
+                            <span className="sch-rail-root">{s.itemRoot || '—'}</span>
+                          </div>
+                          <div className="sch-rail-meta faint small mono">
+                            ✓ {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </>
+              )}
             </ul>
           </aside>
 
           <section className="sch-detail">
             {selectedSchedule && (() => {
-              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0 };
+              const stat =
+                railStats.get(selectedSchedule.schedule) ??
+                archiveStats.get(selectedSchedule.schedule) ??
+                { count: 0, lites: 0, m2: 0 };
               return (
                 <header className="sch-detail-head">
                   <h3>
                     <span className="mono">{selectedSchedule.schedule}</span>
                     <span className="faint"> — </span>
                     <span>{selectedSchedule.itemRoot}</span>
+                    {isArchivedSelected && (
+                      <span className="sch-archived-badge faint small" title="Schedule sans travail restant">
+                        ✓ terminé
+                      </span>
+                    )}
                   </h3>
                   <span className="faint small">
                     {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
