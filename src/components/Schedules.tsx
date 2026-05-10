@@ -159,14 +159,6 @@ export default function Schedules() {
   // its own write-back to localStorage).
   useEffect(() => { save(KEY_SPEED, vitesse); }, [vitesse]);
 
-  // Auto-select the first schedule once data loads.
-  useEffect(() => {
-    const first = data?.schedules?.[0]?.schedule ?? null;
-    if (data && (!selected || !data.schedules.some((s) => s.schedule === selected))) {
-      setSelected(first);
-    }
-  }, [data, selected]);
-
   const schedules = data?.schedules ?? [];
 
   // Filtered rows for the selected schedule. Mirrors the planner's Excel formula:
@@ -307,6 +299,20 @@ export default function Schedules() {
     return stats;
   }, [data]);
 
+  // Hide schedules with no remaining work — same filter rules as the table.
+  const visibleSchedules = useMemo(
+    () => schedules.filter((s) => (railStats.get(s.schedule)?.count ?? 0) > 0),
+    [schedules, railStats],
+  );
+
+  // Auto-select the first visible schedule once data loads, and re-pick if the
+  // current selection has been hidden (e.g. after a re-import).
+  useEffect(() => {
+    if (!data) return;
+    if (selected && visibleSchedules.some((s) => s.schedule === selected)) return;
+    setSelected(visibleSchedules[0]?.schedule ?? null);
+  }, [data, selected, visibleSchedules]);
+
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
@@ -377,10 +383,10 @@ export default function Schedules() {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Planning <span className="faint">· {schedules.length}</span>
+              Planning <span className="faint">· {visibleSchedules.length}</span>
             </h4>
             <ul className="sch-rail-list">
-              {schedules.map((s) => {
+              {visibleSchedules.map((s) => {
                 const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0 };
                 return (
                   <li key={s.schedule}>
