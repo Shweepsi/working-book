@@ -102,6 +102,22 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
 
         <div className="form-grid">
           <div className="form-section">
+            <label className="section-label">Catégorie</label>
+            <div className="flag-pick">
+              {Object.values(FLAGS).map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`flag ${draft.flag === f.key ? `flag-active ${f.key}` : 'flag-empty'}`}
+                  onClick={() => update('flag', draft.flag === f.key ? null : f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-section">
             <label className="section-label">
               Description
               <span className="mep-controls">
@@ -136,63 +152,51 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
             />
           </div>
 
-          <div className="form-section">
-            <label className="section-label">Catégorie</label>
-            <div className="flag-pick">
-              {Object.values(FLAGS).map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  className={`flag ${draft.flag === f.key ? `flag-active ${f.key}` : 'flag-empty'}`}
-                  onClick={() => update('flag', draft.flag === f.key ? null : f.key)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="form-row form-row-when-type">
             <div className="form-section">
               <label className="section-label">Quand</label>
               <div className="time-range">
-                <input
-                  type="text"
-                  className="time-input"
-                  placeholder="HH:MM"
-                  value={draft.start || ''}
-                  onChange={(e) => update('start', maskTime(e.target.value))}
-                  inputMode="numeric"
-                  maxLength={5}
-                />
-                <button
-                  type="button"
-                  className="now-btn"
-                  onClick={() => update('start', fmtHM())}
-                  title="Définir le début à maintenant"
-                  aria-label="Définir le début à maintenant"
-                >
-                  ◷
-                </button>
+                <div className="time-input-group">
+                  <input
+                    type="text"
+                    className="time-input"
+                    placeholder="HH:MM"
+                    value={draft.start || ''}
+                    onChange={(e) => update('start', maskTime(e.target.value))}
+                    inputMode="numeric"
+                    maxLength={5}
+                  />
+                  <button
+                    type="button"
+                    className="now-btn"
+                    onClick={() => update('start', fmtHM())}
+                    title="Définir le début à maintenant"
+                    aria-label="Définir le début à maintenant"
+                  >
+                    ◷
+                  </button>
+                </div>
                 <span className="arrow">→</span>
-                <input
-                  type="text"
-                  className="time-input"
-                  placeholder="HH:MM"
-                  value={draft.end || ''}
-                  onChange={(e) => update('end', maskTime(e.target.value))}
-                  inputMode="numeric"
-                  maxLength={5}
-                />
-                <button
-                  type="button"
-                  className="now-btn"
-                  onClick={() => update('end', fmtHM())}
-                  title="Définir la fin à maintenant"
-                  aria-label="Définir la fin à maintenant"
-                >
-                  ◷
-                </button>
+                <div className="time-input-group">
+                  <input
+                    type="text"
+                    className="time-input"
+                    placeholder="HH:MM"
+                    value={draft.end || ''}
+                    onChange={(e) => update('end', maskTime(e.target.value))}
+                    inputMode="numeric"
+                    maxLength={5}
+                  />
+                  <button
+                    type="button"
+                    className="now-btn"
+                    onClick={() => update('end', fmtHM())}
+                    title="Définir la fin à maintenant"
+                    aria-label="Définir la fin à maintenant"
+                  >
+                    ◷
+                  </button>
+                </div>
               </div>
             </div>
 

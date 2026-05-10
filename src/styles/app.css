@@ -799,11 +799,30 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--ink-faint);
   font-size: var(--fs-lg);
 }
-.time-range .now-btn {
-  width: 26px;
-  height: 26px;
-  font-size: var(--fs-md);
+
+/* Welded input + "now" button: shared border, no gap. The button picks up
+   the input's height so the pair reads as a single control. */
+.time-input-group {
+  display: inline-flex;
+  align-items: stretch;
 }
+.time-input-group .time-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+}
+.time-input-group .now-btn {
+  width: auto;
+  min-width: 34px;
+  height: auto;
+  min-height: 34px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-left: 1px solid var(--line-faint);
+  font-size: var(--fs-md);
+  padding: 0 var(--space-3);
+}
+.time-input-group:focus-within .time-input,
+.time-input-group:focus-within .now-btn { border-color: var(--accent); }
 
 .flag-pick {
   display: flex;
