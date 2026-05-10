@@ -159,7 +159,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
         start: stamp,
         end: '',
         type,
-        desc: meta?.prefill ? meta.label : '',
+        desc: typeof meta?.prefill === 'string' ? meta.prefill : meta?.prefill ? meta.label : '',
         flag: meta?.defaultFlag ?? null,
         notes: meta?.openNote ? [''] : [],
       },

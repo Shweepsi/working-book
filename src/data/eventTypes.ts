@@ -15,7 +15,7 @@ export const EVENT_TYPES = [
   { key: 'Recherche Couleur', label: 'Recherche Couleur', defaultFlag: 'scheduled',   prefill: true,  row: 1, openNote: true },
   { key: 'Brûlage',           label: 'Brûlage',           defaultFlag: 'scheduled',   prefill: true,  row: 1 },
   { key: 'Arrêt',             label: 'Arrêt',             defaultFlag: 'unscheduled', prefill: false, row: 1 },
-  { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: false, row: 1 },
+  { key: 'Qualité',           label: 'Qualité',           defaultFlag: 'normal',      prefill: 'Test', row: 1 },
   { key: 'Note',              label: 'Note',              defaultFlag: 'note',        prefill: false, row: 1 },
 
   // Row 2 — secondary recurring operations, hidden behind a toggle.
