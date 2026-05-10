@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode
 import { SYNC_ENABLED } from '../lib/api';
 import { load, save } from '../lib/storage';
 import { getSyncMode, setSyncMode, useSyncedState, type SyncMode } from '../lib/sync';
-import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -299,9 +299,10 @@ export default function Schedules() {
     return stats;
   }, [data]);
 
-  // Hide schedules with no remaining work — same filter rules as the table.
+  // Hide schedules with no remaining surface to coat — covers the case where
+  // every surviving row has largeur=longueur=0 (QC-style samples).
   const visibleSchedules = useMemo(
-    () => schedules.filter((s) => (railStats.get(s.schedule)?.count ?? 0) > 0),
+    () => schedules.filter((s) => (railStats.get(s.schedule)?.m2 ?? 0) > 0),
     [schedules, railStats],
   );
 
@@ -397,7 +398,7 @@ export default function Schedules() {
                     >
                       <div className="sch-rail-top">
                         <span className="mono sch-rail-num">{s.schedule}</span>
-                        <span className="sch-rail-root">{s.itemRoot || '—'}</span>
+                        <span className="sch-rail-root">{shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
                       </div>
                       <div className="sch-rail-meta faint small mono">
                         {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
@@ -417,7 +418,7 @@ export default function Schedules() {
                   <h3>
                     <span className="mono">{selectedSchedule.schedule}</span>
                     <span className="faint"> — </span>
-                    <span>{selectedSchedule.itemRoot}</span>
+                    <span>{shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
                   </h3>
                   <span className="faint small">
                     {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
