@@ -159,15 +159,40 @@ export default function Schedules() {
   // its own write-back to localStorage).
   useEffect(() => { save(KEY_SPEED, vitesse); }, [vitesse]);
 
-  // Auto-select the first schedule once data loads.
-  useEffect(() => {
-    const first = data?.schedules?.[0]?.schedule ?? null;
-    if (data && (!selected || !data.schedules.some((s) => s.schedule === selected))) {
-      setSelected(first);
+  // Stats per schedule, scoped to rows that still need work (Vacuum, off-coater
+  // ops and reqLites=0 rows are excluded — same gate the table uses). Drives
+  // the rail counts and the visibility filter that follows.
+  const railStats = useMemo(() => {
+    const stats = new Map<string, RailStat>();
+    for (const r of data?.records ?? []) {
+      if (/^Vacuum/i.test(r.itemName)) continue;
+      if (r.opStepD === 90) continue;
+      if ((r.reqLites ?? 0) <= 0) continue;
+      const cur = stats.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      cur.count += 1;
+      cur.lites += r.schedLites ?? 0;
+      cur.m2 += r.m2;
+      stats.set(r.schedule, cur);
     }
-  }, [data, selected]);
+    return stats;
+  }, [data]);
 
-  const schedules = data?.schedules ?? [];
+  // Hide schedules with nothing left to do — they clutter the rail with
+  // "0 ligne · 0 m²" rows. The SummaryBar still surfaces the raw totals so
+  // the operator can verify their paste was complete.
+  const totalScheduleCount = data?.schedules?.length ?? 0;
+  const schedules = useMemo(
+    () => (data?.schedules ?? []).filter((s) => railStats.has(s.schedule)),
+    [data, railStats],
+  );
+  const hiddenScheduleCount = totalScheduleCount - schedules.length;
+
+  // Auto-select the first non-empty schedule once data loads.
+  useEffect(() => {
+    if (!data) return;
+    if (selected && schedules.some((s) => s.schedule === selected)) return;
+    setSelected(schedules[0]?.schedule ?? null);
+  }, [data, schedules, selected]);
 
   // Filtered rows for the selected schedule. Mirrors the planner's Excel formula:
   //   - drop QC samples (item name starting with "Vacuum")
@@ -290,23 +315,6 @@ export default function Schedules() {
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
 
-  // Stats per schedule, recomputed against the same filters so the rail and
-  // detail header mirror what the user actually sees in the table.
-  const railStats = useMemo(() => {
-    const stats = new Map<string, RailStat>();
-    for (const r of data?.records ?? []) {
-      if (/^Vacuum/i.test(r.itemName)) continue;
-      if (r.opStepD === 90) continue;
-      if ((r.reqLites ?? 0) <= 0) continue;
-      const cur = stats.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
-      cur.count += 1;
-      cur.lites += r.schedLites ?? 0;
-      cur.m2 += r.m2;
-      stats.set(r.schedule, cur);
-    }
-    return stats;
-  }, [data]);
-
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
@@ -378,6 +386,14 @@ export default function Schedules() {
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
               Planning <span className="faint">· {schedules.length}</span>
+              {hiddenScheduleCount > 0 && (
+                <span
+                  className="faint small sch-rail-hidden"
+                  title={`${hiddenScheduleCount} schedule${hiddenScheduleCount > 1 ? 's' : ''} sans travail restant — masqué${hiddenScheduleCount > 1 ? 's' : ''}`}
+                >
+                  +{hiddenScheduleCount}
+                </span>
+              )}
             </h4>
             <ul className="sch-rail-list">
               {schedules.map((s) => {
