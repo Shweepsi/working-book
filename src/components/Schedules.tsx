@@ -102,12 +102,19 @@ function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): 
   }
 }
 
-// Packs to produce to cover the remaining requirement. Ceil because a partial
-// pack still counts as one.
+// Whole packs covered by the remaining requirement. Floor — the leftover
+// (reqLites % litesPerPack) is signalled in the cell by a danger style
+// instead of being rounded away into an extra pack.
 function packsReq(r: Pick<PMS230Record, 'reqLites' | 'litesPerPack'>): number {
   if (!r.litesPerPack || r.litesPerPack <= 0) return 0;
   if (!r.reqLites || r.reqLites <= 0) return 0;
-  return Math.ceil(r.reqLites / r.litesPerPack);
+  return Math.floor(r.reqLites / r.litesPerPack);
+}
+
+function packsReqShort(r: Pick<PMS230Record, 'reqLites' | 'litesPerPack'>): boolean {
+  if (!r.litesPerPack || r.litesPerPack <= 0) return false;
+  if (!r.reqLites || r.reqLites <= 0) return false;
+  return r.reqLites % r.litesPerPack !== 0;
 }
 
 function describePMS230(r: PMS230Result): string {
@@ -866,8 +873,18 @@ function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
     case 'qualite':      return row.qualite;
     case 'litesPerPack': return row.litesPerPack ?? '';
     case 'packsReq': {
+      if (!row.litesPerPack || !row.reqLites) return '';
       const n = packsReq(row);
-      return n > 0 ? n : '';
+      if (!packsReqShort(row)) return n;
+      const leftover = row.reqLites - n * row.litesPerPack;
+      return (
+        <span
+          className="sch-packs-short is-danger"
+          title={`${leftover} lite${leftover > 1 ? 's' : ''} restant${leftover > 1 ? 's' : ''} hors pack`}
+        >
+          {n}
+        </span>
+      );
     }
     case 'pdp':          return row.pdp;
     case 'm2':           return fmtNum(row.m2, 2);

@@ -2145,6 +2145,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-family: 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;
 }
+.sch-packs-short {
+  color: var(--flag-unsched-fg);
+  font-weight: 600;
+}
 .sch-warn-chip {
   margin-left: auto;
   padding: var(--space-2) var(--space-5);
