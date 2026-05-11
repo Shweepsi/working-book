@@ -1627,6 +1627,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-print-preview .sch-summary,
 :root.is-print-preview .sch-rail,
 :root.is-print-preview .sch-foot,
+:root.is-print-preview .sch-hint,
 :root.is-print-preview .sv-toolbar,
 :root.is-print-preview .sheet,
 :root.is-print-preview .sheet-backdrop,
@@ -1644,6 +1645,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   box-shadow: 0 4px 28px rgba(0, 0, 0, 0.18);
   border-radius: 2px;
   font-size: 10pt;
+}
+/* Schedule view is laid out in landscape on paper (@page sch-landscape),
+   so the preview swaps to 297mm to match. */
+:root.is-print-preview .app-main:has(.sch) {
+  max-width: 297mm;
+  padding: 10mm 10mm 14mm;
 }
 :root.is-print-preview .print-only { display: block; }
 :root.is-print-preview .print-header {
@@ -1712,6 +1719,83 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--print-ink-strong);
 }
 
+/* Schedule view print-preview mirror — keeps the in-app simulator
+   visually consistent with @media print rules below. */
+:root.is-print-preview .sch,
+:root.is-print-preview .sch-body,
+:root.is-print-preview .sch-detail { background: var(--print-bg) !important; gap: 6px; }
+:root.is-print-preview .sch-detail-head {
+  padding: 0 0 6px !important;
+  border-bottom: 1px solid var(--print-ink) !important;
+  margin-bottom: 6px;
+  background: var(--print-bg) !important;
+}
+:root.is-print-preview .sch-detail-head h3 { color: var(--print-ink-strong) !important; font-size: 13pt !important; }
+:root.is-print-preview .sch-detail-head .faint { color: var(--print-ink-soft) !important; }
+:root.is-print-preview .sch-table {
+  background: var(--print-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--print-ink-strong) !important;
+  border-radius: 0 !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+:root.is-print-preview .sch-row {
+  min-width: 0 !important;
+  background: var(--print-bg) !important;
+  border-bottom: 1px solid var(--print-line-faint) !important;
+}
+:root.is-print-preview .sch-row.sch-head {
+  position: static !important;
+  background: var(--print-bg-tint) !important;
+  color: var(--print-ink-strong) !important;
+  border-bottom: 1px solid var(--print-ink-strong) !important;
+  box-shadow: none !important;
+  font-size: 8pt !important;
+}
+:root.is-print-preview .sch-row.sch-total {
+  position: static !important;
+  background: var(--print-bg-tint) !important;
+  color: var(--print-ink-strong) !important;
+  border-top: 1.5px solid var(--print-ink-strong) !important;
+  box-shadow: none !important;
+}
+:root.is-print-preview .sch-row.sch-group-break {
+  min-height: 12px !important;
+  background: var(--print-bg-tint) !important;
+  border-bottom: 0 !important;
+}
+:root.is-print-preview .sch-group-label { color: var(--print-ink) !important; }
+:root.is-print-preview .sch-cell {
+  padding: 4px 5px !important;
+  font-size: 9pt !important;
+  color: var(--print-ink-strong) !important;
+  border-right: 1px solid var(--print-line-faint);
+}
+:root.is-print-preview .sch-cell:last-child { border-right: 0; }
+:root.is-print-preview .sch-col-resize,
+:root.is-print-preview .sch-col-drag-grip,
+:root.is-print-preview .sch-sort-arrow { display: none !important; }
+:root.is-print-preview .sch-cell.is-pinned {
+  position: static !important;
+  left: auto !important;
+  background: inherit !important;
+  z-index: auto !important;
+  box-shadow: none !important;
+}
+:root.is-print-preview .sch-cell.is-pinned-last { border-right: 1px solid var(--print-ink) !important; }
+:root.is-print-preview .sch-mto {
+  background: var(--print-bg) !important;
+  color: var(--print-ink-strong) !important;
+  border: 1px solid var(--print-ink) !important;
+}
+:root.is-print-preview .sch-packs-short {
+  color: var(--print-ink-strong) !important;
+  font-weight: 700 !important;
+  text-decoration: underline;
+}
+
 /* Floating bar across the bottom while preview is on. */
 .print-preview-bar {
   position: fixed;
@@ -1752,6 +1836,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   .app-header,
   .type-strip,
   .pt-actions,
+  .sch-controls,
+  .sch-summary,
+  .sch-rail,
+  .sch-foot,
+  .sch-hint,
+  .sv-toolbar,
   .sheet,
   .sheet-backdrop,
   .no-print {
@@ -1898,6 +1988,105 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     background: var(--print-bg) !important;
     color: var(--print-ink-strong) !important;
     min-height: 50px;
+  }
+
+  /* Schedule view: the table is wide — render it on its own landscape page
+     and force a light theme since the modular table inherits the app's dark
+     palette by default. */
+  .app:has(.sch) { page: sch-landscape; }
+  @page sch-landscape { size: A4 landscape; margin: 10mm 10mm 14mm; }
+
+  .sch,
+  .sch-body,
+  .sch-detail { background: var(--print-bg) !important; gap: 6pt; }
+  .sch-detail-head {
+    padding: 0 0 6pt !important;
+    border-bottom: 0.5pt solid var(--print-ink) !important;
+    margin-bottom: 6pt;
+    background: var(--print-bg) !important;
+  }
+  .sch-detail-head h3 { color: var(--print-ink-strong) !important; font-size: 12pt !important; }
+  .sch-detail-head .faint { color: var(--print-ink-soft) !important; font-size: 9pt; }
+
+  .sch-table {
+    background: var(--print-bg) !important;
+    background-image: none !important;
+    border: 0.5pt solid var(--print-ink-strong) !important;
+    border-radius: 0 !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .sch-row {
+    min-width: 0 !important;
+    background: var(--print-bg) !important;
+    border-bottom: 0.5pt solid var(--print-line-faint) !important;
+    transition: none !important;
+    page-break-inside: avoid;
+  }
+  .sch-row:hover { background: var(--print-bg) !important; }
+  .sch-row.sch-head {
+    position: static !important;
+    background: var(--print-bg-tint) !important;
+    color: var(--print-ink-strong) !important;
+    border-bottom: 0.5pt solid var(--print-ink-strong) !important;
+    font-size: 7.5pt !important;
+    box-shadow: none !important;
+  }
+  .sch-row.sch-total {
+    position: static !important;
+    background: var(--print-bg-tint) !important;
+    color: var(--print-ink-strong) !important;
+    border-top: 1pt solid var(--print-ink-strong) !important;
+    box-shadow: none !important;
+    font-size: 9pt !important;
+  }
+  .sch-row.sch-group-break {
+    min-height: 10pt !important;
+    background: var(--print-bg-tint) !important;
+    border-bottom: 0 !important;
+  }
+  .sch-group-label {
+    color: var(--print-ink) !important;
+    padding: 2pt 4pt !important;
+    font-size: 7.5pt !important;
+  }
+  .sch-cell {
+    padding: 3pt 4pt !important;
+    font-size: 8.5pt !important;
+    color: var(--print-ink-strong) !important;
+    border-right: 0.5pt solid var(--print-line-faint);
+  }
+  .sch-cell:last-child { border-right: 0; }
+  .sch-row.sch-head .sch-cell { padding: 4pt 4pt !important; }
+
+  /* Strip the modular-table interactive chrome — handles, grips, sort arrows. */
+  .sch-col-resize,
+  .sch-col-drag-grip,
+  .sch-sort-arrow { display: none !important; }
+
+  /* Pinned columns lose their stickiness in print; they're regular cells
+     since there's no horizontal scroll on paper. */
+  .sch-cell.is-pinned {
+    position: static !important;
+    left: auto !important;
+    background: inherit !important;
+    z-index: auto !important;
+    box-shadow: none !important;
+  }
+  .sch-cell.is-pinned-last { border-right: 0.5pt solid var(--print-ink) !important; }
+
+  /* MTO badge: monochrome border so the letter still reads. */
+  .sch-mto {
+    background: var(--print-bg) !important;
+    color: var(--print-ink-strong) !important;
+    border: 0.5pt solid var(--print-ink) !important;
+  }
+  /* P/REQ short marker: substitute the danger tint with bold + underline. */
+  .sch-packs-short {
+    color: var(--print-ink-strong) !important;
+    font-weight: 700 !important;
+    text-decoration: underline;
   }
 }
 
