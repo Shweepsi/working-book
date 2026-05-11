@@ -2411,6 +2411,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border: 1px solid var(--line-faint);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   overflow-x: auto;
+  /* Vertical scroll inside the table — required so position:sticky on the
+     header/total rows actually anchors to the visible table area instead of
+     vanishing into page scroll. dvh handles mobile browser chrome. */
+  max-height: calc(100dvh - var(--sch-table-vert-offset, 240px));
+  min-height: 320px;
   background: var(--paper);
   /* Right-edge fade hints at horizontal scroll */
   background-image:
@@ -2691,6 +2696,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 :root[data-density='compact'] .sch {
   --sch-header-offset: 56px;
+  --sch-table-vert-offset: 190px;
 }
 :root[data-density='compact'] .sch-summary { padding: 8px 12px; gap: 6px; }
 :root[data-density='compact'] .sch-summary-stats { gap: 12px; font-size: var(--fs-sm); }
@@ -2700,10 +2706,13 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root[data-density='compact'] .sch-rail-item { padding: 4px 8px; gap: 2px; font-size: var(--fs-md); }
 :root[data-density='compact'] .sch-rail-num { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-rail-meta { font-size: 9px; }
-:root[data-density='compact'] .sch-cell { padding: 3px 6px; font-size: var(--fs-sm); }
+:root[data-density='compact'] .sch-cell { padding: 2px 6px; font-size: var(--fs-sm); line-height: 1.25; }
 :root[data-density='compact'] .sch-row.sch-head { font-size: 9px; }
-:root[data-density='compact'] .sch-row.sch-head .sch-cell { padding-top: 6px; padding-bottom: 6px; }
+:root[data-density='compact'] .sch-row.sch-head .sch-cell { padding-top: 4px; padding-bottom: 4px; }
 :root[data-density='compact'] .sch-row.sch-total { font-size: var(--fs-md); }
+:root[data-density='compact'] .sch-row.sch-total .sch-cell { padding-top: 4px; padding-bottom: 4px; }
+:root[data-density='compact'] .sch-name { line-height: 1.2; }
+:root[data-density='compact'] .sch-customer { line-height: 1.2; margin-top: 0; }
 :root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: 9px; }
 :root[data-density='compact'] .sch-customer { font-size: 9px; }
 :root[data-density='compact'] .sch-foot { padding: 4px 8px; gap: 6px; }
@@ -2716,6 +2725,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 /* Advanced loosens spacing on top of revealing the customer name (handled
    via .sch-customer rule above). */
+:root[data-density='advanced'] .sch { --sch-table-vert-offset: 290px; }
 :root[data-density='advanced'] .sch-summary { padding: 14px 16px; gap: 12px; }
 :root[data-density='advanced'] .sch-summary-stats { gap: 22px; font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; }
