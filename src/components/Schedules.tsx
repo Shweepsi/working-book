@@ -35,7 +35,7 @@ interface RailStat {
   nameCounts: Map<string, number>;
 }
 
-type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'scraps' | 'qualite' | 'pdp' | 'm2';
+type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'scraps' | 'qualite' | 'pdp' | 'm2' | 'packsReq';
 type SortDir = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -59,6 +59,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'format',     label: 'Format',   cls: 'col-fmt',                   sortKey: 'longueur'  },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q',                     sortKey: 'qualite'   },
   { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num',                                       optional: true },
+  { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',                   sortKey: 'packsReq' },
   { key: 'pdp',        label: 'PDP',      cls: 'col-pdp',                   sortKey: 'pdp'       },
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
@@ -92,12 +93,21 @@ function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): 
     case 'reqLites':   return sign * (a.reqLites - b.reqLites);
     case 'scraps':     return sign * ((a.scraps ?? 0) - (b.scraps ?? 0));
     case 'm2':         return sign * (a.m2 - b.m2);
+    case 'packsReq':   return sign * (packsReq(a) - packsReq(b));
     case 'dateDepart': return sign * String(a.dateDepart || '').localeCompare(String(b.dateDepart || ''));
     case 'product':    return sign * String(a.product || '').localeCompare(String(b.product || ''));
     case 'itemName':   return sign * String(a.itemName || '').localeCompare(String(b.itemName || ''));
     case 'qualite':    return sign * String(a.qualite || '').localeCompare(String(b.qualite || ''));
     case 'pdp':        return sign * String(a.pdp || '').localeCompare(String(b.pdp || ''));
   }
+}
+
+// Packs to produce to cover the remaining requirement. Ceil because a partial
+// pack still counts as one.
+function packsReq(r: Pick<PMS230Record, 'reqLites' | 'litesPerPack'>): number {
+  if (!r.litesPerPack || r.litesPerPack <= 0) return 0;
+  if (!r.reqLites || r.reqLites <= 0) return 0;
+  return Math.ceil(r.reqLites / r.litesPerPack);
 }
 
 function describePMS230(r: PMS230Result): string {
@@ -614,6 +624,7 @@ const COL_WIDTHS: Record<string, string> = {
   format: '116px',
   qualite: '68px',
   litesPerPack: '68px',
+  packsReq: '68px',
   pdp: 'minmax(100px, 1fr)',
   m2: '88px',
 };
@@ -854,6 +865,10 @@ function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
       ) : '';
     case 'qualite':      return row.qualite;
     case 'litesPerPack': return row.litesPerPack ?? '';
+    case 'packsReq': {
+      const n = packsReq(row);
+      return n > 0 ? n : '';
+    }
     case 'pdp':          return row.pdp;
     case 'm2':           return fmtNum(row.m2, 2);
     default:             return null;
@@ -875,7 +890,7 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
           c.key === 'dateDepart' || c.key === 'mo' || c.key === 'product' ||
           c.key === 'schedLites' || c.key === 'prodLites' || c.key === 'reqLites' ||
           c.key === 'scraps' || c.key === 'format' || c.key === 'qualite' ||
-          c.key === 'litesPerPack' || c.key === 'm2'
+          c.key === 'litesPerPack' || c.key === 'packsReq' || c.key === 'm2'
             ? 'mono'
             : '';
         const titleAttr = c.key === 'pdp' ? row.pdp : undefined;
@@ -897,6 +912,7 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] 
   const sched = totalLites(rows);
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
+  const packs = rows.reduce((s, r) => s + packsReq(r), 0);
   const m2 = totalM2(rows);
   const labelEndIdx = columns.findIndex((c) => c.key === 'schedLites');
   return (
@@ -922,6 +938,7 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] 
         if (c.key === 'schedLites') content = <strong>{sched}</strong>;
         else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
         else if (c.key === 'reqLites') content = <strong>{req}</strong>;
+        else if (c.key === 'packsReq') content = packs > 0 ? <strong>{packs}</strong> : '';
         else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
         return (
           <div key={c.key} className={`sch-cell ${c.cls} mono`} role="cell">{content}</div>
