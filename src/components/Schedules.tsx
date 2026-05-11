@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { load, save } from '../lib/storage';
 import { getSyncMode, setSyncMode, useSyncedState, type SyncMode } from '../lib/sync';
@@ -43,7 +43,12 @@ interface ColumnDef {
   label: string;
   cls: string;
   sortKey?: SortKey;
-  optional?: boolean; // only optional cols can be hidden via the menu
+  optional?: boolean; // historical — every column is now user-toggleable
+}
+
+interface ColumnView extends ColumnDef {
+  pinnedLeft?: number;
+  pinnedLast?: boolean;
 }
 
 const COLUMNS: ColumnDef[] = [
@@ -64,12 +69,32 @@ const COLUMNS: ColumnDef[] = [
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
 
-const OPTIONAL_COLUMN_KEYS = COLUMNS.filter((c) => c.optional).map((c) => c.key);
+// All columns rendered in pinned-first display order, regardless of visibility.
+// Used by the Colonnes menu so the user can see and reorder hidden columns too.
+function orderedAllColumns(settings: { pinned: string[]; order: string[] }): ColumnDef[] {
+  const known = new Map(COLUMNS.map((c) => [c.key, c]));
+  const baseOrder = settings.order.length ? settings.order : COLUMNS.map((c) => c.key);
+  const ordered: ColumnDef[] = [];
+  const seen = new Set<string>();
+  for (const k of baseOrder) {
+    const c = known.get(k);
+    if (c && !seen.has(k)) { ordered.push(c); seen.add(k); }
+  }
+  for (const c of COLUMNS) if (!seen.has(c.key)) ordered.push(c);
+  const pinSet = new Set(settings.pinned);
+  return [
+    ...ordered.filter((c) => pinSet.has(c.key)),
+    ...ordered.filter((c) => !pinSet.has(c.key)),
+  ];
+}
 
 interface TableSettings {
   sortKey: SortKey;
   sortDir: SortDir;
   hidden: string[];
+  pinned: string[];
+  order: string[];
+  widths: Record<string, number>;
   qualite: string[];
   pdp: string[];
   mtoMts: ('MTO' | 'MTS' | '?')[];
@@ -79,6 +104,9 @@ const DEFAULT_TABLE_SETTINGS: TableSettings = {
   sortKey: 'longueur',
   sortDir: 'desc',
   hidden: [],
+  pinned: [],
+  order: [],
+  widths: {},
   qualite: [],
   pdp: [],
   mtoMts: [],
@@ -275,10 +303,57 @@ export default function Schedules() {
     });
   }
 
-  const visibleColumns = useMemo(
-    () => COLUMNS.filter((c) => !tableSettings.hidden.includes(c.key)),
-    [tableSettings.hidden],
-  );
+  function togglePinned(key: string) {
+    setTableSettings((s) => {
+      const pinned = s.pinned.includes(key) ? s.pinned.filter((k) => k !== key) : [...s.pinned, key];
+      return { ...s, pinned };
+    });
+  }
+
+  function moveColumn(key: string, dir: -1 | 1) {
+    setTableSettings((s) => {
+      const base = s.order.length ? s.order : COLUMNS.map((c) => c.key);
+      const order = base.filter((k) => COLUMNS.some((c) => c.key === k));
+      // Ensure every known column is in the list (handles upgrades that introduce new columns).
+      for (const c of COLUMNS) if (!order.includes(c.key)) order.push(c.key);
+      const i = order.indexOf(key);
+      if (i < 0) return s;
+      // Only reorder within the same pinned/unpinned group so the visual order
+      // matches the pinned-first rendering.
+      const isPinned = s.pinned.includes(key);
+      let j = i + dir;
+      while (j >= 0 && j < order.length && s.pinned.includes(order[j]!) !== isPinned) j += dir;
+      if (j < 0 || j >= order.length) return s;
+      const next = order.slice();
+      [next[i], next[j]] = [next[j]!, next[i]!];
+      return { ...s, order: next };
+    });
+  }
+
+  function setColumnWidth(key: string, px: number) {
+    setTableSettings((s) => ({ ...s, widths: { ...s.widths, [key]: Math.max(40, Math.round(px)) } }));
+  }
+
+  function resetColumnLayout() {
+    setTableSettings((s) => ({ ...s, hidden: [], pinned: [], order: [], widths: {} }));
+  }
+
+  const visibleColumns = useMemo(() => {
+    const known = new Map(COLUMNS.map((c) => [c.key, c]));
+    const baseOrder = tableSettings.order.length ? tableSettings.order : COLUMNS.map((c) => c.key);
+    const ordered: ColumnDef[] = [];
+    const seen = new Set<string>();
+    for (const k of baseOrder) {
+      const c = known.get(k);
+      if (c && !seen.has(k)) { ordered.push(c); seen.add(k); }
+    }
+    for (const c of COLUMNS) if (!seen.has(c.key)) ordered.push(c);
+    const visible = ordered.filter((c) => !tableSettings.hidden.includes(c.key));
+    const pinSet = new Set(tableSettings.pinned);
+    const pinned = visible.filter((c) => pinSet.has(c.key));
+    const rest = visible.filter((c) => !pinSet.has(c.key));
+    return [...pinned, ...rest];
+  }, [tableSettings.hidden, tableSettings.pinned, tableSettings.order]);
 
   // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
@@ -463,6 +538,7 @@ export default function Schedules() {
 
             <TableControls
               settings={tableSettings}
+              visibleColumns={visibleColumns}
               available={availableFilters}
               filteringActive={filteringActive}
               colsMenuOpen={colsMenuOpen}
@@ -471,6 +547,9 @@ export default function Schedules() {
               onToggleFilterValue={toggleFilterValue}
               onClearFilters={clearFilters}
               onToggleColumn={toggleColumnVisibility}
+              onTogglePinned={togglePinned}
+              onMoveColumn={moveColumn}
+              onResetLayout={resetColumnLayout}
             />
 
             <ScheduleTable
@@ -478,6 +557,9 @@ export default function Schedules() {
               totals={visibleRows}
               onRowOpen={handleRowOpen}
               columns={visibleColumns}
+              pinned={tableSettings.pinned}
+              widths={tableSettings.widths}
+              onResize={setColumnWidth}
               sortKey={tableSettings.sortKey}
               sortDir={tableSettings.sortDir}
               onSort={toggleSort}
@@ -611,9 +693,24 @@ interface ScheduleTableProps {
   totals: DisplayRow[];
   onRowOpen: (row: DisplayRow) => void;
   columns: ColumnDef[];
+  pinned: string[];
+  widths: Record<string, number>;
+  onResize: (key: string, px: number) => void;
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
+}
+
+// Best-effort px estimate for grid columns that use minmax/auto, used to compute
+// sticky-left offsets without measuring the DOM.
+function columnPx(key: string, override?: number): number {
+  if (override) return override;
+  const w = COL_WIDTHS[key] || '';
+  const m = /^(\d+)px$/.exec(w);
+  if (m) return parseInt(m[1], 10);
+  const mm = /minmax\((\d+)px/.exec(w);
+  if (mm) return parseInt(mm[1], 10);
+  return 80;
 }
 
 // Per-column track widths matching the original fixed grid. Optional columns
@@ -636,7 +733,52 @@ const COL_WIDTHS: Record<string, string> = {
   m2: '88px',
 };
 
-function ScheduleTable({ items, totals, onRowOpen, columns, sortKey, sortDir, onSort }: ScheduleTableProps) {
+interface ColumnResizeHandleProps {
+  colKey: string;
+  startPx: number;
+  onResize: (key: string, px: number) => void;
+}
+
+function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandleProps) {
+  const dragState = useRef<{ originX: number; originPx: number } | null>(null);
+
+  function onPointerDown(e: ReactPointerEvent<HTMLSpanElement>) {
+    // Block the parent's sort click and own the pointer for the drag duration.
+    e.stopPropagation();
+    e.preventDefault();
+    dragState.current = { originX: e.clientX, originPx: startPx };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: ReactPointerEvent<HTMLSpanElement>) {
+    if (!dragState.current) return;
+    const delta = e.clientX - dragState.current.originX;
+    onResize(colKey, dragState.current.originPx + delta);
+  }
+
+  function onPointerUp(e: ReactPointerEvent<HTMLSpanElement>) {
+    if (!dragState.current) return;
+    dragState.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+
+  return (
+    <span
+      className="sch-col-resize"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Redimensionner la colonne"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    />
+  );
+}
+
+function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, sortKey, sortDir, onSort }: ScheduleTableProps) {
   if (totals.length === 0) {
     return (
       <div className="sch-empty-rows faint">
@@ -645,19 +787,35 @@ function ScheduleTable({ items, totals, onRowOpen, columns, sortKey, sortDir, on
     );
   }
 
-  const gridTemplate = columns.map((c) => COL_WIDTHS[c.key] || 'auto').join(' ');
+  // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
+  const gridTemplate = columns.map((c) => {
+    const w = widths[c.key];
+    return w ? `${w}px` : (COL_WIDTHS[c.key] || 'auto');
+  }).join(' ');
   // Sum the numeric components to set a reasonable min-width that keeps the
   // table from collapsing in narrow viewports.
-  const minPx = columns.reduce((acc, c) => {
-    const w = COL_WIDTHS[c.key] || '';
-    const m = /^(\d+)px$/.exec(w);
-    if (m) return acc + parseInt(m[1], 10);
-    if (w.includes('minmax')) {
-      const mm = /minmax\((\d+)px/.exec(w);
-      if (mm) return acc + parseInt(mm[1], 10);
+  const minPx = columns.reduce((acc, c) => acc + columnPx(c.key, widths[c.key]), 0);
+
+  // Pinned columns: compute left offsets so each sticky cell sits just to the
+  // right of the previous pinned one.
+  const pinSet = new Set(pinned);
+  const enrichedColumns: ColumnView[] = [];
+  let leftAcc = 0;
+  for (const c of columns) {
+    if (pinSet.has(c.key)) {
+      enrichedColumns.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
+      leftAcc += columnPx(c.key, widths[c.key]);
+    } else {
+      enrichedColumns.push({ ...c });
     }
-    return acc + 80;
-  }, 0);
+  }
+  // Tag the last pinned column so CSS can draw a divider against the unpinned rest.
+  for (let i = enrichedColumns.length - 1; i >= 0; i--) {
+    if (enrichedColumns[i]!.pinnedLeft !== undefined) {
+      enrichedColumns[i] = { ...enrichedColumns[i]!, pinnedLast: true };
+      break;
+    }
+  }
 
   return (
     <div
@@ -666,14 +824,16 @@ function ScheduleTable({ items, totals, onRowOpen, columns, sortKey, sortDir, on
       style={{ ['--sch-grid' as string]: gridTemplate, ['--sch-min' as string]: `${minPx}px` }}
     >
       <div className="sch-row sch-head" role="row">
-        {columns.map((c) => {
+        {enrichedColumns.map((c) => {
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
           const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
+          const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
+          const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
           return (
             <div
               key={c.key}
-              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}`}
+              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pinClass}`}
               role="columnheader"
               aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
               tabIndex={sortable ? 0 : undefined}
@@ -688,9 +848,11 @@ function ScheduleTable({ items, totals, onRowOpen, columns, sortKey, sortDir, on
                     }
                   : undefined
               }
+              style={style}
             >
               {c.label}
               {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
+              <ColumnResizeHandle colKey={c.key} startPx={columnPx(c.key, widths[c.key])} onResize={onResize} />
             </div>
           );
         })}
@@ -702,15 +864,16 @@ function ScheduleTable({ items, totals, onRowOpen, columns, sortKey, sortDir, on
               <div className="sch-group-label">{fmtNum(it.longueur, 0)} mm</div>
             </div>
           )
-          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={columns} />
+          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
       )}
-      <TotalRow rows={totals} columns={columns} />
+      <TotalRow rows={totals} columns={enrichedColumns} />
     </div>
   );
 }
 
 interface TableControlsProps {
   settings: TableSettings;
+  visibleColumns: ColumnDef[];
   available: { qualites: string[]; pdps: string[]; mtos: string[] };
   filteringActive: boolean;
   colsMenuOpen: boolean;
@@ -719,10 +882,14 @@ interface TableControlsProps {
   onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
   onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
+  onTogglePinned: (key: string) => void;
+  onMoveColumn: (key: string, dir: -1 | 1) => void;
+  onResetLayout: () => void;
 }
 
 function TableControls({
   settings,
+  visibleColumns,
   available,
   filteringActive,
   colsMenuOpen,
@@ -731,6 +898,9 @@ function TableControls({
   onToggleFilterValue,
   onClearFilters,
   onToggleColumn,
+  onTogglePinned,
+  onMoveColumn,
+  onResetLayout,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
 
@@ -785,21 +955,56 @@ function TableControls({
         </button>
         {colsMenuOpen && (
           <div className="popover sch-cols-menu" role="menu">
-            <h4>Afficher les colonnes</h4>
-            {OPTIONAL_COLUMN_KEYS.map((k) => {
-              const col = COLUMNS.find((c) => c.key === k)!;
-              const visible = !settings.hidden.includes(k);
-              return (
-                <label key={k} className="sch-cols-opt">
-                  <input
-                    type="checkbox"
-                    checked={visible}
-                    onChange={() => onToggleColumn(k)}
-                  />
-                  <span>{col.label}</span>
-                </label>
-              );
-            })}
+            <div className="sch-cols-menu-head">
+              <h4>Colonnes</h4>
+              <button type="button" className="btn ghost mini" onClick={onResetLayout}>Réinitialiser</button>
+            </div>
+            <ul className="sch-cols-list">
+              {orderedAllColumns(settings).map((col, i, arr) => {
+                const visible = !settings.hidden.includes(col.key);
+                const pinned = settings.pinned.includes(col.key);
+                const sameGroupPrev = i > 0 && settings.pinned.includes(arr[i - 1]!.key) === pinned;
+                const sameGroupNext = i < arr.length - 1 && settings.pinned.includes(arr[i + 1]!.key) === pinned;
+                return (
+                  <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
+                    <label className="sch-cols-opt">
+                      <input
+                        type="checkbox"
+                        checked={visible}
+                        onChange={() => onToggleColumn(col.key)}
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                    <div className="sch-cols-actions">
+                      <button
+                        type="button"
+                        className={`btn ghost icon mini ${pinned ? 'is-on' : ''}`}
+                        onClick={() => onTogglePinned(col.key)}
+                        title={pinned ? 'Désépingler' : 'Épingler à gauche'}
+                        aria-pressed={pinned}
+                      >📌</button>
+                      <button
+                        type="button"
+                        className="btn ghost icon mini"
+                        onClick={() => onMoveColumn(col.key, -1)}
+                        disabled={!sameGroupPrev}
+                        title="Monter"
+                      >↑</button>
+                      <button
+                        type="button"
+                        className="btn ghost icon mini"
+                        onClick={() => onMoveColumn(col.key, 1)}
+                        disabled={!sameGroupNext}
+                        title="Descendre"
+                      >↓</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="sch-cols-menu-foot faint small">
+              {visibleColumns.length}/{COLUMNS.length} visibles · {settings.pinned.length} épinglée{settings.pinned.length > 1 ? 's' : ''}
+            </div>
           </div>
         )}
       </div>
@@ -841,7 +1046,7 @@ function FilterGroup({ label, options, selected, onToggle }: FilterGroupProps) {
 interface ScheduleRowProps {
   row: DisplayRow;
   onOpen: (row: DisplayRow) => void;
-  columns: ColumnDef[];
+  columns: ColumnView[];
 }
 
 function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
@@ -911,11 +1116,14 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
             ? 'mono'
             : '';
         const titleAttr = c.key === 'pdp' ? row.pdp : undefined;
+        const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
+        const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
         return (
           <span
             key={c.key}
-            className={`sch-cell ${c.cls} ${monoExtra}`}
+            className={`sch-cell ${c.cls} ${monoExtra}${pinClass}`}
             title={titleAttr}
+            style={style}
           >
             {renderRowCell(c, row)}
           </span>
@@ -925,12 +1133,15 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
   );
 });
 
-function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] }) {
+function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[] }) {
   const sched = totalLites(rows);
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
-  const labelEndIdx = columns.findIndex((c) => c.key === 'schedLites');
+  // Pinned columns break the "Total" label span — collapse the label only when
+  // the leading columns are not pinned. Otherwise show "Total" only in the first cell.
+  const hasPinned = columns.some((c) => c.pinnedLeft !== undefined);
+  const labelEndIdx = hasPinned ? -1 : columns.findIndex((c) => c.key === 'schedLites');
   return (
     <div className="sch-row sch-total" role="row">
       {columns.map((c, i) => {
@@ -951,12 +1162,15 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] 
           return null;
         }
         let content: ReactNode = '';
-        if (c.key === 'schedLites') content = <strong>{sched}</strong>;
+        if (hasPinned && i === 0) content = <strong>Total · {rows.length}</strong>;
+        else if (c.key === 'schedLites') content = <strong>{sched}</strong>;
         else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
         else if (c.key === 'reqLites') content = <strong>{req}</strong>;
         else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
+        const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
+        const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
         return (
-          <div key={c.key} className={`sch-cell ${c.cls} mono`} role="cell">{content}</div>
+          <div key={c.key} className={`sch-cell ${c.cls} mono${pinClass}`} role="cell" style={style}>{content}</div>
         );
       })}
     </div>

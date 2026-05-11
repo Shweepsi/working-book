@@ -2361,9 +2361,49 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-cols-menu {
   right: 0;
   left: auto;
-  min-width: 180px;
+  min-width: 280px;
   gap: var(--space-2);
 }
+.sch-cols-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.sch-cols-menu-head h4 { margin: 0; }
+.sch-cols-menu-foot {
+  border-top: 1px solid var(--line-faint);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+}
+.sch-cols-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.sch-cols-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.sch-cols-item:hover { background: var(--paper-2); }
+.sch-cols-item.is-pinned { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.sch-cols-item.is-pinned:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sch-cols-item.is-hidden .sch-cols-opt span { color: var(--ink-faint); text-decoration: line-through; }
+.sch-cols-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.sch-cols-actions .btn.is-on { color: var(--accent); }
 .sch-cols-opt {
   display: inline-flex;
   align-items: center;
@@ -2373,8 +2413,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   cursor: pointer;
   user-select: none;
   padding: 2px 0;
+  flex: 1;
+  min-width: 0;
 }
 .sch-cols-opt input { accent-color: var(--accent); }
+.sch-cols-opt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Sortable column headers — pointer cursor + hover affordance + sort arrow. */
 .sch-row.sch-head .sch-cell.is-sortable { cursor: pointer; }
@@ -2509,9 +2552,51 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   overflow: hidden;
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
+  position: relative;
 }
 .sch-cell.col-num,
 .sch-cell.col-m2 { text-align: right; }
+
+/* Pinned columns — stay glued to the left while the rest scrolls horizontally.
+   Background must be opaque so cells underneath don't bleed through. */
+.sch-cell.is-pinned {
+  position: sticky;
+  background: var(--paper);
+  z-index: 1;
+}
+.sch-row:hover .sch-cell.is-pinned {
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+}
+.sch-row.sch-head .sch-cell.is-pinned { background: var(--paper-2); z-index: 3; }
+.sch-row.sch-total .sch-cell.is-pinned { background: var(--paper-2); z-index: 3; }
+.sch-row.is-qc .sch-cell.is-pinned { background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper)); }
+.sch-cell.is-pinned-last {
+  box-shadow: inset -1px 0 0 var(--line-soft), 2px 0 4px -2px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+/* Column resize handle — narrow strip on the right edge of header cells. */
+.sch-col-resize {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: -3px;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 4;
+  touch-action: none;
+}
+.sch-col-resize::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background 100ms ease;
+}
+.sch-col-resize:hover::before,
+.sch-col-resize:active::before { background: var(--accent); }
 .sch-cell.col-fmt { text-align: center; }
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }
