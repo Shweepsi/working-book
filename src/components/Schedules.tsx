@@ -1026,6 +1026,7 @@ function fmtTime(hhmm: string | null | undefined): string {
 function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
   useEscapeToClose(onClose);
 
+  const short = shortItemName(row.itemName);
   const format = row.largeur && row.longueur
     ? `${fmtNum(row.largeur, 0)} × ${fmtNum(row.longueur, 0)} mm`
     : '—';
@@ -1047,15 +1048,20 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         <div className="sheet-head">
           <div className="sch-row-sheet-title">
             <span className="sch-mto" data-mto={mtoMts}>{mtoMts}</span>
-            <h3 className="mono">{row.product}</h3>
-            <span className="faint small mono">{row.mo}</span>
+            <div className="sch-row-sheet-heading">
+              <h3 className="mono sch-row-sheet-article">
+                {row.itemName || <span className="faint">(sans nom)</span>}
+                {short && short !== row.itemName && <span className="faint sch-row-sheet-short"> ({short})</span>}
+              </h3>
+              <div className="sch-row-sheet-sub faint small mono">
+                <span>{row.mo}</span>
+                <span aria-hidden="true">·</span>
+                <span>{row.product}</span>
+                {row.customer && (<><span aria-hidden="true">·</span><span className="sch-row-sheet-customer" title={row.customer}>{row.customer}</span></>)}
+              </div>
+            </div>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
-        </div>
-
-        <div className="sch-row-sheet-name">
-          <div className="sch-row-sheet-itemname">{row.itemName || <span className="faint">(sans nom)</span>}</div>
-          {row.customer && <div className="faint small">{row.customer}</div>}
         </div>
 
         <dl className="sch-row-sheet-grid">
@@ -1075,6 +1081,12 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             <Stat label="Req" value={row.reqLites} highlight />
             <Stat label="Scraps" value={row.scraps ?? 0} />
             <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
+            <Stat
+              label="P/REQ"
+              value={row.litesPerPack && row.reqLites ? packsReq(row) : '—'}
+              danger={packsReqShort(row)}
+              dangerTitle={packsReqShort(row) ? `${row.reqLites - packsReq(row) * (row.litesPerPack ?? 0)} lite(s) hors pack` : undefined}
+            />
           </div>
         </div>
 
@@ -1122,11 +1134,16 @@ interface StatProps {
   value: ReactNode;
   highlight?: boolean;
   wide?: boolean;
+  danger?: boolean;
+  dangerTitle?: string;
 }
 
-function Stat({ label, value, highlight, wide }: StatProps) {
+function Stat({ label, value, highlight, wide, danger, dangerTitle }: StatProps) {
   return (
-    <div className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''}`}>
+    <div
+      className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''} ${danger ? 'is-danger' : ''}`}
+      title={dangerTitle}
+    >
       <span className="sch-row-sheet-stat-label">{label}</span>
       <strong className="mono">{value}</strong>
     </div>
