@@ -912,7 +912,6 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] 
   const sched = totalLites(rows);
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
-  const packs = rows.reduce((s, r) => s + packsReq(r), 0);
   const m2 = totalM2(rows);
   const labelEndIdx = columns.findIndex((c) => c.key === 'schedLites');
   return (
@@ -938,7 +937,6 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnDef[] 
         if (c.key === 'schedLites') content = <strong>{sched}</strong>;
         else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
         else if (c.key === 'reqLites') content = <strong>{req}</strong>;
-        else if (c.key === 'packsReq') content = packs > 0 ? <strong>{packs}</strong> : '';
         else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
         return (
           <div key={c.key} className={`sch-cell ${c.cls} mono`} role="cell">{content}</div>
