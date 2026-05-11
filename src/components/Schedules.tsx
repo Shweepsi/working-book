@@ -43,7 +43,6 @@ interface ColumnDef {
   label: string;
   cls: string;
   sortKey?: SortKey;
-  optional?: boolean; // historical — every column is now user-toggleable
 }
 
 interface ColumnView extends ColumnDef {
@@ -51,23 +50,48 @@ interface ColumnView extends ColumnDef {
   pinnedLast?: boolean;
 }
 
+// Class + style fragments for a cell of a possibly-pinned column. Returns
+// empty defaults for non-pinned cells so callers can spread the result
+// without branching at every call site.
+function pinnedAttrs(c: ColumnView): { className: string; style: CSSProperties | undefined } {
+  if (c.pinnedLeft === undefined) return { className: '', style: undefined };
+  return {
+    className: ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}`,
+    style: { left: `${c.pinnedLeft}px` },
+  };
+}
+
 const COLUMNS: ColumnDef[] = [
   { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'                                       },
-  { key: 'dateDepart', label: 'Départ',   cls: 'col-date',                  sortKey: 'dateDepart', optional: true },
-  { key: 'mo',         label: 'MO',       cls: 'col-mo',                                        optional: true },
-  { key: 'product',    label: 'Produit',  cls: 'col-prod',                  sortKey: 'product'   },
-  { key: 'itemName',   label: 'Article',  cls: 'col-name',                  sortKey: 'itemName'  },
-  { key: 'schedLites', label: 'Sched',    cls: 'col-num',                   sortKey: 'schedLites' },
-  { key: 'prodLites',  label: 'Prod',     cls: 'col-num',                   sortKey: 'prodLites' },
-  { key: 'reqLites',   label: 'Req',      cls: 'col-num',                   sortKey: 'reqLites'  },
-  { key: 'scraps',     label: 'Scraps',   cls: 'col-num',                   sortKey: 'scraps',   optional: true },
-  { key: 'format',     label: 'Format',   cls: 'col-fmt',                   sortKey: 'longueur'  },
-  { key: 'qualite',    label: 'Qualité',  cls: 'col-q',                     sortKey: 'qualite'   },
-  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num',                                       optional: true },
-  { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',                   sortKey: 'packsReq' },
+  { key: 'dateDepart', label: 'Départ',   cls: 'col-date', sortKey: 'dateDepart' },
+  { key: 'mo',         label: 'MO',       cls: 'col-mo'                                         },
+  { key: 'product',    label: 'Produit',  cls: 'col-prod', sortKey: 'product'    },
+  { key: 'itemName',   label: 'Article',  cls: 'col-name', sortKey: 'itemName'   },
+  { key: 'schedLites', label: 'Sched',    cls: 'col-num',  sortKey: 'schedLites' },
+  { key: 'prodLites',  label: 'Prod',     cls: 'col-num',  sortKey: 'prodLites'  },
+  { key: 'reqLites',   label: 'Req',      cls: 'col-num',  sortKey: 'reqLites'   },
+  { key: 'scraps',     label: 'Scraps',   cls: 'col-num',  sortKey: 'scraps'     },
+  { key: 'format',     label: 'Format',   cls: 'col-fmt',  sortKey: 'longueur'   },
+  { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
+  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'                                         },
+  { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',  sortKey: 'packsReq'   },
   { key: 'pdp',        label: 'PDP',      cls: 'col-pdp',                   sortKey: 'pdp'       },
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
+
+// Drop keys that no longer correspond to a real column. Stale entries can
+// accumulate across version upgrades that rename or remove columns; without
+// pruning, hidden/pinned/order/widths keep growing forever in localStorage.
+function sanitiseTableSettings(s: TableSettings): TableSettings {
+  const known = new Set(COLUMNS.map((c) => c.key));
+  return {
+    ...s,
+    hidden: s.hidden.filter((k) => known.has(k)),
+    pinned: s.pinned.filter((k) => known.has(k)),
+    order: s.order.filter((k) => known.has(k)),
+    widths: Object.fromEntries(Object.entries(s.widths).filter(([k]) => known.has(k))),
+  };
+}
 
 // All columns rendered in pinned-first display order, regardless of visibility.
 // Used by the Colonnes menu so the user can see and reorder hidden columns too.
@@ -188,7 +212,7 @@ export default function Schedules() {
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
-    () => ({ ...DEFAULT_TABLE_SETTINGS, ...(load<Partial<TableSettings>>(KEY_TABLE, {})) }),
+    () => sanitiseTableSettings({ ...DEFAULT_TABLE_SETTINGS, ...(load<Partial<TableSettings>>(KEY_TABLE, {})) }),
   );
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const toast = useToast();
@@ -356,22 +380,10 @@ export default function Schedules() {
     setTableSettings((s) => ({ ...s, hidden: [], pinned: [], order: [], widths: {} }));
   }
 
-  const visibleColumns = useMemo(() => {
-    const known = new Map(COLUMNS.map((c) => [c.key, c]));
-    const baseOrder = tableSettings.order.length ? tableSettings.order : COLUMNS.map((c) => c.key);
-    const ordered: ColumnDef[] = [];
-    const seen = new Set<string>();
-    for (const k of baseOrder) {
-      const c = known.get(k);
-      if (c && !seen.has(k)) { ordered.push(c); seen.add(k); }
-    }
-    for (const c of COLUMNS) if (!seen.has(c.key)) ordered.push(c);
-    const visible = ordered.filter((c) => !tableSettings.hidden.includes(c.key));
-    const pinSet = new Set(tableSettings.pinned);
-    const pinned = visible.filter((c) => pinSet.has(c.key));
-    const rest = visible.filter((c) => !pinSet.has(c.key));
-    return [...pinned, ...rest];
-  }, [tableSettings.hidden, tableSettings.pinned, tableSettings.order]);
+  const visibleColumns = useMemo(
+    () => orderedAllColumns(tableSettings).filter((c) => !tableSettings.hidden.includes(c.key)),
+    [tableSettings.hidden, tableSettings.pinned, tableSettings.order],
+  );
 
   // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
@@ -819,14 +831,43 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
   useEffect(() => {
     const el = tableRef.current;
     if (!el) return;
-    function update() {
-      if (!el) return;
-      el.classList.toggle('is-scrolled-x', el.scrollLeft > 0);
-    }
+    const update = () => el.classList.toggle('is-scrolled-x', el.scrollLeft > 0);
     update();
     el.addEventListener('scroll', update, { passive: true });
     return () => el.removeEventListener('scroll', update);
   }, []);
+
+  // Tag pinned columns with their cumulative px offset so each cell can stick
+  // exactly to the right of the previous pinned one. Memoised because the
+  // result is passed to memo'd row components — a fresh array every render
+  // would invalidate every row.
+  const enrichedColumns = useMemo<ColumnView[]>(() => {
+    const pinSet = new Set(pinned);
+    const out: ColumnView[] = [];
+    let leftAcc = 0;
+    for (const c of columns) {
+      if (pinSet.has(c.key)) {
+        out.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
+        leftAcc += columnPx(c.key, widths[c.key]);
+      } else {
+        out.push({ ...c });
+      }
+    }
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (out[i]!.pinnedLeft !== undefined) {
+        out[i] = { ...out[i]!, pinnedLast: true };
+        break;
+      }
+    }
+    return out;
+  }, [columns, pinned, widths]);
+
+  // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
+  // minPx keeps the grid from collapsing in narrow viewports.
+  const { gridTemplate, minPx } = useMemo(() => ({
+    gridTemplate: columns.map((c) => widths[c.key] ? `${widths[c.key]}px` : (COL_WIDTHS[c.key] || 'auto')).join(' '),
+    minPx: columns.reduce((acc, c) => acc + columnPx(c.key, widths[c.key]), 0),
+  }), [columns, widths]);
 
   if (totals.length === 0) {
     return (
@@ -834,36 +875,6 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
         Aucune ligne pour ce schedule.
       </div>
     );
-  }
-
-  // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
-  const gridTemplate = columns.map((c) => {
-    const w = widths[c.key];
-    return w ? `${w}px` : (COL_WIDTHS[c.key] || 'auto');
-  }).join(' ');
-  // Sum the numeric components to set a reasonable min-width that keeps the
-  // table from collapsing in narrow viewports.
-  const minPx = columns.reduce((acc, c) => acc + columnPx(c.key, widths[c.key]), 0);
-
-  // Pinned columns: compute left offsets so each sticky cell sits just to the
-  // right of the previous pinned one.
-  const pinSet = new Set(pinned);
-  const enrichedColumns: ColumnView[] = [];
-  let leftAcc = 0;
-  for (const c of columns) {
-    if (pinSet.has(c.key)) {
-      enrichedColumns.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
-      leftAcc += columnPx(c.key, widths[c.key]);
-    } else {
-      enrichedColumns.push({ ...c });
-    }
-  }
-  // Tag the last pinned column so CSS can draw a divider against the unpinned rest.
-  for (let i = enrichedColumns.length - 1; i >= 0; i--) {
-    if (enrichedColumns[i]!.pinnedLeft !== undefined) {
-      enrichedColumns[i] = { ...enrichedColumns[i]!, pinnedLast: true };
-      break;
-    }
   }
 
   return (
@@ -878,14 +889,13 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
           const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
-          const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
+          const pin = pinnedAttrs(c);
           const isDragOver = dragOverKey === c.key && dragKeyRef.current && dragKeyRef.current !== c.key;
           const sameGroupDrag = isDragOver && pinned.includes(dragKeyRef.current!) === pinned.includes(c.key);
-          const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
           return (
             <div
               key={c.key}
-              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pinClass}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
+              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pin.className}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
               role="columnheader"
               aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
               tabIndex={sortable ? 0 : undefined}
@@ -900,7 +910,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
                     }
                   : undefined
               }
-              style={style}
+              style={pin.style}
               draggable
               onDragStart={(e) => {
                 dragKeyRef.current = c.key;
@@ -1199,14 +1209,13 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
             ? 'mono'
             : '';
         const titleAttr = c.key === 'pdp' ? row.pdp : undefined;
-        const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
-        const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
+        const pin = pinnedAttrs(c);
         return (
           <span
             key={c.key}
-            className={`sch-cell ${c.cls} ${monoExtra}${pinClass}`}
+            className={`sch-cell ${c.cls} ${monoExtra}${pin.className}`}
             title={titleAttr}
-            style={style}
+            style={pin.style}
           >
             {renderRowCell(c, row)}
           </span>
@@ -1250,10 +1259,9 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
         else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
         else if (c.key === 'reqLites') content = <strong>{req}</strong>;
         else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
-        const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
-        const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
+        const pin = pinnedAttrs(c);
         return (
-          <div key={c.key} className={`sch-cell ${c.cls} mono${pinClass}`} role="cell" style={style}>{content}</div>
+          <div key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} role="cell" style={pin.style}>{content}</div>
         );
       })}
     </div>
