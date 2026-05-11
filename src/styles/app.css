@@ -2571,32 +2571,116 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-row.sch-total .sch-cell.is-pinned { background: var(--paper-2); z-index: 3; }
 .sch-row.is-qc .sch-cell.is-pinned { background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper)); }
 .sch-cell.is-pinned-last {
-  box-shadow: inset -1px 0 0 var(--line-soft), 2px 0 4px -2px color-mix(in srgb, var(--ink) 18%, transparent);
+  border-right: 1px solid var(--line-soft);
+}
+/* Only show the drop shadow when the table has actually scrolled horizontally
+   past the pinned column, otherwise it would look like a permanent border. */
+.sch-table.is-scrolled-x .sch-cell.is-pinned-last {
+  box-shadow: 6px 0 6px -4px color-mix(in srgb, var(--ink) 22%, transparent);
+  clip-path: inset(0 -10px 0 0);
 }
 
-/* Column resize handle — narrow strip on the right edge of header cells. */
+/* Column resize handle — narrow strip on the right edge of header cells.
+   The visual line is permanently rendered subtle and turns into the accent
+   color on hover or while dragging. */
 .sch-col-resize {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  right: -3px;
-  width: 7px;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 9px;
   cursor: col-resize;
   z-index: 4;
   touch-action: none;
+  user-select: none;
 }
 .sch-col-resize::before {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
+  top: 6px;
+  bottom: 6px;
+  left: 4px;
   width: 1px;
+  background: var(--line-faint);
+  transition: background 100ms ease, width 100ms ease, left 100ms ease;
+}
+.sch-row.sch-head .sch-cell:hover .sch-col-resize::before { background: var(--line-soft); }
+.sch-col-resize:hover::before,
+.sch-col-resize:active::before {
+  background: var(--accent);
+  width: 2px;
+  left: 3.5px;
+  top: 2px;
+  bottom: 2px;
+}
+/* Touch devices — enlarge the hit area so a finger can grab it reliably. */
+@media (hover: none) and (pointer: coarse) {
+  .sch-col-resize { width: 18px; right: -9px; }
+  .sch-col-resize::before { left: 8.5px; }
+}
+/* While a column is being resized, lock the cursor and disable selection
+   page-wide so the drag is smooth and doesn't pick up text. */
+body.is-col-resizing,
+body.is-col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Drag-and-drop on header cells. The native drag image is the cell itself;
+   we provide subtle source/target tints so the operator sees where the
+   column will land. */
+.sch-col-drag-grip {
+  display: inline-block;
+  width: 10px;
+  margin-right: var(--space-2);
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 100ms ease;
+  cursor: grab;
+  letter-spacing: -2px;
+  user-select: none;
+}
+.sch-row.sch-head .sch-cell:hover .sch-col-drag-grip { opacity: 0.7; }
+.sch-row.sch-head .sch-cell.is-drag-source { opacity: 0.4; }
+.sch-row.sch-head .sch-cell.is-drop-target {
+  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper-2));
+}
+
+/* Pin glyph in the Colonnes menu — vertical bar + circle on the right,
+   filled when the column is pinned. */
+.sch-cols-pin { color: var(--ink-soft); }
+.sch-cols-pin.is-on { color: var(--accent); }
+.sch-pin-glyph {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+.sch-pin-glyph::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.sch-pin-glyph::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  transform: translateY(-50%);
   background: transparent;
   transition: background 100ms ease;
 }
-.sch-col-resize:hover::before,
-.sch-col-resize:active::before { background: var(--accent); }
+.sch-cols-pin.is-on .sch-pin-glyph::after { background: currentColor; }
 .sch-cell.col-fmt { text-align: center; }
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }

@@ -330,6 +330,24 @@ export default function Schedules() {
     });
   }
 
+  function reorderColumn(fromKey: string, toKey: string) {
+    if (fromKey === toKey) return;
+    setTableSettings((s) => {
+      // Cross-group drops are ignored to keep pinned columns grouped to the left.
+      if (s.pinned.includes(fromKey) !== s.pinned.includes(toKey)) return s;
+      const base = s.order.length ? s.order : COLUMNS.map((c) => c.key);
+      const order = base.filter((k) => COLUMNS.some((c) => c.key === k));
+      for (const c of COLUMNS) if (!order.includes(c.key)) order.push(c.key);
+      const fromIdx = order.indexOf(fromKey);
+      const toIdx = order.indexOf(toKey);
+      if (fromIdx < 0 || toIdx < 0) return s;
+      const next = order.slice();
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved!);
+      return { ...s, order: next };
+    });
+  }
+
   function setColumnWidth(key: string, px: number) {
     setTableSettings((s) => ({ ...s, widths: { ...s.widths, [key]: Math.max(40, Math.round(px)) } }));
   }
@@ -560,6 +578,7 @@ export default function Schedules() {
               pinned={tableSettings.pinned}
               widths={tableSettings.widths}
               onResize={setColumnWidth}
+              onReorder={reorderColumn}
               sortKey={tableSettings.sortKey}
               sortDir={tableSettings.sortDir}
               onSort={toggleSort}
@@ -696,10 +715,13 @@ interface ScheduleTableProps {
   pinned: string[];
   widths: Record<string, number>;
   onResize: (key: string, px: number) => void;
+  onReorder: (fromKey: string, toKey: string) => void;
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
 }
+
+const COL_DRAG_MIME = 'application/x-wb-column';
 
 // Best-effort px estimate for grid columns that use minmax/auto, used to compute
 // sticky-left offsets without measuring the DOM.
@@ -742,12 +764,24 @@ interface ColumnResizeHandleProps {
 function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandleProps) {
   const dragState = useRef<{ originX: number; originPx: number } | null>(null);
 
+  function endDrag(target: HTMLSpanElement | null, pointerId?: number) {
+    if (!dragState.current) return;
+    dragState.current = null;
+    document.body.classList.remove('is-col-resizing');
+    if (target && pointerId !== undefined && target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+  }
+
   function onPointerDown(e: ReactPointerEvent<HTMLSpanElement>) {
     // Block the parent's sort click and own the pointer for the drag duration.
     e.stopPropagation();
     e.preventDefault();
     dragState.current = { originX: e.clientX, originPx: startPx };
     e.currentTarget.setPointerCapture(e.pointerId);
+    // Lock the column-resize cursor and disable text selection page-wide so
+    // the drag doesn't pick up text or flicker between cursors.
+    document.body.classList.add('is-col-resizing');
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLSpanElement>) {
@@ -756,29 +790,44 @@ function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandlePro
     onResize(colKey, dragState.current.originPx + delta);
   }
 
-  function onPointerUp(e: ReactPointerEvent<HTMLSpanElement>) {
-    if (!dragState.current) return;
-    dragState.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-  }
-
   return (
     <span
       className="sch-col-resize"
       role="separator"
       aria-orientation="vertical"
       aria-label="Redimensionner la colonne"
+      draggable={false}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
+      onDragStart={(e) => e.preventDefault()}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      onPointerUp={(e) => endDrag(e.currentTarget, e.pointerId)}
+      onPointerCancel={(e) => endDrag(e.currentTarget, e.pointerId)}
+      onLostPointerCapture={(e) => endDrag(e.currentTarget, e.pointerId)}
     />
   );
 }
 
-function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const dragKeyRef = useRef<string | null>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  // Toggle .is-scrolled-x once the operator has scrolled past the pinned
+  // columns, so the divider shadow only appears when it's actually meaningful.
+  useEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    function update() {
+      if (!el) return;
+      el.classList.toggle('is-scrolled-x', el.scrollLeft > 0);
+    }
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    return () => el.removeEventListener('scroll', update);
+  }, []);
+
   if (totals.length === 0) {
     return (
       <div className="sch-empty-rows faint">
@@ -819,6 +868,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
 
   return (
     <div
+      ref={tableRef}
       className="sch-table"
       role="table"
       style={{ ['--sch-grid' as string]: gridTemplate, ['--sch-min' as string]: `${minPx}px` }}
@@ -829,11 +879,13 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
           const isSorted = sortable && c.sortKey === sortKey;
           const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
           const pinClass = c.pinnedLeft !== undefined ? ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}` : '';
+          const isDragOver = dragOverKey === c.key && dragKeyRef.current && dragKeyRef.current !== c.key;
+          const sameGroupDrag = isDragOver && pinned.includes(dragKeyRef.current!) === pinned.includes(c.key);
           const style = c.pinnedLeft !== undefined ? { left: `${c.pinnedLeft}px` } as CSSProperties : undefined;
           return (
             <div
               key={c.key}
-              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pinClass}`}
+              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pinClass}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
               role="columnheader"
               aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
               tabIndex={sortable ? 0 : undefined}
@@ -849,7 +901,33 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
                   : undefined
               }
               style={style}
+              draggable
+              onDragStart={(e) => {
+                dragKeyRef.current = c.key;
+                e.dataTransfer.setData(COL_DRAG_MIME, c.key);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragEnd={() => { dragKeyRef.current = null; setDragOverKey(null); }}
+              onDragOver={(e) => {
+                if (!dragKeyRef.current || dragKeyRef.current === c.key) return;
+                // Only accept drops within the same pinned/unpinned group.
+                if (pinned.includes(dragKeyRef.current) !== pinned.includes(c.key)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragOverKey !== c.key) setDragOverKey(c.key);
+              }}
+              onDragLeave={() => { if (dragOverKey === c.key) setDragOverKey(null); }}
+              onDrop={(e) => {
+                const from = e.dataTransfer.getData(COL_DRAG_MIME) || dragKeyRef.current;
+                setDragOverKey(null);
+                dragKeyRef.current = null;
+                if (from && from !== c.key) {
+                  e.preventDefault();
+                  onReorder(from, c.key);
+                }
+              }}
             >
+              <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner">⋮⋮</span>
               {c.label}
               {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
               <ColumnResizeHandle colKey={c.key} startPx={columnPx(c.key, widths[c.key])} onResize={onResize} />
@@ -978,17 +1056,21 @@ function TableControls({
                     <div className="sch-cols-actions">
                       <button
                         type="button"
-                        className={`btn ghost icon mini ${pinned ? 'is-on' : ''}`}
+                        className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
                         onClick={() => onTogglePinned(col.key)}
                         title={pinned ? 'Désépingler' : 'Épingler à gauche'}
                         aria-pressed={pinned}
-                      >📌</button>
+                        aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
+                      >
+                        <span aria-hidden="true" className="sch-pin-glyph" />
+                      </button>
                       <button
                         type="button"
                         className="btn ghost icon mini"
                         onClick={() => onMoveColumn(col.key, -1)}
                         disabled={!sameGroupPrev}
                         title="Monter"
+                        aria-label="Monter la colonne"
                       >↑</button>
                       <button
                         type="button"
@@ -996,6 +1078,7 @@ function TableControls({
                         onClick={() => onMoveColumn(col.key, 1)}
                         disabled={!sameGroupNext}
                         title="Descendre"
+                        aria-label="Descendre la colonne"
                       >↓</button>
                     </div>
                   </li>
