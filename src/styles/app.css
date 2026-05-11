@@ -1719,82 +1719,39 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--print-ink-strong);
 }
 
-/* Schedule view print-preview mirror — keeps the in-app simulator
-   visually consistent with @media print rules below. */
-:root.is-print-preview .sch,
-:root.is-print-preview .sch-body,
-:root.is-print-preview .sch-detail { background: var(--print-bg) !important; gap: 6px; }
-:root.is-print-preview .sch-detail-head {
-  padding: 0 0 6px !important;
-  border-bottom: 1px solid var(--print-ink) !important;
-  margin-bottom: 6px;
-  background: var(--print-bg) !important;
-}
-:root.is-print-preview .sch-detail-head h3 { color: var(--print-ink-strong) !important; font-size: 13pt !important; }
-:root.is-print-preview .sch-detail-head .faint { color: var(--print-ink-soft) !important; }
+/* Schedule view in print-preview — only structural overrides; colours
+   come from the print token redirect in tokens.css. */
+:root.is-print-preview .sch-detail-head { padding: 0 0 6px; margin-bottom: 6px; }
+:root.is-print-preview .sch-detail-head h3 { font-size: 13pt; }
 :root.is-print-preview .sch-table {
-  background: var(--print-bg) !important;
-  background-image: none !important;
-  border: 1px solid var(--print-ink-strong) !important;
-  border-radius: 0 !important;
-  max-height: none !important;
-  min-height: 0 !important;
-  overflow: visible !important;
+  background-image: none;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+  border-radius: 0;
 }
-:root.is-print-preview .sch-row {
-  min-width: 0 !important;
-  background: var(--print-bg) !important;
-  border-bottom: 1px solid var(--print-line-faint) !important;
-}
-:root.is-print-preview .sch-row.sch-head {
-  position: static !important;
-  background: var(--print-bg-tint) !important;
-  color: var(--print-ink-strong) !important;
-  border-bottom: 1px solid var(--print-ink-strong) !important;
-  box-shadow: none !important;
-  font-size: 8pt !important;
-}
-:root.is-print-preview .sch-row.sch-total {
-  position: static !important;
-  background: var(--print-bg-tint) !important;
-  color: var(--print-ink-strong) !important;
-  border-top: 1.5px solid var(--print-ink-strong) !important;
-  box-shadow: none !important;
-}
-:root.is-print-preview .sch-row.sch-group-break {
-  min-height: 12px !important;
-  background: var(--print-bg-tint) !important;
-  border-bottom: 0 !important;
-}
-:root.is-print-preview .sch-group-label { color: var(--print-ink) !important; }
+:root.is-print-preview .sch-row { min-width: 0; }
+:root.is-print-preview .sch-row.sch-head,
+:root.is-print-preview .sch-row.sch-total { position: static; box-shadow: none; }
+:root.is-print-preview .sch-row.sch-head { font-size: 8pt; }
+:root.is-print-preview .sch-row.sch-group-break { min-height: 12px; border-bottom: 0; }
 :root.is-print-preview .sch-cell {
-  padding: 4px 5px !important;
-  font-size: 9pt !important;
-  color: var(--print-ink-strong) !important;
-  border-right: 1px solid var(--print-line-faint);
+  padding: 4px 5px;
+  font-size: 9pt;
+  border-right: 1px solid var(--line-faint);
 }
 :root.is-print-preview .sch-cell:last-child { border-right: 0; }
 :root.is-print-preview .sch-col-resize,
 :root.is-print-preview .sch-col-drag-grip,
 :root.is-print-preview .sch-sort-arrow { display: none !important; }
 :root.is-print-preview .sch-cell.is-pinned {
-  position: static !important;
-  left: auto !important;
-  background: inherit !important;
-  z-index: auto !important;
-  box-shadow: none !important;
+  position: static;
+  left: auto;
+  background: inherit;
+  z-index: auto;
+  box-shadow: none;
 }
-:root.is-print-preview .sch-cell.is-pinned-last { border-right: 1px solid var(--print-ink) !important; }
-:root.is-print-preview .sch-mto {
-  background: var(--print-bg) !important;
-  color: var(--print-ink-strong) !important;
-  border: 1px solid var(--print-ink) !important;
-}
-:root.is-print-preview .sch-packs-short {
-  color: var(--print-ink-strong) !important;
-  font-weight: 700 !important;
-  text-decoration: underline;
-}
+:root.is-print-preview .sch-packs-short { font-weight: 700; text-decoration: underline; }
 
 /* Floating bar across the bottom while preview is on. */
 .print-preview-bar {
@@ -1990,104 +1947,65 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     min-height: 50px;
   }
 
-  /* Schedule view: the table is wide — render it on its own landscape page
-     and force a light theme since the modular table inherits the app's dark
-     palette by default. */
+  /* Schedule view: wide table → its own landscape page. Colours come from
+     the print token override in tokens.css; only structural concerns
+     (layout, sticky→static, chrome suppression, paper-friendly sizing)
+     are restated here. */
   .app:has(.sch) { page: sch-landscape; }
   @page sch-landscape { size: A4 landscape; margin: 10mm 10mm 14mm; }
 
-  .sch,
-  .sch-body,
-  .sch-detail { background: var(--print-bg) !important; gap: 6pt; }
-  .sch-detail-head {
-    padding: 0 0 6pt !important;
-    border-bottom: 0.5pt solid var(--print-ink) !important;
-    margin-bottom: 6pt;
-    background: var(--print-bg) !important;
-  }
-  .sch-detail-head h3 { color: var(--print-ink-strong) !important; font-size: 12pt !important; }
-  .sch-detail-head .faint { color: var(--print-ink-soft) !important; font-size: 9pt; }
+  .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
+  .sch-detail-head h3 { font-size: 12pt; }
+  .sch-detail-head .faint { font-size: 9pt; }
 
   .sch-table {
-    background: var(--print-bg) !important;
-    background-image: none !important;
-    border: 0.5pt solid var(--print-ink-strong) !important;
-    border-radius: 0 !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    overflow: visible !important;
+    /* Defeat the in-app overflow scroll so the rows flow naturally onto paper. */
+    background-image: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    border-radius: 0;
   }
   .sch-row {
-    min-width: 0 !important;
-    background: var(--print-bg) !important;
-    border-bottom: 0.5pt solid var(--print-line-faint) !important;
-    transition: none !important;
+    min-width: 0;
+    transition: none;
     page-break-inside: avoid;
   }
-  .sch-row:hover { background: var(--print-bg) !important; }
-  .sch-row.sch-head {
-    position: static !important;
-    background: var(--print-bg-tint) !important;
-    color: var(--print-ink-strong) !important;
-    border-bottom: 0.5pt solid var(--print-ink-strong) !important;
-    font-size: 7.5pt !important;
-    box-shadow: none !important;
-  }
+  .sch-row.sch-head,
   .sch-row.sch-total {
-    position: static !important;
-    background: var(--print-bg-tint) !important;
-    color: var(--print-ink-strong) !important;
-    border-top: 1pt solid var(--print-ink-strong) !important;
-    box-shadow: none !important;
-    font-size: 9pt !important;
+    position: static;
+    box-shadow: none;
   }
-  .sch-row.sch-group-break {
-    min-height: 10pt !important;
-    background: var(--print-bg-tint) !important;
-    border-bottom: 0 !important;
-  }
-  .sch-group-label {
-    color: var(--print-ink) !important;
-    padding: 2pt 4pt !important;
-    font-size: 7.5pt !important;
-  }
+  .sch-row.sch-head { font-size: 7.5pt; }
+  .sch-row.sch-total { font-size: 9pt; }
+  .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
+  .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
   .sch-cell {
-    padding: 3pt 4pt !important;
-    font-size: 8.5pt !important;
-    color: var(--print-ink-strong) !important;
-    border-right: 0.5pt solid var(--print-line-faint);
+    padding: 3pt 4pt;
+    font-size: 8.5pt;
+    border-right: 0.5pt solid var(--line-faint);
   }
   .sch-cell:last-child { border-right: 0; }
-  .sch-row.sch-head .sch-cell { padding: 4pt 4pt !important; }
+  .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
 
-  /* Strip the modular-table interactive chrome — handles, grips, sort arrows. */
+  /* Strip the interactive chrome — handles, grips, sort arrows. */
   .sch-col-resize,
   .sch-col-drag-grip,
   .sch-sort-arrow { display: none !important; }
 
-  /* Pinned columns lose their stickiness in print; they're regular cells
-     since there's no horizontal scroll on paper. */
+  /* Pinned columns lose their stickiness in print: regular cells once
+     there's no horizontal scroll on paper. */
   .sch-cell.is-pinned {
-    position: static !important;
-    left: auto !important;
-    background: inherit !important;
-    z-index: auto !important;
-    box-shadow: none !important;
+    position: static;
+    left: auto;
+    background: inherit;
+    z-index: auto;
+    box-shadow: none;
   }
-  .sch-cell.is-pinned-last { border-right: 0.5pt solid var(--print-ink) !important; }
 
-  /* MTO badge: monochrome border so the letter still reads. */
-  .sch-mto {
-    background: var(--print-bg) !important;
-    color: var(--print-ink-strong) !important;
-    border: 0.5pt solid var(--print-ink) !important;
-  }
-  /* P/REQ short marker: substitute the danger tint with bold + underline. */
-  .sch-packs-short {
-    color: var(--print-ink-strong) !important;
-    font-weight: 700 !important;
-    text-decoration: underline;
-  }
+  /* P/REQ short cell — replace the danger tint with bold + underline so the
+     "leftover lite" signal survives in monochrome printers too. */
+  .sch-packs-short { font-weight: 700; text-decoration: underline; }
 }
 
 /* ---------- Density tweaks ----------
