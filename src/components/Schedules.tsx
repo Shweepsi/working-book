@@ -144,13 +144,38 @@ interface TableSettings {
   mtoMts: ('MTO' | 'MTS' | '?')[];
 }
 
+// Canonical column order used by every density default. Quality / pack /
+// production numbers come before format / pdp so the eye sweeps the
+// "what fits in a pack and what's left to make" cluster first.
+const DEFAULT_ORDER = [
+  'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
+  'qualite', 'litesPerPack', 'packsReq',
+  'schedLites', 'prodLites', 'reqLites',
+  'opTm', 'format', 'pdp', 'm2',
+];
+
+// Per-density default visibility. Compact strips the page down to just
+// production maths + m². Normal adds MO / Product identification. Advanced
+// also reveals the format. Article, départ, opTm, pdp stay opt-in across
+// the board (rarely scanned, available via the Colonnes menu).
+type Density = 'compact' | 'normal' | 'advanced';
+const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
+  compact:  ['mtoMts', 'dateDepart', 'mo', 'product', 'itemName', 'opTm', 'format', 'pdp'],
+  normal:   ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'format', 'pdp'],
+  advanced: ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'pdp'],
+};
+function currentDensity(): Density {
+  const v = load<string>('wb.density', 'normal');
+  return v === 'compact' || v === 'advanced' ? v : 'normal';
+}
+function defaultLayoutForDensity(density: Density): Pick<TableSettings, 'hidden' | 'pinned' | 'order' | 'widths'> {
+  return { hidden: DENSITY_DEFAULT_HIDDEN[density], pinned: [], order: DEFAULT_ORDER, widths: {} };
+}
+
 const DEFAULT_TABLE_SETTINGS: TableSettings = {
   sortKey: 'longueur',
   sortDir: 'desc',
-  hidden: [],
-  pinned: [],
-  order: [],
-  widths: {},
+  ...defaultLayoutForDensity(currentDensity()),
   qualite: [],
   pdp: [],
   mtoMts: [],
@@ -397,7 +422,9 @@ export default function Schedules() {
   }
 
   function resetColumnLayout() {
-    setTableSettings((s) => ({ ...s, hidden: [], pinned: [], order: [], widths: {} }));
+    // Re-evaluate density at reset time so the user always lands on the
+    // canonical layout for the density they're currently in.
+    setTableSettings((s) => ({ ...s, ...defaultLayoutForDensity(currentDensity()) }));
   }
 
   const visibleColumns = useMemo(
