@@ -1721,6 +1721,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 /* Schedule view in print-preview — only structural overrides; colours
    come from the print token redirect in tokens.css. */
+:root.is-print-preview .sch-body {
+  /* Defeat the rail/detail grid so the detail section spans the full page
+     once the rail is hidden — otherwise its track stays reserved on the left. */
+  display: block;
+}
 :root.is-print-preview .sch-detail-head { padding: 0 0 6px; margin-bottom: 6px; }
 :root.is-print-preview .sch-detail-head h3 { font-size: 13pt; }
 :root.is-print-preview .sch-table {
@@ -1953,6 +1958,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      are restated here. */
   .app:has(.sch) { page: sch-landscape; }
   @page sch-landscape { size: A4 landscape; margin: 10mm 10mm 14mm; }
+
+  .sch-body {
+    /* Drop the rail/detail grid so the detail section spans the full page
+       once the rail is hidden — otherwise its track stays reserved on the left. */
+    display: block;
+  }
 
   .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
   .sch-detail-head h3 { font-size: 12pt; }
