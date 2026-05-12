@@ -1777,6 +1777,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-printing .sch-cell:last-child { border-right: 0; }
 :root.is-print-preview .sch-row.sch-head .sch-cell,
 :root.is-printing .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
+/* The total label has padding !important on screen for an airier card; in
+   print we need it tight so the total row stays on the same page as the
+   data rows. */
+:root.is-print-preview .sch-total-label,
+:root.is-printing .sch-total-label { padding: 3pt 4pt !important; }
 /* Strip the interactive chrome — handles, grips, sort arrows. */
 :root.is-print-preview .sch-col-resize,
 :root.is-print-preview .sch-col-drag-grip,
@@ -2053,6 +2058,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   }
   .sch-cell:last-child { border-right: 0; }
   .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
+  .sch-total-label { padding: 3pt 4pt !important; }
   .sch-col-resize,
   .sch-col-drag-grip,
   .sch-sort-arrow { display: none !important; }
