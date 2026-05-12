@@ -1820,7 +1820,14 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   }
 
   .app-main { padding: 0; max-width: none; }
-  .app { background: var(--print-bg); }
+  .app {
+    background: var(--print-bg);
+    /* Drop the on-screen min-height: 100vh so the page doesn't get padded to
+       a full A4 height — otherwise even a tiny trailing margin spills onto
+       a phantom page 2. */
+    min-height: 0;
+    display: block;
+  }
 
   .print-only { display: block; }
 
