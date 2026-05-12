@@ -35,7 +35,7 @@ interface RailStat {
   nameCounts: Map<string, number>;
 }
 
-type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'scraps' | 'qualite' | 'pdp' | 'm2' | 'packsReq';
+type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'opTm' | 'qualite' | 'pdp' | 'm2' | 'packsReq';
 type SortDir = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -70,7 +70,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'schedLites', label: 'Sched',    cls: 'col-num',  sortKey: 'schedLites' },
   { key: 'prodLites',  label: 'Prod',     cls: 'col-num',  sortKey: 'prodLites'  },
   { key: 'reqLites',   label: 'Req',      cls: 'col-num',  sortKey: 'reqLites'   },
-  { key: 'scraps',     label: 'Scraps',   cls: 'col-num',  sortKey: 'scraps'     },
+  { key: 'opTm',       label: 'Op Tm',    cls: 'col-num',  sortKey: 'opTm'       },
   { key: 'format',     label: 'Format',   cls: 'col-fmt',  sortKey: 'longueur'   },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
   { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'                                         },
@@ -143,7 +143,7 @@ function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): 
     case 'schedLites': return sign * (a.schedLites - b.schedLites);
     case 'prodLites':  return sign * ((a.prodLites ?? 0) - (b.prodLites ?? 0));
     case 'reqLites':   return sign * (a.reqLites - b.reqLites);
-    case 'scraps':     return sign * ((a.scraps ?? 0) - (b.scraps ?? 0));
+    case 'opTm':       return sign * ((a.opTm ?? 0) - (b.opTm ?? 0));
     case 'm2':         return sign * (a.m2 - b.m2);
     case 'packsReq':   return sign * (packsReq(a) - packsReq(b));
     case 'dateDepart': return sign * String(a.dateDepart || '').localeCompare(String(b.dateDepart || ''));
@@ -303,7 +303,7 @@ export default function Schedules() {
         return { ...s, sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' };
       }
       // Numeric/date columns default to descending; text to ascending.
-      const numeric: SortKey[] = ['longueur', 'schedLites', 'prodLites', 'reqLites', 'scraps', 'm2', 'dateDepart'];
+      const numeric: SortKey[] = ['longueur', 'schedLites', 'prodLites', 'reqLites', 'opTm', 'm2', 'dateDepart'];
       return { ...s, sortKey: key, sortDir: numeric.includes(key) ? 'desc' : 'asc' };
     });
   }
@@ -758,7 +758,7 @@ const COL_WIDTHS: Record<string, string> = {
   schedLites: '62px',
   prodLites: '62px',
   reqLites: '62px',
-  scraps: '72px',
+  opTm: '72px',
   format: '116px',
   qualite: '68px',
   litesPerPack: '68px',
@@ -1159,7 +1159,7 @@ function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
     case 'schedLites':   return row.schedLites || '';
     case 'prodLites':    return row.prodLites ?? 0;
     case 'reqLites':     return row.reqLites || '';
-    case 'scraps':       return row.scraps ?? 0;
+    case 'opTm':         return row.opTm ? fmtNum(row.opTm, 2) : '';
     case 'format':
       return row.largeur && row.longueur ? (
         <>
@@ -1204,7 +1204,7 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
         const monoExtra =
           c.key === 'dateDepart' || c.key === 'mo' || c.key === 'product' ||
           c.key === 'schedLites' || c.key === 'prodLites' || c.key === 'reqLites' ||
-          c.key === 'scraps' || c.key === 'format' || c.key === 'qualite' ||
+          c.key === 'opTm' || c.key === 'format' || c.key === 'qualite' ||
           c.key === 'litesPerPack' || c.key === 'packsReq' || c.key === 'm2'
             ? 'mono'
             : '';
@@ -1384,7 +1384,7 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             <Stat label="Sched" value={row.schedLites} />
             <Stat label="Prod" value={row.prodLites ?? 0} />
             <Stat label="Req" value={row.reqLites} highlight />
-            <Stat label="Scraps" value={row.scraps ?? 0} />
+            <Stat label="Op Tm" value={row.opTm ? fmtNum(row.opTm, 2) : '—'} />
             <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
             <Stat
               label="P/REQ"
