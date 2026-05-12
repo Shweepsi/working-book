@@ -1719,49 +1719,85 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--print-ink-strong);
 }
 
-/* Schedule view in print-preview — only structural overrides; colours
-   come from the print token redirect in tokens.css. */
-:root.is-print-preview .sch-body {
-  /* Defeat the rail/detail grid so the detail section spans the full page
+/* Schedule view — print layout, shared by the on-screen aperçu
+   (:root.is-print-preview, toggled from Settings) and real printing
+   (:root.is-printing, set during the beforeprint event in App.tsx).
+   The @page declaration itself lives inside @media print below.
+   Colours come from the token redirect in tokens.css; only structural
+   / sizing rules live here, in pt units so screen and paper match. */
+:root.is-print-preview .sch-body,
+:root.is-printing .sch-body {
+  /* Drop the rail/detail grid so the detail section spans the full page
      once the rail is hidden — otherwise its track stays reserved on the left. */
   display: block;
 }
-:root.is-print-preview .sch-detail-head { padding: 0 0 6px; margin-bottom: 6px; }
-:root.is-print-preview .sch-detail-head h3 { font-size: 13pt; }
-:root.is-print-preview .sch-table {
+:root.is-print-preview .sch-detail-head,
+:root.is-printing .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
+:root.is-print-preview .sch-detail-head h3,
+:root.is-printing .sch-detail-head h3 { font-size: 12pt; }
+:root.is-print-preview .sch-detail-head .faint,
+:root.is-printing .sch-detail-head .faint { font-size: 9pt; }
+:root.is-print-preview .sch-table,
+:root.is-printing .sch-table {
+  /* Defeat the in-app overflow scroll so the rows flow naturally onto paper. */
   background-image: none;
   max-height: none;
   min-height: 0;
   overflow: visible;
   border-radius: 0;
 }
-:root.is-print-preview .sch-row {
+:root.is-print-preview .sch-row,
+:root.is-printing .sch-row {
   min-width: 0;
-  /* Fall back to the fr-based grid in print so the columns scale down to
-     the landscape A4 page width instead of overflowing past the margins. */
+  transition: none;
+  page-break-inside: avoid;
+  /* Use the fr-based grid template so columns scale to fit the landscape
+     A4 page width instead of overflowing past the right margin. */
   grid-template-columns: var(--sch-grid-print, var(--sch-grid));
 }
 :root.is-print-preview .sch-row.sch-head,
-:root.is-print-preview .sch-row.sch-total { position: static; box-shadow: none; }
-:root.is-print-preview .sch-row.sch-head { font-size: 8pt; }
-:root.is-print-preview .sch-row.sch-group-break { min-height: 12px; border-bottom: 0; }
-:root.is-print-preview .sch-cell {
-  padding: 4px 5px;
-  font-size: 9pt;
-  border-right: 1px solid var(--line-faint);
+:root.is-print-preview .sch-row.sch-total,
+:root.is-printing .sch-row.sch-head,
+:root.is-printing .sch-row.sch-total { position: static; box-shadow: none; }
+:root.is-print-preview .sch-row.sch-head,
+:root.is-printing .sch-row.sch-head { font-size: 7.5pt; }
+:root.is-print-preview .sch-row.sch-total,
+:root.is-printing .sch-row.sch-total { font-size: 9pt; }
+:root.is-print-preview .sch-row.sch-group-break,
+:root.is-printing .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
+:root.is-print-preview .sch-group-label,
+:root.is-printing .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
+:root.is-print-preview .sch-cell,
+:root.is-printing .sch-cell {
+  padding: 3pt 4pt;
+  font-size: 8.5pt;
+  border-right: 0.5pt solid var(--line-faint);
 }
-:root.is-print-preview .sch-cell:last-child { border-right: 0; }
+:root.is-print-preview .sch-cell:last-child,
+:root.is-printing .sch-cell:last-child { border-right: 0; }
+:root.is-print-preview .sch-row.sch-head .sch-cell,
+:root.is-printing .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
+/* Strip the interactive chrome — handles, grips, sort arrows. */
 :root.is-print-preview .sch-col-resize,
 :root.is-print-preview .sch-col-drag-grip,
-:root.is-print-preview .sch-sort-arrow { display: none !important; }
-:root.is-print-preview .sch-cell.is-pinned {
+:root.is-print-preview .sch-sort-arrow,
+:root.is-printing .sch-col-resize,
+:root.is-printing .sch-col-drag-grip,
+:root.is-printing .sch-sort-arrow { display: none !important; }
+/* Pinned columns lose their stickiness in print: regular cells once
+   there's no horizontal scroll on paper. */
+:root.is-print-preview .sch-cell.is-pinned,
+:root.is-printing .sch-cell.is-pinned {
   position: static;
   left: auto;
   background: inherit;
   z-index: auto;
   box-shadow: none;
 }
-:root.is-print-preview .sch-packs-short { font-weight: 700; text-decoration: underline; }
+/* P/REQ short cell — replace the danger tint with bold + underline so the
+   "leftover lite" signal survives in monochrome printers too. */
+:root.is-print-preview .sch-packs-short,
+:root.is-printing .sch-packs-short { font-weight: 700; text-decoration: underline; }
 
 /* Floating bar across the bottom while preview is on. */
 .print-preview-bar {
@@ -1968,74 +2004,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     min-height: 50px;
   }
 
-  /* Schedule view: wide table → its own landscape page. Colours come from
-     the print token override in tokens.css; only structural concerns
-     (layout, sticky→static, chrome suppression, paper-friendly sizing)
-     are restated here. */
+  /* Schedule view: wide table → its own landscape page. Everything else
+     (cell sizes, sticky→static, chrome suppression, paper-friendly sizing)
+     is shared with the on-screen aperçu and lives in the unified block
+     above keyed on :root.is-print-preview, :root.is-printing. */
   .app:has(.sch) { page: sch-landscape; }
   @page sch-landscape { size: A4 landscape; margin: 10mm 10mm 14mm; }
-
-  .sch-body {
-    /* Drop the rail/detail grid so the detail section spans the full page
-       once the rail is hidden — otherwise its track stays reserved on the left. */
-    display: block;
-  }
-
-  .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
-  .sch-detail-head h3 { font-size: 12pt; }
-  .sch-detail-head .faint { font-size: 9pt; }
-
-  .sch-table {
-    /* Defeat the in-app overflow scroll so the rows flow naturally onto paper. */
-    background-image: none;
-    max-height: none;
-    min-height: 0;
-    overflow: visible;
-    border-radius: 0;
-  }
-  .sch-row {
-    min-width: 0;
-    transition: none;
-    page-break-inside: avoid;
-    /* Fall back to the fr-based grid in print so the columns scale down to
-       the landscape A4 page width instead of overflowing past the margins. */
-    grid-template-columns: var(--sch-grid-print, var(--sch-grid));
-  }
-  .sch-row.sch-head,
-  .sch-row.sch-total {
-    position: static;
-    box-shadow: none;
-  }
-  .sch-row.sch-head { font-size: 7.5pt; }
-  .sch-row.sch-total { font-size: 9pt; }
-  .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
-  .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
-  .sch-cell {
-    padding: 3pt 4pt;
-    font-size: 8.5pt;
-    border-right: 0.5pt solid var(--line-faint);
-  }
-  .sch-cell:last-child { border-right: 0; }
-  .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
-
-  /* Strip the interactive chrome — handles, grips, sort arrows. */
-  .sch-col-resize,
-  .sch-col-drag-grip,
-  .sch-sort-arrow { display: none !important; }
-
-  /* Pinned columns lose their stickiness in print: regular cells once
-     there's no horizontal scroll on paper. */
-  .sch-cell.is-pinned {
-    position: static;
-    left: auto;
-    background: inherit;
-    z-index: auto;
-    box-shadow: none;
-  }
-
-  /* P/REQ short cell — replace the danger tint with bold + underline so the
-     "leftover lite" signal survives in monochrome printers too. */
-  .sch-packs-short { font-weight: 700; text-decoration: underline; }
 }
 
 /* ---------- Density tweaks ----------
