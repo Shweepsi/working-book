@@ -79,17 +79,32 @@ const COLUMNS: ColumnDef[] = [
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
 
-// Drop keys that no longer correspond to a real column. Stale entries can
-// accumulate across version upgrades that rename or remove columns; without
-// pruning, hidden/pinned/order/widths keep growing forever in localStorage.
+// Migrate stored settings across column renames. When a column key changes
+// (e.g. `scraps` → `opTm`), translate references in older saved settings so
+// the user's sort / drag order / width survive the upgrade instead of being
+// silently dropped. Same map applies to TableSettings.sortKey, since the
+// affected column keys are also valid sort keys.
+const COLUMN_KEY_MIGRATIONS: Record<string, string> = { scraps: 'opTm' };
+const migrateKey = (k: string): string => COLUMN_KEY_MIGRATIONS[k] ?? k;
+
+// Drop keys that no longer correspond to a real column, after migrating any
+// renames. Stale entries can accumulate across version upgrades that rename
+// or remove columns; without pruning, hidden/pinned/order/widths keep
+// growing forever in localStorage.
 function sanitiseTableSettings(s: TableSettings): TableSettings {
   const known = new Set(COLUMNS.map((c) => c.key));
+  const dedupe = (arr: string[]) => Array.from(new Set(arr.map(migrateKey).filter((k) => known.has(k))));
   return {
     ...s,
-    hidden: s.hidden.filter((k) => known.has(k)),
-    pinned: s.pinned.filter((k) => known.has(k)),
-    order: s.order.filter((k) => known.has(k)),
-    widths: Object.fromEntries(Object.entries(s.widths).filter(([k]) => known.has(k))),
+    sortKey: migrateKey(s.sortKey) as SortKey,
+    hidden: dedupe(s.hidden),
+    pinned: dedupe(s.pinned),
+    order: dedupe(s.order),
+    widths: Object.fromEntries(
+      Object.entries(s.widths)
+        .map(([k, v]) => [migrateKey(k), v] as [string, number])
+        .filter(([k]) => known.has(k)),
+    ),
   };
 }
 
