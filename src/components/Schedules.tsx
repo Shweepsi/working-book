@@ -389,7 +389,12 @@ export default function Schedules() {
   }
 
   function setColumnWidth(key: string, px: number) {
-    setTableSettings((s) => ({ ...s, widths: { ...s.widths, [key]: Math.max(40, Math.round(px)) } }));
+    // Clamp so a runaway drag can't push a column to thousands of pixels or
+    // below the minimum useful width. Reject NaN/Infinity outright — Math.min
+    // and Math.max propagate NaN and we'd persist it to localStorage.
+    if (!Number.isFinite(px)) return;
+    const clamped = Math.max(40, Math.min(600, Math.round(px)));
+    setTableSettings((s) => ({ ...s, widths: { ...s.widths, [key]: clamped } }));
   }
 
   function resetColumnLayout() {

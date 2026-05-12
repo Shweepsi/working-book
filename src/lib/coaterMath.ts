@@ -51,8 +51,10 @@ export function remainingMinutesAt(rows: CoaterRow[], vitesse: number | string):
 
 export function fmtHMmin(minutes: number | null | undefined): string {
   // Truncate to whole minutes to match the source spreadsheet's formatting
-  // (`[h] h mm min`, where Excel floors the seconds).
-  if (minutes == null || !Number.isFinite(minutes)) return '—';
+  // (`[h] h mm min`, where Excel floors the seconds). Negative inputs would
+  // mean a "remaining time" already overshot (overproduction) and produce
+  // misleading negative h/m via floor — bail to the same em dash as null.
+  if (minutes == null || !Number.isFinite(minutes) || minutes < 0) return '—';
   const total = Math.floor(minutes);
   const h = Math.floor(total / 60);
   const m = total % 60;
