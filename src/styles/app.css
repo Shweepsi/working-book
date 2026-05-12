@@ -1778,6 +1778,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
 .print-preview-bar .btn.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+/* Hide the preview bar when actually sending to paper. (It's rendered only
+   while preview is on, but if the user prints from inside preview mode the
+   bar should not appear on the printout.) */
+@media print { .print-preview-bar { display: none !important; } }
 
 /* Settings popover action button */
 .popover-action {

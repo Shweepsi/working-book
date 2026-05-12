@@ -328,7 +328,7 @@ export default function App() {
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
 
       {printPreview && (
-        <div className="print-preview-bar no-print" role="status">
+        <div className="print-preview-bar" role="status">
           <span><strong>Aperçu d’impression</strong> — la mise en page papier s’applique à l’écran.</span>
           <span style={{ flex: 1 }} />
           <button type="button" className="btn ghost mini" onClick={() => window.print()}>
