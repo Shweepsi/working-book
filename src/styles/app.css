@@ -1735,7 +1735,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   overflow: visible;
   border-radius: 0;
 }
-:root.is-print-preview .sch-row { min-width: 0; }
+:root.is-print-preview .sch-row {
+  min-width: 0;
+  /* Fall back to the fr-based grid in print so the columns scale down to
+     the landscape A4 page width instead of overflowing past the margins. */
+  grid-template-columns: var(--sch-grid-print, var(--sch-grid));
+}
 :root.is-print-preview .sch-row.sch-head,
 :root.is-print-preview .sch-row.sch-total { position: static; box-shadow: none; }
 :root.is-print-preview .sch-row.sch-head { font-size: 8pt; }
@@ -1985,6 +1990,9 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     min-width: 0;
     transition: none;
     page-break-inside: avoid;
+    /* Fall back to the fr-based grid in print so the columns scale down to
+       the landscape A4 page width instead of overflowing past the margins. */
+    grid-template-columns: var(--sch-grid-print, var(--sch-grid));
   }
   .sch-row.sch-head,
   .sch-row.sch-total {

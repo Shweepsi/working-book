@@ -878,9 +878,12 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
   }, [columns, pinned, widths]);
 
   // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
-  // minPx keeps the grid from collapsing in narrow viewports.
-  const { gridTemplate, minPx } = useMemo(() => ({
+  // minPx keeps the grid from collapsing in narrow viewports. The fr-based
+  // variant is used in print, where the page is narrower than the sum of
+  // pixel widths and we want columns to scale down proportionally.
+  const { gridTemplate, gridTemplatePrint, minPx } = useMemo(() => ({
     gridTemplate: columns.map((c) => widths[c.key] ? `${widths[c.key]}px` : (COL_WIDTHS[c.key] || 'auto')).join(' '),
+    gridTemplatePrint: columns.map((c) => `minmax(0, ${columnPx(c.key, widths[c.key])}fr)`).join(' '),
     minPx: columns.reduce((acc, c) => acc + columnPx(c.key, widths[c.key]), 0),
   }), [columns, widths]);
 
@@ -897,7 +900,11 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
       ref={tableRef}
       className="sch-table"
       role="table"
-      style={{ ['--sch-grid' as string]: gridTemplate, ['--sch-min' as string]: `${minPx}px` }}
+      style={{
+        ['--sch-grid' as string]: gridTemplate,
+        ['--sch-grid-print' as string]: gridTemplatePrint,
+        ['--sch-min' as string]: `${minPx}px`,
+      }}
     >
       <div className="sch-row sch-head" role="row">
         {enrichedColumns.map((c) => {
