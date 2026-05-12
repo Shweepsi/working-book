@@ -306,7 +306,10 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
 }
 
 function rowM2(r: DecodedRecord): number {
-  return (r.largeur * r.longueur * r.schedLites) / 1_000_000;
+  // "m² restants" — the area still to produce. reqLites is sched minus what's
+  // already produced, so multiplying by it (not schedLites) matches Excel and
+  // avoids inflating the total once production has started.
+  return (r.largeur * r.longueur * r.reqLites) / 1_000_000;
 }
 
 // Operator-facing rendering of an item code:
