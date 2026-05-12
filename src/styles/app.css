@@ -1639,10 +1639,9 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-print-preview .app-main {
   max-width: 210mm;
   margin: 24px auto 80px;
-  padding: 14mm 12mm 18mm;
+  padding: 5mm;
   background: var(--print-bg);
   color: var(--print-ink-strong);
-  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.18);
   border-radius: 2px;
   font-size: 10pt;
 }
@@ -1650,7 +1649,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
    so the preview swaps to 297mm to match. */
 :root.is-print-preview .app-main:has(.sch) {
   max-width: 297mm;
-  padding: 10mm 10mm 14mm;
+  padding: 5mm;
 }
 :root.is-print-preview .print-only { display: block; }
 :root.is-print-preview .print-header {
@@ -1837,7 +1836,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 /* ---------- Real print (A4 portrait) ---------- */
 @media print {
-  @page { size: A4 portrait; margin: 14mm 12mm 18mm; }
+  @page { size: A4 portrait; margin: 5mm; }
 
   /* Force background/colour rendering — by default browsers strip them at
      print to save ink, which kills the M² rest. tint, the total/header
@@ -2022,7 +2021,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      is shared with the on-screen aperçu and lives in the unified block
      above keyed on :root.is-print-preview, :root.is-printing. */
   .app:has(.sch) { page: sch-landscape; }
-  @page sch-landscape { size: A4 landscape; margin: 10mm 10mm 14mm; }
+  @page sch-landscape { size: A4 landscape; margin: 5mm; }
 
   /* Schedule-layout fallback: mirrors the :root.is-print-preview /
      :root.is-printing block above, in case beforeprint doesn't set the
