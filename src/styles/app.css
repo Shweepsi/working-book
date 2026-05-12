@@ -1626,7 +1626,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-print-preview .sch-controls,
 :root.is-print-preview .sch-summary,
 :root.is-print-preview .sch-rail,
-:root.is-print-preview .sch-foot,
 :root.is-print-preview .sch-hint,
 :root.is-print-preview .sv-toolbar,
 :root.is-print-preview .sheet,
@@ -1736,10 +1735,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-printing .sch-detail-head h3 { font-size: 12pt; }
 :root.is-print-preview .sch-detail-head .faint,
 :root.is-printing .sch-detail-head .faint { font-size: 9pt; }
-/* In print, replace the on-screen "N lignes · N lites · N m²" subline
-   with the throughput recap (speed · time · +9 % DT). */
-:root.is-print-preview .sch-detail-head-meta,
-:root.is-printing .sch-detail-head-meta { display: none; }
+/* In print, swap the on-screen stat tiles for a single compact subline
+   (speed · time · +9 % DT). The tiles are screen chrome — too tall for
+   a paper header. */
+:root.is-print-preview .sch-detail-head-stats,
+:root.is-printing .sch-detail-head-stats { display: none; }
 :root.is-print-preview .sch-detail-head-throughput,
 :root.is-printing .sch-detail-head-throughput { display: inline; }
 :root.is-print-preview .sch-table,
@@ -1870,7 +1870,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   .sch-controls,
   .sch-summary,
   .sch-rail,
-  .sch-foot,
   .sch-hint,
   .sv-toolbar,
   .sheet,
@@ -2043,7 +2042,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   .sch-detail-head { padding: 0; margin-bottom: 0; }
   .sch-detail-head h3 { font-size: 12pt; }
   .sch-detail-head .faint { font-size: 9pt; }
-  .sch-detail-head-meta { display: none; }
+  .sch-detail-head-stats { display: none; }
   .sch-detail-head-throughput { display: inline; }
   .sch-table {
     background-image: none;
@@ -2303,14 +2302,17 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   gap: var(--d-gap);
 }
 
+/* Summary bar — primary action stays prominent, everything else (stats,
+   policy chip, importé) demoted so the schedule detail below feels like
+   the page's main content, not just another card. */
 .sch-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6) var(--space-7);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
   border: 1px solid var(--line-faint);
-  border-radius: var(--radius-xl);
-  background: var(--paper);
+  border-radius: var(--radius-lg);
+  background: var(--paper-2);
 }
 .sch-summary-actions {
   display: flex;
@@ -2319,10 +2321,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .sch-summary-stats {
   display: flex;
-  gap: var(--space-9);
+  gap: var(--space-7);
   flex-wrap: wrap;
   align-items: center;
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   color: var(--ink-soft);
 }
 .sch-summary-stats strong {
@@ -2427,6 +2429,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   gap: var(--space-1);
 }
 .sch-rail-item {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -2444,9 +2447,22 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .sch-rail-item:hover { background: var(--paper-2); }
 .sch-rail-item.active {
-  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--paper));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line-faint));
 }
+/* Strong left-edge accent so the active card jumps out without shifting
+   neighbouring content. Pseudo-element sits flush with the rounded card. */
+.sch-rail-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+.sch-rail-item.active .sch-rail-num { font-weight: 700; }
 .sch-rail-top {
   display: flex;
   justify-content: space-between;
@@ -2618,21 +2634,93 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--accent);
 }
 
-.sch-detail .sch-foot { margin-top: 12px; }
+/* Hero detail header: schedule identity on the left, a strip of stat tiles
+   on the right (m² rest., lignes, vitesse, théorique, +DT). The vitesse +
+   throughput info used to live in a separate footer below the table; the
+   tiles merge identity and metrics so the schedule context lives in one
+   place at the top. */
 .sch-detail-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 4px 28px;
-  padding: var(--space-5) var(--space-7);
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
   background: var(--paper-2);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border: 1px solid var(--line-faint);
   border-bottom: 0;
 }
-.sch-detail-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
-/* Print-only throughput subline; on screen the meta line shows instead. */
+.sch-detail-head-id {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.sch-detail-head h3 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.sch-detail-head-num { font-variant-numeric: tabular-nums; }
+.sch-detail-head-sep { margin: 0 var(--space-2); }
+.sch-detail-head-name { font-weight: 600; }
+
+.sch-detail-head-stats {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-left: auto;
+}
+.sch-stat-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px var(--space-5);
+  border-left: 1px solid var(--line-faint);
+  min-width: 0;
+}
+.sch-stat-tile:first-child { border-left: 0; padding-left: 0; }
+.sch-stat-tile-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.sch-stat-tile-value {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+/* Vitesse tile — editable. The input adopts the tile's value typography so
+   it sits on the same baseline as the other tiles. */
+.sch-stat-tile-input { cursor: text; }
+.sch-stat-tile-input .sch-vitesse-input {
+  width: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.sch-stat-tile-input .sch-vitesse-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.sch-stat-tile-input.is-invalid .sch-vitesse-input { color: var(--flag-unsched-fg); }
+
+/* Print-only throughput subline; on screen the stat tiles show instead. */
 .sch-detail-head-throughput { display: none; }
 
 .sch-table {
@@ -2943,108 +3031,15 @@ body.is-col-resizing * {
 
 .sch-empty-rows { padding: 28px; text-align: center; }
 
-.sch-foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  background: var(--paper);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
-}
-.sch-foot-vitesse {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 3px var(--space-4);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper-2);
-  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
-}
-.sch-foot-vitesse:focus-within {
-  border-color: var(--accent);
-  background: var(--paper);
-  box-shadow: 0 0 0 2px var(--focus-ring);
-}
-.sch-foot-vitesse.is-invalid {
-  border-color: var(--flag-unsched-bd);
-  background: color-mix(in srgb, var(--hl-red) 30%, var(--paper));
-}
-.sch-foot-label {
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-.sch-foot-unit {
-  font-size: var(--fs-2xs);
-  color: var(--ink-faint);
-}
-.sch-vitesse-input {
-  width: 44px;
-  padding: 1px 2px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: var(--fs-base);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  letter-spacing: -0.01em;
-}
-.sch-vitesse-input:focus {
-  outline: none;
-}
+/* Editable vitesse input — lives in the Vitesse stat tile of the hero
+   header. Strip native chrome so the value typography matches the other
+   tile values exactly. */
 .sch-vitesse-input::-webkit-outer-spin-button,
 .sch-vitesse-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 .sch-vitesse-input[type='number'] { -moz-appearance: textfield; }
-
-.sch-foot-arrow {
-  font-size: var(--fs-md);
-  color: var(--ink-faint);
-  user-select: none;
-  font-family: 'Geist Mono', monospace;
-}
-
-.sch-foot-times {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-.sch-foot-time {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: 3px var(--space-4);
-  border-radius: 5px;
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-}
-.sch-foot-time-label {
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-.sch-foot-time strong {
-  font-size: var(--fs-md);
-  letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-.sch-foot-dt {
-  background: color-mix(in srgb, var(--hl-yellow) 38%, var(--paper-2));
-  border-color: var(--flag-sched-bd);
-  cursor: help;
-}
-.sch-foot-meta { margin-left: auto; font-size: var(--fs-2xs); }
 
 /* Density variants — compact tightens spacing, advanced loosens it.
    Only paddings, font-sizes and row heights change; column layout stays fixed
@@ -3071,12 +3066,6 @@ body.is-col-resizing * {
 :root[data-density='compact'] .sch-customer { line-height: 1.2; margin-top: 0; }
 :root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: 9px; }
 :root[data-density='compact'] .sch-customer { font-size: 9px; }
-:root[data-density='compact'] .sch-foot { padding: 4px 8px; gap: 6px; }
-:root[data-density='compact'] .sch-foot-time { padding: 2px 6px; }
-:root[data-density='compact'] .sch-foot-time strong { font-size: var(--fs-sm); }
-:root[data-density='compact'] .sch-foot-vitesse { padding: 2px 6px; }
-:root[data-density='compact'] .sch-vitesse-input { width: 40px; font-size: var(--fs-md); }
-:root[data-density='compact'] .sch-foot-arrow { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-hint { padding: 6px 12px; font-size: var(--fs-sm); }
 
 /* Advanced loosens spacing on top of revealing the customer name (handled
@@ -3093,9 +3082,6 @@ body.is-col-resizing * {
 :root[data-density='advanced'] .sch-cell { padding: 8px 10px; font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-row.sch-head { font-size: var(--fs-sm); }
 :root[data-density='advanced'] .sch-row.sch-total { font-size: var(--fs-lg); }
-:root[data-density='advanced'] .sch-foot { padding: 10px 14px; gap: 12px; }
-:root[data-density='advanced'] .sch-foot-time strong { font-size: var(--fs-lg); }
-:root[data-density='advanced'] .sch-vitesse-input { width: 56px; font-size: var(--fs-lg); }
 :root[data-density='advanced'] .sch-mto { padding: 3px 8px; font-size: var(--fs-sm); }
 
 /* Paste-import sheet */

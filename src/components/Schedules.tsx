@@ -576,16 +576,49 @@ export default function Schedules() {
           <section className="sch-detail">
             {selectedSchedule && (() => {
               const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
+              const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
               return (
                 <header className="sch-detail-head">
-                  <h3>
-                    <span className="mono">{selectedSchedule.schedule}</span>
-                    <span className="faint"> — </span>
-                    <span>{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
-                  </h3>
-                  <span className="faint small sch-detail-head-meta">
-                    {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.lites)} lites · {fmtNum(stat.m2, 2)} m²
-                  </span>
+                  <div className="sch-detail-head-id">
+                    <h3>
+                      <span className="mono sch-detail-head-num">{selectedSchedule.schedule}</span>
+                      <span className="faint sch-detail-head-sep"> — </span>
+                      <span className="sch-detail-head-name">{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
+                    </h3>
+                  </div>
+                  <div className="sch-detail-head-stats">
+                    <div className="sch-stat-tile">
+                      <span className="sch-stat-tile-label">m² restants</span>
+                      <strong className="sch-stat-tile-value mono">{fmtNum(stat.m2, 2)}</strong>
+                    </div>
+                    <div className="sch-stat-tile">
+                      <span className="sch-stat-tile-label">Lignes</span>
+                      <strong className="sch-stat-tile-value mono">{stat.count}</strong>
+                    </div>
+                    <label className={`sch-stat-tile sch-stat-tile-input ${validSpeed ? '' : 'is-invalid'}`}>
+                      <span className="sch-stat-tile-label">Vitesse</span>
+                      <span className="sch-stat-tile-value">
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          className="sch-vitesse-input mono"
+                          value={vitesse}
+                          onChange={(e) => setVitesse(e.target.value === '' ? '' : Number(e.target.value))}
+                          aria-label="Vitesse en m/min"
+                        />
+                        <span className="faint small">m/min</span>
+                      </span>
+                    </label>
+                    <div className="sch-stat-tile" title={`${coaterRows.length} lignes Coater`}>
+                      <span className="sch-stat-tile-label">Théorique</span>
+                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMin)}</strong>
+                    </div>
+                    <div className="sch-stat-tile" title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %">
+                      <span className="sch-stat-tile-label">+ DT 9 %</span>
+                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMin != null ? coaterMin * DOWNTIME_FACTOR : null)}</strong>
+                    </div>
+                  </div>
                   <span className="faint small sch-detail-head-throughput mono">
                     {Number(vitesse) > 0 ? `${vitesse} m/min` : 'Vitesse —'}
                     {' · '}
@@ -627,12 +660,6 @@ export default function Schedules() {
               onSort={toggleSort}
             />
 
-            <ThroughputFooter
-              rows={coaterRows}
-              vitesse={vitesse}
-              onVitesseChange={setVitesse}
-              minutes={coaterMin}
-            />
           </section>
         </div>
       )}
@@ -1302,49 +1329,6 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
           <div key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} role="cell" style={pin.style}>{content}</div>
         );
       })}
-    </div>
-  );
-}
-
-interface ThroughputFooterProps {
-  rows: PMS230Record[];
-  vitesse: number | string;
-  onVitesseChange: (v: number | string) => void;
-  minutes: number | null;
-}
-
-function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }: ThroughputFooterProps) {
-  const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
-  return (
-    <div className="sch-foot">
-      <label className={`sch-foot-vitesse ${!validSpeed ? 'is-invalid' : ''}`}>
-        <span className="sch-foot-label">Vitesse</span>
-        <input
-          type="number"
-          min="0.1"
-          step="0.1"
-          className="sch-vitesse-input mono"
-          value={vitesse}
-          onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
-          aria-label="Vitesse en m/min"
-        />
-        <span className="sch-foot-unit">m/min</span>
-      </label>
-      <span className="sch-foot-arrow" aria-hidden="true">→</span>
-      <div className="sch-foot-times">
-        <div className="sch-foot-time">
-          <span className="sch-foot-time-label">Théorique</span>
-          <strong className="mono">{fmtHMmin(minutes)}</strong>
-        </div>
-        <div
-          className="sch-foot-time sch-foot-dt"
-          title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %"
-        >
-          <span className="sch-foot-time-label">+DT 9 %</span>
-          <strong className="mono">{fmtHMmin(minutes != null ? minutes * DOWNTIME_FACTOR : null)}</strong>
-        </div>
-      </div>
-      <span className="faint small sch-foot-meta">{rows.length} lignes Coater</span>
     </div>
   );
 }
