@@ -25,6 +25,7 @@ export interface PMS230Record {
   prodLites: number;
   reqLites: number;
   opTm: number;
+  scrap: number;
   largeur: number;
   longueur: number;
   qualite: string;
@@ -184,6 +185,7 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
     prodLites: 0,
     reqLites: 0,
     opTm: 0,
+    scrap: 0,
     largeur: 0,
     longueur: 0,
     qualite: '',
@@ -236,11 +238,15 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   if (SHORT_INT_RE.test(slice[i] ?? '')) r.prodLites = parseInt(slice[i++]!, 10);
   if (SHORT_INT_RE.test(slice[i] ?? '')) r.reqLites  = parseInt(slice[i++]!, 10);
 
-  // Op Tm (operation time, hours): a decimal like "2.84" when set, or a bare
-  // "0" when production hasn't started. The trailing "0" handles a separate
-  // scrap-count column that's almost always zero in this report.
+  // Op Tm (operation time, hours) — always written as a decimal: "2.84" when
+  // set, "0.00" when production hasn't started.
   if (DECIMAL_RE.test(slice[i] ?? '')) r.opTm = parseFloat(slice[i++]!);
-  if (slice[i] === '0') i++;
+
+  // Scrap (count of scrap lites at this op step) — bare integer, often 0 but
+  // can be any small count once production has run. Must be consumed even
+  // when non-zero, otherwise the rest of the row drifts and the largeur /
+  // longueur / qualité / etc. tail goes missing.
+  if (SHORT_INT_RE.test(slice[i] ?? '')) r.scrap = parseInt(slice[i++]!, 10);
 
   if (DECIMAL_RE.test(slice[i] ?? '')) r.largeur = parseFloat(slice[i++]!);
   if (DECIMAL_RE.test(slice[i] ?? '')) r.longueur = parseFloat(slice[i++]!);
