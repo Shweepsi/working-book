@@ -109,18 +109,23 @@ function sanitiseTableSettings(s: TableSettings): TableSettings {
   };
 }
 
+// Take the user's saved order, drop keys we no longer know about, and append
+// any newly-introduced columns at the end. Used wherever we need a complete
+// canonical ordering of column keys.
+function completeColumnOrder(saved: string[]): string[] {
+  const known = new Set(COLUMNS.map((c) => c.key));
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const k of saved) if (known.has(k) && !seen.has(k)) { result.push(k); seen.add(k); }
+  for (const c of COLUMNS) if (!seen.has(c.key)) result.push(c.key);
+  return result;
+}
+
 // All columns rendered in pinned-first display order, regardless of visibility.
 // Used by the Colonnes menu so the user can see and reorder hidden columns too.
 function orderedAllColumns(settings: { pinned: string[]; order: string[] }): ColumnDef[] {
   const known = new Map(COLUMNS.map((c) => [c.key, c]));
-  const baseOrder = settings.order.length ? settings.order : COLUMNS.map((c) => c.key);
-  const ordered: ColumnDef[] = [];
-  const seen = new Set<string>();
-  for (const k of baseOrder) {
-    const c = known.get(k);
-    if (c && !seen.has(k)) { ordered.push(c); seen.add(k); }
-  }
-  for (const c of COLUMNS) if (!seen.has(c.key)) ordered.push(c);
+  const ordered = completeColumnOrder(settings.order).map((k) => known.get(k)!);
   const pinSet = new Set(settings.pinned);
   return [
     ...ordered.filter((c) => pinSet.has(c.key)),
@@ -352,10 +357,7 @@ export default function Schedules() {
 
   function moveColumn(key: string, dir: -1 | 1) {
     setTableSettings((s) => {
-      const base = s.order.length ? s.order : COLUMNS.map((c) => c.key);
-      const order = base.filter((k) => COLUMNS.some((c) => c.key === k));
-      // Ensure every known column is in the list (handles upgrades that introduce new columns).
-      for (const c of COLUMNS) if (!order.includes(c.key)) order.push(c.key);
+      const order = completeColumnOrder(s.order);
       const i = order.indexOf(key);
       if (i < 0) return s;
       // Only reorder within the same pinned/unpinned group so the visual order
@@ -375,9 +377,7 @@ export default function Schedules() {
     setTableSettings((s) => {
       // Cross-group drops are ignored to keep pinned columns grouped to the left.
       if (s.pinned.includes(fromKey) !== s.pinned.includes(toKey)) return s;
-      const base = s.order.length ? s.order : COLUMNS.map((c) => c.key);
-      const order = base.filter((k) => COLUMNS.some((c) => c.key === k));
-      for (const c of COLUMNS) if (!order.includes(c.key)) order.push(c.key);
+      const order = completeColumnOrder(s.order);
       const fromIdx = order.indexOf(fromKey);
       const toIdx = order.indexOf(toKey);
       if (fromIdx < 0 || toIdx < 0) return s;
