@@ -614,10 +614,6 @@ export default function Schedules() {
                     </h3>
                   </div>
                   <div className="sch-detail-head-stats">
-                    <div className="sch-stat-tile">
-                      <span className="sch-stat-tile-label">m² restants</span>
-                      <strong className="sch-stat-tile-value mono">{fmtNum(stat.m2, 2)}</strong>
-                    </div>
                     <label className={`sch-stat-tile sch-stat-tile-input ${validSpeed ? '' : 'is-invalid'}`}>
                       <span className="sch-stat-tile-label">Vitesse</span>
                       <span className="sch-stat-tile-value">
@@ -1123,11 +1119,14 @@ function TableControls({
       <div className="sch-cols-wrap" ref={colsBtnRef} style={{ marginLeft: 'auto' }}>
         <button
           type="button"
-          className="btn ghost mini"
+          className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
           onClick={onColsMenuToggle}
           aria-expanded={colsMenuOpen}
+          aria-label="Configurer les colonnes"
         >
-          Colonnes ⌄
+          <span className="sch-cols-icon" aria-hidden="true" />
+          Colonnes
+          <span className="sch-cols-chevron" aria-hidden="true" />
         </button>
         {colsMenuOpen && (
           <div className="popover sch-cols-menu" role="menu">

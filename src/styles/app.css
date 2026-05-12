@@ -2559,6 +2559,42 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   position: relative;
   display: inline-flex;
 }
+/* Colonnes button — CSS-drawn column icon + chevron that rotates open.
+   Active state (menu visible) flips the chevron and pins the background
+   so the button reads as the source of the open popover. */
+.sch-cols-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sch-cols-btn.is-open {
+  background: var(--paper-2);
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+.sch-cols-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  background:
+    linear-gradient(currentColor, currentColor) 0 0 / 2.5px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) 4.75px 0 / 2.5px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) 9.5px 0 / 2.5px 100% no-repeat;
+  opacity: 0.75;
+}
+.sch-cols-chevron {
+  width: 6px;
+  height: 6px;
+  display: inline-block;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  transition: transform 150ms ease;
+  opacity: 0.75;
+}
+.sch-cols-btn.is-open .sch-cols-chevron {
+  transform: rotate(-135deg) translate(-1px, -1px);
+}
 .sch-cols-menu {
   right: 0;
   left: auto;
