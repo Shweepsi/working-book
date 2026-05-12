@@ -1731,11 +1731,17 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   display: block;
 }
 :root.is-print-preview .sch-detail-head,
-:root.is-printing .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
+:root.is-printing .sch-detail-head { padding: 0; margin-bottom: 0; }
 :root.is-print-preview .sch-detail-head h3,
 :root.is-printing .sch-detail-head h3 { font-size: 12pt; }
 :root.is-print-preview .sch-detail-head .faint,
 :root.is-printing .sch-detail-head .faint { font-size: 9pt; }
+/* In print, replace the on-screen "N lignes · N lites · N m²" subline
+   with the throughput recap (speed · time · +9 % DT). */
+:root.is-print-preview .sch-detail-head-meta,
+:root.is-printing .sch-detail-head-meta { display: none; }
+:root.is-print-preview .sch-detail-head-throughput,
+:root.is-printing .sch-detail-head-throughput { display: inline; }
 :root.is-print-preview .sch-table,
 :root.is-printing .sch-table {
   /* Defeat the in-app overflow scroll so the rows flow naturally onto paper. */
@@ -1758,6 +1764,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-print-preview .sch-row.sch-total,
 :root.is-printing .sch-row.sch-head,
 :root.is-printing .sch-row.sch-total { position: static; box-shadow: none; }
+/* Drop the total row's 2 px border-top in print — the previous data row
+   already carries a border-bottom, so the two stacked would read as a
+   double line. The background tint plus font weight keep the total row
+   distinct. */
+:root.is-print-preview .sch-row.sch-total,
+:root.is-printing .sch-row.sch-total { border-top: 0; }
 :root.is-print-preview .sch-row.sch-head,
 :root.is-printing .sch-row.sch-head { font-size: 7.5pt; }
 :root.is-print-preview .sch-row.sch-total,
@@ -2028,9 +2040,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      class before the browser captures the print layout. Keep these in
      sync with the unified block. */
   .sch-body { display: block; }
-  .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
+  .sch-detail-head { padding: 0; margin-bottom: 0; }
   .sch-detail-head h3 { font-size: 12pt; }
   .sch-detail-head .faint { font-size: 9pt; }
+  .sch-detail-head-meta { display: none; }
+  .sch-detail-head-throughput { display: inline; }
   .sch-table {
     background-image: none;
     max-height: none;
@@ -2046,6 +2060,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   }
   .sch-row.sch-head,
   .sch-row.sch-total { position: static; box-shadow: none; }
+  .sch-row.sch-total { border-top: 0; }
   .sch-row.sch-head { font-size: 7.5pt; }
   .sch-row.sch-total { font-size: 9pt; }
   .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
@@ -2617,6 +2632,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-bottom: 0;
 }
 .sch-detail-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+/* Print-only throughput subline; on screen the meta line shows instead. */
+.sch-detail-head-throughput { display: none; }
 
 .sch-table {
   display: flex;

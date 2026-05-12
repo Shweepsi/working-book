@@ -420,6 +420,16 @@ export default function Schedules() {
     [visibleRows],
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
+  // Remaining-work variant for the print header subline. Uses reqLites so the
+  // time aligns with the m² restants total (which is also reqLites-based) and
+  // matches the Excel reference. coaterMin keeps using schedLites for the
+  // on-screen "Théorique" footer.
+  const coaterMinReq = useMemo(() => {
+    const v = Number(vitesse);
+    if (!Number.isFinite(v) || v <= 0) return null;
+    const meters = coaterRows.reduce((sum, r) => sum + (r.longueur * (r.reqLites ?? r.schedLites)) / 1000, 0);
+    return meters / v;
+  }, [coaterRows, vitesse]);
 
   // Stats per schedule, recomputed against the same filters so the rail and
   // detail header mirror what the user actually sees in the table.
@@ -574,8 +584,15 @@ export default function Schedules() {
                     <span className="faint"> — </span>
                     <span>{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
                   </h3>
-                  <span className="faint small">
+                  <span className="faint small sch-detail-head-meta">
                     {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
+                  </span>
+                  <span className="faint small sch-detail-head-throughput mono">
+                    {Number(vitesse) > 0 ? `${vitesse} m/min` : 'Vitesse —'}
+                    {' · '}
+                    {fmtHMmin(coaterMinReq)}
+                    {' · +9 % DT '}
+                    {fmtHMmin(coaterMinReq != null ? coaterMinReq * DOWNTIME_FACTOR : null)}
                   </span>
                 </header>
               );
