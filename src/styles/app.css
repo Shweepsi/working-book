@@ -1834,6 +1834,14 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 @media print {
   @page { size: A4 portrait; margin: 14mm 12mm 18mm; }
 
+  /* Force background/colour rendering — by default browsers strip them at
+     print to save ink, which kills the M² rest. tint, the total/header
+     bands, the MTO/MTS chip fill, and the column dividers we rely on. */
+  html, body, * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   html, body {
     background: var(--print-bg) !important;
     color: var(--print-ink-strong) !important;
@@ -2010,6 +2018,52 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      above keyed on :root.is-print-preview, :root.is-printing. */
   .app:has(.sch) { page: sch-landscape; }
   @page sch-landscape { size: A4 landscape; margin: 10mm 10mm 14mm; }
+
+  /* Schedule-layout fallback: mirrors the :root.is-print-preview /
+     :root.is-printing block above, in case beforeprint doesn't set the
+     class before the browser captures the print layout. Keep these in
+     sync with the unified block. */
+  .sch-body { display: block; }
+  .sch-detail-head { padding: 0 0 6pt; margin-bottom: 6pt; }
+  .sch-detail-head h3 { font-size: 12pt; }
+  .sch-detail-head .faint { font-size: 9pt; }
+  .sch-table {
+    background-image: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    border-radius: 0;
+  }
+  .sch-row {
+    min-width: 0;
+    transition: none;
+    page-break-inside: avoid;
+    grid-template-columns: var(--sch-grid-print, var(--sch-grid));
+  }
+  .sch-row.sch-head,
+  .sch-row.sch-total { position: static; box-shadow: none; }
+  .sch-row.sch-head { font-size: 7.5pt; }
+  .sch-row.sch-total { font-size: 9pt; }
+  .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
+  .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
+  .sch-cell {
+    padding: 3pt 4pt;
+    font-size: 8.5pt;
+    border-right: 0.5pt solid var(--line-faint);
+  }
+  .sch-cell:last-child { border-right: 0; }
+  .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
+  .sch-col-resize,
+  .sch-col-drag-grip,
+  .sch-sort-arrow { display: none !important; }
+  .sch-cell.is-pinned {
+    position: static;
+    left: auto;
+    background: inherit;
+    z-index: auto;
+    box-shadow: none;
+  }
+  .sch-packs-short { font-weight: 700; text-decoration: underline; }
 }
 
 /* ---------- Density tweaks ----------
