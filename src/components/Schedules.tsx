@@ -8,6 +8,7 @@ import {
   DOWNTIME_FACTOR,
   fmtHMmin,
   minutesAt,
+  remainingMinutesAt,
   totalLites,
   totalM2,
   totalReqLites,
@@ -421,15 +422,10 @@ export default function Schedules() {
   );
   const coaterMin = minutesAt(coaterRows, vitesse);
   // Remaining-work variant for the print header subline. Uses reqLites so the
-  // time aligns with the m² restants total (which is also reqLites-based) and
-  // matches the Excel reference. coaterMin keeps using schedLites for the
-  // on-screen "Théorique" footer.
-  const coaterMinReq = useMemo(() => {
-    const v = Number(vitesse);
-    if (!Number.isFinite(v) || v <= 0) return null;
-    const meters = coaterRows.reduce((sum, r) => sum + (r.longueur * (r.reqLites ?? r.schedLites)) / 1000, 0);
-    return meters / v;
-  }, [coaterRows, vitesse]);
+  // time aligns with the m² restants total (also reqLites-based) and matches
+  // the Excel reference. coaterMin keeps schedLites for the on-screen
+  // "Théorique" footer.
+  const coaterMinReq = useMemo(() => remainingMinutesAt(coaterRows, vitesse), [coaterRows, vitesse]);
 
   // Stats per schedule, recomputed against the same filters so the rail and
   // detail header mirror what the user actually sees in the table.

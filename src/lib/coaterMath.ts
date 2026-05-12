@@ -15,14 +15,21 @@ export interface CoaterRow {
 
 export const DOWNTIME_FACTOR = 1.09;
 
-export const rowM2 = (largeur: number, longueur: number, schedLites: number): number =>
+const rowM2 = (largeur: number, longueur: number, schedLites: number): number =>
   (largeur * longueur * schedLites) / 1_000_000;
 
 export const totalM2 = (rows: CoaterRow[]): number =>
   rows.reduce((sum, r) => sum + (r.m2 ?? rowM2(r.largeur, r.longueur, r.schedLites)), 0);
 
-export const totalMeters = (rows: CoaterRow[]): number =>
+const totalMeters = (rows: CoaterRow[]): number =>
   rows.reduce((sum, r) => sum + (r.longueur * r.schedLites) / 1000, 0);
+
+// "Remaining" meters: the linear length still to coat, based on reqLites
+// (sched minus already produced). Falls back to schedLites for rows that
+// don't carry a reqLites value. Pairs with remainingMinutesAt for the
+// reqLites-based throughput recap shown in the print header.
+const remainingMeters = (rows: CoaterRow[]): number =>
+  rows.reduce((sum, r) => sum + (r.longueur * (r.reqLites ?? r.schedLites)) / 1000, 0);
 
 export const totalLites = (rows: CoaterRow[]): number =>
   rows.reduce((sum, r) => sum + (r.schedLites ?? 0), 0);
@@ -34,6 +41,12 @@ export function minutesAt(rows: CoaterRow[], vitesse: number | string): number |
   const v = Number(vitesse);
   if (!Number.isFinite(v) || v <= 0) return null;
   return totalMeters(rows) / v;
+}
+
+export function remainingMinutesAt(rows: CoaterRow[], vitesse: number | string): number | null {
+  const v = Number(vitesse);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return remainingMeters(rows) / v;
 }
 
 export function fmtHMmin(minutes: number | null | undefined): string {
