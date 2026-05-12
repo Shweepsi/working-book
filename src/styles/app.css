@@ -3101,8 +3101,13 @@ body.is-col-resizing * {
 }
 :root[data-density='compact'] .sch-summary { padding: 8px 12px; gap: 6px; }
 :root[data-density='compact'] .sch-summary-stats { gap: 12px; font-size: var(--fs-sm); }
-:root[data-density='compact'] .sch-detail-head { padding: 6px 12px; }
+:root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
+:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-4); }
+:root[data-density='compact'] .sch-stat-tile-label { font-size: 9px; }
+:root[data-density='compact'] .sch-stat-tile-value { font-size: var(--fs-sm); }
+:root[data-density='compact'] .sch-stat-tile-input .sch-stat-tile-value { padding: 1px var(--space-2); }
+:root[data-density='compact'] .sch-stat-tile-input .sch-vitesse-input { width: 26px; }
 :root[data-density='compact'] .sch-rail-title { padding: 6px 10px; }
 :root[data-density='compact'] .sch-rail-item { padding: 4px 8px; gap: 2px; font-size: var(--fs-md); }
 :root[data-density='compact'] .sch-rail-num { font-size: var(--fs-sm); }
@@ -3123,8 +3128,11 @@ body.is-col-resizing * {
 :root[data-density='advanced'] .sch { --sch-table-vert-offset: 290px; }
 :root[data-density='advanced'] .sch-summary { padding: 14px 16px; gap: 12px; }
 :root[data-density='advanced'] .sch-summary-stats { gap: 22px; font-size: var(--fs-base); }
-:root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; }
+:root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; gap: var(--space-6); }
 :root[data-density='advanced'] .sch-detail-head h3 { font-size: var(--fs-xl); }
+:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-6); }
+:root[data-density='advanced'] .sch-stat-tile-value { font-size: var(--fs-xl); }
+:root[data-density='advanced'] .sch-stat-tile-input .sch-vitesse-input { width: 40px; }
 :root[data-density='advanced'] .sch-rail-item { padding: 10px 12px; font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-rail-num { font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-rail-meta { font-size: var(--fs-sm); }
