@@ -618,10 +618,6 @@ export default function Schedules() {
                       <span className="sch-stat-tile-label">m² restants</span>
                       <strong className="sch-stat-tile-value mono">{fmtNum(stat.m2, 2)}</strong>
                     </div>
-                    <div className="sch-stat-tile">
-                      <span className="sch-stat-tile-label">Lignes</span>
-                      <strong className="sch-stat-tile-value mono">{stat.count}</strong>
-                    </div>
                     <label className={`sch-stat-tile sch-stat-tile-input ${validSpeed ? '' : 'is-invalid'}`}>
                       <span className="sch-stat-tile-label">Vitesse</span>
                       <span className="sch-stat-tile-value">
@@ -634,7 +630,7 @@ export default function Schedules() {
                           onChange={(e) => setVitesse(e.target.value === '' ? '' : Number(e.target.value))}
                           aria-label="Vitesse en m/min"
                         />
-                        <span className="faint small">m/min</span>
+                        <span className="sch-stat-tile-unit faint">m/min</span>
                       </span>
                     </label>
                     <div className="sch-stat-tile" title={`${coaterRows.length} lignes Coater`}>

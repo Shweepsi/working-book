@@ -2700,23 +2700,37 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   align-items: baseline;
   gap: 4px;
 }
-/* Vitesse tile — editable. The input adopts the tile's value typography so
-   it sits on the same baseline as the other tiles. */
+/* Vitesse tile — editable. Wrap the value in a paper-coloured pill with a
+   visible border so it reads as "this is an input you can click in",
+   distinct from the static value tiles next to it. */
 .sch-stat-tile-input { cursor: text; }
+.sch-stat-tile-input .sch-stat-tile-value {
+  padding: 1px var(--space-3);
+  background: var(--paper);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.sch-stat-tile-input:hover .sch-stat-tile-value { border-color: var(--ink-faint); }
+.sch-stat-tile-input:focus-within .sch-stat-tile-value {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
 .sch-stat-tile-input .sch-vitesse-input {
-  width: 36px;
+  width: 32px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--ink);
   font: inherit;
   font-variant-numeric: tabular-nums;
-  text-align: left;
+  text-align: right;
+  outline: none;
 }
-.sch-stat-tile-input .sch-vitesse-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 2px;
+.sch-stat-tile-unit { font-size: var(--fs-2xs); font-weight: 500; }
+.sch-stat-tile-input.is-invalid .sch-stat-tile-value {
+  border-color: var(--flag-unsched-bd);
+  background: color-mix(in srgb, var(--hl-red) 30%, var(--paper));
 }
 .sch-stat-tile-input.is-invalid .sch-vitesse-input { color: var(--flag-unsched-fg); }
 
