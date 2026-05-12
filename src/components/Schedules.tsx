@@ -190,7 +190,7 @@ function describePMS230(r: PMS230Result): string {
   const schedules = r.schedules?.length ?? 0;
   const m2 = totalM2(r.records ?? []);
   const page = r.totalPages ? ` · page ${r.currentPage}/${r.totalPages}` : '';
-  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${m2.toFixed(2)} m²${page}`;
+  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${fmtNum(m2, 2)} m²${page}`;
 }
 
 function describePolicy(r: PolicyResult): string {
@@ -581,7 +581,7 @@ export default function Schedules() {
                     <span>{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
                   </h3>
                   <span className="faint small sch-detail-head-meta">
-                    {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
+                    {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.lites)} lites · {fmtNum(stat.m2, 2)} m²
                   </span>
                   <span className="faint small sch-detail-head-throughput mono">
                     {Number(vitesse) > 0 ? `${vitesse} m/min` : 'Vitesse —'}
@@ -695,7 +695,7 @@ interface SummaryBarProps {
 function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
   const records = data?.records?.length ?? 0;
   const schedules = data?.schedules?.length ?? 0;
-  const m2 = data ? totalM2(data.records).toFixed(2) : null;
+  const m2 = data ? fmtNum(totalM2(data.records), 2) : null;
   const policyCount = policy?.count ?? 0;
   const importedAt = data?.importedAt ? new Date(data.importedAt) : null;
   const pageWarn = data?.totalPages && data.totalPages > 1;
