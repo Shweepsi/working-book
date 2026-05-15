@@ -2670,11 +2670,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--accent);
 }
 
-/* Hero detail header: schedule identity on the left, a strip of stat tiles
-   on the right (m² rest., lignes, vitesse, théorique, +DT). The vitesse +
-   throughput info used to live in a separate footer below the table; the
-   tiles merge identity and metrics so the schedule context lives in one
-   place at the top. */
+/* Hero detail header: schedule identity on the left, throughput stat tiles
+   on the right (Vitesse · Théorique · + DT 9 %). The vitesse input + times
+   used to sit in a separate footer below the table; folding them into the
+   header keeps the schedule's identity and its key numbers in one place. */
 .sch-detail-head {
   display: flex;
   flex-wrap: wrap;

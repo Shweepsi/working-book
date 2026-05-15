@@ -489,9 +489,10 @@ export default function Schedules({ density }: SchedulesProps) {
   );
   // Time still needed for the visible Coater rows at the current speed. Uses
   // reqLites under the hood so the value aligns with the m² restants total
-  // and matches the Excel reference. Drives both the on-screen footer and
-  // the throughput recap in the print header.
+  // and matches the Excel reference. coaterMinDt adds the 9 % downtime
+  // factor. Both feed the hero stat tiles and the print throughput subline.
   const coaterMin = minutesAt(coaterRows, vitesse);
+  const coaterMinDt = coaterMin != null ? coaterMin * DOWNTIME_FACTOR : null;
 
   // Stats per schedule, recomputed against the same filters so the rail and
   // detail header mirror what the user actually sees in the table.
@@ -671,15 +672,15 @@ export default function Schedules({ density }: SchedulesProps) {
                     </div>
                     <div className="sch-stat-tile" title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %">
                       <span className="sch-stat-tile-label">+ DT 9 %</span>
-                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMin != null ? coaterMin * DOWNTIME_FACTOR : null)}</strong>
+                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMinDt)}</strong>
                     </div>
                   </div>
                   <span className="faint small sch-detail-head-throughput mono">
-                    {Number(vitesse) > 0 ? `${vitesse} m/min` : 'Vitesse —'}
+                    {validSpeed ? `${vitesse} m/min` : '— m/min'}
                     {' · '}
                     {fmtHMmin(coaterMin)}
                     {' · +9 % DT '}
-                    {fmtHMmin(coaterMin != null ? coaterMin * DOWNTIME_FACTOR : null)}
+                    {fmtHMmin(coaterMinDt)}
                   </span>
                 </header>
               );
