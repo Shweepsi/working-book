@@ -321,7 +321,7 @@ export default function App() {
         {tab === 'test' && (
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
-        {tab === 'sched' && <Schedules />}
+        {tab === 'sched' && <Schedules density={density} />}
         {tab === 'suivi' && <Suivi />}
       </main>
 

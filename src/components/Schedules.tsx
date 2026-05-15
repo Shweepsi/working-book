@@ -79,32 +79,104 @@ const COLUMNS: ColumnDef[] = [
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
 
+// --- Column layout model ---------------------------------------------------
+
+type Density = 'compact' | 'normal' | 'advanced';
+
+// One column layout. Stored once per density (see TableSettings.layouts).
+interface ColumnLayout {
+  hidden: string[];
+  pinned: string[];
+  order: string[];
+  widths: Record<string, number>;
+}
+
+interface TableSettings {
+  sortKey: SortKey;
+  sortDir: SortDir;
+  // A separate column layout per density. Switching density swaps the active
+  // layout, so the user's per-density customisations are each remembered.
+  layouts: Record<Density, ColumnLayout>;
+  // Filters are global — shared across densities.
+  qualite: string[];
+  pdp: string[];
+  mtoMts: ('MTO' | 'MTS' | '?')[];
+}
+
+// Canonical column order shared by every density default. Quality / pack /
+// production numbers come before format / pdp so the eye sweeps the
+// "what fits in a pack and what's left to make" cluster first.
+const DEFAULT_ORDER = [
+  'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
+  'qualite', 'litesPerPack', 'packsReq',
+  'schedLites', 'prodLites', 'reqLites',
+  'opTm', 'format', 'pdp', 'm2',
+];
+
+// Per-density default visibility. Compact strips the page down to just
+// production maths + m². Normal adds MO / Product identification. Advanced
+// also reveals the format. Article, départ, opTm, pdp stay opt-in across the
+// board (rarely scanned, available via the Colonnes menu).
+const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
+  compact:  ['mtoMts', 'dateDepart', 'mo', 'product', 'itemName', 'opTm', 'format', 'pdp'],
+  normal:   ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'format', 'pdp'],
+  advanced: ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'pdp'],
+};
+
+function defaultColumnLayout(density: Density): ColumnLayout {
+  return {
+    hidden: [...DENSITY_DEFAULT_HIDDEN[density]],
+    pinned: [],
+    order: [...DEFAULT_ORDER],
+    widths: {},
+  };
+}
+
 // Migrate stored settings across column renames. When a column key changes
-// (e.g. `scraps` → `opTm`), translate references in older saved settings so
-// the user's sort / drag order / width survive the upgrade instead of being
-// silently dropped. Same map applies to TableSettings.sortKey, since the
-// affected column keys are also valid sort keys.
+// (e.g. `scraps` → `opTm`), translate references in older saved layouts so the
+// user's drag order / width survive the upgrade instead of being dropped.
 const COLUMN_KEY_MIGRATIONS: Record<string, string> = { scraps: 'opTm' };
 const migrateKey = (k: string): string => COLUMN_KEY_MIGRATIONS[k] ?? k;
 
-// Drop keys that no longer correspond to a real column, after migrating any
-// renames. Stale entries can accumulate across version upgrades that rename
-// or remove columns; without pruning, hidden/pinned/order/widths keep
-// growing forever in localStorage.
-function sanitiseTableSettings(s: TableSettings): TableSettings {
+// Sanitise one stored column layout: migrate renamed keys, drop keys that no
+// longer match a real column. A missing layout falls back to the density default.
+function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: Density): ColumnLayout {
+  if (!raw || typeof raw !== 'object') return defaultColumnLayout(density);
   const known = new Set(COLUMNS.map((c) => c.key));
-  const dedupe = (arr: string[]) => Array.from(new Set(arr.map(migrateKey).filter((k) => known.has(k))));
+  const dedupe = (arr: unknown): string[] =>
+    Array.isArray(arr)
+      ? Array.from(new Set(arr.map((k) => migrateKey(String(k))).filter((k) => known.has(k))))
+      : [];
   return {
-    ...s,
-    sortKey: migrateKey(s.sortKey) as SortKey,
-    hidden: dedupe(s.hidden),
-    pinned: dedupe(s.pinned),
-    order: dedupe(s.order),
+    hidden: dedupe(raw.hidden),
+    pinned: dedupe(raw.pinned),
+    order: dedupe(raw.order),
     widths: Object.fromEntries(
-      Object.entries(s.widths)
+      Object.entries(raw.widths ?? {})
         .map(([k, v]) => [migrateKey(k), v] as [string, number])
         .filter(([k]) => known.has(k)),
     ),
+  };
+}
+
+// Build a complete TableSettings from whatever localStorage holds. The
+// pre-per-density flat shape (top-level hidden/pinned/order/widths) carries no
+// `layouts` key, so those installs start every density from its default —
+// which is also exactly what the user now expects from density switching.
+function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
+  const rawLayouts = (raw.layouts ?? {}) as Partial<Record<Density, ColumnLayout>>;
+  const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+  return {
+    sortKey: migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : 'longueur') as SortKey,
+    sortDir: raw.sortDir === 'asc' ? 'asc' : 'desc',
+    layouts: {
+      compact: sanitiseColumnLayout(rawLayouts.compact, 'compact'),
+      normal: sanitiseColumnLayout(rawLayouts.normal, 'normal'),
+      advanced: sanitiseColumnLayout(rawLayouts.advanced, 'advanced'),
+    },
+    qualite: arr(raw.qualite),
+    pdp: arr(raw.pdp),
+    mtoMts: arr(raw.mtoMts) as ('MTO' | 'MTS' | '?')[],
   };
 }
 
@@ -120,66 +192,17 @@ function completeColumnOrder(saved: string[]): string[] {
   return result;
 }
 
-// All columns rendered in pinned-first display order, regardless of visibility.
-// Used by the Colonnes menu so the user can see and reorder hidden columns too.
-function orderedAllColumns(settings: { pinned: string[]; order: string[] }): ColumnDef[] {
+// All columns in pinned-first display order, regardless of visibility. Used by
+// the Colonnes menu so the user can see and reorder hidden columns too.
+function orderedAllColumns(layout: Pick<ColumnLayout, 'pinned' | 'order'>): ColumnDef[] {
   const known = new Map(COLUMNS.map((c) => [c.key, c]));
-  const ordered = completeColumnOrder(settings.order).map((k) => known.get(k)!);
-  const pinSet = new Set(settings.pinned);
+  const ordered = completeColumnOrder(layout.order).map((k) => known.get(k)!);
+  const pinSet = new Set(layout.pinned);
   return [
     ...ordered.filter((c) => pinSet.has(c.key)),
     ...ordered.filter((c) => !pinSet.has(c.key)),
   ];
 }
-
-interface TableSettings {
-  sortKey: SortKey;
-  sortDir: SortDir;
-  hidden: string[];
-  pinned: string[];
-  order: string[];
-  widths: Record<string, number>;
-  qualite: string[];
-  pdp: string[];
-  mtoMts: ('MTO' | 'MTS' | '?')[];
-}
-
-// Canonical column order used by every density default. Quality / pack /
-// production numbers come before format / pdp so the eye sweeps the
-// "what fits in a pack and what's left to make" cluster first.
-const DEFAULT_ORDER = [
-  'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
-  'qualite', 'litesPerPack', 'packsReq',
-  'schedLites', 'prodLites', 'reqLites',
-  'opTm', 'format', 'pdp', 'm2',
-];
-
-// Per-density default visibility. Compact strips the page down to just
-// production maths + m². Normal adds MO / Product identification. Advanced
-// also reveals the format. Article, départ, opTm, pdp stay opt-in across
-// the board (rarely scanned, available via the Colonnes menu).
-type Density = 'compact' | 'normal' | 'advanced';
-const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
-  compact:  ['mtoMts', 'dateDepart', 'mo', 'product', 'itemName', 'opTm', 'format', 'pdp'],
-  normal:   ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'format', 'pdp'],
-  advanced: ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'pdp'],
-};
-function currentDensity(): Density {
-  const v = load<string>('wb.density', 'normal');
-  return v === 'compact' || v === 'advanced' ? v : 'normal';
-}
-function defaultLayoutForDensity(density: Density): Pick<TableSettings, 'hidden' | 'pinned' | 'order' | 'widths'> {
-  return { hidden: DENSITY_DEFAULT_HIDDEN[density], pinned: [], order: DEFAULT_ORDER, widths: {} };
-}
-
-const DEFAULT_TABLE_SETTINGS: TableSettings = {
-  sortKey: 'longueur',
-  sortDir: 'desc',
-  ...defaultLayoutForDensity(currentDensity()),
-  qualite: [],
-  pdp: [],
-  mtoMts: [],
-};
 
 function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): number {
   const sign = dir === 'asc' ? 1 : -1;
@@ -236,7 +259,11 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
-export default function Schedules() {
+interface SchedulesProps {
+  density: Density;
+}
+
+export default function Schedules({ density }: SchedulesProps) {
   // The PMS230 report is the only domain that still follows the user's
   // sync/local toggle (exposed inside the import modal). Every other
   // surface — logbook, suivi, prodtest, policy — alwaysSync regardless.
@@ -257,8 +284,11 @@ export default function Schedules() {
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
-    () => sanitiseTableSettings({ ...DEFAULT_TABLE_SETTINGS, ...(load<Partial<TableSettings>>(KEY_TABLE, {})) }),
+    () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
   );
+  // Column layout for the density currently in effect. Switching density
+  // (a prop change from App) swaps this to the matching stored layout.
+  const layout = tableSettings.layouts[density];
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const toast = useToast();
 
@@ -365,50 +395,56 @@ export default function Schedules() {
     setTableSettings((s) => ({ ...s, qualite: [], pdp: [], mtoMts: [] }));
   }
 
+  // Apply a change to the active density's column layout, leaving the other
+  // densities' stored layouts untouched.
+  function updateLayout(fn: (l: ColumnLayout) => ColumnLayout) {
+    setTableSettings((s) => ({ ...s, layouts: { ...s.layouts, [density]: fn(s.layouts[density]) } }));
+  }
+
   function toggleColumnVisibility(key: string) {
-    setTableSettings((s) => {
-      const hidden = s.hidden.includes(key) ? s.hidden.filter((k) => k !== key) : [...s.hidden, key];
-      return { ...s, hidden };
-    });
+    updateLayout((l) => ({
+      ...l,
+      hidden: l.hidden.includes(key) ? l.hidden.filter((k) => k !== key) : [...l.hidden, key],
+    }));
   }
 
   function togglePinned(key: string) {
-    setTableSettings((s) => {
-      const pinned = s.pinned.includes(key) ? s.pinned.filter((k) => k !== key) : [...s.pinned, key];
-      return { ...s, pinned };
-    });
+    updateLayout((l) => ({
+      ...l,
+      pinned: l.pinned.includes(key) ? l.pinned.filter((k) => k !== key) : [...l.pinned, key],
+    }));
   }
 
   function moveColumn(key: string, dir: -1 | 1) {
-    setTableSettings((s) => {
-      const order = completeColumnOrder(s.order);
+    updateLayout((l) => {
+      const order = completeColumnOrder(l.order);
       const i = order.indexOf(key);
-      if (i < 0) return s;
+      if (i < 0) return l;
       // Only reorder within the same pinned/unpinned group so the visual order
       // matches the pinned-first rendering.
-      const isPinned = s.pinned.includes(key);
+      const isPinned = l.pinned.includes(key);
       let j = i + dir;
-      while (j >= 0 && j < order.length && s.pinned.includes(order[j]!) !== isPinned) j += dir;
-      if (j < 0 || j >= order.length) return s;
+      while (j >= 0 && j < order.length && l.pinned.includes(order[j]!) !== isPinned) j += dir;
+      if (j < 0 || j >= order.length) return l;
       const next = order.slice();
       [next[i], next[j]] = [next[j]!, next[i]!];
-      return { ...s, order: next };
+      return { ...l, order: next };
     });
   }
 
   function reorderColumn(fromKey: string, toKey: string) {
     if (fromKey === toKey) return;
-    setTableSettings((s) => {
+    updateLayout((l) => {
       // Cross-group drops are ignored to keep pinned columns grouped to the left.
-      if (s.pinned.includes(fromKey) !== s.pinned.includes(toKey)) return s;
-      const order = completeColumnOrder(s.order);
+      if (l.pinned.includes(fromKey) !== l.pinned.includes(toKey)) return l;
+      const order = completeColumnOrder(l.order);
       const fromIdx = order.indexOf(fromKey);
       const toIdx = order.indexOf(toKey);
-      if (fromIdx < 0 || toIdx < 0) return s;
+      if (fromIdx < 0 || toIdx < 0) return l;
       const next = order.slice();
       const [moved] = next.splice(fromIdx, 1);
       next.splice(toIdx, 0, moved!);
-      return { ...s, order: next };
+      return { ...l, order: next };
     });
   }
 
@@ -418,18 +454,18 @@ export default function Schedules() {
     // and Math.max propagate NaN and we'd persist it to localStorage.
     if (!Number.isFinite(px)) return;
     const clamped = Math.max(40, Math.min(600, Math.round(px)));
-    setTableSettings((s) => ({ ...s, widths: { ...s.widths, [key]: clamped } }));
+    updateLayout((l) => ({ ...l, widths: { ...l.widths, [key]: clamped } }));
   }
 
   function resetColumnLayout() {
-    // Re-evaluate density at reset time so the user always lands on the
-    // canonical layout for the density they're currently in.
-    setTableSettings((s) => ({ ...s, ...defaultLayoutForDensity(currentDensity()) }));
+    // Reset just the active density back to its canonical default; the other
+    // densities keep whatever the user set there.
+    updateLayout(() => defaultColumnLayout(density));
   }
 
   const visibleColumns = useMemo(
-    () => orderedAllColumns(tableSettings).filter((c) => !tableSettings.hidden.includes(c.key)),
-    [tableSettings.hidden, tableSettings.pinned, tableSettings.order],
+    () => orderedAllColumns(layout).filter((c) => !layout.hidden.includes(c.key)),
+    [layout],
   );
 
   // Insert a break marker before each new longueur group (including the first).
@@ -651,6 +687,7 @@ export default function Schedules() {
 
             <TableControls
               settings={tableSettings}
+              layout={layout}
               visibleColumns={visibleColumns}
               available={availableFilters}
               filteringActive={filteringActive}
@@ -670,8 +707,8 @@ export default function Schedules() {
               totals={visibleRows}
               onRowOpen={handleRowOpen}
               columns={visibleColumns}
-              pinned={tableSettings.pinned}
-              widths={tableSettings.widths}
+              pinned={layout.pinned}
+              widths={layout.widths}
               onResize={setColumnWidth}
               onReorder={reorderColumn}
               sortKey={tableSettings.sortKey}
@@ -1045,6 +1082,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
 
 interface TableControlsProps {
   settings: TableSettings;
+  layout: ColumnLayout;
   visibleColumns: ColumnDef[];
   available: { qualites: string[]; pdps: string[]; mtos: string[] };
   filteringActive: boolean;
@@ -1061,6 +1099,7 @@ interface TableControlsProps {
 
 function TableControls({
   settings,
+  layout,
   visibleColumns,
   available,
   filteringActive,
@@ -1135,11 +1174,11 @@ function TableControls({
               <button type="button" className="btn ghost mini" onClick={onResetLayout}>Réinitialiser</button>
             </div>
             <ul className="sch-cols-list">
-              {orderedAllColumns(settings).map((col, i, arr) => {
-                const visible = !settings.hidden.includes(col.key);
-                const pinned = settings.pinned.includes(col.key);
-                const sameGroupPrev = i > 0 && settings.pinned.includes(arr[i - 1]!.key) === pinned;
-                const sameGroupNext = i < arr.length - 1 && settings.pinned.includes(arr[i + 1]!.key) === pinned;
+              {orderedAllColumns(layout).map((col, i, arr) => {
+                const visible = !layout.hidden.includes(col.key);
+                const pinned = layout.pinned.includes(col.key);
+                const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
+                const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
                 return (
                   <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
                     <label className="sch-cols-opt">
@@ -1183,7 +1222,7 @@ function TableControls({
               })}
             </ul>
             <div className="sch-cols-menu-foot faint small">
-              {visibleColumns.length}/{COLUMNS.length} visibles · {settings.pinned.length} épinglée{settings.pinned.length > 1 ? 's' : ''}
+              {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
             </div>
           </div>
         )}
