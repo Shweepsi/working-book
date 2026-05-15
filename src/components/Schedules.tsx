@@ -29,10 +29,8 @@ type GroupedItem =
 
 interface RailStat {
   count: number;
-  lites: number;
   m2: number;
   shortName: string;
-  nameCounts: Map<string, number>;
 }
 
 type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'opTm' | 'qualite' | 'pdp' | 'm2' | 'packsReq';
@@ -498,27 +496,33 @@ export default function Schedules({ density }: SchedulesProps) {
   // detail header mirror what the user actually sees in the table.
   const railStats = useMemo(() => {
     const stats = new Map<string, RailStat>();
+    // shortName tallies kept aside — they only feed the dominant-name pick
+    // below, they're not part of the RailStat shape the UI consumes.
+    const nameTally = new Map<string, Map<string, number>>();
     for (const r of data?.records ?? []) {
       if (/^Vacuum/i.test(r.itemName)) continue;
       if (r.opStepD === 90) continue;
       if ((r.reqLites ?? 0) <= 0) continue;
       let cur = stats.get(r.schedule);
       if (!cur) {
-        cur = { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
+        cur = { count: 0, m2: 0, shortName: '' };
         stats.set(r.schedule, cur);
+        nameTally.set(r.schedule, new Map());
       }
       cur.count += 1;
-      cur.lites += r.schedLites ?? 0;
       cur.m2 += r.m2;
       const short = shortItemName(r.itemName);
-      if (short) cur.nameCounts.set(short, (cur.nameCounts.get(short) ?? 0) + 1);
+      if (short) {
+        const tally = nameTally.get(r.schedule)!;
+        tally.set(short, (tally.get(short) ?? 0) + 1);
+      }
     }
     // Resolve the dominant short name per schedule from the full itemNames so
     // the rail isn't tied to the (potentially lossy) cached itemRoot.
-    for (const stat of stats.values()) {
+    for (const [schedule, stat] of stats) {
       let best = '';
       let bestCount = 0;
-      for (const [name, n] of stat.nameCounts) {
+      for (const [name, n] of nameTally.get(schedule) ?? []) {
         if (n > bestCount) { best = name; bestCount = n; }
       }
       stat.shortName = best;
@@ -615,7 +619,7 @@ export default function Schedules({ density }: SchedulesProps) {
             </h4>
             <ul className="sch-rail-list">
               {visibleSchedules.map((s) => {
-                const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
+                const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0, shortName: '' };
                 return (
                   <li key={s.schedule}>
                     <button
@@ -639,7 +643,7 @@ export default function Schedules({ density }: SchedulesProps) {
 
           <section className="sch-detail">
             {selectedSchedule && (() => {
-              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0, shortName: '', nameCounts: new Map() };
+              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, m2: 0, shortName: '' };
               const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
               return (
                 <header className="sch-detail-head">
