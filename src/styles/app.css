@@ -1730,11 +1730,15 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   display: block;
 }
 /* Print header — bigger title than on screen, sitting flush on top of the
-   table (no bottom gap). !important defeats the equally specific
-   :root[data-density='…'] .sch-detail-head rules that would otherwise win
-   on source order. */
+   table with a firm rule separating the two. !important defeats the equally
+   specific :root[data-density='…'] .sch-detail-head rules that would
+   otherwise win on source order. */
 :root.is-print-preview .sch-detail-head,
-:root.is-printing .sch-detail-head { padding: 0 !important; margin-bottom: 0 !important; }
+:root.is-printing .sch-detail-head {
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+  border-bottom: 1pt solid var(--line);
+}
 :root.is-print-preview .sch-detail-head h3,
 :root.is-printing .sch-detail-head h3 { font-size: 17pt !important; }
 /* Vitesse renders as static text on paper — strip the input box and the
@@ -1758,6 +1762,9 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   min-height: 0;
   overflow: visible;
   border-radius: 0;
+  /* Header already draws the divider via its border-bottom — drop the
+     table's own top border so the two don't stack into a double line. */
+  border-top: 0;
 }
 :root.is-print-preview .sch-row,
 :root.is-printing .sch-row {
@@ -2047,7 +2054,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      class before the browser captures the print layout. Keep these in
      sync with the unified block. */
   .sch-body { display: block; }
-  .sch-detail-head { padding: 0 !important; margin-bottom: 0 !important; }
+  .sch-detail-head {
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    border-bottom: 1pt solid var(--line);
+  }
   .sch-detail-head h3 { font-size: 17pt !important; }
   .sch-vitesse-input { display: none; }
   .sch-vitesse-print { display: inline; }
@@ -2063,6 +2074,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     min-height: 0;
     overflow: visible;
     border-radius: 0;
+    border-top: 0;
   }
   .sch-row {
     min-width: 0;
