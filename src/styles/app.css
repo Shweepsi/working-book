@@ -1737,7 +1737,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-printing .sch-detail-head {
   padding: 0 !important;
   margin-bottom: 0 !important;
-  border-bottom: 1pt solid var(--line);
+  border-bottom: 1pt solid var(--line-soft);
 }
 :root.is-print-preview .sch-detail-head h3,
 :root.is-printing .sch-detail-head h3 { font-size: 17pt !important; }
@@ -2057,7 +2057,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   .sch-detail-head {
     padding: 0 !important;
     margin-bottom: 0 !important;
-    border-bottom: 1pt solid var(--line);
+    border-bottom: 1pt solid var(--line-soft);
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
   .sch-vitesse-input { display: none; }
