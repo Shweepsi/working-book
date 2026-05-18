@@ -104,9 +104,17 @@ interface TableSettings {
   mtoMts: ('MTO' | 'MTS' | '?')[];
 }
 
-// Current settings schema version. v2: Article is shown by default — v1
-// layouts get itemName un-hidden once on load.
-const TABLE_SETTINGS_VERSION = 2;
+// Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS —
+// see UNHID_AT_VERSION for the one-time migrations applied on load.
+const TABLE_SETTINGS_VERSION = 3;
+
+// Columns that became default-visible at a given settings version. A layout
+// stored before that version gets the column un-hidden once on load, so the
+// new default reaches existing per-density layouts without a manual reset.
+const UNHID_AT_VERSION: { version: number; key: string }[] = [
+  { version: 2, key: 'itemName' },
+  { version: 3, key: 'mtoMts' },
+];
 
 // Canonical column order shared by every density default. Quality / pack /
 // production numbers come before format / pdp so the eye sweeps the
@@ -120,12 +128,12 @@ const DEFAULT_ORDER = [
 
 // Per-density default visibility. Compact strips the page down to just
 // production maths + m². Normal adds MO / Product identification. Advanced
-// also reveals the format. Départ, opTm, pdp, mto/mts stay opt-in across the
-// board (rarely scanned, available via the Colonnes menu).
+// also reveals the format. Départ, opTm, pdp stay opt-in across the board
+// (rarely scanned, available via the Colonnes menu).
 const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
-  compact:  ['mtoMts', 'dateDepart', 'mo', 'product', 'opTm', 'format', 'pdp'],
-  normal:   ['mtoMts', 'dateDepart', 'opTm', 'format', 'pdp'],
-  advanced: ['mtoMts', 'dateDepart', 'opTm', 'pdp'],
+  compact:  ['dateDepart', 'mo', 'product', 'opTm', 'format', 'pdp'],
+  normal:   ['dateDepart', 'opTm', 'format', 'pdp'],
+  advanced: ['dateDepart', 'opTm', 'pdp'],
 };
 
 function defaultColumnLayout(density: Density): ColumnLayout {
@@ -177,11 +185,12 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     normal: sanitiseColumnLayout(rawLayouts.normal, 'normal'),
     advanced: sanitiseColumnLayout(rawLayouts.advanced, 'advanced'),
   };
-  // v1 → v2: Article became a default-visible column. Un-hide it in older
-  // stored layouts so it appears without the user resetting each density.
-  if (storedVersion < 2) {
+  // Replay each "column became default-visible" migration the stored layout
+  // is behind on, so the new defaults reach existing layouts without a reset.
+  for (const { version, key } of UNHID_AT_VERSION) {
+    if (storedVersion >= version) continue;
     for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
-      layouts[d] = { ...layouts[d], hidden: layouts[d].hidden.filter((k) => k !== 'itemName') };
+      layouts[d] = { ...layouts[d], hidden: layouts[d].hidden.filter((k) => k !== key) };
     }
   }
   return {
