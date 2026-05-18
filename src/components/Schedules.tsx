@@ -693,6 +693,7 @@ export default function Schedules({ density }: SchedulesProps) {
                           onChange={(e) => setVitesse(e.target.value === '' ? '' : Number(e.target.value))}
                           aria-label="Vitesse en m/min"
                         />
+                        <span className="sch-vitesse-print mono" aria-hidden="true">{vitesse === '' ? '—' : vitesse}</span>
                         <span className="sch-stat-tile-unit faint">m/min</span>
                       </span>
                     </label>

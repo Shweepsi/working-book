@@ -1729,14 +1729,27 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      once the rail is hidden — otherwise its track stays reserved on the left. */
   display: block;
 }
-/* Print header — bigger than on screen. !important defeats the equally
-   specific :root[data-density='…'] .sch-detail-head rules that would
-   otherwise win on source order and shrink the header back down. The stat
-   tiles render the same as on screen. */
+/* Print header — bigger title than on screen, sitting flush on top of the
+   table (no bottom gap). !important defeats the equally specific
+   :root[data-density='…'] .sch-detail-head rules that would otherwise win
+   on source order. */
 :root.is-print-preview .sch-detail-head,
-:root.is-printing .sch-detail-head { padding: 0 0 3pt !important; margin-bottom: 3pt !important; }
+:root.is-printing .sch-detail-head { padding: 0 !important; margin-bottom: 0 !important; }
 :root.is-print-preview .sch-detail-head h3,
 :root.is-printing .sch-detail-head h3 { font-size: 17pt !important; }
+/* Vitesse renders as static text on paper — strip the input box and the
+   editable pill framing so it reads like the other stat tiles. */
+:root.is-print-preview .sch-vitesse-input,
+:root.is-printing .sch-vitesse-input { display: none; }
+:root.is-print-preview .sch-vitesse-print,
+:root.is-printing .sch-vitesse-print { display: inline; }
+:root.is-print-preview .sch-stat-tile-input .sch-stat-tile-value,
+:root.is-printing .sch-stat-tile-input .sch-stat-tile-value {
+  border: 0;
+  background: none;
+  padding: 0;
+  box-shadow: none;
+}
 :root.is-print-preview .sch-table,
 :root.is-printing .sch-table {
   /* Defeat the in-app overflow scroll so the rows flow naturally onto paper. */
@@ -2034,8 +2047,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      class before the browser captures the print layout. Keep these in
      sync with the unified block. */
   .sch-body { display: block; }
-  .sch-detail-head { padding: 0 0 3pt !important; margin-bottom: 3pt !important; }
+  .sch-detail-head { padding: 0 !important; margin-bottom: 0 !important; }
   .sch-detail-head h3 { font-size: 17pt !important; }
+  .sch-vitesse-input { display: none; }
+  .sch-vitesse-print { display: inline; }
+  .sch-stat-tile-input .sch-stat-tile-value {
+    border: 0;
+    background: none;
+    padding: 0;
+    box-shadow: none;
+  }
   .sch-table {
     background-image: none;
     max-height: none;
@@ -2755,6 +2776,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   outline: none;
 }
 .sch-stat-tile-unit { font-size: var(--fs-2xs); font-weight: 500; }
+/* Static vitesse value — shown only in print, where the input box is dropped. */
+.sch-vitesse-print { display: none; }
 .sch-stat-tile-input.is-invalid .sch-stat-tile-value {
   border-color: var(--flag-unsched-bd);
   background: color-mix(in srgb, var(--hl-red) 30%, var(--paper));
