@@ -303,7 +303,7 @@ export default function Schedules({ density }: SchedulesProps) {
     { domain: 'policy', params: {}, alwaysSync: true },
     policyInit,
   );
-  const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 6));
+  const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
@@ -698,7 +698,7 @@ export default function Schedules({ density }: SchedulesProps) {
                       </span>
                     </label>
                     <div className="sch-stat-tile" title={`${coaterRows.length} lignes Coater`}>
-                      <span className="sch-stat-tile-label">Théorique</span>
+                      <span className="sch-stat-tile-label">Production</span>
                       <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMin)}</strong>
                     </div>
                     <div className="sch-stat-tile" title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %">
