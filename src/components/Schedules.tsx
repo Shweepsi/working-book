@@ -90,6 +90,9 @@ interface ColumnLayout {
 }
 
 interface TableSettings {
+  // Bumped when a stored-shape or default-layout change needs a one-time
+  // migration on load (see sanitiseTableSettings).
+  version: number;
   sortKey: SortKey;
   sortDir: SortDir;
   // A separate column layout per density. Switching density swaps the active
@@ -100,6 +103,10 @@ interface TableSettings {
   pdp: string[];
   mtoMts: ('MTO' | 'MTS' | '?')[];
 }
+
+// Current settings schema version. v2: Article is shown by default — v1
+// layouts get itemName un-hidden once on load.
+const TABLE_SETTINGS_VERSION = 2;
 
 // Canonical column order shared by every density default. Quality / pack /
 // production numbers come before format / pdp so the eye sweeps the
@@ -113,12 +120,12 @@ const DEFAULT_ORDER = [
 
 // Per-density default visibility. Compact strips the page down to just
 // production maths + m². Normal adds MO / Product identification. Advanced
-// also reveals the format. Article, départ, opTm, pdp stay opt-in across the
+// also reveals the format. Départ, opTm, pdp, mto/mts stay opt-in across the
 // board (rarely scanned, available via the Colonnes menu).
 const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
-  compact:  ['mtoMts', 'dateDepart', 'mo', 'product', 'itemName', 'opTm', 'format', 'pdp'],
-  normal:   ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'format', 'pdp'],
-  advanced: ['mtoMts', 'dateDepart', 'itemName', 'opTm', 'pdp'],
+  compact:  ['mtoMts', 'dateDepart', 'mo', 'product', 'opTm', 'format', 'pdp'],
+  normal:   ['mtoMts', 'dateDepart', 'opTm', 'format', 'pdp'],
+  advanced: ['mtoMts', 'dateDepart', 'opTm', 'pdp'],
 };
 
 function defaultColumnLayout(density: Density): ColumnLayout {
@@ -164,14 +171,24 @@ function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: D
 function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
   const rawLayouts = (raw.layouts ?? {}) as Partial<Record<Density, ColumnLayout>>;
   const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+  const storedVersion = typeof raw.version === 'number' ? raw.version : 1;
+  const layouts: Record<Density, ColumnLayout> = {
+    compact: sanitiseColumnLayout(rawLayouts.compact, 'compact'),
+    normal: sanitiseColumnLayout(rawLayouts.normal, 'normal'),
+    advanced: sanitiseColumnLayout(rawLayouts.advanced, 'advanced'),
+  };
+  // v1 → v2: Article became a default-visible column. Un-hide it in older
+  // stored layouts so it appears without the user resetting each density.
+  if (storedVersion < 2) {
+    for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
+      layouts[d] = { ...layouts[d], hidden: layouts[d].hidden.filter((k) => k !== 'itemName') };
+    }
+  }
   return {
+    version: TABLE_SETTINGS_VERSION,
     sortKey: migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : 'longueur') as SortKey,
     sortDir: raw.sortDir === 'asc' ? 'asc' : 'desc',
-    layouts: {
-      compact: sanitiseColumnLayout(rawLayouts.compact, 'compact'),
-      normal: sanitiseColumnLayout(rawLayouts.normal, 'normal'),
-      advanced: sanitiseColumnLayout(rawLayouts.advanced, 'advanced'),
-    },
+    layouts,
     qualite: arr(raw.qualite),
     pdp: arr(raw.pdp),
     mtoMts: arr(raw.mtoMts) as ('MTO' | 'MTS' | '?')[],

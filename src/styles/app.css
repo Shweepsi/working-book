@@ -1729,12 +1729,17 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      once the rail is hidden — otherwise its track stays reserved on the left. */
   display: block;
 }
+/* Print header — bigger than on screen. !important defeats the equally
+   specific :root[data-density='…'] .sch-detail-head rules that would
+   otherwise win on source order and shrink the header back down. */
 :root.is-print-preview .sch-detail-head,
-:root.is-printing .sch-detail-head { padding: 0; margin-bottom: 0; }
+:root.is-printing .sch-detail-head { padding: 0 0 3pt !important; margin-bottom: 3pt !important; }
 :root.is-print-preview .sch-detail-head h3,
-:root.is-printing .sch-detail-head h3 { font-size: 12pt; }
+:root.is-printing .sch-detail-head h3 { font-size: 17pt !important; }
 :root.is-print-preview .sch-detail-head .faint,
-:root.is-printing .sch-detail-head .faint { font-size: 9pt; }
+:root.is-printing .sch-detail-head .faint { font-size: 10.5pt; }
+:root.is-print-preview .sch-detail-head-throughput,
+:root.is-printing .sch-detail-head-throughput { font-size: 10.5pt; }
 /* In print, swap the on-screen stat tiles for a single compact subline
    (speed · time · +9 % DT). The tiles are screen chrome — too tall for
    a paper header. */
@@ -2039,11 +2044,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      class before the browser captures the print layout. Keep these in
      sync with the unified block. */
   .sch-body { display: block; }
-  .sch-detail-head { padding: 0; margin-bottom: 0; }
-  .sch-detail-head h3 { font-size: 12pt; }
-  .sch-detail-head .faint { font-size: 9pt; }
+  .sch-detail-head { padding: 0 0 3pt !important; margin-bottom: 3pt !important; }
+  .sch-detail-head h3 { font-size: 17pt !important; }
+  .sch-detail-head .faint { font-size: 10.5pt; }
   .sch-detail-head-stats { display: none; }
-  .sch-detail-head-throughput { display: inline; }
+  .sch-detail-head-throughput { display: inline; font-size: 10.5pt; }
   .sch-table {
     background-image: none;
     max-height: none;
