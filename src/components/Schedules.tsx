@@ -705,13 +705,6 @@ export default function Schedules({ density }: SchedulesProps) {
                       <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMinDt)}</strong>
                     </div>
                   </div>
-                  <span className="faint small sch-detail-head-throughput mono">
-                    {validSpeed ? `${vitesse} m/min` : '— m/min'}
-                    {' · '}
-                    {fmtHMmin(coaterMin)}
-                    {' · +9 % DT '}
-                    {fmtHMmin(coaterMinDt)}
-                  </span>
                 </header>
               );
             })()}
