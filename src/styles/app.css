@@ -1,7 +1,30 @@
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* Lets the FAB / sheet drop into the iOS home-indicator area without the
+     main scroll container leaking behind it. */
+  overscroll-behavior-y: contain;
+}
+
+/* Global touch/PWA chrome polish.
+   - Suppress the gray iOS tap flash; we drive feedback via :active / :hover.
+   - Stop the OS from autolinking dates / phone numbers in the body copy.
+   - Prevent text selection on UI chrome so a long-press doesn't open a
+     selection bubble over a button. Selectable surfaces (inputs, table
+     cells, descriptions) re-enable user-select locally below. */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+html { overscroll-behavior-y: none; }
+body { user-select: none; -webkit-user-select: none; }
+input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app-header {
@@ -271,6 +294,96 @@
   border-color: var(--accent);
 }
 
+/* Filter bar above the event list — search input + flag chips. Hidden in
+   print so the printout never shows a partial / filtered view. */
+.evt-filterbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+}
+.evt-filterbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 4px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
+  background: var(--paper-2);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.evt-filterbar-label:focus-within {
+  border-color: var(--accent);
+  background: var(--paper);
+}
+.evt-filterbar-glyph {
+  font-size: var(--fs-md);
+  color: var(--ink-faint);
+  line-height: 1;
+}
+.evt-filterbar-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  padding: 4px 0;
+  outline: 0;
+}
+.evt-filterbar-input::-webkit-search-cancel-button {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  background: var(--ink-faint);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M18 6L6 18M6 6l12 12' stroke='black' stroke-width='2' fill='none' stroke-linecap='round'/></svg>") center/contain no-repeat;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M18 6L6 18M6 6l12 12' stroke='black' stroke-width='2' fill='none' stroke-linecap='round'/></svg>") center/contain no-repeat;
+  cursor: pointer;
+}
+.evt-filterbar-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.evt-filterbar-flags .flag.flag-filter {
+  cursor: pointer;
+  min-height: 26px;
+  padding: 3px var(--space-5);
+  font-size: var(--fs-sm);
+  transition: opacity 120ms ease, box-shadow 120ms ease, border-color 120ms ease, filter 120ms ease;
+}
+.evt-filterbar-flags .flag.flag-filter.is-off {
+  opacity: 0.55;
+  filter: saturate(0.65);
+}
+.evt-filterbar-flags .flag.flag-filter.is-off:hover {
+  opacity: 0.9;
+  filter: saturate(0.95);
+}
+.evt-filterbar-flags .flag.flag-filter.is-on {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.evt-filterbar-clear { margin-left: var(--space-2); }
+
+@media (max-width: 600px) {
+  .evt-filterbar { padding: var(--space-3); gap: var(--space-3); }
+  .evt-filterbar-label { flex-basis: 100%; }
+  .evt-filterbar-input { padding: var(--space-3) 0; font-size: var(--fs-base); }
+  .evt-filterbar-flags { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+  .evt-filterbar-flags::-webkit-scrollbar { height: 0; }
+  .evt-filterbar-flags .flag.flag-filter { font-size: var(--fs-sm); padding: 4px var(--space-5); min-height: 28px; flex-shrink: 0; }
+}
+
 .evt-list {
   display: flex;
   flex-direction: column;
@@ -355,6 +468,12 @@
   padding-left: 10px;
   border-left: 2px solid var(--line-faint);
 }
+/* Notes' left bandeau picks up the row tint so the colour cue carries
+   into the secondary lines too. */
+.evt.tint-green  .desc .sub { border-left-color: var(--flag-ok-bd); }
+.evt.tint-yellow .desc .sub { border-left-color: var(--flag-sched-bd); }
+.evt.tint-red    .desc .sub { border-left-color: var(--flag-unsched-bd); }
+.evt.tint-blue   .desc .sub { border-left-color: var(--flag-note-bd); }
 
 .evt .flags {
   display: flex;
@@ -397,12 +516,17 @@
   gap: var(--space-9);
   padding: var(--space-6) var(--space-8);
   background: var(--paper-2);
-  border-top: 1px solid var(--line-faint);
+  /* No border-top: the previous row (.evt or .evt-other-matches) already
+     paints its own bottom border, and stacking the two produced a visible
+     double line. */
   font-size: var(--fs-md);
   color: var(--ink-soft);
   flex-wrap: wrap;
   align-items: center;
 }
+/* Restore a separator when the row immediately above the summary has no
+   bottom border of its own (empty state, search-empty state). */
+.evt-empty + .summary { border-top: 1px solid var(--line-faint); }
 
 .summary strong {
   color: var(--ink);
@@ -432,7 +556,9 @@
   box-shadow: var(--shadow-sheet);
   animation: pop-in 180ms ease-out;
   max-height: calc(100vh - 60px);
+  max-height: calc(100dvh - 60px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--line-faint);
 }
 
@@ -443,6 +569,53 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
+  gap: var(--space-5);
+}
+
+.sheet-head-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sheet-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.sch-import-policy-btn { display: inline-flex; align-items: center; gap: 6px; }
+.sch-import-policy-btn .glyph { color: var(--ink-faint); }
+
+.sheet-head-sub {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-row-when-type {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: var(--space-7);
+  align-items: end;
+  justify-content: start;
+}
+.form-row-when-type > .form-section { min-width: 0; }
+.form-row-when-type .type-select {
+  width: auto;
+  min-width: 160px;
+  max-width: 220px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-md);
+  min-height: 34px;
+}
+@media (max-width: 520px) {
+  .form-row-when-type { grid-template-columns: 1fr; gap: var(--space-6); }
+  .form-row-when-type .type-select { width: 100%; max-width: none; }
 }
 
 .sheet h3 {
@@ -560,7 +733,9 @@
 .text-input.is-danger {
   border-color: var(--flag-unsched-bd);
   box-shadow: inset 3px 0 0 0 var(--flag-unsched-bd);
+  color: var(--flag-unsched-fg);
 }
+.text-input.is-danger::placeholder { color: color-mix(in srgb, var(--flag-unsched-fg) 65%, transparent); }
 
 .time-range {
   display: flex;
@@ -612,28 +787,61 @@
 }
 
 .time-input {
-  width: 100px;
+  width: 72px;
+  padding: var(--space-3) var(--space-4);
   font-family: 'Geist Mono', monospace;
   text-align: center;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  min-height: 34px;
 }
 
+.time-range {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
 .time-range .arrow {
   color: var(--ink-faint);
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-lg);
 }
+
+/* Welded input + "now" button: shared border, no gap. The button picks up
+   the input's height so the pair reads as a single control. */
+.time-input-group {
+  display: inline-flex;
+  align-items: stretch;
+}
+.time-input-group .time-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+}
+.time-input-group .now-btn {
+  width: auto;
+  min-width: 34px;
+  height: auto;
+  min-height: 34px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-left: 1px solid var(--line-faint);
+  font-size: var(--fs-md);
+  padding: 0 var(--space-3);
+}
+.time-input-group:focus-within .time-input,
+.time-input-group:focus-within .now-btn { border-color: var(--accent); }
 
 .flag-pick {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
+/* Match the Logbook filter-bar chip metrics so the editor's Catégorie
+   picker reads as the same control at the same size. */
 .flag-pick .flag {
-  padding: var(--space-3) var(--space-7);
-  font-size: var(--fs-md);
-  min-height: 32px;
+  min-height: 26px;
+  padding: 3px var(--space-5);
+  font-size: var(--fs-sm);
 }
 
 .note-row {
@@ -914,6 +1122,14 @@
   padding: 10px 0 0;
 }
 
+/* Responsive label utility — long version on desktop, short/glyph on mobile.
+   Used on sticky toolbars where horizontal room is scarce. */
+.lbl-short { display: none; }
+@media (max-width: 600px) {
+  .lbl-full { display: none; }
+  .lbl-short { display: inline; }
+}
+
 .pt-tests {
   display: flex;
   gap: var(--space-4);
@@ -961,6 +1177,10 @@
   .app-main { padding: 18px; }
   .app-header { padding: 10px 16px; gap: 12px; }
   .shift-meta { gap: 10px; font-size: var(--fs-sm); }
+
+  /* Column titles only make sense on the wide desktop grid; on tablet and
+     phone the rows already render as cards so the head wraps awkwardly. */
+  .evt-head { display: none !important; }
 
   .evt {
     grid-template-columns: 1fr auto;
@@ -1023,16 +1243,16 @@
   .shift-meta { gap: 8px; font-size: var(--fs-sm); }
 
   .tabs { padding: 2px; }
-  .tabs .tab { padding: 4px 10px; font-size: var(--fs-md); min-height: 28px; }
+  .tabs .tab { padding: 6px 12px; font-size: var(--fs-md); min-height: 34px; }
 
-  .date-nav { gap: 0; padding: 1px; }
-  .date-nav .icon { width: 26px; height: 26px; min-height: 26px; }
-  .date-nav .date-input { font-size: var(--fs-sm); padding: 3px 4px; min-height: 26px; }
-  .date-nav .live-btn { padding: 0 8px; font-size: var(--fs-sm); min-height: 26px; }
+  .date-nav { gap: 0; padding: 2px; }
+  .date-nav .icon { width: 32px; height: 32px; min-height: 32px; }
+  .date-nav .date-input { font-size: var(--fs-sm); padding: 4px 6px; min-height: 30px; }
+  .date-nav .live-btn { padding: 0 10px; font-size: var(--fs-sm); min-height: 30px; }
 
-  .shift-switch { gap: 3px; }
-  .shift-chip { padding: 3px 5px 3px 9px; gap: 5px; font-size: var(--fs-sm); min-height: 28px; }
-  .shift-chip .shift-poste { padding: 1px 5px; font-size: 9px; }
+  .shift-switch { gap: 4px; }
+  .shift-chip { padding: 4px 6px 4px 10px; gap: 6px; font-size: var(--fs-sm); min-height: 32px; }
+  .shift-chip .shift-poste { padding: 1px 6px; font-size: 10px; }
 
   .type-strip {
     margin: 0 -14px 14px;
@@ -1067,18 +1287,21 @@
     right: 0;
     bottom: 0;
     z-index: 20;
-    padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+    gap: var(--space-3);
+    padding: 6px 10px max(10px, env(safe-area-inset-bottom));
     background: var(--paper-glass-2);
     backdrop-filter: saturate(160%) blur(8px);
     border-top: 1px solid var(--line-faint);
     margin: 0;
+    flex-wrap: nowrap;
   }
-  .pt-actions.sticky .btn { flex: 1; }
-  .pt-actions.sticky .btn.ghost { flex: 0; }
-
-  /* Column-title row is a desktop affordance — hide it on phone where
-     each event renders as a stacked card (time/dur, desc, flags). */
-  .evt-head { display: none !important; }
+  .pt-actions.sticky .btn {
+    min-height: 34px;
+    padding: 4px 8px;
+    font-size: var(--fs-sm);
+  }
+  .pt-actions.sticky .btn:first-child { flex: 1 1 auto; }
+  .pt-actions.sticky .btn.ghost { flex: 0 0 auto; min-width: 38px; padding: 4px 6px; }
 
   .summary {
     padding: var(--space-5) var(--space-7);
@@ -1097,9 +1320,11 @@
     width: 100%;
     max-width: 100%;
     border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
-    padding: 14px 16px env(safe-area-inset-bottom, 20px);
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
     animation: slide-up-phone 220ms ease-out;
     max-height: 92vh;
+    max-height: 92dvh;
+    overscroll-behavior: contain;
   }
   .sheet .grabber {
     display: block;
@@ -1114,6 +1339,19 @@
 @keyframes slide-up-phone {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
+}
+
+/* Very short viewports (landscape phones, foldables): tighten sheets so
+   the form actions stay reachable without scrolling the whole sheet. */
+@media (max-height: 520px) and (max-width: 900px) {
+  .sheet {
+    max-height: 100dvh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    padding-top: 8px;
+  }
+  .sheet h3 { font-size: var(--fs-lg); }
+  .sheet .grabber { margin-bottom: 6px; }
+  .sheet-head { margin-bottom: 10px; }
 }
 
 /* Date nav */
@@ -1296,10 +1534,61 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-xl);
-  background: var(--paper);
+  background: transparent;
 }
+
+/* Results from other shifts/dates surfaced when searching globally. */
+.evt-other-matches {
+  border-top: 1px dashed var(--line);
+  background: color-mix(in srgb, var(--paper-2) 60%, var(--paper));
+}
+.evt-other-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--d-pad-x);
+  border-bottom: 1px solid var(--line-faint);
+}
+.evt-other-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.evt-other-icon { color: var(--ink-faint); font-size: var(--fs-base); }
+.evt-other-count {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+}
+.evt-other-more {
+  padding: var(--space-3) var(--d-pad-x);
+  color: var(--ink-faint);
+  text-align: center;
+}
+.evt.evt-other .evt-other-tag {
+  display: inline-block;
+  margin-right: var(--space-3);
+  padding: 1px 6px;
+  font-size: var(--fs-2xs);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-soft);
+  vertical-align: 1px;
+}
+.evt.evt-other.is-clickable { cursor: pointer; }
+.evt.evt-other.is-clickable:hover { background-color: color-mix(in srgb, var(--ink) 4%, var(--paper)); }
+.evt.evt-other.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .evt-empty::before {
   content: '✎';
@@ -1311,9 +1600,278 @@
 /* Print-only blocks */
 .print-only { display: none; }
 
+/* ---------- Print preview (screen) ----------
+   Mirrors the @media print rules below so the user can validate the paper
+   layout without invoking the OS print dialog. Triggered by toggling the
+   `is-print-preview` class on <html>; styled to look like an A4 sheet
+   centered on a neutral backdrop. */
+:root.is-print-preview {
+  --print-ink-strong: #000;
+  --print-ink: #444;
+  --print-ink-soft: #666;
+  --print-line: #888;
+  --print-line-faint: #999;
+  --print-bg-tint: #eee;
+  --print-bg: #fff;
+}
+:root.is-print-preview body {
+  background: #d8d6d0;
+  color: var(--print-ink-strong);
+}
+:root.is-print-preview .app-header,
+:root.is-print-preview .type-strip,
+:root.is-print-preview .evt-filterbar,
+:root.is-print-preview .pt-actions,
+:root.is-print-preview .pt-tests,
+:root.is-print-preview .sch-controls,
+:root.is-print-preview .sch-summary,
+:root.is-print-preview .sch-rail,
+:root.is-print-preview .sch-hint,
+:root.is-print-preview .sv-toolbar,
+:root.is-print-preview .sheet,
+:root.is-print-preview .sheet-backdrop,
+:root.is-print-preview .fab,
+:root.is-print-preview .toast-viewport,
+:root.is-print-preview .no-print {
+  display: none !important;
+}
+:root.is-print-preview .app-main {
+  max-width: 210mm;
+  margin: 24px auto 80px;
+  padding: 5mm;
+  background: var(--print-bg);
+  color: var(--print-ink-strong);
+  border-radius: 2px;
+  font-size: 10pt;
+}
+/* Schedule view is laid out in landscape on paper (@page sch-landscape),
+   so the preview swaps to 297mm to match. */
+:root.is-print-preview .app-main:has(.sch) {
+  max-width: 297mm;
+  padding: 5mm;
+}
+:root.is-print-preview .print-only { display: block; }
+:root.is-print-preview .print-header {
+  margin-bottom: 12px;
+  border-bottom: 1.5px solid var(--print-ink-strong);
+  padding-bottom: 8px;
+}
+:root.is-print-preview .print-header h1 { margin: 0 0 6px; font-size: 16pt; font-weight: 600; }
+:root.is-print-preview .print-header .meta { display: flex; flex-wrap: wrap; gap: 18px; font-size: 10pt; }
+:root.is-print-preview .print-signature { margin-top: 24px; }
+:root.is-print-preview .print-signature .sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+:root.is-print-preview .print-signature .sig-line { border-top: 1px solid var(--print-ink-strong); margin-top: 32px; }
+:root.is-print-preview .print-signature .sig-label { font-size: 9pt; color: var(--print-ink); margin-top: 4px; }
+:root.is-print-preview .evt {
+  display: grid !important;
+  grid-template-columns: 60px 50px 90px 1fr 110px !important;
+  grid-template-areas: none !important;
+  gap: 10px !important;
+  padding: 6px 4px !important;
+  border-bottom: 0.5px solid var(--print-line-faint) !important;
+  font-size: 9.5pt !important;
+  background: var(--print-bg) !important;
+  color: var(--print-ink-strong);
+}
+:root.is-print-preview .evt .type, :root.is-print-preview .evt .type-h {
+  display: inline-flex !important;
+  padding: 1px 6px !important;
+  border: 1px solid var(--print-line) !important;
+  border-radius: 3px;
+  font-size: 9pt !important;
+  background: var(--print-bg) !important;
+}
+:root.is-print-preview .evt .row-actions { display: none !important; }
+:root.is-print-preview .evt-list {
+  border: 1px solid var(--print-ink-strong) !important;
+  border-radius: 0 !important;
+}
+:root.is-print-preview .evt-head {
+  display: grid !important;
+  background: var(--print-bg-tint) !important;
+  color: var(--print-ink-strong) !important;
+  font-size: 8.5pt !important;
+  padding: 6px 4px !important;
+}
+:root.is-print-preview .summary {
+  background: var(--print-bg) !important;
+  border-top: 1px solid var(--print-ink-strong) !important;
+  padding: 8px 4px !important;
+  font-size: 9pt !important;
+}
+:root.is-print-preview .pt-section {
+  border: 1px solid var(--print-line) !important;
+  border-radius: 0 !important;
+  margin-bottom: 8px;
+  background: var(--print-bg);
+}
+:root.is-print-preview .pt-section header {
+  background: var(--print-bg-tint) !important;
+  padding: 4px 8px !important;
+}
+:root.is-print-preview .pt-header {
+  border: 1px solid var(--print-line) !important;
+  border-radius: 0 !important;
+  padding: 10px !important;
+  background: var(--print-bg);
+  color: var(--print-ink-strong);
+}
+
+/* Schedule view — print layout, shared by the on-screen aperçu
+   (:root.is-print-preview, toggled from Settings) and real printing
+   (:root.is-printing, set during the beforeprint event in App.tsx).
+   The @page declaration itself lives inside @media print below.
+   Colours come from the token redirect in tokens.css; only structural
+   / sizing rules live here, in pt units so screen and paper match. */
+:root.is-print-preview .sch-body,
+:root.is-printing .sch-body {
+  /* Drop the rail/detail grid so the detail section spans the full page
+     once the rail is hidden — otherwise its track stays reserved on the left. */
+  display: block;
+}
+/* Print header — bigger title than on screen, sitting flush on top of the
+   table with a firm rule separating the two. !important defeats the equally
+   specific :root[data-density='…'] .sch-detail-head rules that would
+   otherwise win on source order. */
+:root.is-print-preview .sch-detail-head,
+:root.is-printing .sch-detail-head {
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+  border-bottom: 1pt solid var(--line-soft);
+}
+:root.is-print-preview .sch-detail-head h3,
+:root.is-printing .sch-detail-head h3 { font-size: 17pt !important; }
+/* Vitesse renders as static text on paper — strip the input box and the
+   editable pill framing so it reads like the other stat tiles. */
+:root.is-print-preview .sch-vitesse-input,
+:root.is-printing .sch-vitesse-input { display: none; }
+:root.is-print-preview .sch-vitesse-print,
+:root.is-printing .sch-vitesse-print { display: inline; }
+:root.is-print-preview .sch-stat-tile-input .sch-stat-tile-value,
+:root.is-printing .sch-stat-tile-input .sch-stat-tile-value {
+  border: 0;
+  background: none;
+  padding: 0;
+  box-shadow: none;
+}
+:root.is-print-preview .sch-table,
+:root.is-printing .sch-table {
+  /* Defeat the in-app overflow scroll so the rows flow naturally onto paper. */
+  background-image: none;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+  border-radius: 0;
+  /* Header already draws the divider via its border-bottom — drop the
+     table's own top border so the two don't stack into a double line. */
+  border-top: 0;
+}
+:root.is-print-preview .sch-row,
+:root.is-printing .sch-row {
+  min-width: 0;
+  transition: none;
+  page-break-inside: avoid;
+  /* Use the fr-based grid template so columns scale to fit the landscape
+     A4 page width instead of overflowing past the right margin. */
+  grid-template-columns: var(--sch-grid-print, var(--sch-grid));
+}
+:root.is-print-preview .sch-row.sch-head,
+:root.is-print-preview .sch-row.sch-total,
+:root.is-printing .sch-row.sch-head,
+:root.is-printing .sch-row.sch-total { position: static; box-shadow: none; }
+/* Drop the total row's 2 px border-top in print — the previous data row
+   already carries a border-bottom, so the two stacked would read as a
+   double line. The background tint plus font weight keep the total row
+   distinct. */
+:root.is-print-preview .sch-row.sch-total,
+:root.is-printing .sch-row.sch-total { border-top: 0; }
+:root.is-print-preview .sch-row.sch-head,
+:root.is-printing .sch-row.sch-head { font-size: 7.5pt; }
+:root.is-print-preview .sch-row.sch-total,
+:root.is-printing .sch-row.sch-total { font-size: 9pt; }
+:root.is-print-preview .sch-row.sch-group-break,
+:root.is-printing .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
+:root.is-print-preview .sch-group-label,
+:root.is-printing .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
+:root.is-print-preview .sch-cell,
+:root.is-printing .sch-cell {
+  padding: 3pt 4pt;
+  font-size: 8.5pt;
+  border-right: 0.5pt solid var(--line-faint);
+}
+:root.is-print-preview .sch-cell:last-child,
+:root.is-printing .sch-cell:last-child { border-right: 0; }
+:root.is-print-preview .sch-row.sch-head .sch-cell,
+:root.is-printing .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
+/* The total label has padding !important on screen for an airier card; in
+   print we need it tight so the total row stays on the same page as the
+   data rows. */
+:root.is-print-preview .sch-total-label,
+:root.is-printing .sch-total-label { padding: 3pt 4pt !important; }
+/* Strip the interactive chrome — handles, grips, sort arrows. */
+:root.is-print-preview .sch-col-resize,
+:root.is-print-preview .sch-col-drag-grip,
+:root.is-print-preview .sch-sort-arrow,
+:root.is-printing .sch-col-resize,
+:root.is-printing .sch-col-drag-grip,
+:root.is-printing .sch-sort-arrow { display: none !important; }
+/* Pinned columns lose their stickiness in print: regular cells once
+   there's no horizontal scroll on paper. */
+:root.is-print-preview .sch-cell.is-pinned,
+:root.is-printing .sch-cell.is-pinned {
+  position: static;
+  left: auto;
+  background: inherit;
+  z-index: auto;
+  box-shadow: none;
+}
+/* P/REQ short cell — replace the danger tint with bold + underline so the
+   "leftover lite" signal survives in monochrome printers too. */
+:root.is-print-preview .sch-packs-short,
+:root.is-printing .sch-packs-short { font-weight: 700; text-decoration: underline; }
+
+/* Floating bar across the bottom while preview is on. */
+.print-preview-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sheet);
+  font-size: var(--fs-md);
+  max-width: calc(100% - 40px);
+}
+.print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
+.print-preview-bar .btn.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+/* Hide the preview bar when actually sending to paper. (It's rendered only
+   while preview is on, but if the user prints from inside preview mode the
+   bar should not appear on the printout.) */
+@media print { .print-preview-bar { display: none !important; } }
+
+/* Settings popover action button */
+.popover-action {
+  width: 100%;
+  justify-content: center;
+}
+
 /* ---------- Real print (A4 portrait) ---------- */
 @media print {
-  @page { size: A4 portrait; margin: 14mm 12mm 18mm; }
+  @page { size: A4 portrait; margin: 5mm; }
+
+  /* Force background/colour rendering — by default browsers strip them at
+     print to save ink, which kills the M² rest. tint, the total/header
+     bands, the MTO/MTS chip fill, and the column dividers we rely on. */
+  html, body, * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 
   html, body {
     background: var(--print-bg) !important;
@@ -1324,6 +1882,11 @@
   .app-header,
   .type-strip,
   .pt-actions,
+  .sch-controls,
+  .sch-summary,
+  .sch-rail,
+  .sch-hint,
+  .sv-toolbar,
   .sheet,
   .sheet-backdrop,
   .no-print {
@@ -1331,7 +1894,14 @@
   }
 
   .app-main { padding: 0; max-width: none; }
-  .app { background: var(--print-bg); }
+  .app {
+    background: var(--print-bg);
+    /* Drop the on-screen min-height: 100vh so the page doesn't get padded to
+       a full A4 height — otherwise even a tiny trailing margin spills onto
+       a phantom page 2. */
+    min-height: 0;
+    display: block;
+  }
 
   .print-only { display: block; }
 
@@ -1471,6 +2041,73 @@
     color: var(--print-ink-strong) !important;
     min-height: 50px;
   }
+
+  /* Schedule view: wide table → its own landscape page. Everything else
+     (cell sizes, sticky→static, chrome suppression, paper-friendly sizing)
+     is shared with the on-screen aperçu and lives in the unified block
+     above keyed on :root.is-print-preview, :root.is-printing. */
+  .app:has(.sch) { page: sch-landscape; }
+  @page sch-landscape { size: A4 landscape; margin: 5mm; }
+
+  /* Schedule-layout fallback: mirrors the :root.is-print-preview /
+     :root.is-printing block above, in case beforeprint doesn't set the
+     class before the browser captures the print layout. Keep these in
+     sync with the unified block. */
+  .sch-body { display: block; }
+  .sch-detail-head {
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    border-bottom: 1pt solid var(--line-soft);
+  }
+  .sch-detail-head h3 { font-size: 17pt !important; }
+  .sch-vitesse-input { display: none; }
+  .sch-vitesse-print { display: inline; }
+  .sch-stat-tile-input .sch-stat-tile-value {
+    border: 0;
+    background: none;
+    padding: 0;
+    box-shadow: none;
+  }
+  .sch-table {
+    background-image: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    border-radius: 0;
+    border-top: 0;
+  }
+  .sch-row {
+    min-width: 0;
+    transition: none;
+    page-break-inside: avoid;
+    grid-template-columns: var(--sch-grid-print, var(--sch-grid));
+  }
+  .sch-row.sch-head,
+  .sch-row.sch-total { position: static; box-shadow: none; }
+  .sch-row.sch-total { border-top: 0; }
+  .sch-row.sch-head { font-size: 7.5pt; }
+  .sch-row.sch-total { font-size: 9pt; }
+  .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
+  .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
+  .sch-cell {
+    padding: 3pt 4pt;
+    font-size: 8.5pt;
+    border-right: 0.5pt solid var(--line-faint);
+  }
+  .sch-cell:last-child { border-right: 0; }
+  .sch-row.sch-head .sch-cell { padding: 4pt 4pt; }
+  .sch-total-label { padding: 3pt 4pt !important; }
+  .sch-col-resize,
+  .sch-col-drag-grip,
+  .sch-sort-arrow { display: none !important; }
+  .sch-cell.is-pinned {
+    position: static;
+    left: auto;
+    background: inherit;
+    z-index: auto;
+    box-shadow: none;
+  }
+  .sch-packs-short { font-weight: 700; text-decoration: underline; }
 }
 
 /* ---------- Density tweaks ----------
@@ -1690,14 +2327,17 @@
   gap: var(--d-gap);
 }
 
+/* Summary bar — primary action stays prominent, everything else (stats,
+   policy chip, importé) demoted so the schedule detail below feels like
+   the page's main content, not just another card. */
 .sch-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6) var(--space-7);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
   border: 1px solid var(--line-faint);
-  border-radius: var(--radius-xl);
-  background: var(--paper);
+  border-radius: var(--radius-lg);
+  background: var(--paper-2);
 }
 .sch-summary-actions {
   display: flex;
@@ -1706,16 +2346,20 @@
 }
 .sch-summary-stats {
   display: flex;
-  gap: var(--space-9);
+  gap: var(--space-7);
   flex-wrap: wrap;
   align-items: center;
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   color: var(--ink-soft);
 }
 .sch-summary-stats strong {
   color: var(--ink);
   font-family: 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;
+}
+.sch-packs-short {
+  color: var(--flag-unsched-fg);
+  font-weight: 600;
 }
 .sch-warn-chip {
   margin-left: auto;
@@ -1726,6 +2370,19 @@
   font-size: var(--fs-sm);
   border: 1px solid var(--flag-sched-bd);
 }
+.sch-policy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+.sch-policy-chip-glyph { color: var(--ink-faint); font-size: var(--fs-md); line-height: 1; }
+.sch-policy-chip strong { color: var(--ink); font-weight: 600; }
 
 .sch-hint {
   display: flex;
@@ -1797,6 +2454,7 @@
   gap: var(--space-1);
 }
 .sch-rail-item {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1814,9 +2472,22 @@
 }
 .sch-rail-item:hover { background: var(--paper-2); }
 .sch-rail-item.active {
-  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--paper));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line-faint));
 }
+/* Strong left-edge accent so the active card jumps out without shifting
+   neighbouring content. Pseudo-element sits flush with the rounded card. */
+.sch-rail-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+.sch-rail-item.active .sch-rail-num { font-weight: 700; }
 .sch-rail-top {
   display: flex;
   justify-content: space-between;
@@ -1848,20 +2519,282 @@
   gap: 0;
   min-width: 0;
 }
-.sch-detail .sch-foot { margin-top: 12px; }
+
+/* Table controls: filter chips + column-visibility menu. Wraps to multiple
+   lines on narrow viewports; sits between the schedule header and the table. */
+.sch-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--line-faint);
+  border-bottom: 0;
+  background: var(--paper);
+}
+.sch-controls .sch-filter-group + .sch-filter-group {
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--line-faint);
+}
+.sch-detail .sch-controls + .sch-table { border-top: 0; border-radius: 0; }
+.sch-detail .sch-controls { border-radius: 0; }
+.sch-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.sch-filter-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.sch-filter-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.sch-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  min-height: 22px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.sch-filter-chip:hover { color: var(--ink); border-color: var(--line-soft); }
+.sch-filter-chip.is-on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.sch-cols-wrap {
+  position: relative;
+  display: inline-flex;
+}
+/* Colonnes button — CSS-drawn column icon + chevron that rotates open.
+   Active state (menu visible) flips the chevron and pins the background
+   so the button reads as the source of the open popover. */
+.sch-cols-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sch-cols-btn.is-open {
+  background: var(--paper-2);
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+.sch-cols-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  background:
+    linear-gradient(currentColor, currentColor) 0 0 / 2.5px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) 4.75px 0 / 2.5px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) 9.5px 0 / 2.5px 100% no-repeat;
+  opacity: 0.75;
+}
+.sch-cols-chevron {
+  width: 6px;
+  height: 6px;
+  display: inline-block;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  transition: transform 150ms ease;
+  opacity: 0.75;
+}
+.sch-cols-btn.is-open .sch-cols-chevron {
+  transform: rotate(-135deg) translate(-1px, -1px);
+}
+.sch-cols-menu {
+  right: 0;
+  left: auto;
+  min-width: 280px;
+  gap: var(--space-2);
+}
+.sch-cols-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.sch-cols-menu-head h4 { margin: 0; }
+.sch-cols-menu-foot {
+  border-top: 1px solid var(--line-faint);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+}
+.sch-cols-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.sch-cols-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.sch-cols-item:hover { background: var(--paper-2); }
+.sch-cols-item.is-pinned { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.sch-cols-item.is-pinned:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sch-cols-item.is-hidden .sch-cols-opt span { color: var(--ink-faint); text-decoration: line-through; }
+.sch-cols-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.sch-cols-actions .btn.is-on { color: var(--accent); }
+.sch-cols-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+  flex: 1;
+  min-width: 0;
+}
+.sch-cols-opt input { accent-color: var(--accent); }
+.sch-cols-opt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Sortable column headers — pointer cursor + hover affordance + sort arrow. */
+.sch-row.sch-head .sch-cell.is-sortable { cursor: pointer; }
+.sch-row.sch-head .sch-cell.is-sortable:hover { color: var(--ink); }
+.sch-row.sch-head .sch-cell.is-sortable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
+.sch-sort-arrow {
+  margin-left: 4px;
+  font-size: 8px;
+  color: var(--accent);
+}
+
+/* Hero detail header: schedule identity on the left, throughput stat tiles
+   on the right (Vitesse · Théorique · + DT 9 %). The vitesse input + times
+   used to sit in a separate footer below the table; folding them into the
+   header keeps the schedule's identity and its key numbers in one place. */
 .sch-detail-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 4px 28px;
-  padding: var(--space-5) var(--space-7);
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
   background: var(--paper-2);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border: 1px solid var(--line-faint);
   border-bottom: 0;
 }
-.sch-detail-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.sch-detail-head-id {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.sch-detail-head h3 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.sch-detail-head-num { font-variant-numeric: tabular-nums; }
+.sch-detail-head-sep { margin: 0 var(--space-2); }
+.sch-detail-head-name { font-weight: 600; }
+
+.sch-detail-head-stats {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-left: auto;
+}
+.sch-stat-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px var(--space-5);
+  border-left: 1px solid var(--line-faint);
+  min-width: 0;
+}
+.sch-stat-tile:first-child { border-left: 0; padding-left: 0; }
+.sch-stat-tile-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.sch-stat-tile-value {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+/* Vitesse tile — editable. Wrap the value in a paper-coloured pill with a
+   visible border so it reads as "this is an input you can click in",
+   distinct from the static value tiles next to it. */
+.sch-stat-tile-input { cursor: text; }
+.sch-stat-tile-input .sch-stat-tile-value {
+  padding: 1px var(--space-3);
+  background: var(--paper);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.sch-stat-tile-input:hover .sch-stat-tile-value { border-color: var(--ink-faint); }
+.sch-stat-tile-input:focus-within .sch-stat-tile-value {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.sch-stat-tile-input .sch-vitesse-input {
+  width: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  outline: none;
+}
+.sch-stat-tile-unit { font-size: var(--fs-2xs); font-weight: 500; }
+/* Static vitesse value — shown only in print, where the input box is dropped. */
+.sch-vitesse-print { display: none; }
+.sch-stat-tile-input.is-invalid .sch-stat-tile-value {
+  border-color: var(--flag-unsched-bd);
+  background: color-mix(in srgb, var(--hl-red) 30%, var(--paper));
+}
+.sch-stat-tile-input.is-invalid .sch-vitesse-input { color: var(--flag-unsched-fg); }
 
 .sch-table {
   display: flex;
@@ -1869,6 +2802,11 @@
   border: 1px solid var(--line-faint);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   overflow-x: auto;
+  /* Vertical scroll inside the table — required so position:sticky on the
+     header/total rows actually anchors to the visible table area instead of
+     vanishing into page scroll. dvh handles mobile browser chrome. */
+  max-height: calc(100dvh - var(--sch-table-vert-offset, 240px));
+  min-height: 320px;
   background: var(--paper);
   /* Right-edge fade hints at horizontal scroll */
   background-image:
@@ -1883,22 +2821,12 @@
 }
 .sch-row {
   display: grid;
-  grid-template-columns:
-    56px            /* MTO/MTS */
-    80px            /* Date Départ */
-    100px           /* MO */
-    92px            /* Produit */
-    minmax(180px, 1.6fr)  /* Article (wider for customer subtitle) */
-    62px 62px 62px  /* Sched / Prod / Req */
-    72px            /* Scraps */
-    116px           /* Format (Largeur × Longueur) */
-    68px            /* Qualité */
-    68px            /* Lites/Packs */
-    minmax(100px, 1fr) /* PDP */
-    88px;           /* m² */
+  /* Track template comes from `--sch-grid` set inline by ScheduleTable, so the
+     column visibility menu can recompose the grid by simply changing it. */
+  grid-template-columns: var(--sch-grid, 56px 80px 100px 92px minmax(180px, 1.6fr) 62px 62px 62px 72px 116px 68px 68px minmax(100px, 1fr) 88px);
   align-items: center;
   border-bottom: 1px solid var(--line-faint);
-  min-width: 1206px;
+  min-width: var(--sch-min, 1206px);
   transition: background 100ms ease;
 }
 .sch-row:last-child { border-bottom: 0; }
@@ -1972,9 +2900,135 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
+  position: relative;
 }
 .sch-cell.col-num,
 .sch-cell.col-m2 { text-align: right; }
+
+/* Pinned columns — stay glued to the left while the rest scrolls horizontally.
+   Background must be opaque so cells underneath don't bleed through. */
+.sch-cell.is-pinned {
+  position: sticky;
+  background: var(--paper);
+  z-index: 1;
+}
+.sch-row:hover .sch-cell.is-pinned {
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+}
+.sch-row.sch-head .sch-cell.is-pinned { background: var(--paper-2); z-index: 3; }
+.sch-row.sch-total .sch-cell.is-pinned { background: var(--paper-2); z-index: 3; }
+.sch-row.is-qc .sch-cell.is-pinned { background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper)); }
+.sch-cell.is-pinned-last {
+  border-right: 1px solid var(--line-soft);
+}
+/* Only show the drop shadow when the table has actually scrolled horizontally
+   past the pinned column, otherwise it would look like a permanent border. */
+.sch-table.is-scrolled-x .sch-cell.is-pinned-last {
+  box-shadow: 6px 0 6px -4px color-mix(in srgb, var(--ink) 22%, transparent);
+  clip-path: inset(0 -10px 0 0);
+}
+
+/* Column resize handle — narrow strip on the right edge of header cells.
+   The visual line is permanently rendered subtle and turns into the accent
+   color on hover or while dragging. */
+.sch-col-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 9px;
+  cursor: col-resize;
+  z-index: 4;
+  touch-action: none;
+  user-select: none;
+}
+.sch-col-resize::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 4px;
+  width: 1px;
+  background: var(--line-faint);
+  transition: background 100ms ease, width 100ms ease, left 100ms ease;
+}
+.sch-row.sch-head .sch-cell:hover .sch-col-resize::before { background: var(--line-soft); }
+.sch-col-resize:hover::before,
+.sch-col-resize:active::before {
+  background: var(--accent);
+  width: 2px;
+  left: 3.5px;
+  top: 2px;
+  bottom: 2px;
+}
+/* Touch devices — enlarge the hit area so a finger can grab it reliably. */
+@media (hover: none) and (pointer: coarse) {
+  .sch-col-resize { width: 18px; right: -9px; }
+  .sch-col-resize::before { left: 8.5px; }
+}
+/* While a column is being resized, lock the cursor and disable selection
+   page-wide so the drag is smooth and doesn't pick up text. */
+body.is-col-resizing,
+body.is-col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Drag-and-drop on header cells. The native drag image is the cell itself;
+   we provide subtle source/target tints so the operator sees where the
+   column will land. */
+.sch-col-drag-grip {
+  display: inline-block;
+  width: 10px;
+  margin-right: var(--space-2);
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 100ms ease;
+  cursor: grab;
+  letter-spacing: -2px;
+  user-select: none;
+}
+.sch-row.sch-head .sch-cell:hover .sch-col-drag-grip { opacity: 0.7; }
+.sch-row.sch-head .sch-cell.is-drag-source { opacity: 0.4; }
+.sch-row.sch-head .sch-cell.is-drop-target {
+  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper-2));
+}
+
+/* Pin glyph in the Colonnes menu — vertical bar + circle on the right,
+   filled when the column is pinned. */
+.sch-cols-pin { color: var(--ink-soft); }
+.sch-cols-pin.is-on { color: var(--accent); }
+.sch-pin-glyph {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+.sch-pin-glyph::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.sch-pin-glyph::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  transition: background 100ms ease;
+}
+.sch-cols-pin.is-on .sch-pin-glyph::after { background: currentColor; }
 .sch-cell.col-fmt { text-align: center; }
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }
@@ -2050,61 +3104,9 @@
 
 .sch-empty-rows { padding: 28px; text-align: center; }
 
-.sch-foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  background: var(--paper);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
-}
-.sch-foot-vitesse {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 3px var(--space-4);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper-2);
-  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
-}
-.sch-foot-vitesse:focus-within {
-  border-color: var(--accent);
-  background: var(--paper);
-  box-shadow: 0 0 0 2px var(--focus-ring);
-}
-.sch-foot-vitesse.is-invalid {
-  border-color: var(--flag-unsched-bd);
-  background: color-mix(in srgb, var(--hl-red) 30%, var(--paper));
-}
-.sch-foot-label {
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-.sch-foot-unit {
-  font-size: var(--fs-2xs);
-  color: var(--ink-faint);
-}
-.sch-vitesse-input {
-  width: 44px;
-  padding: 1px 2px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: var(--fs-base);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  letter-spacing: -0.01em;
-}
-.sch-vitesse-input:focus {
-  outline: none;
-}
+/* Editable vitesse input — lives in the Vitesse stat tile of the hero
+   header. Strip native chrome so the value typography matches the other
+   tile values exactly. */
 .sch-vitesse-input::-webkit-outer-spin-button,
 .sch-vitesse-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -2112,82 +3114,48 @@
 }
 .sch-vitesse-input[type='number'] { -moz-appearance: textfield; }
 
-.sch-foot-arrow {
-  font-size: var(--fs-md);
-  color: var(--ink-faint);
-  user-select: none;
-  font-family: 'Geist Mono', monospace;
-}
-
-.sch-foot-times {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-.sch-foot-time {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: 3px var(--space-4);
-  border-radius: 5px;
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-}
-.sch-foot-time-label {
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-.sch-foot-time strong {
-  font-size: var(--fs-md);
-  letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-.sch-foot-dt {
-  background: color-mix(in srgb, var(--hl-yellow) 38%, var(--paper-2));
-  border-color: var(--flag-sched-bd);
-  cursor: help;
-}
-.sch-foot-meta { margin-left: auto; font-size: var(--fs-2xs); }
-
 /* Density variants — compact tightens spacing, advanced loosens it.
    Only paddings, font-sizes and row heights change; column layout stays fixed
    so the table layout is predictable across densities. */
 
 :root[data-density='compact'] .sch {
   --sch-header-offset: 56px;
+  --sch-table-vert-offset: 190px;
 }
 :root[data-density='compact'] .sch-summary { padding: 8px 12px; gap: 6px; }
 :root[data-density='compact'] .sch-summary-stats { gap: 12px; font-size: var(--fs-sm); }
-:root[data-density='compact'] .sch-detail-head { padding: 6px 12px; }
+:root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
+:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-4); }
+:root[data-density='compact'] .sch-stat-tile-label { font-size: 9px; }
+:root[data-density='compact'] .sch-stat-tile-value { font-size: var(--fs-sm); }
+:root[data-density='compact'] .sch-stat-tile-input .sch-stat-tile-value { padding: 1px var(--space-2); }
+:root[data-density='compact'] .sch-stat-tile-input .sch-vitesse-input { width: 26px; }
 :root[data-density='compact'] .sch-rail-title { padding: 6px 10px; }
 :root[data-density='compact'] .sch-rail-item { padding: 4px 8px; gap: 2px; font-size: var(--fs-md); }
 :root[data-density='compact'] .sch-rail-num { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-rail-meta { font-size: 9px; }
-:root[data-density='compact'] .sch-cell { padding: 3px 6px; font-size: var(--fs-sm); }
+:root[data-density='compact'] .sch-cell { padding: 2px 6px; font-size: var(--fs-sm); line-height: 1.25; }
 :root[data-density='compact'] .sch-row.sch-head { font-size: 9px; }
-:root[data-density='compact'] .sch-row.sch-head .sch-cell { padding-top: 6px; padding-bottom: 6px; }
+:root[data-density='compact'] .sch-row.sch-head .sch-cell { padding-top: 4px; padding-bottom: 4px; }
 :root[data-density='compact'] .sch-row.sch-total { font-size: var(--fs-md); }
+:root[data-density='compact'] .sch-row.sch-total .sch-cell { padding-top: 4px; padding-bottom: 4px; }
+:root[data-density='compact'] .sch-name { line-height: 1.2; }
+:root[data-density='compact'] .sch-customer { line-height: 1.2; margin-top: 0; }
 :root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: 9px; }
 :root[data-density='compact'] .sch-customer { font-size: 9px; }
-:root[data-density='compact'] .sch-foot { padding: 4px 8px; gap: 6px; }
-:root[data-density='compact'] .sch-foot-time { padding: 2px 6px; }
-:root[data-density='compact'] .sch-foot-time strong { font-size: var(--fs-sm); }
-:root[data-density='compact'] .sch-foot-vitesse { padding: 2px 6px; }
-:root[data-density='compact'] .sch-vitesse-input { width: 40px; font-size: var(--fs-md); }
-:root[data-density='compact'] .sch-foot-arrow { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-hint { padding: 6px 12px; font-size: var(--fs-sm); }
 
 /* Advanced loosens spacing on top of revealing the customer name (handled
    via .sch-customer rule above). */
+:root[data-density='advanced'] .sch { --sch-table-vert-offset: 290px; }
 :root[data-density='advanced'] .sch-summary { padding: 14px 16px; gap: 12px; }
 :root[data-density='advanced'] .sch-summary-stats { gap: 22px; font-size: var(--fs-base); }
-:root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; }
+:root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; gap: var(--space-6); }
 :root[data-density='advanced'] .sch-detail-head h3 { font-size: var(--fs-xl); }
+:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-6); }
+:root[data-density='advanced'] .sch-stat-tile-value { font-size: var(--fs-xl); }
+:root[data-density='advanced'] .sch-stat-tile-input .sch-vitesse-input { width: 40px; }
 :root[data-density='advanced'] .sch-rail-item { padding: 10px 12px; font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-rail-num { font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-rail-meta { font-size: var(--fs-sm); }
@@ -2195,9 +3163,6 @@
 :root[data-density='advanced'] .sch-cell { padding: 8px 10px; font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-row.sch-head { font-size: var(--fs-sm); }
 :root[data-density='advanced'] .sch-row.sch-total { font-size: var(--fs-lg); }
-:root[data-density='advanced'] .sch-foot { padding: 10px 14px; gap: 12px; }
-:root[data-density='advanced'] .sch-foot-time strong { font-size: var(--fs-lg); }
-:root[data-density='advanced'] .sch-vitesse-input { width: 56px; font-size: var(--fs-lg); }
 :root[data-density='advanced'] .sch-mto { padding: 3px 8px; font-size: var(--fs-sm); }
 
 /* Paste-import sheet */
@@ -2207,6 +3172,20 @@
   font-size: var(--fs-md);
   color: var(--ink-soft);
 }
+.sch-import-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: 6px;
+}
+.sch-import-toolbar .btn { min-height: 30px; padding: 4px 10px; font-size: var(--fs-sm); }
+.sch-import-stats {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.sch-import-stats strong { color: var(--ink); font-weight: 600; }
 .sch-import-area {
   width: 100%;
   resize: vertical;
@@ -2255,6 +3234,39 @@
   overflow-y: auto;
 }
 
+.sch-import-extras {
+  margin-top: 12px;
+}
+.sch-import-sync {
+  border: 1px dashed var(--line-faint);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  background: var(--paper-2);
+}
+.sch-import-sync-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sch-import-sync-label {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.sch-import-sync .seg-mini {
+  width: auto;
+  margin-left: auto;
+}
+.sch-import-sync .seg-mini button {
+  padding: 3px 10px;
+  min-height: 26px;
+  font-size: var(--fs-sm);
+}
+.sch-import-sync-help {
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
 .sch-import .actions {
   margin-top: 14px;
   display: flex;
@@ -2266,39 +3278,55 @@
 .sch-row-sheet { width: min(640px, calc(100% - 40px)); }
 .sch-row-sheet-title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-5);
-  flex-wrap: wrap;
   min-width: 0;
+  flex: 1;
 }
-.sch-row-sheet-title h3 {
+.sch-row-sheet-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.sch-row-sheet-article {
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.sch-row-sheet-name {
-  margin: -4px 0 14px;
-  padding: var(--space-5) var(--space-6);
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
-}
-.sch-row-sheet-itemname {
   font-size: var(--fs-lg);
-  line-height: 1.35;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   color: var(--ink);
+  word-break: break-all;
+}
+.sch-row-sheet-short {
+  font-weight: 400;
+  font-size: var(--fs-base);
+  letter-spacing: 0;
+}
+.sch-row-sheet-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.sch-row-sheet-customer {
+  font-family: var(--font-sans);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sch-row-sheet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3) var(--space-7);
-  margin: 0 0 14px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2) var(--space-6);
+  margin: 0 0 10px;
 }
 .sch-row-sheet-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 0;
   min-width: 0;
 }
 .sch-row-sheet-field dt {
@@ -2316,7 +3344,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sch-row-sheet-section { margin-bottom: 14px; }
+.sch-row-sheet-section { margin-bottom: 10px; }
 .sch-row-sheet-section:last-child { margin-bottom: 0; }
 .sch-row-sheet-section-title {
   font-size: var(--fs-2xs);
@@ -2324,29 +3352,34 @@
   letter-spacing: 0.08em;
   color: var(--ink-soft);
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .sch-row-sheet-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 .sch-row-sheet-stat {
   display: inline-flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-5);
+  gap: 0;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-md);
   background: var(--paper-2);
-  min-width: 80px;
-  flex: 1 1 80px;
+  min-width: 76px;
+  flex: 1 1 76px;
 }
 .sch-row-sheet-stat.is-wide { flex-basis: 160px; }
 .sch-row-sheet-stat.is-highlight {
   background: color-mix(in srgb, var(--hl-green) 38%, var(--paper-2));
   border-color: var(--flag-ok-bd);
 }
+.sch-row-sheet-stat.is-danger {
+  background: color-mix(in srgb, var(--hl-red) 32%, var(--paper-2));
+  border-color: var(--flag-unsched-bd);
+}
+.sch-row-sheet-stat.is-danger strong { color: var(--flag-unsched-fg); }
 .sch-row-sheet-stat-label {
   font-size: var(--fs-2xs);
   text-transform: uppercase;
@@ -2355,13 +3388,13 @@
   font-weight: 600;
 }
 .sch-row-sheet-stat strong {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
 
-/* Layout: let the Schedules and Suivi tabs use the full viewport width since their tables are wide. */
+/* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),
 .app-main:has(.sv) { max-width: none; }
 
@@ -2387,7 +3420,7 @@
   }
 }
 
-/* ---------- Suivi Cosmétiques et DV ----------
+/* ---------- Cosmétique tab (sv-* selectors) ----------
    Compact list (one row per entry) with a 4-stage progress chip strip.
    Editing happens in a centered sheet that reuses the project's .sheet
    chrome — same pattern Schedules uses for row detail. */
@@ -2700,6 +3733,28 @@
 }
 .sv-field input:focus { border-bottom-color: var(--accent); }
 
+/* Wide form fields (chips / segmented) span the whole grid row to avoid
+   awkward wrapping inside a 160px cell. */
+.sv-field-tag,
+.sv-field-test-type {
+  grid-column: 1 / -1;
+}
+.sv-field-tag .sv-tag-row {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: 4px;
+}
+.sv-field-test-type .sv-test-type {
+  margin-top: 4px;
+  width: auto;
+  max-width: 360px;
+}
+.sv-field-test-type .sv-test-type button {
+  font-size: var(--fs-md);
+  padding: var(--space-3) var(--space-5);
+  min-height: 32px;
+}
+
 .sv-sheet-section { margin-bottom: 16px; }
 .sv-sheet-section:last-of-type { margin-bottom: 0; }
 .sv-sheet-section-title {
@@ -2815,7 +3870,10 @@
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line-faint);
+  align-items: center;
+  flex-wrap: wrap;
 }
+.sv-sheet-meta { letter-spacing: 0; }
 
 /* Phone — single column for the stage cards, hide low-priority columns. */
 @media (max-width: 880px) {
@@ -2828,7 +3886,7 @@
   .sv-new-btn { margin-left: auto; }
 }
 
-/* Suivi density variants. Compact tightens row height and font sizes for
+/* Cosmétique density variants. Compact tightens row height and font sizes for
    denser scanning; advanced gives more breathing room and slightly larger
    text for at-a-glance reading from a distance. */
 :root[data-density='compact'] .sv-toolbar { padding: 6px 12px; gap: 8px; }
@@ -2876,3 +3934,336 @@
 :root[data-density='advanced'] .sv-cmt-dot { width: 9px; height: 9px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
 :root[data-density='advanced'] .sv-row.sv-data:hover { box-shadow: inset 4px 0 0 var(--accent); }
 
+/* ---------- Semantic row-buttons ----------
+   When a row-shaped surface is rendered as a real <button> (so the screen
+   reader announces it as such and the focus ring/keyboard work for free),
+   we have to undo the browser's button defaults to let the grid layout +
+   row chrome shine through. */
+button.as-row {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background: inherit;
+  border: 0;
+  padding: 0;
+}
+button.as-row::-moz-focus-inner { border: 0; padding: 0; }
+button.as-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---------- Keyboard help sheet ---------- */
+.kbd-help-trigger {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.kbd-help-sheet { width: min(480px, calc(100% - 40px)); }
+.kbd-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+.kbd-help-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(140px, auto);
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.kbd-help-row:last-child { border-bottom: 0; }
+.kbd-help-row dt {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.kbd-help-row dd {
+  order: 1;
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--ink);
+}
+.kbd-help-plus {
+  color: var(--ink-faint);
+  font-size: var(--fs-sm);
+}
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--line-soft);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* ---------- Mobile FAB ----------
+   Floating "+" for the Logbook on phones. Hidden on desktop/tablet where the
+   sticky type-strip already provides the same one-tap action within thumb
+   reach. Opens a bottom-sheet picker that lists every EVENT_TYPE on a single
+   touch-friendly grid. */
+.fab {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 18px;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: var(--shadow-fab);
+    z-index: 30;
+    transition: transform 100ms ease, box-shadow 120ms ease;
+  }
+  .fab:active { transform: scale(0.94); }
+  .fab .fab-glyph { font-weight: 500; transform: translateY(-1px); }
+}
+
+.fab-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+@media (max-width: 360px) {
+  .fab-sheet-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.fab-type-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: center;
+  line-height: 1.2;
+  min-height: 64px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+.fab-type-btn .fab-type-label {
+  display: block;
+  word-break: break-word;
+}
+.fab-type-btn:hover { border-color: var(--ink); background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
+.fab-type-btn:active { transform: scale(0.97); }
+.fab-type-btn .glyph { color: var(--accent); font-size: var(--fs-lg); line-height: 1; }
+.fab-type-btn.is-add {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- Sync indicator ----------
+   Compact chip that surfaces the background sync state in the header.
+   Stays out of the way when idle; warms up to color when something needs
+   the user's attention (queue piling, offline, error). */
+.sync-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: default;
+  user-select: none;
+  min-height: 22px;
+}
+.sync-chip .sync-glyph {
+  font-size: var(--fs-md);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sync-chip .sync-count {
+  font-size: var(--fs-2xs);
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.sync-chip.is-idle .sync-glyph { color: var(--flag-ok-bd); }
+.sync-chip.is-syncing { border-color: var(--flag-note-bd); color: var(--flag-note-fg); background: color-mix(in srgb, var(--hl-blue) 30%, var(--paper)); }
+.sync-chip.is-syncing .sync-glyph { animation: sync-spin 1.2s linear infinite; }
+.sync-chip.is-queued { border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); background: color-mix(in srgb, var(--hl-yellow) 35%, var(--paper)); }
+.sync-chip.is-offline,
+.sync-chip.is-error { border-color: var(--flag-unsched-bd); color: var(--flag-unsched-fg); background: color-mix(in srgb, var(--hl-red) 35%, var(--paper)); }
+.sync-chip.is-local { color: var(--ink-soft); background: var(--paper-2); border-style: dashed; }
+.sync-chip.is-local .sync-glyph { color: var(--ink-faint); }
+
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-chip.is-syncing .sync-glyph { animation: none; }
+}
+
+/* On phones, drop the verbose label; the glyph + count is enough. */
+@media (max-width: 600px) {
+  .sync-chip { padding: 2px 6px; }
+  .sync-chip .sync-label { display: none; }
+}
+
+/* ---------- Toasts ----------
+   Stack of feedback chips at the bottom of the viewport. Each toast carries its
+   own TTL via `--toast-ttl`; the progress bar consumes the bar from full to
+   empty so users can see the Annuler window shrinking. */
+.toast-viewport {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: var(--space-5) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+  width: min(440px, calc(100% - 24px));
+}
+
+/* On phones the FAB sits at bottom-right; anchor toasts to bottom-left so the
+   two never collide. */
+@media (max-width: 600px) {
+  .toast-viewport {
+    left: 12px;
+    right: 88px;
+    transform: none;
+    width: auto;
+  }
+}
+
+.toast {
+  --toast-ttl: 6000ms;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sheet);
+  font-size: var(--fs-md);
+  pointer-events: auto;
+  overflow: hidden;
+  animation: toast-in 200ms ease-out;
+}
+
+.toast-msg { flex: 1; min-width: 0; }
+
+.toast-undo {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--paper) 35%, transparent);
+  color: var(--paper);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.toast-undo:hover {
+  background: color-mix(in srgb, var(--paper) 12%, transparent);
+  border-color: var(--paper);
+}
+
+/* Confirmation variant — used for "Recharger", "Réessayer", etc. Stronger
+   visual weight than the .toast-undo (Annuler) to nudge the user. */
+.toast-undo.toast-action {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--paper);
+}
+.toast-undo.toast-action:hover {
+  background: color-mix(in srgb, var(--paper) 90%, var(--accent));
+}
+
+.toast-close {
+  background: transparent;
+  border: 0;
+  color: color-mix(in srgb, var(--paper) 70%, transparent);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.toast-close:hover { color: var(--paper); }
+
+.toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: color-mix(in srgb, var(--accent) 90%, transparent);
+  transform-origin: left center;
+  animation: toast-progress var(--toast-ttl) linear forwards;
+}
+
+.toast-danger { background: var(--flag-unsched-bd); }
+.toast-danger .toast-progress { background: color-mix(in srgb, var(--paper) 60%, transparent); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+  .toast-progress { animation: none; opacity: 0.4; }
+}

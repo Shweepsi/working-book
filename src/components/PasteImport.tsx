@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useEscapeToClose } from '../lib/hooks';
 
 // Reusable paste sheet. Drives both PMS230 and policy imports.
@@ -26,6 +26,12 @@ export interface PasteImportProps<R extends PasteImportResult> {
   onClose: () => void;
   title: string;
   hint?: string;
+  // Extra controls rendered to the left of the close button in the sheet
+  // header — used by the PMS230 importer to expose the MTO policy cog.
+  headerActions?: ReactNode;
+  // Inline row rendered just above the action buttons — the PMS230 importer
+  // uses it to expose the per-operator sync/local toggle.
+  footerExtras?: ReactNode;
 }
 
 export default function PasteImport<R extends PasteImportResult>({
@@ -36,44 +42,82 @@ export default function PasteImport<R extends PasteImportResult>({
   onClose,
   title,
   hint,
+  headerActions,
+  footerExtras,
 }: PasteImportProps<R>) {
   const [result, setResult] = useState<R | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const canReadClipboard =
+    typeof navigator !== 'undefined' && !!navigator.clipboard?.readText;
 
   useEscapeToClose(onClose);
   useEffect(() => {
     taRef.current?.focus();
   }, []);
 
-  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const html = e.clipboardData.getData('text/html');
-    const text = e.clipboardData.getData('text/plain');
-    if (!html && !text) return;
-    e.preventDefault();
+  function applyParse(payload: PastePayload) {
     setError(null);
     try {
-      setResult(parser({ html, text }));
+      setResult(parser(payload));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec de l’analyse');
       setResult(null);
     }
-    if (taRef.current) taRef.current.value = text || '(HTML payload)';
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const html = e.clipboardData.getData('text/html');
+    const txt = e.clipboardData.getData('text/plain');
+    if (!html && !txt) return;
+    e.preventDefault();
+    const display = txt || '(HTML uniquement)';
+    setText(display);
+    applyParse({ html, text: txt });
   }
 
   function reparse(rawText: string) {
-    setError(null);
-    try {
-      setResult(parser({ html: '', text: rawText }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de l’analyse');
+    setText(rawText);
+    if (!rawText.trim()) {
       setResult(null);
+      setError(null);
+      return;
     }
+    applyParse({ html: '', text: rawText });
+  }
+
+  async function pasteFromClipboard() {
+    if (!canReadClipboard || busy) return;
+    setBusy(true);
+    try {
+      const txt = await navigator.clipboard.readText();
+      if (!txt) {
+        setError('Presse-papiers vide.');
+        return;
+      }
+      setText(txt);
+      applyParse({ html: '', text: txt });
+      taRef.current?.focus();
+    } catch {
+      setError('Accès au presse-papiers refusé. Utilisez Ctrl+V.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clearAll() {
+    setText('');
+    setResult(null);
+    setError(null);
+    taRef.current?.focus();
   }
 
   const summary = result ? describe(result) : null;
   const warnings = result?.warnings ?? [];
   const ready = !!result && ((result.records?.length ?? 0) > 0 || (result.count ?? 0) > 0);
+  const lineCount = text ? text.split(/\r?\n/).filter((l) => l.trim()).length : 0;
 
   return (
     <>
@@ -82,15 +126,57 @@ export default function PasteImport<R extends PasteImportResult>({
         <div className="grabber" />
         <div className="sheet-head">
           <h3>{title}</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <div className="sheet-head-actions">
+            {headerActions}
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          </div>
         </div>
 
         {hint && <p className="faint small sch-import-hint">{hint}</p>}
 
+        <div className="sch-import-toolbar">
+          {canReadClipboard && (
+            <button
+              type="button"
+              className="btn"
+              onClick={pasteFromClipboard}
+              disabled={busy}
+              title="Coller depuis le presse-papiers"
+            >
+              <span aria-hidden="true">📋</span> Coller
+            </button>
+          )}
+          {text && (
+            <button
+              type="button"
+              className="btn ghost mini"
+              onClick={clearAll}
+              title="Vider la zone"
+            >
+              Vider
+            </button>
+          )}
+          <span className="sch-import-stats" aria-live="polite">
+            {lineCount > 0 ? (
+              <>
+                <strong className="mono">{lineCount}</strong>{' '}
+                ligne{lineCount > 1 ? 's' : ''}
+              </>
+            ) : (
+              <span className="faint">vide</span>
+            )}
+          </span>
+        </div>
+
         <textarea
           ref={taRef}
           className="sch-import-area mono"
-          placeholder="Coller ici (Ctrl+V)…"
+          placeholder={
+            canReadClipboard
+              ? 'Coller ici (Ctrl+V) ou utiliser le bouton Coller…'
+              : 'Coller ici (Ctrl+V)…'
+          }
+          value={text}
           onPaste={handlePaste}
           onChange={(e) => reparse(e.target.value)}
           spellCheck={false}
@@ -117,6 +203,8 @@ export default function PasteImport<R extends PasteImportResult>({
           </details>
         )}
 
+        {footerExtras && <div className="sch-import-extras">{footerExtras}</div>}
+
         <div className="actions">
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
@@ -137,12 +225,6 @@ export default function PasteImport<R extends PasteImportResult>({
             disabled={!ready}
             onClick={() => {
               if (!result) return;
-              if (showAppend) {
-                const ok = window.confirm(
-                  'Remplacer écrase toutes les données déjà importées. Continuer ?',
-                );
-                if (!ok) return;
-              }
               onConfirm(result, 'replace');
             }}
           >

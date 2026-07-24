@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { EVENT_TYPES, FLAGS } from '../data/eventTypes';
 import { useEscapeToClose } from '../lib/hooks';
 import { fmtHM } from '../lib/time';
@@ -34,6 +34,18 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
   }, [event]);
 
   useEscapeToClose(onClose);
+
+  // The header summary line shows "10:42 → maintenant · Production · Planifié",
+  // so the operator can verify the auto-filled values without expanding.
+  const summary = useMemo(() => {
+    const parts: string[] = [];
+    if (draft.start) {
+      parts.push(draft.end && draft.end !== draft.start ? `${draft.start} → ${draft.end}` : draft.start);
+    }
+    if (draft.type) parts.push(draft.type);
+    if (draft.flag) parts.push(FLAGS[draft.flag].label);
+    return parts.join(' · ');
+  }, [draft.start, draft.end, draft.type, draft.flag]);
 
   function save() {
     if (!draft.type && !draft.desc.trim()) return;
@@ -81,68 +93,14 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grabber" />
         <div className="sheet-head">
-          <h3>{isNew ? 'Nouvel événement' : 'Modifier l’événement'}</h3>
+          <div className="sheet-head-titles">
+            <h3>{isNew ? 'Nouvel événement' : 'Modifier l’événement'}</h3>
+            {summary && <div className="sheet-head-sub mono">{summary}</div>}
+          </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <div className="form-grid">
-          <div className="form-section">
-            <label className="section-label">Quand</label>
-            <div className="time-range">
-              <input
-                type="text"
-                className="time-input"
-                placeholder="HH:MM"
-                value={draft.start || ''}
-                onChange={(e) => update('start', maskTime(e.target.value))}
-                inputMode="numeric"
-                maxLength={5}
-              />
-              <button
-                type="button"
-                className="now-btn"
-                onClick={() => update('start', fmtHM())}
-                title="Définir le début à maintenant"
-                aria-label="Définir le début à maintenant"
-              >
-                ◷
-              </button>
-              <span className="arrow">→</span>
-              <input
-                type="text"
-                className="time-input"
-                placeholder="HH:MM"
-                value={draft.end || ''}
-                onChange={(e) => update('end', maskTime(e.target.value))}
-                inputMode="numeric"
-                maxLength={5}
-              />
-              <button
-                type="button"
-                className="now-btn"
-                onClick={() => update('end', fmtHM())}
-                title="Définir la fin à maintenant"
-                aria-label="Définir la fin à maintenant"
-              >
-                ◷
-              </button>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <label className="section-label">Type</label>
-            <select
-              className="type-select"
-              value={draft.type || ''}
-              onChange={(e) => update('type', e.target.value)}
-            >
-              <option value="">Sélectionner…</option>
-              {EVENT_TYPES.map((t) => (
-                <option key={t.key} value={t.key}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-
           <div className="form-section">
             <label className="section-label">Catégorie</label>
             <div className="flag-pick">
@@ -186,12 +144,75 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
             <input
               type="text"
               className={`text-input ${draft.bold ? 'is-bold' : ''} ${draft.danger ? 'is-danger' : ''}`}
-              placeholder="Description (#plaques aussi)"
+              placeholder="Description"
               value={draft.desc || ''}
               onChange={(e) => update('desc', e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save()}
               autoFocus={isNew}
             />
+          </div>
+
+          <div className="form-row form-row-when-type">
+            <div className="form-section">
+              <label className="section-label">Quand</label>
+              <div className="time-range">
+                <div className="time-input-group">
+                  <input
+                    type="text"
+                    className="time-input"
+                    placeholder="HH:MM"
+                    value={draft.start || ''}
+                    onChange={(e) => update('start', maskTime(e.target.value))}
+                    inputMode="numeric"
+                    maxLength={5}
+                  />
+                  <button
+                    type="button"
+                    className="now-btn"
+                    onClick={() => update('start', fmtHM())}
+                    title="Définir le début à maintenant"
+                    aria-label="Définir le début à maintenant"
+                  >
+                    ◷
+                  </button>
+                </div>
+                <span className="arrow">→</span>
+                <div className="time-input-group">
+                  <input
+                    type="text"
+                    className="time-input"
+                    placeholder="HH:MM"
+                    value={draft.end || ''}
+                    onChange={(e) => update('end', maskTime(e.target.value))}
+                    inputMode="numeric"
+                    maxLength={5}
+                  />
+                  <button
+                    type="button"
+                    className="now-btn"
+                    onClick={() => update('end', fmtHM())}
+                    title="Définir la fin à maintenant"
+                    aria-label="Définir la fin à maintenant"
+                  >
+                    ◷
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <label className="section-label">Type</label>
+              <select
+                className="type-select"
+                value={draft.type || ''}
+                onChange={(e) => update('type', e.target.value)}
+              >
+                <option value="">Sélectionner…</option>
+                {EVENT_TYPES.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="form-section">
@@ -206,7 +227,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
               <div key={i} className="note-row">
                 <input
                   type="text"
-                  placeholder="e.g. Première plaque #375 à 06:35"
+                  placeholder="ex: #123"
                   value={n}
                   onChange={(e) => setNote(i, e.target.value)}
                 />
@@ -239,7 +260,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
           <button className="btn primary" type="button" onClick={save}>
-            {isNew ? 'Enregistrer' : 'Enregistrer'}
+            Enregistrer
           </button>
         </div>
       </div>

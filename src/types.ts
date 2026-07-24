@@ -26,7 +26,9 @@ export interface EventType {
   key: string;
   label: string;
   defaultFlag: FlagKey;
-  prefill: boolean;
+  // `true` prefills the description with the label; a string prefills with
+  // that exact text (e.g. Qualité → "Test"); `false` leaves it empty.
+  prefill: boolean | string;
   row: 1 | 2;
   openNote?: boolean;
 }
@@ -41,6 +43,10 @@ export interface LogEvent {
   notes?: string[];
   bold?: boolean;
   danger?: boolean;
+  // Audit timestamps (epoch ms). Optional so legacy entries from older versions
+  // load without migration. Set on first save and bumped on every edit.
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface ShiftMeta {

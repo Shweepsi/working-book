@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
 import { useEscapeToClose } from '../lib/hooks';
+import { useToast } from '../lib/toast';
 import { todayISO } from '../lib/shiftCalendar';
 
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
 const TAGS = ['Production', 'Process', 'Développement', 'Réclamation'] as const;
+const TEST_TYPES = ['Cosmétique', 'Contrôle Couleur'] as const;
 
 type Process = (typeof PROCESSES)[number];
 type Station = (typeof STATIONS)[number];
@@ -31,6 +33,9 @@ interface SuiviEntry {
   controleur: string;
   dateControle: string;
   comment: string;
+  // Audit timestamps (epoch ms). Optional for legacy compatibility.
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 interface SuiviState {
@@ -82,6 +87,7 @@ function nextSerial(entries: SuiviEntry[]): string {
 }
 
 function emptyEntry(serial = ''): SuiviEntry {
+  const now = Date.now();
   return {
     id: newId(),
     serial,
@@ -95,6 +101,8 @@ function emptyEntry(serial = ''): SuiviEntry {
     controleur: '',
     dateControle: '',
     comment: '',
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -152,12 +160,13 @@ function labelForCell(v: CellState): string {
 export default function Suivi() {
   const [state, setState] = useSyncedState<SuiviState>(
     STORAGE_KEY,
-    { domain: 'suivi', params: {} },
+    { domain: 'suivi', params: {}, alwaysSync: true },
     initialState,
   );
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeTags, setActiveTags] = useState<Set<Tag>>(() => new Set());
   const wantOpenRef = useRef<string | null>(null);
+  const toast = useToast();
 
   // Open the entry queued by addAndOpen once it actually exists in state.
   // Survives React 18 strict-mode double-invocation of state updaters.
@@ -180,7 +189,15 @@ export default function Suivi() {
   }, [state.entries, activeTags]);
 
   function patchEntry(id: string, mut: (e: SuiviEntry) => SuiviEntry) {
-    setState((s) => ({ ...s, entries: s.entries.map((e) => (e.id === id ? mut(e) : e)) }));
+    const now = Date.now();
+    setState((s) => ({
+      ...s,
+      entries: s.entries.map((e) =>
+        e.id === id
+          ? { ...mut(e), createdAt: e.createdAt ?? now, updatedAt: now }
+          : e,
+      ),
+    }));
   }
 
   function addAndOpen() {
@@ -192,9 +209,29 @@ export default function Suivi() {
   }
 
   function deleteEntry(id: string) {
-    if (!window.confirm('Supprimer cette entrée ?')) return;
-    setState((s) => ({ ...s, entries: s.entries.filter((e) => e.id !== id) }));
+    let removed: SuiviEntry | undefined;
+    let removedIndex = -1;
+    setState((s) => {
+      removedIndex = s.entries.findIndex((e) => e.id === id);
+      if (removedIndex < 0) return s;
+      removed = s.entries[removedIndex];
+      return { ...s, entries: s.entries.filter((e) => e.id !== id) };
+    });
     if (openId === id) setOpenId(null);
+    if (!removed) return;
+    const restored = removed;
+    const insertAt = removedIndex;
+    toast.show({
+      message: `Entrée #${restored.serial || '—'} supprimée`,
+      undo: () => {
+        setState((s) => {
+          if (s.entries.some((e) => e.id === restored.id)) return s;
+          const next = [...s.entries];
+          next.splice(Math.min(insertAt, next.length), 0, restored);
+          return { ...s, entries: next };
+        });
+      },
+    });
   }
 
   function toggleFilter(t: Tag) {
@@ -213,7 +250,7 @@ export default function Suivi() {
     <div className="sv">
       <div className="sv-toolbar">
         <div className="sv-toolbar-lead">
-          <h2 className="sv-title">Suivi Cosmétiques</h2>
+          <h2 className="sv-title">Cosmétique</h2>
         </div>
         <div className="sv-tag-row sv-filter-row" role="group" aria-label="Filtrer par tag">
           {TAGS.map((t) => {
@@ -235,13 +272,17 @@ export default function Suivi() {
           })}
         </div>
         <button className="btn primary sv-new-btn" onClick={addAndOpen}>
-          <span className="glyph" aria-hidden="true">＋</span> Nouvelle entrée
+          + Nouveau
         </button>
       </div>
 
       {visibleCount === 0 ? (
         <div className="sv-empty">
-          <h3>{filterActive ? 'Aucune entrée pour ce filtre' : 'Aucune entrée'}</h3>
+          <h3>
+            {filterActive
+              ? 'Aucun test pour ce filtre'
+              : 'Aucun test cosmétique'}
+          </h3>
           {filterActive && (
             <button
               type="button"
@@ -253,7 +294,7 @@ export default function Suivi() {
           )}
         </div>
       ) : (
-        <div className="sv-table" role="table" aria-label="Suivi Cosmétiques">
+        <div className="sv-table" role="table" aria-label="Tests cosmétiques">
           <div className="sv-row sv-head" role="row">
             <div className="sv-cell sv-c-id" role="columnheader">ID</div>
             <div className="sv-cell sv-c-tag" role="columnheader">Tag</div>
@@ -291,19 +332,13 @@ interface RowProps {
 
 function SuiviRow({ entry, onOpen }: RowProps) {
   return (
-    <div
-      className="sv-row sv-data"
-      role="row"
-      tabIndex={0}
+    <button
+      type="button"
+      className="sv-row sv-data as-row"
       onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
+      aria-label={`Entrée ${entry.serial || ''} ${entry.color || ''}`.trim()}
     >
-      <div className="sv-cell sv-c-id mono">
+      <span className="sv-cell sv-c-id mono">
         {entry.serial ? (
           <strong>
             <span className="sv-id-hash">#</span>
@@ -312,25 +347,25 @@ function SuiviRow({ entry, onOpen }: RowProps) {
         ) : (
           <span className="faint">—</span>
         )}
-      </div>
-      <div className="sv-cell sv-c-tag">
+      </span>
+      <span className="sv-cell sv-c-tag">
         {entry.tag ? (
           <span className={`sv-tag sv-tag-${TAG_SLUG[entry.tag]}`}>{entry.tag}</span>
         ) : (
           <span className="faint">—</span>
         )}
-      </div>
-      <div className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</div>
-      <div className="sv-cell sv-c-type" title={entry.testType}>
+      </span>
+      <span className="sv-cell sv-c-color">{entry.color || <span className="faint">—</span>}</span>
+      <span className="sv-cell sv-c-type" title={entry.testType}>
         {entry.testType || <span className="faint sv-placeholder">sans type</span>}
-      </div>
-      <div className="sv-cell sv-c-origin mono">{entry.origin || <span className="faint">—</span>}</div>
-      <div className="sv-cell sv-c-th mono">{entry.thickness || ''}</div>
-      <div className="sv-cell sv-c-dprod mono">
+      </span>
+      <span className="sv-cell sv-c-origin mono">{entry.origin || <span className="faint">—</span>}</span>
+      <span className="sv-cell sv-c-th mono">{entry.thickness || ''}</span>
+      <span className="sv-cell sv-c-dprod mono">
         {fmtDateShort(entry.dateProd) || <span className="faint">—</span>}
-      </div>
-      <div className="sv-cell sv-c-prog">
-        <div className="sv-stages" aria-label="Avancement production">
+      </span>
+      <span className="sv-cell sv-c-prog">
+        <span className="sv-stages" aria-label="Avancement production">
           {PROCESSES.map((p) => {
             const status = stageStatus(entry.process[p]);
             return (
@@ -343,21 +378,21 @@ function SuiviRow({ entry, onOpen }: RowProps) {
               </span>
             );
           })}
-        </div>
-      </div>
-      <div className="sv-cell sv-c-ctrl">
+        </span>
+      </span>
+      <span className="sv-cell sv-c-ctrl">
         {entry.controleur || entry.dateControle ? (
-          <div className="sv-ctrl-summary">
+          <span className="sv-ctrl-summary">
             {entry.controleur && <span>{entry.controleur}</span>}
             {entry.dateControle && (
               <span className="faint mono small">{fmtDateShort(entry.dateControle)}</span>
             )}
-          </div>
+          </span>
         ) : (
           <span className="faint">—</span>
         )}
-      </div>
-      <div className="sv-cell sv-c-cmt">
+      </span>
+      <span className="sv-cell sv-c-cmt">
         {entry.comment ? (
           <span
             className="sv-cmt-dot"
@@ -365,8 +400,8 @@ function SuiviRow({ entry, onOpen }: RowProps) {
             title={entry.comment}
           />
         ) : null}
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -399,35 +434,14 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sv-sheet" role="dialog" aria-modal="true" aria-label="Éditer l'entrée">
+      <div className="sheet sv-sheet" role="dialog" aria-modal="true" aria-label="Éditer le test cosmétique">
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sv-sheet-title">
             <span className="sv-sheet-id mono">#{entry.serial || '—'}</span>
-            <h3>Suivi cosmétique</h3>
+            <h3>Cosmétique</h3>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
-        </div>
-
-        <div className="sv-sheet-section">
-          <div className="sv-sheet-section-title">Tag</div>
-          <div className="sv-tag-row" role="radiogroup" aria-label="Tag">
-            {TAGS.map((t) => {
-              const on = entry.tag === t;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  className={`sv-tag sv-tag-${TAG_SLUG[t]} ${on ? 'is-on' : 'is-off'}`}
-                  onClick={() => toggleTag(t)}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         <div className="sv-sheet-grid">
@@ -446,16 +460,50 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
             mono
             today
           />
+          <div className="sv-field sv-field-tag">
+            <span className="sv-field-label"><span>Tag</span></span>
+            <div className="sv-tag-row" role="radiogroup" aria-label="Tag">
+              {TAGS.map((t) => {
+                const on = entry.tag === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    className={`sv-tag sv-tag-${TAG_SLUG[t]} ${on ? 'is-on' : 'is-off'}`}
+                    onClick={() => toggleTag(t)}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <Field
             label="Couleur"
             value={entry.color}
             onChange={(v) => patchHeader('color', v)}
           />
-          <Field
-            label="Type de test"
-            value={entry.testType}
-            onChange={(v) => patchHeader('testType', v)}
-          />
+          <div className="sv-field sv-field-test-type">
+            <span className="sv-field-label"><span>Type de test</span></span>
+            <div className="seg sv-test-type" role="group" aria-label="Type de test">
+              {TEST_TYPES.map((t) => {
+                const on = entry.testType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    className={on ? 'active' : ''}
+                    onClick={() => patchHeader('testType', on ? '' : t)}
+                    aria-pressed={on}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <Field
             label="Origine"
             value={entry.origin}
@@ -513,6 +561,11 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
 
         <div className="sv-sheet-actions">
           <button className="btn destructive" onClick={onDelete}>Supprimer</button>
+          {entry.updatedAt && (
+            <span className="faint small mono sv-sheet-meta">
+              Modifié {new Date(entry.updatedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+            </span>
+          )}
           <button className="btn primary" style={{ marginLeft: 'auto' }} onClick={onClose}>
             Fermer
           </button>

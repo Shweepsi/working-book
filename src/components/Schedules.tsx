@@ -1,6 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { SYNC_ENABLED } from '../lib/api';
 import { load, save } from '../lib/storage';
-import { mergePMS230, parsePMS230, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { getSyncMode, setSyncMode, useSyncedState, type SyncMode } from '../lib/sync';
+import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -12,10 +14,12 @@ import {
 } from '../lib/coaterMath';
 import PasteImport, { type ImportMode } from './PasteImport';
 import { useEscapeToClose } from '../lib/hooks';
+import { useToast } from '../lib/toast';
 
 const KEY_DATA   = 'wb.schedules.v1';
 const KEY_POLICY = 'wb.schedules.policy.v1';
 const KEY_SPEED  = 'wb.schedules.vitesse';
+const KEY_TABLE  = 'wb.schedules.table.v1';
 
 type DisplayRow = PMS230Record & { mtoMts: string };
 
@@ -25,33 +29,244 @@ type GroupedItem =
 
 interface RailStat {
   count: number;
-  lites: number;
   m2: number;
+  shortName: string;
 }
 
-const COLUMNS = [
-  { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'  },
-  { key: 'dateDepart', label: 'Départ',   cls: 'col-date' },
-  { key: 'mo',         label: 'MO',       cls: 'col-mo'   },
-  { key: 'product',    label: 'Produit',  cls: 'col-prod' },
-  { key: 'itemName',   label: 'Article',  cls: 'col-name' },
-  { key: 'schedLites', label: 'Sched',    cls: 'col-num'  },
-  { key: 'prodLites',  label: 'Prod',     cls: 'col-num'  },
-  { key: 'reqLites',   label: 'Req',      cls: 'col-num'  },
-  { key: 'scraps',     label: 'Scraps',   cls: 'col-num'  },
-  { key: 'format',     label: 'Format',   cls: 'col-fmt'  },
-  { key: 'qualite',    label: 'Qualité',  cls: 'col-q'    },
-  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'  },
-  { key: 'pdp',        label: 'PDP',      cls: 'col-pdp'  },
-  { key: 'm2',         label: 'm² rest.', cls: 'col-m2'   },
+type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'opTm' | 'qualite' | 'pdp' | 'm2' | 'packsReq';
+type SortDir = 'asc' | 'desc';
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  cls: string;
+  sortKey?: SortKey;
+}
+
+interface ColumnView extends ColumnDef {
+  pinnedLeft?: number;
+  pinnedLast?: boolean;
+}
+
+// Class + style fragments for a cell of a possibly-pinned column. Returns
+// empty defaults for non-pinned cells so callers can spread the result
+// without branching at every call site.
+function pinnedAttrs(c: ColumnView): { className: string; style: CSSProperties | undefined } {
+  if (c.pinnedLeft === undefined) return { className: '', style: undefined };
+  return {
+    className: ` is-pinned${c.pinnedLast ? ' is-pinned-last' : ''}`,
+    style: { left: `${c.pinnedLeft}px` },
+  };
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'                                       },
+  { key: 'dateDepart', label: 'Départ',   cls: 'col-date', sortKey: 'dateDepart' },
+  { key: 'mo',         label: 'MO',       cls: 'col-mo'                                         },
+  { key: 'product',    label: 'Produit',  cls: 'col-prod', sortKey: 'product'    },
+  { key: 'itemName',   label: 'Article',  cls: 'col-name', sortKey: 'itemName'   },
+  { key: 'schedLites', label: 'Sched',    cls: 'col-num',  sortKey: 'schedLites' },
+  { key: 'prodLites',  label: 'Prod',     cls: 'col-num',  sortKey: 'prodLites'  },
+  { key: 'reqLites',   label: 'Req',      cls: 'col-num',  sortKey: 'reqLites'   },
+  { key: 'opTm',       label: 'Op Tm',    cls: 'col-num',  sortKey: 'opTm'       },
+  { key: 'format',     label: 'Format',   cls: 'col-fmt',  sortKey: 'longueur'   },
+  { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
+  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'                                         },
+  { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',  sortKey: 'packsReq'   },
+  { key: 'pdp',        label: 'PDP',      cls: 'col-pdp',                   sortKey: 'pdp'       },
+  { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
+
+// --- Column layout model ---------------------------------------------------
+
+type Density = 'compact' | 'normal' | 'advanced';
+
+// One column layout. Stored once per density (see TableSettings.layouts).
+interface ColumnLayout {
+  hidden: string[];
+  pinned: string[];
+  order: string[];
+  widths: Record<string, number>;
+}
+
+interface TableSettings {
+  // Bumped when a stored-shape or default-layout change needs a one-time
+  // migration on load (see sanitiseTableSettings).
+  version: number;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  // A separate column layout per density. Switching density swaps the active
+  // layout, so the user's per-density customisations are each remembered.
+  layouts: Record<Density, ColumnLayout>;
+  // Filters are global — shared across densities.
+  qualite: string[];
+  pdp: string[];
+  mtoMts: ('MTO' | 'MTS' | '?')[];
+}
+
+// Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS —
+// see UNHID_AT_VERSION for the one-time migrations applied on load.
+const TABLE_SETTINGS_VERSION = 3;
+
+// Columns that became default-visible at a given settings version. A layout
+// stored before that version gets the column un-hidden once on load, so the
+// new default reaches existing per-density layouts without a manual reset.
+const UNHID_AT_VERSION: { version: number; key: string }[] = [
+  { version: 2, key: 'itemName' },
+  { version: 3, key: 'mtoMts' },
+];
+
+// Canonical column order shared by every density default. Quality / pack /
+// production numbers come before format / pdp so the eye sweeps the
+// "what fits in a pack and what's left to make" cluster first.
+const DEFAULT_ORDER = [
+  'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
+  'qualite', 'litesPerPack', 'packsReq',
+  'schedLites', 'prodLites', 'reqLites',
+  'opTm', 'format', 'pdp', 'm2',
+];
+
+// Per-density default visibility. Compact strips the page down to just
+// production maths + m². Normal adds MO / Product identification. Advanced
+// also reveals the format. Départ, opTm, pdp stay opt-in across the board
+// (rarely scanned, available via the Colonnes menu).
+const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
+  compact:  ['dateDepart', 'mo', 'product', 'opTm', 'format', 'pdp'],
+  normal:   ['dateDepart', 'opTm', 'format', 'pdp'],
+  advanced: ['dateDepart', 'opTm', 'pdp'],
+};
+
+function defaultColumnLayout(density: Density): ColumnLayout {
+  return {
+    hidden: [...DENSITY_DEFAULT_HIDDEN[density]],
+    pinned: [],
+    order: [...DEFAULT_ORDER],
+    widths: {},
+  };
+}
+
+// Migrate stored settings across column renames. When a column key changes
+// (e.g. `scraps` → `opTm`), translate references in older saved layouts so the
+// user's drag order / width survive the upgrade instead of being dropped.
+const COLUMN_KEY_MIGRATIONS: Record<string, string> = { scraps: 'opTm' };
+const migrateKey = (k: string): string => COLUMN_KEY_MIGRATIONS[k] ?? k;
+
+// Sanitise one stored column layout: migrate renamed keys, drop keys that no
+// longer match a real column. A missing layout falls back to the density default.
+function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: Density): ColumnLayout {
+  if (!raw || typeof raw !== 'object') return defaultColumnLayout(density);
+  const known = new Set(COLUMNS.map((c) => c.key));
+  const dedupe = (arr: unknown): string[] =>
+    Array.isArray(arr)
+      ? Array.from(new Set(arr.map((k) => migrateKey(String(k))).filter((k) => known.has(k))))
+      : [];
+  return {
+    hidden: dedupe(raw.hidden),
+    pinned: dedupe(raw.pinned),
+    order: dedupe(raw.order),
+    widths: Object.fromEntries(
+      Object.entries(raw.widths ?? {})
+        .map(([k, v]) => [migrateKey(k), v] as [string, number])
+        .filter(([k]) => known.has(k)),
+    ),
+  };
+}
+
+// Build a complete TableSettings from whatever localStorage holds. The
+// pre-per-density flat shape (top-level hidden/pinned/order/widths) carries no
+// `layouts` key, so those installs start every density from its default —
+// which is also exactly what the user now expects from density switching.
+function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
+  const rawLayouts = (raw.layouts ?? {}) as Partial<Record<Density, ColumnLayout>>;
+  const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+  const storedVersion = typeof raw.version === 'number' ? raw.version : 1;
+  const layouts: Record<Density, ColumnLayout> = {
+    compact: sanitiseColumnLayout(rawLayouts.compact, 'compact'),
+    normal: sanitiseColumnLayout(rawLayouts.normal, 'normal'),
+    advanced: sanitiseColumnLayout(rawLayouts.advanced, 'advanced'),
+  };
+  // Replay each "column became default-visible" migration the stored layout
+  // is behind on, so the new defaults reach existing layouts without a reset.
+  for (const { version, key } of UNHID_AT_VERSION) {
+    if (storedVersion >= version) continue;
+    for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
+      layouts[d] = { ...layouts[d], hidden: layouts[d].hidden.filter((k) => k !== key) };
+    }
+  }
+  return {
+    version: TABLE_SETTINGS_VERSION,
+    sortKey: migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : 'longueur') as SortKey,
+    sortDir: raw.sortDir === 'asc' ? 'asc' : 'desc',
+    layouts,
+    qualite: arr(raw.qualite),
+    pdp: arr(raw.pdp),
+    mtoMts: arr(raw.mtoMts) as ('MTO' | 'MTS' | '?')[],
+  };
+}
+
+// Take the user's saved order, drop keys we no longer know about, and append
+// any newly-introduced columns at the end. Used wherever we need a complete
+// canonical ordering of column keys.
+function completeColumnOrder(saved: string[]): string[] {
+  const known = new Set(COLUMNS.map((c) => c.key));
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const k of saved) if (known.has(k) && !seen.has(k)) { result.push(k); seen.add(k); }
+  for (const c of COLUMNS) if (!seen.has(c.key)) result.push(c.key);
+  return result;
+}
+
+// All columns in pinned-first display order, regardless of visibility. Used by
+// the Colonnes menu so the user can see and reorder hidden columns too.
+function orderedAllColumns(layout: Pick<ColumnLayout, 'pinned' | 'order'>): ColumnDef[] {
+  const known = new Map(COLUMNS.map((c) => [c.key, c]));
+  const ordered = completeColumnOrder(layout.order).map((k) => known.get(k)!);
+  const pinSet = new Set(layout.pinned);
+  return [
+    ...ordered.filter((c) => pinSet.has(c.key)),
+    ...ordered.filter((c) => !pinSet.has(c.key)),
+  ];
+}
+
+function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): number {
+  const sign = dir === 'asc' ? 1 : -1;
+  switch (key) {
+    case 'longueur':   return sign * (a.longueur - b.longueur);
+    case 'schedLites': return sign * (a.schedLites - b.schedLites);
+    case 'prodLites':  return sign * ((a.prodLites ?? 0) - (b.prodLites ?? 0));
+    case 'reqLites':   return sign * (a.reqLites - b.reqLites);
+    case 'opTm':       return sign * ((a.opTm ?? 0) - (b.opTm ?? 0));
+    case 'm2':         return sign * (a.m2 - b.m2);
+    case 'packsReq':   return sign * (packsReq(a) - packsReq(b));
+    case 'dateDepart': return sign * String(a.dateDepart || '').localeCompare(String(b.dateDepart || ''));
+    case 'product':    return sign * String(a.product || '').localeCompare(String(b.product || ''));
+    case 'itemName':   return sign * String(a.itemName || '').localeCompare(String(b.itemName || ''));
+    case 'qualite':    return sign * String(a.qualite || '').localeCompare(String(b.qualite || ''));
+    case 'pdp':        return sign * String(a.pdp || '').localeCompare(String(b.pdp || ''));
+  }
+}
+
+// Whole packs covered by the remaining requirement. Floor — the leftover
+// (reqLites % litesPerPack) is signalled in the cell by a danger style
+// instead of being rounded away into an extra pack.
+function packsReq(r: Pick<PMS230Record, 'reqLites' | 'litesPerPack'>): number {
+  if (!r.litesPerPack || r.litesPerPack <= 0) return 0;
+  if (!r.reqLites || r.reqLites <= 0) return 0;
+  return Math.floor(r.reqLites / r.litesPerPack);
+}
+
+function packsReqShort(r: Pick<PMS230Record, 'reqLites' | 'litesPerPack'>): boolean {
+  if (!r.litesPerPack || r.litesPerPack <= 0) return false;
+  if (!r.reqLites || r.reqLites <= 0) return false;
+  return r.reqLites % r.litesPerPack !== 0;
+}
 
 function describePMS230(r: PMS230Result): string {
   const records = r.records?.length ?? 0;
   const schedules = r.schedules?.length ?? 0;
   const m2 = totalM2(r.records ?? []);
   const page = r.totalPages ? ` · page ${r.currentPage}/${r.totalPages}` : '';
-  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${m2.toFixed(2)} m²${page}`;
+  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${fmtNum(m2, 2)} m²${page}`;
 }
 
 function describePolicy(r: PolicyResult): string {
@@ -68,13 +283,40 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
-export default function Schedules() {
-  const [data, setData] = useState<PMS230Result | null>(() => load<PMS230Result | null>(KEY_DATA, null));
-  const [policy, setPolicy] = useState<PolicyResult | null>(() => load<PolicyResult | null>(KEY_POLICY, null));
-  const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 6));
+interface SchedulesProps {
+  density: Density;
+}
+
+export default function Schedules({ density }: SchedulesProps) {
+  // The PMS230 report is the only domain that still follows the user's
+  // sync/local toggle (exposed inside the import modal). Every other
+  // surface — logbook, suivi, prodtest, policy — alwaysSync regardless.
+  const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
+  const [data, setData] = useSyncedState<PMS230Result | null>(
+    KEY_DATA,
+    { domain: 'schedules', params: {} },
+    dataInit,
+  );
+  const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
+  const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
+    KEY_POLICY,
+    { domain: 'policy', params: {}, alwaysSync: true },
+    policyInit,
+  );
+  const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const [tableSettings, setTableSettings] = useState<TableSettings>(
+    () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
+  );
+  // Column layout for the density currently in effect. Switching density
+  // (a prop change from App) swaps this to the matching stored layout.
+  const layout = tableSettings.layouts[density];
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => { save(KEY_TABLE, tableSettings); }, [tableSettings]);
 
   const openRow = useMemo(
     () => (data?.records ?? []).find((r) => r.id === openRowId) ?? null,
@@ -83,18 +325,9 @@ export default function Schedules() {
 
   const handleRowOpen = useCallback((row: DisplayRow) => setOpenRowId(row.id), []);
 
-  // Persist datasets and speed.
-  useEffect(() => { save(KEY_DATA, data); }, [data]);
-  useEffect(() => { save(KEY_POLICY, policy); }, [policy]);
+  // Persist speed (data + policy go through useSyncedState which handles
+  // its own write-back to localStorage).
   useEffect(() => { save(KEY_SPEED, vitesse); }, [vitesse]);
-
-  // Auto-select the first schedule once data loads.
-  useEffect(() => {
-    const first = data?.schedules?.[0]?.schedule ?? null;
-    if (data && (!selected || !data.schedules.some((s) => s.schedule === selected))) {
-      setSelected(first);
-    }
-  }, [data, selected]);
 
   const schedules = data?.schedules ?? [];
 
@@ -102,23 +335,162 @@ export default function Schedules() {
   //   - drop QC samples (item name starting with "Vacuum")
   //   - drop "off-coater" operations (second op-step = 90)
   //   - drop rows with no remaining requirement (reqLites = 0)
-  // Sort by longueur DESC, PDP DESC, item name ASC — same keys as the formula.
+  // Then layer the user-driven filters (qualité / pdp / mtoMts) and the
+  // active sort. Default sort matches the planner's Excel formula
+  // (longueur DESC, PDP DESC, name ASC).
   const visibleRows: DisplayRow[] = useMemo(() => {
     const policyMap = policy?.map ?? {};
-    const filtered = (data?.records ?? [])
+    const baseFiltered = (data?.records ?? [])
       .filter((r) => r.schedule === selected)
       .filter((r) => !/^Vacuum/i.test(r.itemName))
       .filter((r) => r.opStepD !== 90)
       .filter((r) => (r.reqLites ?? 0) > 0);
 
-    filtered.sort((a, b) => {
-      if (b.longueur !== a.longueur) return b.longueur - a.longueur;
+    const decorated: DisplayRow[] = baseFiltered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
+
+    const userFiltered = decorated.filter((r) => {
+      if (tableSettings.qualite.length > 0 && !tableSettings.qualite.includes(r.qualite)) return false;
+      if (tableSettings.pdp.length > 0 && !tableSettings.pdp.includes(r.pdp)) return false;
+      if (tableSettings.mtoMts.length > 0 && !tableSettings.mtoMts.includes(r.mtoMts as 'MTO' | 'MTS' | '?')) return false;
+      return true;
+    });
+
+    userFiltered.sort((a, b) => {
+      const primary = compareRows(a, b, tableSettings.sortKey, tableSettings.sortDir);
+      if (primary !== 0) return primary;
+      // Stable secondary tiebreakers preserving the planner's intent.
+      if (tableSettings.sortKey !== 'longueur' && b.longueur !== a.longueur) return b.longueur - a.longueur;
       if ((b.pdp || '') !== (a.pdp || '')) return (b.pdp || '').localeCompare(a.pdp || '');
       return (a.itemName || '').localeCompare(b.itemName || '');
     });
 
-    return filtered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
+    return userFiltered;
+  }, [data, selected, policy, tableSettings]);
+
+  // Available filter values come from the unfiltered, schedule-scoped pool so
+  // the menu doesn't shrink as the user picks options.
+  const availableFilters = useMemo(() => {
+    const policyMap = policy?.map ?? {};
+    const pool = (data?.records ?? [])
+      .filter((r) => r.schedule === selected)
+      .filter((r) => !/^Vacuum/i.test(r.itemName))
+      .filter((r) => r.opStepD !== 90)
+      .filter((r) => (r.reqLites ?? 0) > 0);
+    const qualites = new Set<string>();
+    const pdps = new Set<string>();
+    const mtos = new Set<string>();
+    for (const r of pool) {
+      if (r.qualite) qualites.add(r.qualite);
+      if (r.pdp) pdps.add(r.pdp);
+      mtos.add(policyMap[r.product] ?? '?');
+    }
+    return {
+      qualites: [...qualites].sort(),
+      pdps: [...pdps].sort(),
+      mtos: [...mtos].sort(),
+    };
   }, [data, selected, policy]);
+
+  const filteringActive =
+    tableSettings.qualite.length > 0 ||
+    tableSettings.pdp.length > 0 ||
+    tableSettings.mtoMts.length > 0;
+
+  function toggleSort(key: SortKey) {
+    setTableSettings((s) => {
+      if (s.sortKey === key) {
+        return { ...s, sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' };
+      }
+      // Numeric/date columns default to descending; text to ascending.
+      const numeric: SortKey[] = ['longueur', 'schedLites', 'prodLites', 'reqLites', 'opTm', 'm2', 'dateDepart'];
+      return { ...s, sortKey: key, sortDir: numeric.includes(key) ? 'desc' : 'asc' };
+    });
+  }
+
+  function toggleFilterValue(field: 'qualite' | 'pdp' | 'mtoMts', value: string) {
+    setTableSettings((s) => {
+      const list = s[field] as string[];
+      const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+      return { ...s, [field]: next } as TableSettings;
+    });
+  }
+
+  function clearFilters() {
+    setTableSettings((s) => ({ ...s, qualite: [], pdp: [], mtoMts: [] }));
+  }
+
+  // Apply a change to the active density's column layout, leaving the other
+  // densities' stored layouts untouched.
+  function updateLayout(fn: (l: ColumnLayout) => ColumnLayout) {
+    setTableSettings((s) => ({ ...s, layouts: { ...s.layouts, [density]: fn(s.layouts[density]) } }));
+  }
+
+  function toggleColumnVisibility(key: string) {
+    updateLayout((l) => ({
+      ...l,
+      hidden: l.hidden.includes(key) ? l.hidden.filter((k) => k !== key) : [...l.hidden, key],
+    }));
+  }
+
+  function togglePinned(key: string) {
+    updateLayout((l) => ({
+      ...l,
+      pinned: l.pinned.includes(key) ? l.pinned.filter((k) => k !== key) : [...l.pinned, key],
+    }));
+  }
+
+  function moveColumn(key: string, dir: -1 | 1) {
+    updateLayout((l) => {
+      const order = completeColumnOrder(l.order);
+      const i = order.indexOf(key);
+      if (i < 0) return l;
+      // Only reorder within the same pinned/unpinned group so the visual order
+      // matches the pinned-first rendering.
+      const isPinned = l.pinned.includes(key);
+      let j = i + dir;
+      while (j >= 0 && j < order.length && l.pinned.includes(order[j]!) !== isPinned) j += dir;
+      if (j < 0 || j >= order.length) return l;
+      const next = order.slice();
+      [next[i], next[j]] = [next[j]!, next[i]!];
+      return { ...l, order: next };
+    });
+  }
+
+  function reorderColumn(fromKey: string, toKey: string) {
+    if (fromKey === toKey) return;
+    updateLayout((l) => {
+      // Cross-group drops are ignored to keep pinned columns grouped to the left.
+      if (l.pinned.includes(fromKey) !== l.pinned.includes(toKey)) return l;
+      const order = completeColumnOrder(l.order);
+      const fromIdx = order.indexOf(fromKey);
+      const toIdx = order.indexOf(toKey);
+      if (fromIdx < 0 || toIdx < 0) return l;
+      const next = order.slice();
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved!);
+      return { ...l, order: next };
+    });
+  }
+
+  function setColumnWidth(key: string, px: number) {
+    // Clamp so a runaway drag can't push a column to thousands of pixels or
+    // below the minimum useful width. Reject NaN/Infinity outright — Math.min
+    // and Math.max propagate NaN and we'd persist it to localStorage.
+    if (!Number.isFinite(px)) return;
+    const clamped = Math.max(40, Math.min(600, Math.round(px)));
+    updateLayout((l) => ({ ...l, widths: { ...l.widths, [key]: clamped } }));
+  }
+
+  function resetColumnLayout() {
+    // Reset just the active density back to its canonical default; the other
+    // densities keep whatever the user set there.
+    updateLayout(() => defaultColumnLayout(density));
+  }
+
+  const visibleColumns = useMemo(
+    () => orderedAllColumns(layout).filter((c) => !layout.hidden.includes(c.key)),
+    [layout],
+  );
 
   // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
@@ -139,34 +511,93 @@ export default function Schedules() {
     () => visibleRows.filter((r) => r.workCenter === 'Coater'),
     [visibleRows],
   );
+  // Time still needed for the visible Coater rows at the current speed. Uses
+  // reqLites under the hood so the value aligns with the m² restants total
+  // and matches the Excel reference. coaterMinDt adds the 9 % downtime
+  // factor. Both feed the hero stat tiles and the print throughput subline.
   const coaterMin = minutesAt(coaterRows, vitesse);
+  const coaterMinDt = coaterMin != null ? coaterMin * DOWNTIME_FACTOR : null;
 
   // Stats per schedule, recomputed against the same filters so the rail and
   // detail header mirror what the user actually sees in the table.
   const railStats = useMemo(() => {
     const stats = new Map<string, RailStat>();
+    // shortName tallies kept aside — they only feed the dominant-name pick
+    // below, they're not part of the RailStat shape the UI consumes.
+    const nameTally = new Map<string, Map<string, number>>();
     for (const r of data?.records ?? []) {
       if (/^Vacuum/i.test(r.itemName)) continue;
       if (r.opStepD === 90) continue;
       if ((r.reqLites ?? 0) <= 0) continue;
-      const cur = stats.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      let cur = stats.get(r.schedule);
+      if (!cur) {
+        cur = { count: 0, m2: 0, shortName: '' };
+        stats.set(r.schedule, cur);
+        nameTally.set(r.schedule, new Map());
+      }
       cur.count += 1;
-      cur.lites += r.schedLites ?? 0;
       cur.m2 += r.m2;
-      stats.set(r.schedule, cur);
+      const short = shortItemName(r.itemName);
+      if (short) {
+        const tally = nameTally.get(r.schedule)!;
+        tally.set(short, (tally.get(short) ?? 0) + 1);
+      }
+    }
+    // Resolve the dominant short name per schedule from the full itemNames so
+    // the rail isn't tied to the (potentially lossy) cached itemRoot.
+    for (const [schedule, stat] of stats) {
+      let best = '';
+      let bestCount = 0;
+      for (const [name, n] of nameTally.get(schedule) ?? []) {
+        if (n > bestCount) { best = name; bestCount = n; }
+      }
+      stat.shortName = best;
     }
     return stats;
   }, [data]);
 
+  // Hide schedules with no remaining surface to coat — covers the case where
+  // every surviving row has largeur=longueur=0 (QC-style samples).
+  const visibleSchedules = useMemo(
+    () => schedules.filter((s) => (railStats.get(s.schedule)?.m2 ?? 0) > 0),
+    [schedules, railStats],
+  );
+
+  // Auto-select the first visible schedule once data loads, and re-pick if the
+  // current selection has been hidden (e.g. after a re-import).
+  useEffect(() => {
+    if (!data) return;
+    if (selected && visibleSchedules.some((s) => s.schedule === selected)) return;
+    setSelected(visibleSchedules[0]?.schedule ?? null);
+  }, [data, selected, visibleSchedules]);
+
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
+    const snapshot = data;
+    const snapshotSelected = selected;
     setData((prev) => (mode === 'append' ? mergePMS230(prev, parsed) : parsed));
     setImportMode(null);
+    if (mode === 'replace' && snapshot) {
+      toast.show({
+        message: 'Rapport remplacé',
+        undo: () => {
+          setData(snapshot);
+          setSelected(snapshotSelected);
+        },
+      });
+    }
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
+    const snapshot = policy;
     setPolicy(parsed);
     setImportMode(null);
+    if (snapshot) {
+      toast.show({
+        message: 'Table MTO/MTS remplacée',
+        undo: () => setPolicy(snapshot),
+      });
+    }
   }
 
   return (
@@ -175,12 +606,19 @@ export default function Schedules() {
         data={data}
         policy={policy}
         onImport={() => setImportMode('pms230')}
-        onPolicy={() => setImportMode('policy')}
         onClear={() => {
-          if (window.confirm('Effacer le rapport Operator Mashup ?')) {
-            setData(null);
-            setSelected(null);
-          }
+          const snapshot = data;
+          const snapshotSelected = selected;
+          setData(null);
+          setSelected(null);
+          if (!snapshot) return;
+          toast.show({
+            message: 'Rapport Operator Mashup effacé',
+            undo: () => {
+              setData(snapshot);
+              setSelected(snapshotSelected);
+            },
+          });
         }}
       />
 
@@ -193,7 +631,9 @@ export default function Schedules() {
       {data && !policy && (
         <div className="sch-hint">
           <span>↪ Importer la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
-          <button className="btn mini" onClick={() => setImportMode('policy')}>Importer</button>
+          <button className="btn mini" onClick={() => setImportMode('policy')} title="Ouvrir l'importation de la politique MTO/MTS">
+            Importer
+          </button>
         </div>
       )}
 
@@ -201,11 +641,11 @@ export default function Schedules() {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Planning <span className="faint">· {schedules.length}</span>
+              Planning <span className="faint">· {visibleSchedules.length}</span>
             </h4>
             <ul className="sch-rail-list">
-              {schedules.map((s) => {
-                const stat = railStats.get(s.schedule) ?? { count: 0, lites: 0, m2: 0 };
+              {visibleSchedules.map((s) => {
+                const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0, shortName: '' };
                 return (
                   <li key={s.schedule}>
                     <button
@@ -215,7 +655,7 @@ export default function Schedules() {
                     >
                       <div className="sch-rail-top">
                         <span className="mono sch-rail-num">{s.schedule}</span>
-                        <span className="sch-rail-root">{s.itemRoot || '—'}</span>
+                        <span className="sch-rail-root">{stat.shortName || shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
                       </div>
                       <div className="sch-rail-meta faint small mono">
                         {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
@@ -229,29 +669,78 @@ export default function Schedules() {
 
           <section className="sch-detail">
             {selectedSchedule && (() => {
-              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, lites: 0, m2: 0 };
+              const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, m2: 0, shortName: '' };
+              const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
               return (
                 <header className="sch-detail-head">
-                  <h3>
-                    <span className="mono">{selectedSchedule.schedule}</span>
-                    <span className="faint"> — </span>
-                    <span>{selectedSchedule.itemRoot}</span>
-                  </h3>
-                  <span className="faint small">
-                    {stat.count} ligne{stat.count > 1 ? 's' : ''} · {stat.lites} lites · {stat.m2.toFixed(2)} m²
-                  </span>
+                  <div className="sch-detail-head-id">
+                    <h3>
+                      <span className="mono sch-detail-head-num">{selectedSchedule.schedule}</span>
+                      <span className="faint sch-detail-head-sep"> — </span>
+                      <span className="sch-detail-head-name">{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
+                    </h3>
+                  </div>
+                  <div className="sch-detail-head-stats">
+                    <label className={`sch-stat-tile sch-stat-tile-input ${validSpeed ? '' : 'is-invalid'}`}>
+                      <span className="sch-stat-tile-label">Vitesse</span>
+                      <span className="sch-stat-tile-value">
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          className="sch-vitesse-input mono"
+                          value={vitesse}
+                          onChange={(e) => setVitesse(e.target.value === '' ? '' : Number(e.target.value))}
+                          aria-label="Vitesse en m/min"
+                        />
+                        <span className="sch-vitesse-print mono" aria-hidden="true">{vitesse === '' ? '—' : vitesse}</span>
+                        <span className="sch-stat-tile-unit faint">m/min</span>
+                      </span>
+                    </label>
+                    <div className="sch-stat-tile" title={`${coaterRows.length} lignes Coater`}>
+                      <span className="sch-stat-tile-label">Production</span>
+                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMin)}</strong>
+                    </div>
+                    <div className="sch-stat-tile" title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %">
+                      <span className="sch-stat-tile-label">+ DT 9 %</span>
+                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMinDt)}</strong>
+                    </div>
+                  </div>
                 </header>
               );
             })()}
 
-            <ScheduleTable items={groupedRows} totals={visibleRows} onRowOpen={handleRowOpen} />
-
-            <ThroughputFooter
-              rows={coaterRows}
-              vitesse={vitesse}
-              onVitesseChange={setVitesse}
-              minutes={coaterMin}
+            <TableControls
+              settings={tableSettings}
+              layout={layout}
+              visibleColumns={visibleColumns}
+              available={availableFilters}
+              filteringActive={filteringActive}
+              colsMenuOpen={colsMenuOpen}
+              onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
+              onColsMenuClose={() => setColsMenuOpen(false)}
+              onToggleFilterValue={toggleFilterValue}
+              onClearFilters={clearFilters}
+              onToggleColumn={toggleColumnVisibility}
+              onTogglePinned={togglePinned}
+              onMoveColumn={moveColumn}
+              onResetLayout={resetColumnLayout}
             />
+
+            <ScheduleTable
+              items={groupedRows}
+              totals={visibleRows}
+              onRowOpen={handleRowOpen}
+              columns={visibleColumns}
+              pinned={layout.pinned}
+              widths={layout.widths}
+              onResize={setColumnWidth}
+              onReorder={reorderColumn}
+              sortKey={tableSettings.sortKey}
+              sortDir={tableSettings.sortDir}
+              onSort={toggleSort}
+            />
+
           </section>
         </div>
       )}
@@ -259,12 +748,30 @@ export default function Schedules() {
       {importMode === 'pms230' && (
         <PasteImport<PMS230Result>
           title="Importer le rapport Operator Mashup"
-          hint="Dans l'Operator Mashup, ouvrir Post Production Report. Ctrl+A puis Ctrl+C, et coller ci-dessous."
+          hint="Dans l'Operator Mashup, faites votre recherche. Ctrl+A puis Ctrl+C, et coller ci-dessous."
           parser={parsePMS230}
           describe={describePMS230}
           showAppend={!!data}
           onConfirm={handlePms230Confirm}
           onClose={() => setImportMode(null)}
+          headerActions={
+            <button
+              type="button"
+              className="btn ghost mini sch-import-policy-btn"
+              onClick={() => setImportMode('policy')}
+              aria-label="Importer la politique MTO/MTS"
+              title={
+                policy
+                  ? `Politique MTO/MTS · ${policy.count} produits chargés — cliquer pour réimporter`
+                  : 'Importer la table de politique MTO/MTS'
+              }
+            >
+              <span className="glyph" aria-hidden="true">⚙</span>
+              <span className="lbl-full">Politique MTO/MTS</span>
+              <span className="lbl-short" aria-hidden="true">MTO</span>
+            </button>
+          }
+          footerExtras={SYNC_ENABLED ? <SyncModeField /> : null}
         />
       )}
       {importMode === 'policy' && (
@@ -293,14 +800,13 @@ interface SummaryBarProps {
   data: PMS230Result | null;
   policy: PolicyResult | null;
   onImport: () => void;
-  onPolicy: () => void;
   onClear: () => void;
 }
 
-function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarProps) {
+function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
   const records = data?.records?.length ?? 0;
   const schedules = data?.schedules?.length ?? 0;
-  const m2 = data ? totalM2(data.records).toFixed(2) : null;
+  const m2 = data ? fmtNum(totalM2(data.records), 2) : null;
   const policyCount = policy?.count ?? 0;
   const importedAt = data?.importedAt ? new Date(data.importedAt) : null;
   const pageWarn = data?.totalPages && data.totalPages > 1;
@@ -310,9 +816,6 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
       <div className="sch-summary-actions">
         <button className="btn primary" onClick={onImport}>
           {data ? 'Réimporter rapport Operator Mashup' : 'Importer rapport Operator Mashup'}
-        </button>
-        <button className={`btn ${policy ? 'ghost' : ''}`} onClick={onPolicy}>
-          {policy ? `Politique MTO/MTS · ${policyCount} produits` : 'Importer politique MTO/MTS'}
         </button>
         {data && (
           <button
@@ -330,6 +833,15 @@ function SummaryBar({ data, policy, onImport, onPolicy, onClear }: SummaryBarPro
           <span><strong className="mono">{schedules}</strong> schedules</span>
           <span><strong className="mono">{records}</strong> lignes</span>
           <span><strong className="mono">{m2}</strong> m²</span>
+          {policy && (
+            <span
+              className="sch-policy-chip"
+              title="Politique MTO/MTS chargée — partagée entre les opérateurs"
+            >
+              <span className="sch-policy-chip-glyph" aria-hidden="true">⚙</span>
+              MTO/MTS · <strong className="mono">{policyCount}</strong>
+            </span>
+          )}
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
@@ -350,23 +862,234 @@ interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
   onRowOpen: (row: DisplayRow) => void;
+  columns: ColumnDef[];
+  pinned: string[];
+  widths: Record<string, number>;
+  onResize: (key: string, px: number) => void;
+  onReorder: (fromKey: string, toKey: string) => void;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
 }
 
-function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
+const COL_DRAG_MIME = 'application/x-wb-column';
+
+// Best-effort px estimate for grid columns that use minmax/auto, used to compute
+// sticky-left offsets without measuring the DOM.
+function columnPx(key: string, override?: number): number {
+  if (override) return override;
+  const w = COL_WIDTHS[key] || '';
+  const m = /^(\d+)px$/.exec(w);
+  if (m) return parseInt(m[1], 10);
+  const mm = /minmax\((\d+)px/.exec(w);
+  if (mm) return parseInt(mm[1], 10);
+  return 80;
+}
+
+// Per-column track widths matching the original fixed grid. Optional columns
+// drop out when hidden, so the grid template is recomposed from `columns`.
+const COL_WIDTHS: Record<string, string> = {
+  mtoMts: '56px',
+  dateDepart: '80px',
+  mo: '100px',
+  product: '92px',
+  itemName: 'minmax(180px, 1.6fr)',
+  schedLites: '62px',
+  prodLites: '62px',
+  reqLites: '62px',
+  opTm: '72px',
+  format: '116px',
+  qualite: '68px',
+  litesPerPack: '68px',
+  packsReq: '68px',
+  pdp: 'minmax(100px, 1fr)',
+  m2: '88px',
+};
+
+interface ColumnResizeHandleProps {
+  colKey: string;
+  startPx: number;
+  onResize: (key: string, px: number) => void;
+}
+
+function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandleProps) {
+  const dragState = useRef<{ originX: number; originPx: number } | null>(null);
+
+  function endDrag(target: HTMLSpanElement | null, pointerId?: number) {
+    if (!dragState.current) return;
+    dragState.current = null;
+    document.body.classList.remove('is-col-resizing');
+    if (target && pointerId !== undefined && target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+  }
+
+  function onPointerDown(e: ReactPointerEvent<HTMLSpanElement>) {
+    // Block the parent's sort click and own the pointer for the drag duration.
+    e.stopPropagation();
+    e.preventDefault();
+    dragState.current = { originX: e.clientX, originPx: startPx };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    // Lock the column-resize cursor and disable text selection page-wide so
+    // the drag doesn't pick up text or flicker between cursors.
+    document.body.classList.add('is-col-resizing');
+  }
+
+  function onPointerMove(e: ReactPointerEvent<HTMLSpanElement>) {
+    if (!dragState.current) return;
+    const delta = e.clientX - dragState.current.originX;
+    onResize(colKey, dragState.current.originPx + delta);
+  }
+
+  return (
+    <span
+      className="sch-col-resize"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Redimensionner la colonne"
+      draggable={false}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      onDragStart={(e) => e.preventDefault()}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={(e) => endDrag(e.currentTarget, e.pointerId)}
+      onPointerCancel={(e) => endDrag(e.currentTarget, e.pointerId)}
+      onLostPointerCapture={(e) => endDrag(e.currentTarget, e.pointerId)}
+    />
+  );
+}
+
+function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const dragKeyRef = useRef<string | null>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  // Toggle .is-scrolled-x once the operator has scrolled past the pinned
+  // columns, so the divider shadow only appears when it's actually meaningful.
+  useEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    const update = () => el.classList.toggle('is-scrolled-x', el.scrollLeft > 0);
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    return () => el.removeEventListener('scroll', update);
+  }, []);
+
+  // Tag pinned columns with their cumulative px offset so each cell can stick
+  // exactly to the right of the previous pinned one. Memoised because the
+  // result is passed to memo'd row components — a fresh array every render
+  // would invalidate every row.
+  const enrichedColumns = useMemo<ColumnView[]>(() => {
+    const pinSet = new Set(pinned);
+    const out: ColumnView[] = [];
+    let leftAcc = 0;
+    for (const c of columns) {
+      if (pinSet.has(c.key)) {
+        out.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
+        leftAcc += columnPx(c.key, widths[c.key]);
+      } else {
+        out.push({ ...c });
+      }
+    }
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (out[i]!.pinnedLeft !== undefined) {
+        out[i] = { ...out[i]!, pinnedLast: true };
+        break;
+      }
+    }
+    return out;
+  }, [columns, pinned, widths]);
+
+  // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
+  // minPx keeps the grid from collapsing in narrow viewports. The fr-based
+  // variant is used in print, where the page is narrower than the sum of
+  // pixel widths and we want columns to scale down proportionally.
+  const { gridTemplate, gridTemplatePrint, minPx } = useMemo(() => ({
+    gridTemplate: columns.map((c) => widths[c.key] ? `${widths[c.key]}px` : (COL_WIDTHS[c.key] || 'auto')).join(' '),
+    gridTemplatePrint: columns.map((c) => `minmax(0, ${columnPx(c.key, widths[c.key])}fr)`).join(' '),
+    minPx: columns.reduce((acc, c) => acc + columnPx(c.key, widths[c.key]), 0),
+  }), [columns, widths]);
+
   if (totals.length === 0) {
     return (
       <div className="sch-empty-rows faint">
-        Aucune ligne pour ce schedule (après filtres : pas de QC, op-step ≠ 90, requis &gt; 0).
+        Aucune ligne pour ce schedule.
       </div>
     );
   }
 
   return (
-    <div className="sch-table" role="table">
+    <div
+      ref={tableRef}
+      className="sch-table"
+      role="table"
+      style={{
+        ['--sch-grid' as string]: gridTemplate,
+        ['--sch-grid-print' as string]: gridTemplatePrint,
+        ['--sch-min' as string]: `${minPx}px`,
+      }}
+    >
       <div className="sch-row sch-head" role="row">
-        {COLUMNS.map((c) => (
-          <div key={c.key} className={`sch-cell ${c.cls}`} role="columnheader">{c.label}</div>
-        ))}
+        {enrichedColumns.map((c) => {
+          const sortable = !!c.sortKey;
+          const isSorted = sortable && c.sortKey === sortKey;
+          const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
+          const pin = pinnedAttrs(c);
+          const isDragOver = dragOverKey === c.key && dragKeyRef.current && dragKeyRef.current !== c.key;
+          const sameGroupDrag = isDragOver && pinned.includes(dragKeyRef.current!) === pinned.includes(c.key);
+          return (
+            <div
+              key={c.key}
+              className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pin.className}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
+              role="columnheader"
+              aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+              tabIndex={sortable ? 0 : undefined}
+              onClick={sortable ? () => onSort(c.sortKey!) : undefined}
+              onKeyDown={
+                sortable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSort(c.sortKey!);
+                      }
+                    }
+                  : undefined
+              }
+              style={pin.style}
+              draggable
+              onDragStart={(e) => {
+                dragKeyRef.current = c.key;
+                e.dataTransfer.setData(COL_DRAG_MIME, c.key);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragEnd={() => { dragKeyRef.current = null; setDragOverKey(null); }}
+              onDragOver={(e) => {
+                if (!dragKeyRef.current || dragKeyRef.current === c.key) return;
+                // Only accept drops within the same pinned/unpinned group.
+                if (pinned.includes(dragKeyRef.current) !== pinned.includes(c.key)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragOverKey !== c.key) setDragOverKey(c.key);
+              }}
+              onDragLeave={() => { if (dragOverKey === c.key) setDragOverKey(null); }}
+              onDrop={(e) => {
+                const from = e.dataTransfer.getData(COL_DRAG_MIME) || dragKeyRef.current;
+                setDragOverKey(null);
+                dragKeyRef.current = null;
+                if (from && from !== c.key) {
+                  e.preventDefault();
+                  onReorder(from, c.key);
+                }
+              }}
+            >
+              <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner">⋮⋮</span>
+              {c.label}
+              {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
+              <ColumnResizeHandle colKey={c.key} startPx={columnPx(c.key, widths[c.key])} onResize={onResize} />
+            </div>
+          );
+        })}
       </div>
       {items.map((it) =>
         it.kind === 'break'
@@ -375,9 +1098,191 @@ function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
               <div className="sch-group-label">{fmtNum(it.longueur, 0)} mm</div>
             </div>
           )
-          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} />
+          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
       )}
-      <TotalRow rows={totals} />
+      <TotalRow rows={totals} columns={enrichedColumns} />
+    </div>
+  );
+}
+
+interface TableControlsProps {
+  settings: TableSettings;
+  layout: ColumnLayout;
+  visibleColumns: ColumnDef[];
+  available: { qualites: string[]; pdps: string[]; mtos: string[] };
+  filteringActive: boolean;
+  colsMenuOpen: boolean;
+  onColsMenuToggle: () => void;
+  onColsMenuClose: () => void;
+  onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
+  onClearFilters: () => void;
+  onToggleColumn: (key: string) => void;
+  onTogglePinned: (key: string) => void;
+  onMoveColumn: (key: string, dir: -1 | 1) => void;
+  onResetLayout: () => void;
+}
+
+function TableControls({
+  settings,
+  layout,
+  visibleColumns,
+  available,
+  filteringActive,
+  colsMenuOpen,
+  onColsMenuToggle,
+  onColsMenuClose,
+  onToggleFilterValue,
+  onClearFilters,
+  onToggleColumn,
+  onTogglePinned,
+  onMoveColumn,
+  onResetLayout,
+}: TableControlsProps) {
+  const colsBtnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!colsMenuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (colsBtnRef.current && !colsBtnRef.current.contains(e.target as Node)) onColsMenuClose();
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [colsMenuOpen, onColsMenuClose]);
+
+  return (
+    <div className="sch-controls no-print">
+      {available.mtos.length > 1 && (
+        <FilterGroup
+          label="MTO/MTS"
+          options={available.mtos}
+          selected={settings.mtoMts}
+          onToggle={(v) => onToggleFilterValue('mtoMts', v)}
+        />
+      )}
+      {available.qualites.length > 1 && (
+        <FilterGroup
+          label="Qualité"
+          options={available.qualites}
+          selected={settings.qualite}
+          onToggle={(v) => onToggleFilterValue('qualite', v)}
+        />
+      )}
+      {available.pdps.length > 1 && (
+        <FilterGroup
+          label="PDP"
+          options={available.pdps}
+          selected={settings.pdp}
+          onToggle={(v) => onToggleFilterValue('pdp', v)}
+        />
+      )}
+      {filteringActive && (
+        <button type="button" className="btn ghost mini" onClick={onClearFilters}>
+          Effacer filtres
+        </button>
+      )}
+      <div className="sch-cols-wrap" ref={colsBtnRef} style={{ marginLeft: 'auto' }}>
+        <button
+          type="button"
+          className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
+          onClick={onColsMenuToggle}
+          aria-expanded={colsMenuOpen}
+          aria-label="Configurer les colonnes"
+        >
+          <span className="sch-cols-icon" aria-hidden="true" />
+          Colonnes
+          <span className="sch-cols-chevron" aria-hidden="true" />
+        </button>
+        {colsMenuOpen && (
+          <div className="popover sch-cols-menu" role="menu">
+            <div className="sch-cols-menu-head">
+              <h4>Colonnes</h4>
+              <button type="button" className="btn ghost mini" onClick={onResetLayout}>Réinitialiser</button>
+            </div>
+            <ul className="sch-cols-list">
+              {orderedAllColumns(layout).map((col, i, arr) => {
+                const visible = !layout.hidden.includes(col.key);
+                const pinned = layout.pinned.includes(col.key);
+                const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
+                const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
+                return (
+                  <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
+                    <label className="sch-cols-opt">
+                      <input
+                        type="checkbox"
+                        checked={visible}
+                        onChange={() => onToggleColumn(col.key)}
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                    <div className="sch-cols-actions">
+                      <button
+                        type="button"
+                        className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
+                        onClick={() => onTogglePinned(col.key)}
+                        title={pinned ? 'Désépingler' : 'Épingler à gauche'}
+                        aria-pressed={pinned}
+                        aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
+                      >
+                        <span aria-hidden="true" className="sch-pin-glyph" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn ghost icon mini"
+                        onClick={() => onMoveColumn(col.key, -1)}
+                        disabled={!sameGroupPrev}
+                        title="Monter"
+                        aria-label="Monter la colonne"
+                      >↑</button>
+                      <button
+                        type="button"
+                        className="btn ghost icon mini"
+                        onClick={() => onMoveColumn(col.key, 1)}
+                        disabled={!sameGroupNext}
+                        title="Descendre"
+                        aria-label="Descendre la colonne"
+                      >↓</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="sch-cols-menu-foot faint small">
+              {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface FilterGroupProps {
+  label: string;
+  options: string[];
+  selected: string[];
+  onToggle: (value: string) => void;
+}
+
+function FilterGroup({ label, options, selected, onToggle }: FilterGroupProps) {
+  return (
+    <div className="sch-filter-group">
+      <span className="sch-filter-label">{label}</span>
+      <div className="sch-filter-chips">
+        {options.map((v) => {
+          const on = selected.includes(v);
+          return (
+            <button
+              key={v}
+              type="button"
+              className={`sch-filter-chip ${on ? 'is-on' : ''}`}
+              onClick={() => onToggle(v)}
+              aria-pressed={on}
+            >
+              {v || '—'}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -385,118 +1290,131 @@ function ScheduleTable({ items, totals, onRowOpen }: ScheduleTableProps) {
 interface ScheduleRowProps {
   row: DisplayRow;
   onOpen: (row: DisplayRow) => void;
+  columns: ColumnView[];
 }
 
-const ScheduleRow = memo(function ScheduleRow({ row, onOpen }: ScheduleRowProps) {
+function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
+  switch (col.key) {
+    case 'mtoMts':
+      return <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>;
+    case 'dateDepart':   return fmtDate(row.dateDepart);
+    case 'mo':           return row.mo;
+    case 'product':      return row.product;
+    case 'itemName':
+      return (
+        <>
+          <div className="sch-name" title={row.itemName}>{row.itemName}</div>
+          {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
+        </>
+      );
+    case 'schedLites':   return row.schedLites || '';
+    case 'prodLites':    return row.prodLites ?? 0;
+    case 'reqLites':     return row.reqLites || '';
+    case 'opTm':         return row.opTm ? fmtNum(row.opTm, 2) : '';
+    case 'format':
+      return row.largeur && row.longueur ? (
+        <>
+          {fmtNum(row.largeur, 0)}
+          <span className="sch-fmt-x faint"> × </span>
+          {fmtNum(row.longueur, 0)}
+        </>
+      ) : '';
+    case 'qualite':      return row.qualite;
+    case 'litesPerPack': return row.litesPerPack ?? '';
+    case 'packsReq': {
+      if (!row.litesPerPack || !row.reqLites) return '';
+      const n = packsReq(row);
+      if (!packsReqShort(row)) return n;
+      const leftover = row.reqLites - n * row.litesPerPack;
+      return (
+        <span
+          className="sch-packs-short is-danger"
+          title={`${leftover} lite${leftover > 1 ? 's' : ''} restant${leftover > 1 ? 's' : ''} hors pack`}
+        >
+          {n}
+        </span>
+      );
+    }
+    case 'pdp':          return row.pdp;
+    case 'm2':           return fmtNum(row.m2, 2);
+    default:             return null;
+  }
+}
+
+const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: ScheduleRowProps) {
   const isQc = row.largeur === 0 && row.longueur === 0;
   const open = () => onOpen(row);
   return (
-    <div
-      className={`sch-row sch-row-clickable ${isQc ? 'is-qc' : ''}`}
-      role="row"
-      tabIndex={0}
+    <button
+      type="button"
+      className={`sch-row sch-row-clickable as-row ${isQc ? 'is-qc' : ''}`}
       onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          open();
-        }
-      }}
+      aria-label={`Détails ${row.product} ${row.itemName}`}
     >
-      <div className="sch-cell col-mto" role="cell">
-        <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>
-      </div>
-      <div className="sch-cell col-date mono" role="cell">{fmtDate(row.dateDepart)}</div>
-      <div className="sch-cell col-mo mono" role="cell">{row.mo}</div>
-      <div className="sch-cell col-prod mono" role="cell">{row.product}</div>
-      <div className="sch-cell col-name" role="cell">
-        <div className="sch-name" title={row.itemName}>{row.itemName}</div>
-        {row.customer && <div className="sch-customer faint" title={row.customer}>{row.customer}</div>}
-      </div>
-      <div className="sch-cell col-num mono" role="cell">{row.schedLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.prodLites ?? 0}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.reqLites || ''}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.scraps ?? 0}</div>
-      <div className="sch-cell col-fmt mono" role="cell">
-        {row.largeur && row.longueur ? (
-          <>
-            {fmtNum(row.largeur, 0)}
-            <span className="sch-fmt-x faint"> × </span>
-            {fmtNum(row.longueur, 0)}
-          </>
-        ) : ''}
-      </div>
-      <div className="sch-cell col-q mono" role="cell">{row.qualite}</div>
-      <div className="sch-cell col-num mono" role="cell">{row.litesPerPack ?? ''}</div>
-      <div className="sch-cell col-pdp" role="cell" title={row.pdp}>{row.pdp}</div>
-      <div className="sch-cell col-m2 mono" role="cell">{fmtNum(row.m2, 2)}</div>
-    </div>
+      {columns.map((c) => {
+        const monoExtra =
+          c.key === 'dateDepart' || c.key === 'mo' || c.key === 'product' ||
+          c.key === 'schedLites' || c.key === 'prodLites' || c.key === 'reqLites' ||
+          c.key === 'opTm' || c.key === 'format' || c.key === 'qualite' ||
+          c.key === 'litesPerPack' || c.key === 'packsReq' || c.key === 'm2'
+            ? 'mono'
+            : '';
+        const titleAttr = c.key === 'pdp' ? row.pdp : undefined;
+        const pin = pinnedAttrs(c);
+        return (
+          <span
+            key={c.key}
+            className={`sch-cell ${c.cls} ${monoExtra}${pin.className}`}
+            title={titleAttr}
+            style={pin.style}
+          >
+            {renderRowCell(c, row)}
+          </span>
+        );
+      })}
+    </button>
   );
 });
 
-function TotalRow({ rows }: { rows: DisplayRow[] }) {
+function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[] }) {
   const sched = totalLites(rows);
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
+  // Pinned columns break the "Total" label span — collapse the label only when
+  // the leading columns are not pinned. Otherwise show "Total" only in the first cell.
+  const hasPinned = columns.some((c) => c.pinnedLeft !== undefined);
+  const labelEndIdx = hasPinned ? -1 : columns.findIndex((c) => c.key === 'schedLites');
   return (
     <div className="sch-row sch-total" role="row">
-      <div className="sch-cell sch-total-label" role="cell">
-        <span>Total</span>
-        <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
-      </div>
-      <div className="sch-cell col-num mono" role="cell"><strong>{sched}</strong></div>
-      <div className="sch-cell col-num mono" role="cell"><strong>{prod}</strong></div>
-      <div className="sch-cell col-num mono" role="cell"><strong>{req}</strong></div>
-      <div className="sch-cell col-num mono" role="cell" />
-      <div className="sch-cell col-fmt" role="cell" />
-      <div className="sch-cell col-q" role="cell" />
-      <div className="sch-cell col-num" role="cell" />
-      <div className="sch-cell col-pdp" role="cell" />
-      <div className="sch-cell col-m2 mono" role="cell"><strong>{fmtNum(m2, 2)}</strong></div>
-    </div>
-  );
-}
-
-interface ThroughputFooterProps {
-  rows: PMS230Record[];
-  vitesse: number | string;
-  onVitesseChange: (v: number | string) => void;
-  minutes: number | null;
-}
-
-function ThroughputFooter({ rows, vitesse, onVitesseChange, minutes }: ThroughputFooterProps) {
-  const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
-  return (
-    <div className="sch-foot">
-      <label className={`sch-foot-vitesse ${!validSpeed ? 'is-invalid' : ''}`}>
-        <span className="sch-foot-label">Vitesse</span>
-        <input
-          type="number"
-          min="0.1"
-          step="0.1"
-          className="sch-vitesse-input mono"
-          value={vitesse}
-          onChange={(e) => onVitesseChange(e.target.value === '' ? '' : Number(e.target.value))}
-          aria-label="Vitesse en m/min"
-        />
-        <span className="sch-foot-unit">m/min</span>
-      </label>
-      <span className="sch-foot-arrow" aria-hidden="true">→</span>
-      <div className="sch-foot-times">
-        <div className="sch-foot-time">
-          <span className="sch-foot-time-label">Théorique</span>
-          <strong className="mono">{fmtHMmin(minutes)}</strong>
-        </div>
-        <div
-          className="sch-foot-time sch-foot-dt"
-          title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %"
-        >
-          <span className="sch-foot-time-label">+DT 9 %</span>
-          <strong className="mono">{fmtHMmin(minutes != null ? minutes * DOWNTIME_FACTOR : null)}</strong>
-        </div>
-      </div>
-      <span className="faint small sch-foot-meta">{rows.length} lignes Coater</span>
+      {columns.map((c, i) => {
+        if (labelEndIdx > 0 && i < labelEndIdx) {
+          if (i === 0) {
+            return (
+              <div
+                key={c.key}
+                className="sch-cell sch-total-label"
+                role="cell"
+                style={{ gridColumn: `1 / ${labelEndIdx + 1}` }}
+              >
+                <span>Total</span>
+                <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
+              </div>
+            );
+          }
+          return null;
+        }
+        let content: ReactNode = '';
+        if (hasPinned && i === 0) content = <strong>Total · {rows.length}</strong>;
+        else if (c.key === 'schedLites') content = <strong>{sched}</strong>;
+        else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
+        else if (c.key === 'reqLites') content = <strong>{req}</strong>;
+        else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
+        const pin = pinnedAttrs(c);
+        return (
+          <div key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} role="cell" style={pin.style}>{content}</div>
+        );
+      })}
     </div>
   );
 }
@@ -521,6 +1439,7 @@ function fmtTime(hhmm: string | null | undefined): string {
 function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
   useEscapeToClose(onClose);
 
+  const short = shortItemName(row.itemName);
   const format = row.largeur && row.longueur
     ? `${fmtNum(row.largeur, 0)} × ${fmtNum(row.longueur, 0)} mm`
     : '—';
@@ -542,15 +1461,20 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         <div className="sheet-head">
           <div className="sch-row-sheet-title">
             <span className="sch-mto" data-mto={mtoMts}>{mtoMts}</span>
-            <h3 className="mono">{row.product}</h3>
-            <span className="faint small mono">{row.mo}</span>
+            <div className="sch-row-sheet-heading">
+              <h3 className="mono sch-row-sheet-article">
+                {row.itemName || <span className="faint">(sans nom)</span>}
+                {short && short !== row.itemName && <span className="faint sch-row-sheet-short"> ({short})</span>}
+              </h3>
+              <div className="sch-row-sheet-sub faint small mono">
+                <span>{row.mo}</span>
+                <span aria-hidden="true">·</span>
+                <span>{row.product}</span>
+                {row.customer && (<><span aria-hidden="true">·</span><span className="sch-row-sheet-customer" title={row.customer}>{row.customer}</span></>)}
+              </div>
+            </div>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
-        </div>
-
-        <div className="sch-row-sheet-name">
-          <div className="sch-row-sheet-itemname">{row.itemName || <span className="faint">(sans nom)</span>}</div>
-          {row.customer && <div className="faint small">{row.customer}</div>}
         </div>
 
         <dl className="sch-row-sheet-grid">
@@ -568,8 +1492,14 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             <Stat label="Sched" value={row.schedLites} />
             <Stat label="Prod" value={row.prodLites ?? 0} />
             <Stat label="Req" value={row.reqLites} highlight />
-            <Stat label="Scraps" value={row.scraps ?? 0} />
+            <Stat label="Op Tm" value={row.opTm ? fmtNum(row.opTm, 2) : '—'} />
             <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
+            <Stat
+              label="P/REQ"
+              value={row.litesPerPack && row.reqLites ? packsReq(row) : '—'}
+              danger={packsReqShort(row)}
+              dangerTitle={packsReqShort(row) ? `${row.reqLites - packsReq(row) * (row.litesPerPack ?? 0)} lite(s) hors pack` : undefined}
+            />
           </div>
         </div>
 
@@ -617,13 +1547,57 @@ interface StatProps {
   value: ReactNode;
   highlight?: boolean;
   wide?: boolean;
+  danger?: boolean;
+  dangerTitle?: string;
 }
 
-function Stat({ label, value, highlight, wide }: StatProps) {
+function Stat({ label, value, highlight, wide, danger, dangerTitle }: StatProps) {
   return (
-    <div className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''}`}>
+    <div
+      className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''} ${danger ? 'is-danger' : ''}`}
+      title={dangerTitle}
+    >
       <span className="sch-row-sheet-stat-label">{label}</span>
       <strong className="mono">{value}</strong>
+    </div>
+  );
+}
+
+const SYNC_MODES: { key: SyncMode; label: string; glyph: string; help: string }[] = [
+  { key: 'auto',  label: 'Sync',  glyph: '↻', help: 'Le rapport est partagé avec les autres opérateurs.' },
+  { key: 'local', label: 'Local', glyph: '○', help: 'Le rapport reste sur cet appareil.' },
+];
+
+// Per-operator scope for the imported PMS230 report. The Logbook, le suivi des
+// tests et la politique MTO/MTS restent toujours synchronisés — ce toggle ne
+// gouverne plus que ce rapport.
+function SyncModeField() {
+  const [mode, setMode] = useState<SyncMode>(() => getSyncMode());
+  function change(next: SyncMode) {
+    setSyncMode(next);
+    setMode(next);
+  }
+  const help = SYNC_MODES.find((s) => s.key === mode)?.help;
+  return (
+    <div className="sch-import-sync">
+      <div className="sch-import-sync-head">
+        <span className="sch-import-sync-label">Partage du rapport</span>
+        <div className="seg seg-mini" role="group" aria-label="Partage du rapport">
+          {SYNC_MODES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={mode === s.key ? 'active' : ''}
+              onClick={() => change(s.key)}
+              aria-pressed={mode === s.key}
+            >
+              <span className="glyph" aria-hidden="true">{s.glyph}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {help && <div className="sch-import-sync-help faint small">{help}</div>}
     </div>
   );
 }

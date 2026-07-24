@@ -14,6 +14,7 @@ import {
 import { fmtHM } from '../lib/time';
 import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
+import { useToast } from '../lib/toast';
 import type { Poste, ShiftKey, ShiftMeta } from '../types';
 
 interface TestHeader {
@@ -40,6 +41,9 @@ interface Test {
   zeiss: Record<string, YabValues>;
   stack: StackValues;
   comments: string;
+  // Audit timestamps (epoch ms). Optional for legacy compatibility.
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 interface TestState {
@@ -107,6 +111,8 @@ function emptyTest(): Test {
     zeiss: {},
     stack: { Tsol: '', Rsol: '', Asol: '' },
     comments: '',
+    createdAt: now.getTime(),
+    updatedAt: now.getTime(),
   };
 }
 
@@ -142,17 +148,23 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
   );
   const [state, setState] = useSyncedState<TestState>(
     cacheKey,
-    { domain: 'prodtest', params: { date, shift: shiftKey } },
+    { domain: 'prodtest', params: { date, shift: shiftKey }, alwaysSync: true },
     init,
   );
+  const toast = useToast();
 
   const active: Test | undefined = state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
 
   function patchActive(updater: (t: Test) => Test) {
     if (!active) return;
+    const now = Date.now();
     setState((s) => ({
       ...s,
-      tests: s.tests.map((t) => (t.id === active.id ? updater(t) : t)),
+      tests: s.tests.map((t) =>
+        t.id === active.id
+          ? { ...updater(t), createdAt: t.createdAt ?? now, updatedAt: now }
+          : t,
+      ),
     }));
   }
 
@@ -180,13 +192,22 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
   function reset() {
     if (!active) return;
-    if (!window.confirm('Effacer toutes les mesures de ce test ?')) return;
+    const snapshot = active;
     setState((s) => ({
       ...s,
       tests: s.tests.map((t) =>
-        t.id === active.id ? { ...emptyTest(), id: t.id } : t,
+        t.id === snapshot.id ? { ...emptyTest(), id: t.id } : t,
       ),
     }));
+    toast.show({
+      message: 'Mesures effacées',
+      undo: () => {
+        setState((s) => ({
+          ...s,
+          tests: s.tests.map((t) => (t.id === snapshot.id ? snapshot : t)),
+        }));
+      },
+    });
   }
 
   function autofill() {
@@ -212,12 +233,26 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
   function deleteActive() {
     if (!active) return;
-    if (!window.confirm('Supprimer ce test ?')) return;
+    const snapshot = active;
+    let removedIndex = -1;
     setState((s) => {
-      const idx = s.tests.findIndex((t) => t.id === active.id);
-      const next = s.tests.filter((t) => t.id !== active.id);
-      const fallback = next[Math.min(idx, next.length - 1)]?.id ?? '';
+      removedIndex = s.tests.findIndex((t) => t.id === snapshot.id);
+      const next = s.tests.filter((t) => t.id !== snapshot.id);
+      const fallback = next[Math.min(removedIndex, next.length - 1)]?.id ?? '';
       return { tests: next, activeId: fallback };
+    });
+    const insertAt = removedIndex;
+    const label = displayTestNo(snapshot.header.testNo) || 'Test';
+    toast.show({
+      message: `${label} supprimé`,
+      undo: () => {
+        setState((s) => {
+          if (s.tests.some((t) => t.id === snapshot.id)) return s;
+          const next = [...s.tests];
+          next.splice(Math.min(insertAt, next.length), 0, snapshot);
+          return { tests: next, activeId: snapshot.id };
+        });
+      },
     });
   }
 
@@ -259,7 +294,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
 
       {active && (<>
       <div className="print-header print-only">
-        <h1>Test production · Poste {poste} · {shiftMeta.shift.label}</h1>
+        <h1>Test · Poste {poste} · {shiftMeta.shift.label}</h1>
         <div className="meta">
           <span><strong>Test n°:</strong> {displayTestNo(active.header.testNo) || '____________'}</span>
           <span><strong>Date:</strong> {shiftMeta.dateLabel} {active.header.hour}</span>
@@ -370,10 +405,26 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
       </div>
 
       <div className="pt-actions sticky no-print">
-        <button className="btn" onClick={autofill}>↻ Remplir auto date / heure</button>
-        <button className="btn ghost" onClick={reset}>Effacer</button>
-        <button className="btn ghost" onClick={deleteActive}>Supprimer</button>
-        <button className="btn" onClick={() => window.print()}>Imprimer</button>
+        <button
+          className="btn"
+          onClick={autofill}
+          title="Remplir automatiquement la date et l'heure"
+        >
+          <span className="lbl-full">↻ Remplir auto date / heure</span>
+          <span className="lbl-short">↻ Auto</span>
+        </button>
+        <button className="btn ghost" onClick={reset} title="Effacer les valeurs saisies">
+          <span className="lbl-full">Effacer</span>
+          <span className="lbl-short" aria-hidden="true">⌫</span>
+        </button>
+        <button className="btn ghost" onClick={deleteActive} title="Supprimer ce test">
+          <span className="lbl-full">Supprimer</span>
+          <span className="lbl-short" aria-hidden="true">🗑</span>
+        </button>
+        <button className="btn" onClick={() => window.print()} title="Imprimer le test">
+          <span className="lbl-full">Imprimer</span>
+          <span className="lbl-short" aria-hidden="true">🖨</span>
+        </button>
       </div>
       </>)}
     </div>

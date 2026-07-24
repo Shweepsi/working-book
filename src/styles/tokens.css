@@ -173,15 +173,122 @@
   --space-10: 22px;
 }
 
+/* Print palette — redirects the theme tokens themselves rather than
+   overriding every component. Highlights are softened so colour-coded cells
+   (.col-m2, .sch-mto, .is-highlight, P/REQ short, …) read on paper without
+   each having to declare a print-specific rule.
+   Applied for both the in-app preview (.is-print-preview) and real @media
+   print, scoped to win over both light and dark theme declarations. */
+:root.is-print-preview,
+:root.is-print-preview[data-theme='light'],
+:root.is-print-preview[data-theme='dark'],
+:root.is-print-preview[data-theme='auto'] {
+  color-scheme: light;
+
+  --ink: #111;
+  --ink-soft: #444;
+  --ink-faint: #777;
+  --line: #000;
+  --line-soft: #888;
+  --line-faint: #ccc;
+
+  --paper: #fff;
+  --paper-2: #f4f4f4;
+  --canvas: #fff;
+  --paper-glass: #fff;
+  --paper-glass-2: #fff;
+
+  --hl-yellow: #fff4d6;
+  --hl-red: #ffd9d3;
+  --hl-green: #e0eed5;
+  --hl-blue: #d8e6f2;
+
+  --accent: #000;
+  --accent-ink: #fff;
+
+  --flag-normal-bg: var(--paper-2);
+  --flag-normal-bd: var(--ink-soft);
+  --flag-normal-fg: var(--ink);
+  --flag-ok-bd: #6a8a5a;
+  --flag-ok-fg: #2d4a25;
+  --flag-sched-bd: #a89537;
+  --flag-sched-fg: #5a4d12;
+  --flag-unsched-bd: #b85947;
+  --flag-unsched-fg: #6a2818;
+  --flag-note-bd: #5876a3;
+  --flag-note-fg: #244260;
+
+  --shadow-sheet: none;
+  --shadow-fab: none;
+  --shadow-popover: none;
+  --backdrop: transparent;
+  --focus-ring: transparent;
+
+  --print-ink-strong: var(--ink);
+  --print-ink: var(--ink-soft);
+  --print-ink-soft: var(--ink-faint);
+  --print-line: var(--line-soft);
+  --print-line-faint: var(--line-faint);
+  --print-bg: var(--paper);
+  --print-bg-tint: var(--paper-2);
+}
+
 @media print {
-  :root {
-    --print-ink-strong: #000;
-    --print-ink: #444;
-    --print-ink-soft: #666;
-    --print-line: #888;
-    --print-line-faint: #999;
-    --print-bg-tint: #eee;
-    --print-bg: #fff;
+  :root,
+  :root[data-theme='light'],
+  :root[data-theme='dark'],
+  :root[data-theme='auto'] {
+    color-scheme: light;
+
+    --ink: #111;
+    --ink-soft: #444;
+    --ink-faint: #777;
+    --line: #000;
+    --line-soft: #888;
+    --line-faint: #ccc;
+
+    --paper: #fff;
+    --paper-2: #f4f4f4;
+    --canvas: #fff;
+    --paper-glass: #fff;
+    --paper-glass-2: #fff;
+
+    --hl-yellow: #fff4d6;
+    --hl-red: #ffd9d3;
+    --hl-green: #e0eed5;
+    --hl-blue: #d8e6f2;
+
+    --accent: #000;
+    --accent-ink: #fff;
+
+    --flag-normal-bg: var(--paper-2);
+    --flag-normal-bd: var(--ink-soft);
+    --flag-normal-fg: var(--ink);
+    --flag-ok-bd: #6a8a5a;
+    --flag-ok-fg: #2d4a25;
+    --flag-sched-bd: #a89537;
+    --flag-sched-fg: #5a4d12;
+    --flag-unsched-bd: #b85947;
+    --flag-unsched-fg: #6a2818;
+    --flag-note-bd: #5876a3;
+    --flag-note-fg: #244260;
+
+    --shadow-sheet: none;
+    --shadow-fab: none;
+    --shadow-popover: none;
+    --backdrop: transparent;
+    --focus-ring: transparent;
+
+    /* Legacy aliases: the older print rules reference --print-* directly.
+       Keep them resolving to the (now light) theme tokens so nothing breaks
+       while we migrate callers off them. */
+    --print-ink-strong: var(--ink);
+    --print-ink: var(--ink-soft);
+    --print-ink-soft: var(--ink-faint);
+    --print-line: var(--line-soft);
+    --print-line-faint: var(--line-faint);
+    --print-bg: var(--paper);
+    --print-bg-tint: var(--paper-2);
   }
 }
 

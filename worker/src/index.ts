@@ -32,6 +32,10 @@ export default {
           return await handleProdTest(request, url, env, cors);
         case '/api/suivi':
           return await handleSuivi(request, env, cors);
+        case '/api/policy':
+          return await handlePolicy(request, env, cors);
+        case '/api/schedules':
+          return await handleSchedules(request, env, cors);
         default:
           return json({ error: 'not_found' }, cors, 404);
       }
@@ -195,6 +199,74 @@ async function handleSuivi(
     const now = Date.now();
     await env.DB.prepare(
       `INSERT INTO suivi (id, state_json, updated_at)
+       VALUES (1, ?1, ?2)
+       ON CONFLICT(id) DO UPDATE SET
+         state_json = excluded.state_json,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(JSON.stringify(body), now)
+      .run();
+    return json({ ok: true, updated_at: now }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+// PMS230 schedule report — singleton, gated by the user's local/sync mode.
+// Same wire shape as suivi.
+async function handleSchedules(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare(
+      'SELECT state_json, updated_at FROM schedules WHERE id = 1',
+    ).first<{ state_json: string; updated_at: number }>();
+    if (!row) return json({ data: null, updated_at: null }, cors);
+    return json({ data: JSON.parse(row.state_json), updated_at: row.updated_at }, cors);
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    if (body !== null && typeof body !== 'object') return json({ error: 'expected_object_or_null' }, cors, 400);
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO schedules (id, state_json, updated_at)
+       VALUES (1, ?1, ?2)
+       ON CONFLICT(id) DO UPDATE SET
+         state_json = excluded.state_json,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(JSON.stringify(body), now)
+      .run();
+    return json({ ok: true, updated_at: now }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+// MTO/MTS policy — singleton lookup table shared across every client. Same
+// shape as suivi (no params, body is the parsed PolicyResult).
+async function handlePolicy(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare(
+      'SELECT state_json, updated_at FROM policy WHERE id = 1',
+    ).first<{ state_json: string; updated_at: number }>();
+    if (!row) return json({ data: null, updated_at: null }, cors);
+    return json({ data: JSON.parse(row.state_json), updated_at: row.updated_at }, cors);
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO policy (id, state_json, updated_at)
        VALUES (1, ?1, ?2)
        ON CONFLICT(id) DO UPDATE SET
          state_json = excluded.state_json,

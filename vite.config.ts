@@ -7,18 +7,23 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'icon.svg'],
       manifest: {
+        id: '/',
         name: 'Working Book',
         short_name: 'Logbook',
-        description: 'Shift logbook & production test',
-        theme_color: '#c96442',
+        description: 'Logbook de poste et tests production pour le coater.',
+        lang: 'fr',
+        dir: 'ltr',
+        categories: ['productivity', 'business'],
+        theme_color: '#f0eee9',
         background_color: '#f0eee9',
         display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
         orientation: 'any',
-        start_url: '.',
-        scope: '.',
+        start_url: '/',
+        scope: '/',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
