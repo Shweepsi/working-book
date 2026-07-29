@@ -77,6 +77,9 @@ const COLUMNS: ColumnDef[] = [
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
 
+// Columns whose footer cell carries a summed value (see TotalRow).
+const TOTAL_KEYS = new Set(['schedLites', 'prodLites', 'reqLites', 'm2']);
+
 // --- Column layout model ---------------------------------------------------
 
 type Density = 'compact' | 'normal' | 'advanced';
@@ -1382,9 +1385,18 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
   // Pinned columns break the "Total" label span — collapse the label only when
-  // the leading columns are not pinned. Otherwise show "Total" only in the first cell.
+  // the leading columns are not pinned. Otherwise show "Total" only in one cell.
   const hasPinned = columns.some((c) => c.pinnedLeft !== undefined);
-  const labelEndIdx = hasPinned ? -1 : columns.findIndex((c) => c.key === 'schedLites');
+  // Columns are reorderable, so the label must never sit on — or span over — a
+  // column that carries a total, otherwise moving e.g. Req ahead of Sched hides
+  // its value. The span ends at the *first* totalled column, whichever it is;
+  // with no totalled column visible it covers the whole row.
+  const firstTotalIdx = columns.findIndex((c) => TOTAL_KEYS.has(c.key));
+  const labelEndIdx = hasPinned ? -1 : firstTotalIdx === -1 ? columns.length : firstTotalIdx;
+  // When there's nothing to span (pinned layout, or a totalled column sitting
+  // first) the compact label goes in the first column that has no total of its
+  // own — or nowhere, if every visible column is totalled.
+  const labelCellIdx = labelEndIdx > 0 ? -1 : columns.findIndex((c) => !TOTAL_KEYS.has(c.key));
   return (
     <div className="sch-row sch-total" role="row">
       {columns.map((c, i) => {
@@ -1405,7 +1417,7 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
           return null;
         }
         let content: ReactNode = '';
-        if (hasPinned && i === 0) content = <strong>Total · {rows.length}</strong>;
+        if (i === labelCellIdx) content = <strong>Total · {rows.length}</strong>;
         else if (c.key === 'schedLites') content = <strong>{sched}</strong>;
         else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
         else if (c.key === 'reqLites') content = <strong>{req}</strong>;
