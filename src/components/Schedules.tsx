@@ -1384,23 +1384,18 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
-  // Pinned columns break the "Total" label span — collapse the label only when
-  // the layout has no pin. Otherwise show "Total" in a single cell.
+  // Columns are reorderable, so the "Total" label must never sit on — or span
+  // over — a column that carries a total, otherwise moving e.g. Req ahead of
+  // Sched hides its value. It takes the first *run* of consecutive columns
+  // without one: at the head of the row in the default layout, further right
+  // once totals are dragged to the front. Pinned layouts keep a single cell —
+  // spanning one would break the sticky offsets — so the label may clip there.
+  const isTotalled = (c: ColumnView) => TOTAL_KEYS.has(c.key);
   const hasPinned = columns.some((c) => c.pinnedLeft !== undefined);
-  // Columns are reorderable, so the label must never sit on — or span over — a
-  // column that carries a total, otherwise moving e.g. Req ahead of Sched hides
-  // its value. It takes the first *run* of consecutive columns without a total,
-  // wherever that run starts: the default layout puts it at the head of the row,
-  // a totals-first layout pushes it right, and a single narrow column would clip
-  // the label on its own.
-  const labelStart = columns.findIndex((c) => !TOTAL_KEYS.has(c.key));
-  let labelEnd = labelStart; // exclusive
-  if (labelStart !== -1) {
-    if (hasPinned) {
-      labelEnd = labelStart + 1;
-    } else {
-      while (labelEnd < columns.length && !TOTAL_KEYS.has(columns[labelEnd]!.key)) labelEnd++;
-    }
+  const labelStart = columns.findIndex((c) => !isTotalled(c));
+  let labelEnd = labelStart === -1 ? -1 : labelStart + 1; // exclusive
+  if (labelStart !== -1 && !hasPinned) {
+    while (labelEnd < columns.length && !isTotalled(columns[labelEnd]!)) labelEnd++;
   }
   const spans = labelEnd - labelStart > 1;
   return (
