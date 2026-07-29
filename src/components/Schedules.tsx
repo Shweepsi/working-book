@@ -77,6 +77,9 @@ const COLUMNS: ColumnDef[] = [
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];
 
+// Columns whose footer cell carries a summed value (see TotalRow).
+const TOTAL_KEYS = new Set(['schedLites', 'prodLites', 'reqLites', 'm2']);
+
 // --- Column layout model ---------------------------------------------------
 
 type Density = 'compact' | 'normal' | 'advanced';
@@ -1381,21 +1384,31 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
   const prod = rows.reduce((s, r) => s + (r.prodLites ?? 0), 0);
   const req = totalReqLites(rows);
   const m2 = totalM2(rows);
-  // Pinned columns break the "Total" label span — collapse the label only when
-  // the leading columns are not pinned. Otherwise show "Total" only in the first cell.
+  // Columns are reorderable, so the "Total" label must never sit on — or span
+  // over — a column that carries a total, otherwise moving e.g. Req ahead of
+  // Sched hides its value. It takes the first *run* of consecutive columns
+  // without one: at the head of the row in the default layout, further right
+  // once totals are dragged to the front. Pinned layouts keep a single cell —
+  // spanning one would break the sticky offsets — so the label may clip there.
+  const isTotalled = (c: ColumnView) => TOTAL_KEYS.has(c.key);
   const hasPinned = columns.some((c) => c.pinnedLeft !== undefined);
-  const labelEndIdx = hasPinned ? -1 : columns.findIndex((c) => c.key === 'schedLites');
+  const labelStart = columns.findIndex((c) => !isTotalled(c));
+  let labelEnd = labelStart === -1 ? -1 : labelStart + 1; // exclusive
+  if (labelStart !== -1 && !hasPinned) {
+    while (labelEnd < columns.length && !isTotalled(columns[labelEnd]!)) labelEnd++;
+  }
+  const spans = labelEnd - labelStart > 1;
   return (
     <div className="sch-row sch-total" role="row">
       {columns.map((c, i) => {
-        if (labelEndIdx > 0 && i < labelEndIdx) {
-          if (i === 0) {
+        if (spans && i >= labelStart && i < labelEnd) {
+          if (i === labelStart) {
             return (
               <div
                 key={c.key}
                 className="sch-cell sch-total-label"
                 role="cell"
-                style={{ gridColumn: `1 / ${labelEndIdx + 1}` }}
+                style={{ gridColumn: `${labelStart + 1} / ${labelEnd + 1}` }}
               >
                 <span>Total</span>
                 <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
@@ -1405,7 +1418,7 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
           return null;
         }
         let content: ReactNode = '';
-        if (hasPinned && i === 0) content = <strong>Total · {rows.length}</strong>;
+        if (i === labelStart) content = <strong>Total · {rows.length}</strong>;
         else if (c.key === 'schedLites') content = <strong>{sched}</strong>;
         else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
         else if (c.key === 'reqLites') content = <strong>{req}</strong>;
