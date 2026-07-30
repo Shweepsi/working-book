@@ -92,7 +92,13 @@ interface ColumnLayout {
   hidden: string[];
   pinned: string[];
   order: string[];
+  // Widths the operator dragged. Honoured on screen and on paper.
   widths: Record<string, number>;
+  // Widths pinned automatically when a resize starts, so the flexible columns
+  // stop absorbing what the dragged one gives up (see `beginResize`). Screen
+  // only: the print template weights columns by their intrinsic default, so
+  // stretching a column on a wide monitor doesn't reshape the printed page.
+  autoWidths: Record<string, number>;
 }
 
 interface TableSettings {
@@ -175,6 +181,7 @@ function defaultColumnLayout(density: Density): ColumnLayout {
     pinned: [],
     order: [...DEFAULT_ORDER],
     widths: {},
+    autoWidths: {},
   };
 }
 
@@ -193,15 +200,18 @@ function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: D
     Array.isArray(arr)
       ? Array.from(new Set(arr.map((k) => migrateKey(String(k))).filter((k) => known.has(k))))
       : [];
+  const numbers = (raw: unknown): Record<string, number> =>
+    Object.fromEntries(
+      Object.entries((raw ?? {}) as Record<string, number>)
+        .map(([k, v]) => [migrateKey(k), v] as [string, number])
+        .filter(([k, v]) => known.has(k) && Number.isFinite(v)),
+    );
   return {
     hidden: dedupe(raw.hidden),
     pinned: dedupe(raw.pinned),
     order: dedupe(raw.order),
-    widths: Object.fromEntries(
-      Object.entries(raw.widths ?? {})
-        .map(([k, v]) => [migrateKey(k), v] as [string, number])
-        .filter(([k]) => known.has(k)),
-    ),
+    widths: numbers(raw.widths),
+    autoWidths: numbers(raw.autoWidths),
   };
 }
 
@@ -528,7 +538,11 @@ export default function Schedules({ density }: SchedulesProps) {
     // below the minimum useful width. Reject NaN/Infinity outright — Math.min
     // and Math.max propagate NaN and we'd persist it to localStorage.
     if (!Number.isFinite(px)) return;
-    updateLayout((l) => ({ ...l, widths: { ...l.widths, [key]: clampColumnPx(px) } }));
+    updateLayout((l) => {
+      const autoWidths = { ...l.autoWidths };
+      delete autoWidths[key];
+      return { ...l, widths: { ...l.widths, [key]: clampColumnPx(px) }, autoWidths };
+    });
   }
 
   // Pin the flexible columns at their rendered width when a resize starts, so
@@ -536,14 +550,14 @@ export default function Schedules({ density }: SchedulesProps) {
   // `beginResize`). Only fills gaps: a column the user already sized keeps it.
   function freezeColumnWidths(px: Record<string, number>) {
     updateLayout((l) => {
-      const widths = { ...l.widths };
+      const autoWidths = { ...l.autoWidths };
       let changed = false;
       for (const [key, value] of Object.entries(px)) {
-        if (widths[key] || !Number.isFinite(value)) continue;
-        widths[key] = clampColumnPx(value);
+        if (l.widths[key] || autoWidths[key] || !Number.isFinite(value)) continue;
+        autoWidths[key] = clampColumnPx(value);
         changed = true;
       }
-      return changed ? { ...l, widths } : l;
+      return changed ? { ...l, autoWidths } : l;
     });
   }
 
@@ -814,6 +828,7 @@ export default function Schedules({ density }: SchedulesProps) {
               columns={visibleColumns}
               pinned={layout.pinned}
               widths={layout.widths}
+              autoWidths={layout.autoWidths}
               onResize={setColumnWidth}
               onFreezeWidths={freezeColumnWidths}
               onReorder={reorderColumn}
@@ -992,6 +1007,7 @@ interface ScheduleTableProps {
   columns: ColumnDef[];
   pinned: string[];
   widths: Record<string, number>;
+  autoWidths: Record<string, number>;
   onResize: (key: string, px: number) => void;
   onFreezeWidths: (px: Record<string, number>) => void;
   onReorder: (fromKey: string, toKey: string) => void;
@@ -1104,7 +1120,7 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
   );
 }
 
-function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -1131,7 +1147,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
     for (const c of columns) {
       if (pinSet.has(c.key)) {
         out.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
-        leftAcc += columnPx(c.key, widths[c.key]);
+        leftAcc += columnPx(c.key, widths[c.key] ?? autoWidths[c.key]);
       } else {
         out.push({ ...c });
       }
@@ -1143,7 +1159,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
       }
     }
     return out;
-  }, [columns, pinned, widths]);
+  }, [columns, pinned, widths, autoWidths]);
 
   const headRef = useRef<HTMLDivElement>(null);
 
@@ -1164,23 +1180,34 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
     }
     const freeze: Record<string, number> = {};
     for (const c of columns) {
-      if (widths[c.key] || !isFlexibleColumn(c.key)) continue;
+      if (widths[c.key] || autoWidths[c.key] || !isFlexibleColumn(c.key)) continue;
       const px = measured.get(c.key);
       if (px) freeze[c.key] = px;
     }
     if (Object.keys(freeze).length > 0) onFreezeWidths(freeze);
-    return measured.get(key) ?? columnPx(key, widths[key]);
-  }, [columns, widths, onFreezeWidths]);
+    return measured.get(key) ?? columnPx(key, widths[key] ?? autoWidths[key]);
+  }, [columns, widths, autoWidths, onFreezeWidths]);
 
   // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
   // minPx keeps the grid from collapsing in narrow viewports. The fr-based
   // variant is used in print, where the page is narrower than the sum of
   // pixel widths and we want columns to scale down proportionally.
-  const { gridTemplate, gridTemplatePrint, minPx } = useMemo(() => ({
-    gridTemplate: columns.map((c) => widths[c.key] ? `${widths[c.key]}px` : (COL_WIDTHS[c.key] || 'auto')).join(' '),
-    gridTemplatePrint: columns.map((c) => `minmax(0, ${columnPx(c.key, widths[c.key])}fr)`).join(' '),
-    minPx: columns.reduce((acc, c) => acc + columnPx(c.key, widths[c.key]), 0),
-  }), [columns, widths]);
+  //
+  // Print weights deliberately read `widths` alone, not the auto-frozen ones:
+  // the freeze exists to stop on-screen reflow, and letting it through would
+  // let a column stretched on a wide monitor squeeze the numbers on paper.
+  const { gridTemplate, gridTemplatePrint, minPx } = useMemo(() => {
+    const screenPx = (key: string): number | undefined => widths[key] ?? autoWidths[key];
+    return {
+      gridTemplate: columns
+        .map((c) => { const px = screenPx(c.key); return px ? `${px}px` : (COL_WIDTHS[c.key] || 'auto'); })
+        .join(' '),
+      gridTemplatePrint: columns
+        .map((c) => `minmax(0, ${columnPx(c.key, widths[c.key])}fr)`)
+        .join(' '),
+      minPx: columns.reduce((acc, c) => acc + columnPx(c.key, screenPx(c.key)), 0),
+    };
+  }, [columns, widths, autoWidths]);
 
   if (totals.length === 0) {
     return (
