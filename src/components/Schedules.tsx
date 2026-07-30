@@ -21,6 +21,10 @@ const KEY_POLICY = 'wb.schedules.policy.v1';
 const KEY_SPEED  = 'wb.schedules.vitesse';
 const KEY_TABLE  = 'wb.schedules.table.v1';
 
+// Undo window on "Vider". Wider than the toast default because the action is
+// coarse and the operator may be away from the screen when it lands.
+const CLEAR_UNDO_TTL = 10_000;
+
 type DisplayRow = PMS230Record & { mtoMts: string };
 
 type GroupedItem =
@@ -107,9 +111,10 @@ interface TableSettings {
   mtoMts: ('MTO' | 'MTS' | '?')[];
 }
 
-// Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS —
-// see UNHID_AT_VERSION for the one-time migrations applied on load.
-const TABLE_SETTINGS_VERSION = 3;
+// Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
+// moved Req next to P/REQ — see UNHID_AT_VERSION and REORDERED_AT_VERSION for
+// the one-time migrations applied on load.
+const TABLE_SETTINGS_VERSION = 4;
 
 // The planner's canonical ordering: widest dimension first, which is also what
 // the longueur group-break rows are built around. It is carried by the Format
@@ -135,13 +140,21 @@ const UNHID_AT_VERSION: { version: number; key: string }[] = [
   { version: 3, key: 'mtoMts' },
 ];
 
+// Settings version at which DEFAULT_ORDER changed. A layout stored before it
+// keeps its own `order`, which would pin the old arrangement forever — so the
+// canonical order is re-applied once. Visibility, pinning and widths survive;
+// only a deliberate drag order is lost, and only for that one upgrade.
+const REORDERED_AT_VERSION = 4;
+
 // Canonical column order shared by every density default. Quality / pack /
 // production numbers come before format / pdp so the eye sweeps the
-// "what fits in a pack and what's left to make" cluster first.
+// "what fits in a pack and what's left to make" cluster first. Req sits right
+// after P/REQ — the two are read together, packs against lites remaining —
+// with Sched / Prod behind them as the backing detail.
 const DEFAULT_ORDER = [
   'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
   'qualite', 'litesPerPack', 'packsReq',
-  'schedLites', 'prodLites', 'reqLites',
+  'reqLites', 'schedLites', 'prodLites',
   'opTm', 'format', 'pdp', 'm2',
 ];
 
@@ -210,6 +223,11 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     if (storedVersion >= version) continue;
     for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
       layouts[d] = { ...layouts[d], hidden: layouts[d].hidden.filter((k) => k !== key) };
+    }
+  }
+  if (storedVersion < REORDERED_AT_VERSION) {
+    for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
+      layouts[d] = { ...layouts[d], order: [...DEFAULT_ORDER] };
     }
   }
   return {
@@ -292,6 +310,16 @@ function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
+function clearConfirmBody(data: PMS230Result): string {
+  const records = data.records?.length ?? 0;
+  const schedules = data.schedules?.length ?? 0;
+  return (
+    `${records} ligne${records > 1 ? 's' : ''} sur ${schedules} schedule${schedules > 1 ? 's' : ''} ` +
+    `seront effacée${records > 1 ? 's' : ''}. La table MTO/MTS est conservée. Il faudra recoller ` +
+    'le rapport depuis Operator Mashup pour le retrouver.'
+  );
+}
+
 function fmtDate(yyyymmdd: string | null | undefined): string {
   if (!yyyymmdd || yyyymmdd.length !== 8) return '';
   return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
@@ -325,6 +353,7 @@ export default function Schedules({ density }: SchedulesProps) {
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
     () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
@@ -634,21 +663,38 @@ export default function Schedules({ density }: SchedulesProps) {
         data={data}
         policy={policy}
         onImport={() => setImportMode('pms230')}
-        onClear={() => {
-          const snapshot = data;
-          const snapshotSelected = selected;
-          setData(null);
-          setSelected(null);
-          if (!snapshot) return;
-          toast.show({
-            message: 'Rapport Operator Mashup effacé',
-            undo: () => {
-              setData(snapshot);
-              setSelected(snapshotSelected);
-            },
-          });
-        }}
+        onClear={() => setConfirmClear(true)}
       />
+
+      {/* `data` guards the sheet as well as the button: a sync from another
+          device can empty the report while the dialog sits open, and there is
+          then nothing left to confirm. */}
+      {confirmClear && data && (
+        <ConfirmSheet
+          title="Vider le rapport ?"
+          body={clearConfirmBody(data)}
+          confirmLabel="Vider"
+          onConfirm={() => {
+            const snapshot = data;
+            const snapshotSelected = selected;
+            setData(null);
+            setSelected(null);
+            if (!snapshot) return;
+            toast.show({
+              message: 'Rapport Operator Mashup effacé',
+              // Longer than the 6s default: this one wipes the whole report,
+              // and recovering past the toast means re-pasting from Operator
+              // Mashup.
+              ttl: CLEAR_UNDO_TTL,
+              undo: () => {
+                setData(snapshot);
+                setSelected(snapshotSelected);
+              },
+            });
+          }}
+          onClose={() => setConfirmClear(false)}
+        />
+      )}
 
       {!data && (
         <div className="sch-empty">
@@ -824,6 +870,46 @@ export default function Schedules({ density }: SchedulesProps) {
   );
 }
 
+// Confirmation step in front of a destructive action. The app's default is
+// "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
+// edits; wiping the whole report is coarse enough to be worth a stop first.
+// The undo toast still fires afterwards.
+function ConfirmSheet({
+  title, body, confirmLabel, onConfirm, onClose,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  useEscapeToClose(onClose);
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sch-confirm" role="dialog" aria-modal="true">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <h3>{title}</h3>
+        </div>
+        <p className="faint small">{body}</p>
+        <div className="actions">
+          <span style={{ flex: 1 }} />
+          <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
+          <button
+            className="btn destructive"
+            type="button"
+            autoFocus
+            onClick={() => { onConfirm(); onClose(); }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 interface SummaryBarProps {
   data: PMS230Result | null;
   policy: PolicyResult | null;
@@ -858,9 +944,6 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
       </div>
       {data && (
         <div className="sch-summary-stats">
-          <span><strong className="mono">{schedules}</strong> schedules</span>
-          <span><strong className="mono">{records}</strong> lignes</span>
-          <span><strong className="mono">{m2}</strong> m²</span>
           {policy && (
             <span
               className="sch-policy-chip"
@@ -870,6 +953,9 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
               MTO/MTS · <strong className="mono">{policyCount}</strong>
             </span>
           )}
+          <span><strong className="mono">{schedules}</strong> schedules</span>
+          <span><strong className="mono">{records}</strong> lignes</span>
+          <span><strong className="mono">{m2}</strong> m²</span>
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
