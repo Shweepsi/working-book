@@ -148,7 +148,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
   );
   const [state, setState] = useSyncedState<TestState>(
     cacheKey,
-    { domain: 'prodtest', params: { date, shift: shiftKey }, alwaysSync: true },
+    { domain: 'prodtest', params: { date, shift: shiftKey } },
     init,
   );
   const toast = useToast();

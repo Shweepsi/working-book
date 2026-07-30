@@ -208,27 +208,22 @@ export default function PasteImport<R extends PasteImportResult>({
         <div className="actions">
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
-          {showAppend && (
-            <button
-              className="btn"
-              type="button"
-              disabled={!ready}
-              onClick={() => result && onConfirm(result, 'append')}
-              title="Fusionner avec les données existantes (dédup sur schedule|MO)"
-            >
-              Ajouter
-            </button>
-          )}
+          {/* Once something is loaded the only import is additive — a paste
+              covers one page of the source report, so replacing would silently
+              drop the pages already collected. Starting over goes through
+              "Vider", which asks for confirmation. */}
           <button
             className="btn primary"
             type="button"
             disabled={!ready}
-            onClick={() => {
-              if (!result) return;
-              onConfirm(result, 'replace');
-            }}
+            onClick={() => result && onConfirm(result, showAppend ? 'append' : 'replace')}
+            title={
+              showAppend
+                ? 'Fusionner avec les données existantes (dédup sur schedule|MO)'
+                : undefined
+            }
           >
-            {showAppend ? 'Remplacer' : 'Importer'}
+            {showAppend ? 'Ajouter' : 'Importer'}
           </button>
         </div>
       </div>

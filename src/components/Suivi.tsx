@@ -160,7 +160,7 @@ function labelForCell(v: CellState): string {
 export default function Suivi() {
   const [state, setState] = useSyncedState<SuiviState>(
     STORAGE_KEY,
-    { domain: 'suivi', params: {}, alwaysSync: true },
+    { domain: 'suivi', params: {} },
     initialState,
   );
   const [openId, setOpenId] = useState<string | null>(null);

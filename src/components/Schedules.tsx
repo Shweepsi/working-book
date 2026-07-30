@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { SYNC_ENABLED } from '../lib/api';
 import { load, save } from '../lib/storage';
-import { getSyncMode, setSyncMode, useSyncedState, type SyncMode } from '../lib/sync';
+import { useSyncedState } from '../lib/sync';
 import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type PolicyResult } from '../lib/policyParser';
 import {
@@ -112,9 +111,9 @@ interface TableSettings {
 }
 
 // Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
-// moved Req next to P/REQ — see UNHID_AT_VERSION and REORDERED_AT_VERSION for
-// the one-time migrations applied on load.
-const TABLE_SETTINGS_VERSION = 4;
+// moved Req next to P/REQ, v5 moved PDP between Qualité and L/Pack — see
+// UNHID_AT_VERSION and REORDERED_AT_VERSION for the migrations applied on load.
+const TABLE_SETTINGS_VERSION = 5;
 
 // The planner's canonical ordering: widest dimension first, which is also what
 // the longueur group-break rows are built around. It is carried by the Format
@@ -140,11 +139,11 @@ const UNHID_AT_VERSION: { version: number; key: string }[] = [
   { version: 3, key: 'mtoMts' },
 ];
 
-// Settings version at which DEFAULT_ORDER changed. A layout stored before it
-// keeps its own `order`, which would pin the old arrangement forever — so the
-// canonical order is re-applied once. Visibility, pinning and widths survive;
-// only a deliberate drag order is lost, and only for that one upgrade.
-const REORDERED_AT_VERSION = 4;
+// Most recent settings version at which DEFAULT_ORDER changed. A layout stored
+// before it keeps its own `order`, which would pin the old arrangement forever
+// — so the canonical order is re-applied once. Visibility, pinning and widths
+// survive; only a deliberate drag order is lost, and only on that upgrade.
+const REORDERED_AT_VERSION = 5;
 
 // Canonical column order shared by every density default. Quality / pack /
 // production numbers come before format / pdp so the eye sweeps the
@@ -153,9 +152,9 @@ const REORDERED_AT_VERSION = 4;
 // with Sched / Prod behind them as the backing detail.
 const DEFAULT_ORDER = [
   'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
-  'qualite', 'litesPerPack', 'packsReq',
+  'qualite', 'pdp', 'litesPerPack', 'packsReq',
   'reqLites', 'schedLites', 'prodLites',
-  'opTm', 'format', 'pdp', 'm2',
+  'opTm', 'format', 'm2',
 ];
 
 // Per-density default visibility. Compact strips the page down to just
@@ -335,9 +334,8 @@ interface SchedulesProps {
 }
 
 export default function Schedules({ density }: SchedulesProps) {
-  // The PMS230 report is the only domain that still follows the user's
-  // sync/local toggle (exposed inside the import modal). Every other
-  // surface — logbook, suivi, prodtest, policy — alwaysSync regardless.
+  // Every domain syncs, the PMS230 report included — the per-operator
+  // local-only toggle it used to honour is gone.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
   const [data, setData] = useSyncedState<PMS230Result | null>(
     KEY_DATA,
@@ -347,7 +345,7 @@ export default function Schedules({ density }: SchedulesProps) {
   const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
   const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
     KEY_POLICY,
-    { domain: 'policy', params: {}, alwaysSync: true },
+    { domain: 'policy', params: {} },
     policyInit,
   );
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
@@ -631,19 +629,10 @@ export default function Schedules({ density }: SchedulesProps) {
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
-    const snapshot = data;
-    const snapshotSelected = selected;
+    // `replace` only reaches here on the first import — the sheet offers
+    // "Ajouter" alone once a report is loaded, so there is nothing to undo.
     setData((prev) => (mode === 'append' ? mergePMS230(prev, parsed) : parsed));
     setImportMode(null);
-    if (mode === 'replace' && snapshot) {
-      toast.show({
-        message: 'Rapport remplacé',
-        undo: () => {
-          setData(snapshot);
-          setSelected(snapshotSelected);
-        },
-      });
-    }
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
     const snapshot = policy;
@@ -845,7 +834,6 @@ export default function Schedules({ density }: SchedulesProps) {
               <span className="lbl-short" aria-hidden="true">MTO</span>
             </button>
           }
-          footerExtras={SYNC_ENABLED ? <SyncModeField /> : null}
         />
       )}
       {importMode === 'policy' && (
@@ -942,7 +930,10 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
           </button>
         )}
       </div>
-      {data && (
+      {/* The MTO/MTS chip is not gated on `data`: the policy syncs on its own
+          and an operator who has not pasted a report yet would otherwise see
+          no sign of it at all, which reads as "the table didn't sync". */}
+      {(data || policy) && (
         <div className="sch-summary-stats">
           {policy && (
             <span
@@ -953,9 +944,13 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
               MTO/MTS · <strong className="mono">{policyCount}</strong>
             </span>
           )}
-          <span><strong className="mono">{schedules}</strong> schedules</span>
-          <span><strong className="mono">{records}</strong> lignes</span>
-          <span><strong className="mono">{m2}</strong> m²</span>
+          {data && (
+            <>
+              <span><strong className="mono">{schedules}</strong> schedules</span>
+              <span><strong className="mono">{records}</strong> lignes</span>
+              <span><strong className="mono">{m2}</strong> m²</span>
+            </>
+          )}
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
@@ -1700,41 +1695,3 @@ function Stat({ label, value, highlight, wide, danger, dangerTitle }: StatProps)
   );
 }
 
-const SYNC_MODES: { key: SyncMode; label: string; glyph: string; help: string }[] = [
-  { key: 'auto',  label: 'Sync',  glyph: '↻', help: 'Le rapport est partagé avec les autres opérateurs.' },
-  { key: 'local', label: 'Local', glyph: '○', help: 'Le rapport reste sur cet appareil.' },
-];
-
-// Per-operator scope for the imported PMS230 report. The Logbook, le suivi des
-// tests et la politique MTO/MTS restent toujours synchronisés — ce toggle ne
-// gouverne plus que ce rapport.
-function SyncModeField() {
-  const [mode, setMode] = useState<SyncMode>(() => getSyncMode());
-  function change(next: SyncMode) {
-    setSyncMode(next);
-    setMode(next);
-  }
-  const help = SYNC_MODES.find((s) => s.key === mode)?.help;
-  return (
-    <div className="sch-import-sync">
-      <div className="sch-import-sync-head">
-        <span className="sch-import-sync-label">Partage du rapport</span>
-        <div className="seg seg-mini" role="group" aria-label="Partage du rapport">
-          {SYNC_MODES.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              className={mode === s.key ? 'active' : ''}
-              onClick={() => change(s.key)}
-              aria-pressed={mode === s.key}
-            >
-              <span className="glyph" aria-hidden="true">{s.glyph}</span>
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {help && <div className="sch-import-sync-help faint small">{help}</div>}
-    </div>
-  );
-}

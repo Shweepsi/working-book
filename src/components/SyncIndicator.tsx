@@ -14,7 +14,6 @@ const DESCRIPTORS: Record<SyncStatus, Descriptor> = {
   offline:  { cls: 'is-offline', glyph: '⊘', short: 'Hors ligne' },
   error:    { cls: 'is-error',   glyph: '⚠', short: 'Échec' },
   disabled: { cls: 'is-disabled', glyph: '○', short: 'Local' },
-  local:    { cls: 'is-local',   glyph: '○', short: 'Local' },
 };
 
 function relTime(ts: number, now: number): string {
@@ -48,7 +47,6 @@ export default function SyncIndicator() {
   else if (snap.status === 'syncing') title = `Envoi en cours… (${snap.pending})`;
   else if (snap.status === 'queued') title = `${snap.pending} mutation${snap.pending > 1 ? 's' : ''} en attente`;
   else if (snap.status === 'offline') title = 'Hors ligne — les modifications seront envoyées au retour de la connexion';
-  else if (snap.status === 'local') title = 'Mode local — le rapport Schedule reste sur cet appareil ; le reste continue de se synchroniser';
   else title = `Échec de synchronisation${lastLabel ? ` · ${lastLabel}` : ''} (${snap.pending} en attente)`;
 
   return (

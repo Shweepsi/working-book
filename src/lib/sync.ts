@@ -11,49 +11,24 @@ export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedule
 export interface SyncRemote {
   domain: SyncDomain;
   params: Record<string, string>;
-  // Bypass the user's "local-only" preference. Default for shared data
-  // (logbook, suivi, prodtest, policy). The PMS230 schedule report is the
-  // only domain that still respects the toggle.
-  alwaysSync?: boolean;
 }
 
-export type SyncMode = 'auto' | 'local';
-const MODE_KEY = 'wb.sync.mode';
-
-let syncMode: SyncMode = (() => {
-  if (typeof window === 'undefined') return 'auto';
-  const raw = window.localStorage.getItem(MODE_KEY);
-  return raw === 'local' ? 'local' : 'auto';
-})();
-
-export function getSyncMode(): SyncMode {
-  return syncMode;
+// Every domain syncs. The PMS230 report was the last holdout behind a
+// per-operator "local-only" toggle; that option is gone, so the only thing
+// that can switch sync off is building without VITE_API_URL.
+function isRemoteAllowed(): boolean {
+  return SYNC_ENABLED;
 }
 
-export function setSyncMode(mode: SyncMode): void {
-  if (mode === syncMode) return;
-  syncMode = mode;
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(MODE_KEY, mode);
-  }
-  emit();
-  // Flush whatever queued during local-only the moment the user turns sync on
-  // again — alwaysSync entries may have accumulated.
-  if (mode === 'auto') scheduleFlush();
-}
-
-function isRemoteAllowed(remote: SyncRemote): boolean {
-  if (!SYNC_ENABLED) return false;
-  if (remote.alwaysSync) return true;
-  return syncMode === 'auto';
-}
+// Legacy key from the removed local-only toggle. Cleared on init so a stored
+// "local" preference can't linger in localStorage with no UI to clear it.
+const LEGACY_MODE_KEY = 'wb.sync.mode';
 
 interface Mutation {
   id: string;
   path: string;
   payload: unknown;
   attempts: number;
-  alwaysSync?: boolean;
 }
 
 export type SyncStatus =
@@ -63,10 +38,7 @@ export type SyncStatus =
   | 'offline'
   | 'error'
   // No backend configured at build time — chip is hidden.
-  | 'disabled'
-  // Backend is reachable but the user opted into local-only mode. Distinct
-  // from 'disabled' so the chip can show "Local" to confirm the choice.
-  | 'local';
+  | 'disabled';
 
 export interface SyncSnapshot {
   status: SyncStatus;
@@ -93,17 +65,13 @@ const listeners = new Set<() => void>();
 let cachedSnapshot: SyncSnapshot = computeSnapshot();
 
 function computeSnapshot(): SyncSnapshot {
-  // Active activity (syncing / queued / error / offline-with-pending) wins
-  // over the static "Local" chip so the user always notices when alwaysSync
-  // mutations are still in flight.
   let status: SyncStatus;
   if (!SYNC_ENABLED) status = 'disabled';
   else if (isFlushing) status = 'syncing';
   else if (queue.length > 0 && !onlineState) status = 'offline';
   else if (queue.length > 0) {
     status = queue.some((m) => m.attempts > 0) ? 'error' : 'queued';
-  } else if (syncMode === 'local') status = 'local';
-  else if (!onlineState) status = 'offline';
+  } else if (!onlineState) status = 'offline';
   else status = 'idle';
   return {
     status,
@@ -181,15 +149,15 @@ async function flush(): Promise<void> {
 }
 
 export function enqueueMutation(remote: SyncRemote, payload: unknown): void {
-  if (!isRemoteAllowed(remote)) return;
+  if (!isRemoteAllowed()) return;
   const path = buildPath(remote);
   // Coalesce: a newer payload for the same partition supersedes any pending
   // mutation. Last-write-wins means we never need to replay intermediate states.
   const idx = queue.findIndex((m) => m.path === path);
   if (idx >= 0) {
-    queue[idx] = { ...queue[idx], payload, attempts: 0, alwaysSync: !!remote.alwaysSync };
+    queue[idx] = { ...queue[idx], payload, attempts: 0 };
   } else {
-    queue.push({ id: makeId(), path, payload, attempts: 0, alwaysSync: !!remote.alwaysSync });
+    queue.push({ id: makeId(), path, payload, attempts: 0 });
   }
   persistQueue();
   scheduleFlush();
@@ -203,6 +171,7 @@ export function initSync(): void {
   try {
     const raw = window.localStorage.getItem(QUEUE_KEY);
     queue = raw ? (JSON.parse(raw) as Mutation[]) : [];
+    window.localStorage.removeItem(LEGACY_MODE_KEY);
   } catch {
     queue = [];
   }
@@ -254,7 +223,7 @@ export function useSyncedState<T>(
     setValueState(initRef.current());
     dirtyRef.current = false;
     const r = remoteRef.current;
-    if (!r || !isRemoteAllowed(r)) return;
+    if (!r || !isRemoteAllowed()) return;
     let cancelled = false;
     apiGet<T>(buildPath(r))
       .then((envelope) => {

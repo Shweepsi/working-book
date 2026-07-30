@@ -2042,12 +2042,14 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     min-height: 50px;
   }
 
-  /* Schedule view: wide table → its own landscape page. Everything else
-     (cell sizes, sticky→static, chrome suppression, paper-friendly sizing)
-     is shared with the on-screen aperçu and lives in the unified block
-     above keyed on :root.is-print-preview, :root.is-printing. */
-  .app:has(.sch) { page: sch-landscape; }
-  @page sch-landscape { size: A4 landscape; margin: 5mm; }
+  /* Schedule view: wide table → landscape paper. The orientation is applied
+     by swapping the @page size from App.tsx (see PAGE_SIZE_STYLE_ID), not with
+     a named `@page` bound via the `page` property: Chromium inserts a forced
+     break around every row when a named page is in play here, which turned a
+     60-row schedule into 61 sheets. Everything else (cell sizes,
+     sticky→static, chrome suppression, paper-friendly sizing) is shared with
+     the on-screen aperçu and lives in the unified block above keyed on
+     :root.is-print-preview, :root.is-printing. */
 
   /* Schedule-layout fallback: mirrors the :root.is-print-preview /
      :root.is-printing block above, in case beforeprint doesn't set the
@@ -3242,35 +3244,6 @@ body.is-col-resizing * {
 .sch-import-extras {
   margin-top: 12px;
 }
-.sch-import-sync {
-  border: 1px dashed var(--line-faint);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  background: var(--paper-2);
-}
-.sch-import-sync-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-.sch-import-sync-label {
-  font-size: var(--fs-sm);
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-.sch-import-sync .seg-mini {
-  width: auto;
-  margin-left: auto;
-}
-.sch-import-sync .seg-mini button {
-  padding: 3px 10px;
-  min-height: 26px;
-  font-size: var(--fs-sm);
-}
-.sch-import-sync-help {
-  margin-top: 4px;
-  line-height: 1.35;
-}
 
 .sch-import .actions {
   margin-top: 14px;
@@ -4139,8 +4112,6 @@ button.as-row:focus-visible {
 .sync-chip.is-queued { border-color: var(--flag-sched-bd); color: var(--flag-sched-fg); background: color-mix(in srgb, var(--hl-yellow) 35%, var(--paper)); }
 .sync-chip.is-offline,
 .sync-chip.is-error { border-color: var(--flag-unsched-bd); color: var(--flag-unsched-fg); background: color-mix(in srgb, var(--hl-red) 35%, var(--paper)); }
-.sync-chip.is-local { color: var(--ink-soft); background: var(--paper-2); border-style: dashed; }
-.sync-chip.is-local .sync-glyph { color: var(--ink-faint); }
 
 @keyframes sync-spin {
   from { transform: rotate(0deg); }

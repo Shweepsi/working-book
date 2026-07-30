@@ -71,6 +71,9 @@ function isLiveShiftKey(value: string): value is LiveShiftKey {
   return SHIFT_TABS.some((s) => s.key === value);
 }
 
+// Style element holding the per-view `@page` size (see the effect that fills it).
+const PAGE_SIZE_STYLE_ID = 'wb-page-size';
+
 export default function App() {
   const [tab, setTab] = useState<TabKey>(() => {
     const hash = window.location.hash.replace('#', '');
@@ -158,6 +161,21 @@ export default function App() {
       window.removeEventListener('afterprint', onAfter);
     };
   }, []);
+
+  // Paper orientation per view. `@page` can't be selector-scoped, and binding a
+  // named page with the `page` property makes Chromium force a break around
+  // every table row (a 60-row schedule printed as 61 sheets), so the rule is
+  // rewritten in place instead. The schedule table is wide → landscape;
+  // everything else stays portrait.
+  useEffect(() => {
+    const el =
+      document.getElementById(PAGE_SIZE_STYLE_ID) ??
+      document.head.appendChild(
+        Object.assign(document.createElement('style'), { id: PAGE_SIZE_STYLE_ID }),
+      );
+    const orientation = tab === 'sched' ? 'landscape' : 'portrait';
+    el.textContent = `@media print { @page { size: A4 ${orientation}; margin: 5mm; } }`;
+  }, [tab]);
 
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
