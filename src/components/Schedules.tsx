@@ -875,7 +875,7 @@ export default function Schedules({ density }: SchedulesProps) {
       {importMode === 'policy' && (
         <PasteImport<PolicyResult>
           title="Importer la table MTO/MTS"
-          hint="Colle les colonnes Item number / Name / Planning policy depuis ton tableur."
+          hint="Colle les colonnes Item number / Name / Pp depuis l'export MMS002. Codes : 10 = MTO, 50 = MTS, 90 = Inactif."
           parser={parsePolicy}
           describe={describePolicy}
           onConfirm={handlePolicyConfirm}
