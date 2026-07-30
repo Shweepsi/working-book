@@ -1,7 +1,9 @@
 // Parser for the Item-number / Name / Planning-policy lookup table.
-// Source: a 3-column tab-separated paste from a spreadsheet/grid.
+// Source: a 3-column tab-separated paste from a spreadsheet/grid. The third
+// column carries either the label (MTO / MTS) or the raw planning-policy code
+// (10 / 50 / 90), depending on which export the planner copied from.
 
-export type Policy = 'MTO' | 'MTS';
+export type Policy = 'MTO' | 'MTS' | 'Inactif';
 
 export interface PastePayload {
   html?: string | null;
@@ -17,8 +19,15 @@ export interface PolicyResult {
 }
 
 const PRODUCT_RE = /^33\d{7}$/;
-const POLICY_VALUES = new Set<Policy>(['MTO', 'MTS']);
-const HEADER_TOKENS = new Set(['Item number', 'Name', 'Planning policy']);
+const HEADER_TOKENS = new Set(['Item number', 'Name', 'Planning policy', 'Pp']);
+
+// Every accepted spelling of the third column, keyed upper-case.
+const POLICY_BY_TOKEN: Record<string, Policy> = {
+  '10': 'MTO',     MTO: 'MTO',
+  '50': 'MTS',     MTS: 'MTS',
+  '90': 'Inactif', INACTIF: 'Inactif',
+};
+const ACCEPTED_POLICIES = 'MTO/MTS/Inactif or 10/50/90';
 
 function normalise(text: string): string {
   return text
@@ -52,8 +61,8 @@ function rowsFromText(text: string): string[][] {
     .filter((cells) => cells.length >= 3);
 }
 
-function isPolicy(value: string): value is Policy {
-  return POLICY_VALUES.has(value as Policy);
+function toPolicy(value: string): Policy | null {
+  return POLICY_BY_TOKEN[value.toUpperCase()] ?? null;
 }
 
 export function parsePolicy(textOrPayload: string | PastePayload): PolicyResult {
@@ -80,19 +89,22 @@ export function parsePolicy(textOrPayload: string | PastePayload): PolicyResult 
       warnings.push(`Row ${i + 1}: invalid product code "${productCode}"`);
       continue;
     }
-    if (!isPolicy(policy)) {
-      warnings.push(`Row ${i + 1} (${productCode}): unexpected policy "${policy}"`);
+    const parsed = toPolicy(policy);
+    if (!parsed) {
+      warnings.push(
+        `Row ${i + 1} (${productCode}): unexpected policy "${policy}" (expected ${ACCEPTED_POLICIES})`,
+      );
       continue;
     }
-    if (map[productCode] && map[productCode] !== policy) {
+    if (map[productCode] && map[productCode] !== parsed) {
       warnings.push(
-        `Row ${i + 1}: duplicate ${productCode} with different policy (kept first: ${map[productCode]}, ignored: ${policy})`,
+        `Row ${i + 1}: duplicate ${productCode} with different policy (kept first: ${map[productCode]}, ignored: ${parsed})`,
       );
       continue;
     }
     if (map[productCode]) continue;
 
-    map[productCode] = policy;
+    map[productCode] = parsed;
     names[productCode] = name;
     count += 1;
   }

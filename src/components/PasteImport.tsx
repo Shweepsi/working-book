@@ -29,9 +29,6 @@ export interface PasteImportProps<R extends PasteImportResult> {
   // Extra controls rendered to the left of the close button in the sheet
   // header — used by the PMS230 importer to expose the MTO policy cog.
   headerActions?: ReactNode;
-  // Inline row rendered just above the action buttons — the PMS230 importer
-  // uses it to expose the per-operator sync/local toggle.
-  footerExtras?: ReactNode;
 }
 
 export default function PasteImport<R extends PasteImportResult>({
@@ -43,7 +40,6 @@ export default function PasteImport<R extends PasteImportResult>({
   title,
   hint,
   headerActions,
-  footerExtras,
 }: PasteImportProps<R>) {
   const [result, setResult] = useState<R | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -203,32 +199,25 @@ export default function PasteImport<R extends PasteImportResult>({
           </details>
         )}
 
-        {footerExtras && <div className="sch-import-extras">{footerExtras}</div>}
-
         <div className="actions">
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
-          {showAppend && (
-            <button
-              className="btn"
-              type="button"
-              disabled={!ready}
-              onClick={() => result && onConfirm(result, 'append')}
-              title="Fusionner avec les données existantes (dédup sur schedule|MO)"
-            >
-              Ajouter
-            </button>
-          )}
+          {/* Once something is loaded the only import is additive — a paste
+              covers one page of the source report, so replacing would silently
+              drop the pages already collected. Starting over goes through
+              "Vider", which asks for confirmation. */}
           <button
             className="btn primary"
             type="button"
             disabled={!ready}
-            onClick={() => {
-              if (!result) return;
-              onConfirm(result, 'replace');
-            }}
+            onClick={() => result && onConfirm(result, showAppend ? 'append' : 'replace')}
+            title={
+              showAppend
+                ? 'Fusionner avec les données existantes (dédup sur schedule|MO)'
+                : undefined
+            }
           >
-            {showAppend ? 'Remplacer' : 'Importer'}
+            {showAppend ? 'Ajouter' : 'Importer'}
           </button>
         </div>
       </div>

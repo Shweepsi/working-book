@@ -102,7 +102,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
   const init = useCallback(() => load<LogEvent[]>(cacheKey, []), [cacheKey]);
   const [events, setEvents] = useSyncedState<LogEvent[]>(
     cacheKey,
-    poste ? { domain: 'logbook', params: { date, poste }, alwaysSync: true } : null,
+    poste ? { domain: 'logbook', params: { date, poste } } : null,
     init,
   );
   const [editing, setEditing] = useState<EditingState | null>(null);
