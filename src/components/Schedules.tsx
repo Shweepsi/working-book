@@ -503,7 +503,7 @@ export default function Schedules({ density }: SchedulesProps) {
     updateLayout((l) => ({ ...l, widths: { ...l.widths, [key]: clamped } }));
   }
 
-  function resetColumnLayout() {
+  function resetTableLayout() {
     // Reset the active density back to its canonical default, sort included —
     // "Réinitialiser" is where users look for the dimension order once they've
     // sorted on something else. The other densities keep what the user set.
@@ -752,7 +752,7 @@ export default function Schedules({ density }: SchedulesProps) {
               onToggleColumn={toggleColumnVisibility}
               onTogglePinned={togglePinned}
               onMoveColumn={moveColumn}
-              onResetLayout={resetColumnLayout}
+              onResetLayout={resetTableLayout}
             />
 
             <ScheduleTable
@@ -1064,14 +1064,17 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
           const isSorted = sortable && c.sortKey === sortKey;
           const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
           // Name the click that actually follows, so the way back to the
-          // dimension order isn't invisible.
+          // dimension order isn't invisible. The column that carries the
+          // default only ever flips direction, so it never gets that wording.
+          const returnsToDefault =
+            isSorted && c.sortKey !== DEFAULT_SORT_KEY && sortDir !== firstSortDir(c.sortKey!);
           const sortHint = !sortable
             ? undefined
             : !isSorted
               ? `Trier par ${c.label}`
-              : sortDir === firstSortDir(c.sortKey!)
-                ? 'Cliquer pour inverser le tri'
-                : 'Cliquer pour revenir au tri par dimension';
+              : returnsToDefault
+                ? 'Cliquer pour revenir au tri par dimension'
+                : 'Cliquer pour inverser le tri';
           const pin = pinnedAttrs(c);
           const isDragOver = dragOverKey === c.key && dragKeyRef.current && dragKeyRef.current !== c.key;
           const sameGroupDrag = isDragOver && pinned.includes(dragKeyRef.current!) === pinned.includes(c.key);
