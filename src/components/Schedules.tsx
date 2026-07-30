@@ -107,9 +107,10 @@ interface TableSettings {
   mtoMts: ('MTO' | 'MTS' | '?')[];
 }
 
-// Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS —
-// see UNHID_AT_VERSION for the one-time migrations applied on load.
-const TABLE_SETTINGS_VERSION = 3;
+// Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
+// moved Req next to P/REQ — see UNHID_AT_VERSION and REORDERED_AT_VERSION for
+// the one-time migrations applied on load.
+const TABLE_SETTINGS_VERSION = 4;
 
 // The planner's canonical ordering: widest dimension first, which is also what
 // the longueur group-break rows are built around. It is carried by the Format
@@ -135,13 +136,21 @@ const UNHID_AT_VERSION: { version: number; key: string }[] = [
   { version: 3, key: 'mtoMts' },
 ];
 
+// Settings version at which DEFAULT_ORDER changed. A layout stored before it
+// keeps its own `order`, which would pin the old arrangement forever — so the
+// canonical order is re-applied once. Visibility, pinning and widths survive;
+// only a deliberate drag order is lost, and only for that one upgrade.
+const REORDERED_AT_VERSION = 4;
+
 // Canonical column order shared by every density default. Quality / pack /
 // production numbers come before format / pdp so the eye sweeps the
-// "what fits in a pack and what's left to make" cluster first.
+// "what fits in a pack and what's left to make" cluster first. Req sits right
+// after P/REQ — the two are read together, packs against lites remaining —
+// with Sched / Prod behind them as the backing detail.
 const DEFAULT_ORDER = [
   'mtoMts', 'dateDepart', 'mo', 'product', 'itemName',
   'qualite', 'litesPerPack', 'packsReq',
-  'schedLites', 'prodLites', 'reqLites',
+  'reqLites', 'schedLites', 'prodLites',
   'opTm', 'format', 'pdp', 'm2',
 ];
 
@@ -210,6 +219,11 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     if (storedVersion >= version) continue;
     for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
       layouts[d] = { ...layouts[d], hidden: layouts[d].hidden.filter((k) => k !== key) };
+    }
+  }
+  if (storedVersion < REORDERED_AT_VERSION) {
+    for (const d of ['compact', 'normal', 'advanced'] as Density[]) {
+      layouts[d] = { ...layouts[d], order: [...DEFAULT_ORDER] };
     }
   }
   return {
@@ -858,9 +872,6 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
       </div>
       {data && (
         <div className="sch-summary-stats">
-          <span><strong className="mono">{schedules}</strong> schedules</span>
-          <span><strong className="mono">{records}</strong> lignes</span>
-          <span><strong className="mono">{m2}</strong> m²</span>
           {policy && (
             <span
               className="sch-policy-chip"
@@ -870,6 +881,9 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
               MTO/MTS · <strong className="mono">{policyCount}</strong>
             </span>
           )}
+          <span><strong className="mono">{schedules}</strong> schedules</span>
+          <span><strong className="mono">{records}</strong> lignes</span>
+          <span><strong className="mono">{m2}</strong> m²</span>
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
