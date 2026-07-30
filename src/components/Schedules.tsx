@@ -21,6 +21,10 @@ const KEY_POLICY = 'wb.schedules.policy.v1';
 const KEY_SPEED  = 'wb.schedules.vitesse';
 const KEY_TABLE  = 'wb.schedules.table.v1';
 
+// Undo window on "Vider". Wider than the toast default because the action is
+// coarse and the operator may be away from the screen when it lands.
+const CLEAR_UNDO_TTL = 10_000;
+
 type DisplayRow = PMS230Record & { mtoMts: string };
 
 type GroupedItem =
@@ -306,9 +310,9 @@ function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
-function clearConfirmBody(data: PMS230Result | null): string {
-  const records = data?.records?.length ?? 0;
-  const schedules = data?.schedules?.length ?? 0;
+function clearConfirmBody(data: PMS230Result): string {
+  const records = data.records?.length ?? 0;
+  const schedules = data.schedules?.length ?? 0;
   return (
     `${records} ligne${records > 1 ? 's' : ''} sur ${schedules} schedule${schedules > 1 ? 's' : ''} ` +
     `seront effacée${records > 1 ? 's' : ''}. La table MTO/MTS est conservée. Il faudra recoller ` +
@@ -324,46 +328,6 @@ function fmtDate(yyyymmdd: string | null | undefined): string {
 function fmtNum(n: number | null | undefined, digits = 0): string {
   if (n == null || !Number.isFinite(n)) return '';
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
-
-// Confirmation step in front of a destructive action. The app's default is
-// "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
-// edits; wiping the whole report is coarse enough to be worth a stop first.
-// The undo toast still fires afterwards.
-function ConfirmSheet({
-  title, body, confirmLabel, onConfirm, onClose,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  useEscapeToClose(onClose);
-  return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sch-confirm" role="dialog" aria-modal="true">
-        <div className="grabber" />
-        <div className="sheet-head">
-          <h3>{title}</h3>
-        </div>
-        <p className="faint small">{body}</p>
-        <div className="actions">
-          <span style={{ flex: 1 }} />
-          <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
-          <button
-            className="btn destructive"
-            type="button"
-            autoFocus
-            onClick={() => { onConfirm(); onClose(); }}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </>
-  );
 }
 
 interface SchedulesProps {
@@ -702,7 +666,10 @@ export default function Schedules({ density }: SchedulesProps) {
         onClear={() => setConfirmClear(true)}
       />
 
-      {confirmClear && (
+      {/* `data` guards the sheet as well as the button: a sync from another
+          device can empty the report while the dialog sits open, and there is
+          then nothing left to confirm. */}
+      {confirmClear && data && (
         <ConfirmSheet
           title="Vider le rapport ?"
           body={clearConfirmBody(data)}
@@ -715,6 +682,10 @@ export default function Schedules({ density }: SchedulesProps) {
             if (!snapshot) return;
             toast.show({
               message: 'Rapport Operator Mashup effacé',
+              // Longer than the 6s default: this one wipes the whole report,
+              // and recovering past the toast means re-pasting from Operator
+              // Mashup.
+              ttl: CLEAR_UNDO_TTL,
               undo: () => {
                 setData(snapshot);
                 setSelected(snapshotSelected);
@@ -896,6 +867,46 @@ export default function Schedules({ density }: SchedulesProps) {
         />
       )}
     </div>
+  );
+}
+
+// Confirmation step in front of a destructive action. The app's default is
+// "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
+// edits; wiping the whole report is coarse enough to be worth a stop first.
+// The undo toast still fires afterwards.
+function ConfirmSheet({
+  title, body, confirmLabel, onConfirm, onClose,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  useEscapeToClose(onClose);
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sch-confirm" role="dialog" aria-modal="true">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <h3>{title}</h3>
+        </div>
+        <p className="faint small">{body}</p>
+        <div className="actions">
+          <span style={{ flex: 1 }} />
+          <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
+          <button
+            className="btn destructive"
+            type="button"
+            autoFocus
+            onClick={() => { onConfirm(); onClose(); }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
