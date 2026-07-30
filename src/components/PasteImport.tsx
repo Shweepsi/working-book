@@ -29,9 +29,6 @@ export interface PasteImportProps<R extends PasteImportResult> {
   // Extra controls rendered to the left of the close button in the sheet
   // header — used by the PMS230 importer to expose the MTO policy cog.
   headerActions?: ReactNode;
-  // Inline row rendered just above the action buttons — the PMS230 importer
-  // uses it to expose the per-operator sync/local toggle.
-  footerExtras?: ReactNode;
 }
 
 export default function PasteImport<R extends PasteImportResult>({
@@ -43,7 +40,6 @@ export default function PasteImport<R extends PasteImportResult>({
   title,
   hint,
   headerActions,
-  footerExtras,
 }: PasteImportProps<R>) {
   const [result, setResult] = useState<R | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -202,8 +198,6 @@ export default function PasteImport<R extends PasteImportResult>({
             </ul>
           </details>
         )}
-
-        {footerExtras && <div className="sch-import-extras">{footerExtras}</div>}
 
         <div className="actions">
           <span style={{ flex: 1 }} />
