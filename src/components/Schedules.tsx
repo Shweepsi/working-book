@@ -111,9 +111,10 @@ interface TableSettings {
 }
 
 // Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
-// moved Req next to P/REQ, v5 moved PDP between Qualité and L/Pack — see
-// UNHID_AT_VERSION and REORDERED_AT_VERSION for the migrations applied on load.
-const TABLE_SETTINGS_VERSION = 5;
+// moved Req next to P/REQ, v5 moved PDP between Qualité and L/Pack, v6 un-hid
+// PDP — see UNHID_AT_VERSION and REORDERED_AT_VERSION for the migrations
+// applied on load.
+const TABLE_SETTINGS_VERSION = 6;
 
 // The planner's canonical ordering: widest dimension first, which is also what
 // the longueur group-break rows are built around. It is carried by the Format
@@ -137,6 +138,7 @@ const firstSortDir = (key: SortKey): SortDir =>
 const UNHID_AT_VERSION: { version: number; key: string }[] = [
   { version: 2, key: 'itemName' },
   { version: 3, key: 'mtoMts' },
+  { version: 6, key: 'pdp' },
 ];
 
 // Most recent settings version at which DEFAULT_ORDER changed. A layout stored
@@ -162,9 +164,9 @@ const DEFAULT_ORDER = [
 // also reveals the format. Départ, opTm, pdp stay opt-in across the board
 // (rarely scanned, available via the Colonnes menu).
 const DENSITY_DEFAULT_HIDDEN: Record<Density, string[]> = {
-  compact:  ['dateDepart', 'mo', 'product', 'opTm', 'format', 'pdp'],
-  normal:   ['dateDepart', 'opTm', 'format', 'pdp'],
-  advanced: ['dateDepart', 'opTm', 'pdp'],
+  compact:  ['dateDepart', 'mo', 'product', 'opTm', 'format'],
+  normal:   ['dateDepart', 'opTm', 'format'],
+  advanced: ['dateDepart', 'opTm'],
 };
 
 function defaultColumnLayout(density: Density): ColumnLayout {
@@ -526,8 +528,23 @@ export default function Schedules({ density }: SchedulesProps) {
     // below the minimum useful width. Reject NaN/Infinity outright — Math.min
     // and Math.max propagate NaN and we'd persist it to localStorage.
     if (!Number.isFinite(px)) return;
-    const clamped = Math.max(40, Math.min(600, Math.round(px)));
-    updateLayout((l) => ({ ...l, widths: { ...l.widths, [key]: clamped } }));
+    updateLayout((l) => ({ ...l, widths: { ...l.widths, [key]: clampColumnPx(px) } }));
+  }
+
+  // Pin the flexible columns at their rendered width when a resize starts, so
+  // they stop absorbing the space the dragged column gives up (see
+  // `beginResize`). Only fills gaps: a column the user already sized keeps it.
+  function freezeColumnWidths(px: Record<string, number>) {
+    updateLayout((l) => {
+      const widths = { ...l.widths };
+      let changed = false;
+      for (const [key, value] of Object.entries(px)) {
+        if (widths[key] || !Number.isFinite(value)) continue;
+        widths[key] = clampColumnPx(value);
+        changed = true;
+      }
+      return changed ? { ...l, widths } : l;
+    });
   }
 
   function resetTableLayout() {
@@ -798,6 +815,7 @@ export default function Schedules({ density }: SchedulesProps) {
               pinned={layout.pinned}
               widths={layout.widths}
               onResize={setColumnWidth}
+              onFreezeWidths={freezeColumnWidths}
               onReorder={reorderColumn}
               sortKey={tableSettings.sortKey}
               sortDir={tableSettings.sortDir}
@@ -975,6 +993,7 @@ interface ScheduleTableProps {
   pinned: string[];
   widths: Record<string, number>;
   onResize: (key: string, px: number) => void;
+  onFreezeWidths: (px: Record<string, number>) => void;
   onReorder: (fromKey: string, toKey: string) => void;
   sortKey: SortKey;
   sortDir: SortDir;
@@ -993,6 +1012,20 @@ function columnPx(key: string, override?: number): number {
   const mm = /minmax\((\d+)px/.exec(w);
   if (mm) return parseInt(mm[1], 10);
   return 80;
+}
+
+// Bounds for a stored column width. The ceiling has to clear whatever Article
+// stretches to on a wide screen, otherwise freezing it on resize would itself
+// shrink the column.
+const COL_MIN_PX = 40;
+const COL_MAX_PX = 1200;
+const clampColumnPx = (px: number): number =>
+  Math.max(COL_MIN_PX, Math.min(COL_MAX_PX, Math.round(px)));
+
+// Tracks declared with an `fr` share soak up whatever the fixed columns leave
+// over, which is what makes them shrink when a neighbour grows.
+function isFlexibleColumn(key: string): boolean {
+  return (COL_WIDTHS[key] || '').includes('fr');
 }
 
 // Per-column track widths matching the original fixed grid. Optional columns
@@ -1017,11 +1050,13 @@ const COL_WIDTHS: Record<string, string> = {
 
 interface ColumnResizeHandleProps {
   colKey: string;
-  startPx: number;
+  // Returns the column's actual rendered width and freezes the flexible
+  // tracks — see `beginResize`. Called once per drag, on pointer-down.
+  onResizeStart: (key: string) => number;
   onResize: (key: string, px: number) => void;
 }
 
-function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandleProps) {
+function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHandleProps) {
   const dragState = useRef<{ originX: number; originPx: number } | null>(null);
 
   function endDrag(target: HTMLSpanElement | null, pointerId?: number) {
@@ -1037,7 +1072,7 @@ function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandlePro
     // Block the parent's sort click and own the pointer for the drag duration.
     e.stopPropagation();
     e.preventDefault();
-    dragState.current = { originX: e.clientX, originPx: startPx };
+    dragState.current = { originX: e.clientX, originPx: onResizeStart(colKey) };
     e.currentTarget.setPointerCapture(e.pointerId);
     // Lock the column-resize cursor and disable text selection page-wide so
     // the drag doesn't pick up text or flicker between cursors.
@@ -1069,7 +1104,7 @@ function ColumnResizeHandle({ colKey, startPx, onResize }: ColumnResizeHandlePro
   );
 }
 
-function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -1110,6 +1145,33 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
     return out;
   }, [columns, pinned, widths]);
 
+  const headRef = useRef<HTMLDivElement>(null);
+
+  // Starting a drag pins every flexible track to what it currently shows.
+  // Article and PDP are `fr` columns, so widening any fixed column used to
+  // steal their space and visibly shrink them mid-drag. Freezing first means a
+  // resize only moves the column under the cursor. It also returns the real
+  // rendered width, which `columnPx` can only estimate for an `fr` track (it
+  // reports the minmax floor, so grabbing Article snapped it to 180px).
+  const beginResize = useCallback((key: string): number => {
+    const cells = headRef.current?.querySelectorAll<HTMLElement>('.sch-cell');
+    const measured = new Map<string, number>();
+    if (cells) {
+      columns.forEach((c, i) => {
+        const el = cells[i];
+        if (el) measured.set(c.key, Math.round(el.getBoundingClientRect().width));
+      });
+    }
+    const freeze: Record<string, number> = {};
+    for (const c of columns) {
+      if (widths[c.key] || !isFlexibleColumn(c.key)) continue;
+      const px = measured.get(c.key);
+      if (px) freeze[c.key] = px;
+    }
+    if (Object.keys(freeze).length > 0) onFreezeWidths(freeze);
+    return measured.get(key) ?? columnPx(key, widths[key]);
+  }, [columns, widths, onFreezeWidths]);
+
   // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
   // minPx keeps the grid from collapsing in narrow viewports. The fr-based
   // variant is used in print, where the page is narrower than the sum of
@@ -1139,7 +1201,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
         ['--sch-min' as string]: `${minPx}px`,
       }}
     >
-      <div className="sch-row sch-head" role="row">
+      <div className="sch-row sch-head" role="row" ref={headRef}>
         {enrichedColumns.map((c) => {
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
@@ -1208,7 +1270,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
               <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner">⋮⋮</span>
               {c.label}
               {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
-              <ColumnResizeHandle colKey={c.key} startPx={columnPx(c.key, widths[c.key])} onResize={onResize} />
+              <ColumnResizeHandle colKey={c.key} onResizeStart={beginResize} onResize={onResize} />
             </div>
           );
         })}
