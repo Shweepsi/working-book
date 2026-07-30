@@ -3103,6 +3103,15 @@ body.is-col-resizing * {
   border-color: var(--flag-sched-bd);
   color: var(--flag-sched-fg);
 }
+/* Planning policy 90 — the product is no longer produced. Muted rather than
+   flagged: it is a statement of fact, not something to act on. Renders as a
+   cross (see MTO_GLYPH), so no letter-spacing to nudge it off-centre. */
+.sch-mto[data-mto='Inactif'] {
+  background: var(--paper-2);
+  color: var(--ink-faint);
+  border-color: var(--line-faint);
+  letter-spacing: 0;
+}
 .sch-mto[data-mto='?'] {
   background: var(--paper);
   color: var(--ink-faint);

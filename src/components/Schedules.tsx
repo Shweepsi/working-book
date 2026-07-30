@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProper
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
 import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
-import { parsePolicy, type PolicyResult } from '../lib/policyParser';
+import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
   fmtHMmin,
@@ -25,6 +25,9 @@ const KEY_TABLE  = 'wb.schedules.table.v1';
 const CLEAR_UNDO_TTL = 10_000;
 
 type DisplayRow = PMS230Record & { mtoMts: string };
+
+// A row's planning policy, or '?' when the product isn't in the imported table.
+type MtoFilter = Policy | '?';
 
 type GroupedItem =
   | { kind: 'break'; id: string; longueur: number }
@@ -113,7 +116,7 @@ interface TableSettings {
   // Filters are global — shared across densities.
   qualite: string[];
   pdp: string[];
-  mtoMts: ('MTO' | 'MTS' | '?')[];
+  mtoMts: MtoFilter[];
 }
 
 // Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
@@ -248,7 +251,7 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     layouts,
     qualite: arr(raw.qualite),
     pdp: arr(raw.pdp),
-    mtoMts: arr(raw.mtoMts) as ('MTO' | 'MTS' | '?')[],
+    mtoMts: arr(raw.mtoMts) as MtoFilter[],
   };
 }
 
@@ -409,7 +412,7 @@ export default function Schedules({ density }: SchedulesProps) {
     const userFiltered = decorated.filter((r) => {
       if (tableSettings.qualite.length > 0 && !tableSettings.qualite.includes(r.qualite)) return false;
       if (tableSettings.pdp.length > 0 && !tableSettings.pdp.includes(r.pdp)) return false;
-      if (tableSettings.mtoMts.length > 0 && !tableSettings.mtoMts.includes(r.mtoMts as 'MTO' | 'MTS' | '?')) return false;
+      if (tableSettings.mtoMts.length > 0 && !tableSettings.mtoMts.includes(r.mtoMts as MtoFilter)) return false;
       return true;
     });
 
@@ -1038,6 +1041,26 @@ const COL_MAX_PX = 1200;
 const clampColumnPx = (px: number): number =>
   Math.max(COL_MIN_PX, Math.min(COL_MAX_PX, Math.round(px)));
 
+// Planning-policy badge. The column is 56px, which "Inactif" doesn't fit, so
+// that state shows a cross and keeps the word in the tooltip; MTO / MTS are
+// short enough to read as-is.
+const MTO_GLYPH: Record<string, string> = { Inactif: '✕' };
+const MTO_TITLE: Record<string, string> = {
+  MTO: 'Make to order',
+  MTS: 'Make to stock',
+  Inactif: 'Inactif — produit sorti du catalogue',
+  '?': 'Produit absent de la table MTO/MTS',
+};
+
+function MtoBadge({ value }: { value: string }) {
+  const glyph = MTO_GLYPH[value];
+  return (
+    <span className="sch-mto" data-mto={value} title={MTO_TITLE[value] ?? value}>
+      {glyph ? <span aria-label={value} role="img">{glyph}</span> : value}
+    </span>
+  );
+}
+
 // Tracks declared with an `fr` share soak up whatever the fixed columns leave
 // over, which is what makes them shrink when a neighbour grows.
 function isFlexibleColumn(key: string): boolean {
@@ -1507,7 +1530,7 @@ interface ScheduleRowProps {
 function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
   switch (col.key) {
     case 'mtoMts':
-      return <span className="sch-mto" data-mto={row.mtoMts}>{row.mtoMts}</span>;
+      return <MtoBadge value={row.mtoMts} />;
     case 'dateDepart':   return fmtDate(row.dateDepart);
     case 'mo':           return row.mo;
     case 'product':      return row.product;
@@ -1681,7 +1704,7 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sch-row-sheet-title">
-            <span className="sch-mto" data-mto={mtoMts}>{mtoMts}</span>
+            <MtoBadge value={mtoMts} />
             <div className="sch-row-sheet-heading">
               <h3 className="mono sch-row-sheet-article">
                 {row.itemName || <span className="faint">(sans nom)</span>}

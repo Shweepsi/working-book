@@ -1,7 +1,7 @@
 // Parser for the Item-number / Name / Planning-policy lookup table.
 // Source: a 3-column tab-separated paste from a spreadsheet/grid.
 
-export type Policy = 'MTO' | 'MTS';
+export type Policy = 'MTO' | 'MTS' | 'Inactif';
 
 export interface PastePayload {
   html?: string | null;
@@ -17,8 +17,16 @@ export interface PolicyResult {
 }
 
 const PRODUCT_RE = /^33\d{7}$/;
-const POLICY_VALUES = new Set<Policy>(['MTO', 'MTS']);
-const HEADER_TOKENS = new Set(['Item number', 'Name', 'Planning policy']);
+const POLICY_VALUES = new Set<Policy>(['MTO', 'MTS', 'Inactif']);
+const HEADER_TOKENS = new Set(['Item number', 'Name', 'Planning policy', 'Pp']);
+
+// The export sometimes carries the raw planning-policy code instead of its
+// label. Same three states, so both spellings map onto the same `Policy`.
+const POLICY_CODES: Record<string, Policy> = {
+  '10': 'MTO',
+  '50': 'MTS',
+  '90': 'Inactif',
+};
 
 function normalise(text: string): string {
   return text
@@ -52,8 +60,15 @@ function rowsFromText(text: string): string[][] {
     .filter((cells) => cells.length >= 3);
 }
 
-function isPolicy(value: string): value is Policy {
-  return POLICY_VALUES.has(value as Policy);
+// Accepts either the label ("MTO") or the numeric code ("10"), in any case.
+function toPolicy(value: string): Policy | null {
+  const code = POLICY_CODES[value];
+  if (code) return code;
+  const upper = value.toUpperCase();
+  for (const p of POLICY_VALUES) {
+    if (p.toUpperCase() === upper) return p;
+  }
+  return null;
 }
 
 export function parsePolicy(textOrPayload: string | PastePayload): PolicyResult {
@@ -80,19 +95,20 @@ export function parsePolicy(textOrPayload: string | PastePayload): PolicyResult 
       warnings.push(`Row ${i + 1}: invalid product code "${productCode}"`);
       continue;
     }
-    if (!isPolicy(policy)) {
+    const parsed = toPolicy(policy);
+    if (!parsed) {
       warnings.push(`Row ${i + 1} (${productCode}): unexpected policy "${policy}"`);
       continue;
     }
-    if (map[productCode] && map[productCode] !== policy) {
+    if (map[productCode] && map[productCode] !== parsed) {
       warnings.push(
-        `Row ${i + 1}: duplicate ${productCode} with different policy (kept first: ${map[productCode]}, ignored: ${policy})`,
+        `Row ${i + 1}: duplicate ${productCode} with different policy (kept first: ${map[productCode]}, ignored: ${parsed})`,
       );
       continue;
     }
     if (map[productCode]) continue;
 
-    map[productCode] = policy;
+    map[productCode] = parsed;
     names[productCode] = name;
     count += 1;
   }
