@@ -111,6 +111,22 @@ interface TableSettings {
 // see UNHID_AT_VERSION for the one-time migrations applied on load.
 const TABLE_SETTINGS_VERSION = 3;
 
+// The planner's canonical ordering: widest dimension first, which is also what
+// the longueur group-break rows are built around. It is carried by the Format
+// header — hidden by default in compact/normal — so `toggleSort` has to offer a
+// way back to it that doesn't depend on that column being visible.
+const DEFAULT_SORT_KEY: SortKey = 'longueur';
+const DEFAULT_SORT_DIR: SortDir = 'desc';
+
+// Direction a column takes on its first click: numeric and date columns read
+// best high-to-low, text A-to-Z. Shared with the header so its tooltip can
+// name the click that actually follows.
+const DESC_FIRST_SORT_KEYS: readonly SortKey[] = [
+  'longueur', 'schedLites', 'prodLites', 'reqLites', 'opTm', 'm2', 'dateDepart',
+];
+const firstSortDir = (key: SortKey): SortDir =>
+  DESC_FIRST_SORT_KEYS.includes(key) ? 'desc' : 'asc';
+
 // Columns that became default-visible at a given settings version. A layout
 // stored before that version gets the column un-hidden once on load, so the
 // new default reaches existing per-density layouts without a manual reset.
@@ -198,8 +214,8 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
   }
   return {
     version: TABLE_SETTINGS_VERSION,
-    sortKey: migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : 'longueur') as SortKey,
-    sortDir: raw.sortDir === 'asc' ? 'asc' : 'desc',
+    sortKey: migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : DEFAULT_SORT_KEY) as SortKey,
+    sortDir: raw.sortDir === 'asc' ? 'asc' : DEFAULT_SORT_DIR,
     layouts,
     qualite: arr(raw.qualite),
     pdp: arr(raw.pdp),
@@ -362,7 +378,7 @@ export default function Schedules({ density }: SchedulesProps) {
       const primary = compareRows(a, b, tableSettings.sortKey, tableSettings.sortDir);
       if (primary !== 0) return primary;
       // Stable secondary tiebreakers preserving the planner's intent.
-      if (tableSettings.sortKey !== 'longueur' && b.longueur !== a.longueur) return b.longueur - a.longueur;
+      if (tableSettings.sortKey !== DEFAULT_SORT_KEY && b.longueur !== a.longueur) return b.longueur - a.longueur;
       if ((b.pdp || '') !== (a.pdp || '')) return (b.pdp || '').localeCompare(a.pdp || '');
       return (a.itemName || '').localeCompare(b.itemName || '');
     });
@@ -401,12 +417,15 @@ export default function Schedules({ density }: SchedulesProps) {
 
   function toggleSort(key: SortKey) {
     setTableSettings((s) => {
-      if (s.sortKey === key) {
-        return { ...s, sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' };
+      const firstDir = firstSortDir(key);
+      if (s.sortKey !== key) return { ...s, sortKey: key, sortDir: firstDir };
+      // Cycle on the active column: preferred direction, then the other, then
+      // back to the dimension sort. Without that third step the default is a
+      // dead end whenever Format is hidden, which it is by default.
+      if (s.sortDir === firstDir) {
+        return { ...s, sortDir: firstDir === 'asc' ? 'desc' : 'asc' };
       }
-      // Numeric/date columns default to descending; text to ascending.
-      const numeric: SortKey[] = ['longueur', 'schedLites', 'prodLites', 'reqLites', 'opTm', 'm2', 'dateDepart'];
-      return { ...s, sortKey: key, sortDir: numeric.includes(key) ? 'desc' : 'asc' };
+      return { ...s, sortKey: DEFAULT_SORT_KEY, sortDir: DEFAULT_SORT_DIR };
     });
   }
 
@@ -485,9 +504,15 @@ export default function Schedules({ density }: SchedulesProps) {
   }
 
   function resetColumnLayout() {
-    // Reset just the active density back to its canonical default; the other
-    // densities keep whatever the user set there.
-    updateLayout(() => defaultColumnLayout(density));
+    // Reset the active density back to its canonical default, sort included —
+    // "Réinitialiser" is where users look for the dimension order once they've
+    // sorted on something else. The other densities keep what the user set.
+    setTableSettings((s) => ({
+      ...s,
+      sortKey: DEFAULT_SORT_KEY,
+      sortDir: DEFAULT_SORT_DIR,
+      layouts: { ...s.layouts, [density]: defaultColumnLayout(density) },
+    }));
   }
 
   const visibleColumns = useMemo(
@@ -1038,6 +1063,15 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
           const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
+          // Name the click that actually follows, so the way back to the
+          // dimension order isn't invisible.
+          const sortHint = !sortable
+            ? undefined
+            : !isSorted
+              ? `Trier par ${c.label}`
+              : sortDir === firstSortDir(c.sortKey!)
+                ? 'Cliquer pour inverser le tri'
+                : 'Cliquer pour revenir au tri par dimension';
           const pin = pinnedAttrs(c);
           const isDragOver = dragOverKey === c.key && dragKeyRef.current && dragKeyRef.current !== c.key;
           const sameGroupDrag = isDragOver && pinned.includes(dragKeyRef.current!) === pinned.includes(c.key);
@@ -1047,6 +1081,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, onRe
               className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pin.className}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
               role="columnheader"
               aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+              title={sortHint}
               tabIndex={sortable ? 0 : undefined}
               onClick={sortable ? () => onSort(c.sortKey!) : undefined}
               onKeyDown={
