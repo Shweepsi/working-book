@@ -2384,6 +2384,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-policy-chip-glyph { color: var(--ink-faint); font-size: var(--fs-md); line-height: 1; }
 .sch-policy-chip strong { color: var(--ink); font-weight: 600; }
 
+/* Confirmation sheet — a couple of lines of prose, so narrower than the
+   560px form sheets it inherits from. */
+.sch-confirm { width: min(420px, calc(100% - 40px)); }
+.sch-confirm p { margin: 0; line-height: 1.45; }
+
 .sch-hint {
   display: flex;
   align-items: center;

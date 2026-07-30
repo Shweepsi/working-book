@@ -306,6 +306,16 @@ function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
+function clearConfirmBody(data: PMS230Result | null): string {
+  const records = data?.records?.length ?? 0;
+  const schedules = data?.schedules?.length ?? 0;
+  return (
+    `${records} ligne${records > 1 ? 's' : ''} sur ${schedules} schedule${schedules > 1 ? 's' : ''} ` +
+    `seront effacée${records > 1 ? 's' : ''}. La table MTO/MTS est conservée. Il faudra recoller ` +
+    'le rapport depuis Operator Mashup pour le retrouver.'
+  );
+}
+
 function fmtDate(yyyymmdd: string | null | undefined): string {
   if (!yyyymmdd || yyyymmdd.length !== 8) return '';
   return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
@@ -314,6 +324,46 @@ function fmtDate(yyyymmdd: string | null | undefined): string {
 function fmtNum(n: number | null | undefined, digits = 0): string {
   if (n == null || !Number.isFinite(n)) return '';
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+// Confirmation step in front of a destructive action. The app's default is
+// "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
+// edits; wiping the whole report is coarse enough to be worth a stop first.
+// The undo toast still fires afterwards.
+function ConfirmSheet({
+  title, body, confirmLabel, onConfirm, onClose,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  useEscapeToClose(onClose);
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sch-confirm" role="dialog" aria-modal="true">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <h3>{title}</h3>
+        </div>
+        <p className="faint small">{body}</p>
+        <div className="actions">
+          <span style={{ flex: 1 }} />
+          <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
+          <button
+            className="btn destructive"
+            type="button"
+            autoFocus
+            onClick={() => { onConfirm(); onClose(); }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </>
+  );
 }
 
 interface SchedulesProps {
@@ -339,6 +389,7 @@ export default function Schedules({ density }: SchedulesProps) {
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
     () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
@@ -648,21 +699,31 @@ export default function Schedules({ density }: SchedulesProps) {
         data={data}
         policy={policy}
         onImport={() => setImportMode('pms230')}
-        onClear={() => {
-          const snapshot = data;
-          const snapshotSelected = selected;
-          setData(null);
-          setSelected(null);
-          if (!snapshot) return;
-          toast.show({
-            message: 'Rapport Operator Mashup effacé',
-            undo: () => {
-              setData(snapshot);
-              setSelected(snapshotSelected);
-            },
-          });
-        }}
+        onClear={() => setConfirmClear(true)}
       />
+
+      {confirmClear && (
+        <ConfirmSheet
+          title="Vider le rapport ?"
+          body={clearConfirmBody(data)}
+          confirmLabel="Vider"
+          onConfirm={() => {
+            const snapshot = data;
+            const snapshotSelected = selected;
+            setData(null);
+            setSelected(null);
+            if (!snapshot) return;
+            toast.show({
+              message: 'Rapport Operator Mashup effacé',
+              undo: () => {
+                setData(snapshot);
+                setSelected(snapshotSelected);
+              },
+            });
+          }}
+          onClose={() => setConfirmClear(false)}
+        />
+      )}
 
       {!data && (
         <div className="sch-empty">
