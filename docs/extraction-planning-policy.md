@@ -1,14 +1,14 @@
 # Extraction de la planning policy
 
-Comment récupérer la table **Item number → planning policy** depuis M3 (MMS002)
-et la charger dans Working Book, pour que la colonne MTO/MTS du Planning soit
+Comment récupérer la table **Item number → planning policy** depuis MMS002 et
+la charger dans Working Book, pour que la colonne MTO/MTS du Planning soit
 renseignée.
 
 À refaire quand des produits sont créés, retirés du catalogue, ou passent de
 MTO à MTS. La table est partagée : un seul opérateur l'importe, tous les postes
 la reçoivent.
 
-## 1. Extraire depuis M3
+## 1. Extraire depuis MMS002
 
 1. Ouvrir le programme **MMS002** (sorting order).
 2. Filtrer :
@@ -31,11 +31,11 @@ la reçoivent.
 
 C'est le code de planning policy. Trois valeurs :
 
-| Code | Sens                                    |
-| ---- | --------------------------------------- |
-| `10` | MTO — *make to order*                   |
-| `50` | MTS — *make to stock*                   |
-| `90` | Inactif — le produit n'est plus actif   |
+| Code | Sens                                  |
+| ---- | ------------------------------------- |
+| `10` | MTO — *make to order*                 |
+| `50` | MTS — *make to stock*                 |
+| `90` | Inactif — le produit n'est plus actif |
 
 ## 3. Importer dans Working Book
 
@@ -52,6 +52,10 @@ La table **remplace** la précédente et part immédiatement vers les autres
 postes. Le compteur `⚙ MTO/MTS · N` en haut de l'écran confirme ce qui est
 chargé. En cas de fausse manœuvre, le bandeau qui apparaît propose *Annuler*
 quelques secondes.
+
+Attention au contraste avec l'import du rapport Operator Mashup, qui lui
+**ajoute** page après page : ici un collage partiel écrase tout le reste. Coller
+la table entière en une fois.
 
 ## Ce que le parseur accepte
 
@@ -71,12 +75,12 @@ identique passe en silence.
 
 La colonne **MTO/MTS** affiche :
 
-| Pastille  | Sens                                            |
-| --------- | ----------------------------------------------- |
-| `MTO`     | code 10                                         |
-| `MTS`     | code 50                                         |
-| `✕`       | code 90 — produit sorti du catalogue            |
-| `?`       | produit absent de la table importée             |
+| Pastille | Sens                                 |
+| -------- | ------------------------------------ |
+| `MTO`    | code 10                              |
+| `MTS`    | code 50                              |
+| `✕`      | code 90 — produit sorti du catalogue |
+| `?`      | produit absent de la table importée  |
 
 Un `?` sur beaucoup de lignes veut dire que l'extraction ne couvre pas les
 produits du schedule en cours : reprendre à l'étape 1 en vérifiant le filtre
