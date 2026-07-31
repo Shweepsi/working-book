@@ -74,6 +74,39 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `PUT  /api/policy` body: `PolicyResult`
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
 - `PUT  /api/schedules` body: `PMS230Result | null`
+- `POST /api/schedules/ingest` body: `{ text: string, mode?: 'auto' | 'append' | 'replace' }` — direct import (see below)
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
+
+## Direct import from the Infor portal
+
+`POST /api/schedules/ingest` takes a raw Operator Mashup dump instead of a
+parsed report. It runs `parsePMS230` — the same module the paste sheet imports,
+so the two routes can't drift — and stores the result as the shared report. The
+caller is the "Import direct" bookmarklet the app generates (Planning →
+*Importer rapport Operator Mashup* → *⇱ Import direct*), which runs inside the
+operator's already-authenticated portal session; the Worker never talks to Infor
+itself and holds no Infor credentials.
+
+`mode` defaults to `auto`: a dump reporting page 1, or carrying no pagination at
+all, replaces the stored report; any later page is merged into it. That lets an
+operator walk a multi-page report with one click per page.
+
+A dump that yields no decodable row answers `422 no_records` and leaves the
+stored report alone, so a mis-click on the wrong page can't wipe it.
+
+Two optional settings govern it, both unset by default:
+
+| Setting          | Kind   | Default                 | Meaning |
+| ---------------- | ------ | ----------------------- | ------- |
+| `INGEST_TOKEN`   | secret | *(none)*                | When set, the request must carry a matching `X-WB-Token` header, else `401`. Unset leaves the endpoint as open as the rest of the API. |
+| `INGEST_ORIGINS` | var    | `*.inforcloudsuite.com` | Extra CORS origins accepted **on this endpoint only** — the other routes keep `ALLOWED_ORIGINS` untouched. |
+
+```bash
+# Recommended: gate the endpoint, since its CORS list is wider than the others'.
+npx wrangler secret put INGEST_TOKEN --env production
+```
+
+Paste the same value into the *Jeton* field of the Import direct sheet; it is
+baked into the generated bookmarklet.

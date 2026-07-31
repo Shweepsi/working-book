@@ -105,11 +105,26 @@ function isNoise(line: string): boolean {
 
 // --- HTML path ---------------------------------------------------------------
 
+// Just enough of the DOM to walk a parsed clipboard document, read off
+// `globalThis` instead of the ambient lib. The Worker imports this module for
+// its /api/schedules/ingest endpoint and builds without `lib.dom`, where
+// `DOMParser` and `Document` aren't declared at all — the browser still hands
+// us the real implementation at runtime, and the Worker only ever takes the
+// plain-text path below.
+interface ParsedDocLike {
+  body: { innerText?: string | null } | null;
+  documentElement: { textContent: string | null };
+}
+type DOMParserLike = new () => {
+  parseFromString(source: string, type: string): ParsedDocLike;
+};
+
 function parseHTMLPayload(html: string | null | undefined): string | null {
-  if (!html || typeof DOMParser === 'undefined') return null;
-  let doc: Document;
+  const Parser = (globalThis as { DOMParser?: DOMParserLike }).DOMParser;
+  if (!html || !Parser) return null;
+  let doc: ParsedDocLike;
   try {
-    doc = new DOMParser().parseFromString(html, 'text/html');
+    doc = new Parser().parseFromString(html, 'text/html');
   } catch {
     return null;
   }
@@ -117,19 +132,23 @@ function parseHTMLPayload(html: string | null | undefined): string | null {
   // structure alone, so we extract all cell-like text and feed it back through
   // the plain-text path. This still benefits from HTML's accurate cell
   // separation (whitespace inside a cell stays inside one line).
-  const text = (doc.body as HTMLElement | null)?.innerText ?? doc.documentElement.textContent ?? '';
+  const text = doc.body?.innerText ?? doc.documentElement.textContent ?? '';
   if (!text.trim()) return null;
   return text;
 }
 
 // --- Plain-text tokenisation -------------------------------------------------
 
-function tokenise(text: string): string[] {
+// Every non-empty line of the dump, noise included. Record decoding drops the
+// noise straight after, but the page footer has to be read off this list: it
+// arrives as "Page" / "1" / "of 2" and the bare "Page" is itself a noise line,
+// so filtering first would take the anchor with it and leave the split form
+// undetectable.
+function splitLines(text: string): string[] {
   return normalise(text)
     .split('\n')
     .map((l) => l.replace(/\t/g, ' ').trim())
-    .filter(Boolean)
-    .filter((l) => !isNoise(l));
+    .filter(Boolean);
 }
 
 function findScheduleAnchors(tokens: string[]): number[] {
@@ -388,9 +407,10 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     if (fromHtml && fromHtml.trim().length > source.trim().length) source = fromHtml;
   }
 
-  const tokens = tokenise(source);
+  const lines = splitLines(source);
+  const tokens = lines.filter((l) => !isNoise(l));
   const warnings: string[] = [];
-  const { currentPage, totalPages } = findPageInfo(tokens);
+  const { currentPage, totalPages } = findPageInfo(lines);
   const anchors = findScheduleAnchors(tokens);
   const records: PMS230Record[] = [];
 

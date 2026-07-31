@@ -12,6 +12,7 @@ import {
   totalReqLites,
 } from '../lib/coaterMath';
 import PasteImport, { type ImportMode } from './PasteImport';
+import PortalImport from './PortalImport';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
 
@@ -368,6 +369,10 @@ export default function Schedules({ density }: SchedulesProps) {
     KEY_DATA,
     { domain: 'schedules', params: {} },
     dataInit,
+    // The bookmarklet writes this partition from the Infor portal, so the
+    // report can change while the app sits open on another screen. Pick it up
+    // when the operator comes back rather than only on a fresh mount.
+    { refreshOnFocus: true },
   );
   const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
   const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
@@ -377,7 +382,7 @@ export default function Schedules({ density }: SchedulesProps) {
   );
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
-  const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
+  const [importMode, setImportMode] = useState<'pms230' | 'policy' | 'portal' | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
@@ -897,22 +902,41 @@ export default function Schedules({ density }: SchedulesProps) {
           onConfirm={handlePms230Confirm}
           onClose={() => setImportMode(null)}
           headerActions={
-            <button
-              type="button"
-              className="btn ghost mini sch-import-policy-btn"
-              onClick={() => setImportMode('policy')}
-              aria-label="Importer la politique MTO/MTS"
-              title={
-                policy
-                  ? `Politique MTO/MTS · ${policy.count} produits chargés — cliquer pour réimporter`
-                  : 'Importer la table de politique MTO/MTS'
-              }
-            >
-              <span className="glyph" aria-hidden="true">⚙</span>
-              <span className="lbl-full">Politique MTO/MTS</span>
-              <span className="lbl-short" aria-hidden="true">MTO</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn ghost mini sch-import-policy-btn"
+                onClick={() => setImportMode('portal')}
+                aria-label="Configurer l’import direct depuis Mingle"
+                title="Import direct — importer depuis l’Operator Mashup en un clic, sans copier-coller"
+              >
+                <span className="glyph" aria-hidden="true">⇱</span>
+                <span className="lbl-full">Import direct</span>
+                <span className="lbl-short" aria-hidden="true">Direct</span>
+              </button>
+              <button
+                type="button"
+                className="btn ghost mini sch-import-policy-btn"
+                onClick={() => setImportMode('policy')}
+                aria-label="Importer la politique MTO/MTS"
+                title={
+                  policy
+                    ? `Politique MTO/MTS · ${policy.count} produits chargés — cliquer pour réimporter`
+                    : 'Importer la table de politique MTO/MTS'
+                }
+              >
+                <span className="glyph" aria-hidden="true">⚙</span>
+                <span className="lbl-full">Politique MTO/MTS</span>
+                <span className="lbl-short" aria-hidden="true">MTO</span>
+              </button>
+            </>
           }
+        />
+      )}
+      {importMode === 'portal' && (
+        <PortalImport
+          onBack={() => setImportMode('pms230')}
+          onClose={() => setImportMode(null)}
         />
       )}
       {importMode === 'policy' && (
