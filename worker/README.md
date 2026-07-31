@@ -8,6 +8,14 @@ HTTP API. Two environments share the same Worker code:
 | `dev`        | `working-book-api-dev`   | `working-book-dev`  | `67d3ea83-4067-495e-97e0-02dd46f18cbe`     | GitHub Pages preview build, `wrangler dev`, local |
 | `production` | `working-book-api`       | `working-book-prod` | `98426291-1638-4dfa-94a7-63109c5300fc`     | Cloudflare Pages production build                |
 
+The front end is built against one of the two, and CI tells it which through
+`VITE_CHANNEL` (`prod` on `main`, `dev` everywhere else) alongside
+`VITE_API_URL`. Anything gated on the dev channel — today the Logbook, Test and
+Cosmétique tabs — therefore appears in the Pages previews and in `npm run dev`,
+never on <https://working-book.pages.dev>. A local `npm run build` with no
+`VITE_CHANNEL` set builds as production; pass `VITE_CHANNEL=dev npm run build`
+to check a preview bundle.
+
 Both D1 databases live in region `WEUR` and already have the `0001_init.sql`
 schema applied (provisioned through the Cloudflare MCP connector). `account_id`
 is hard-coded in `wrangler.toml`.

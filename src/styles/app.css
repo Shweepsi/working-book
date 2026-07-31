@@ -1240,6 +1240,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   }
   .app-header .brand { gap: 0; }
   .app-header .brand-name { display: none; }
+  /* The name is dropped to make room for the tab bar and the shift chips. A
+     build that ships neither has the width to spare, and without it the left
+     half of the phone header is empty. */
+  .app-header.is-single-view .brand-name { display: inline; }
   .shift-meta { gap: 8px; font-size: var(--fs-sm); }
 
   .tabs { padding: 2px; }
