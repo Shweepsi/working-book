@@ -2970,8 +2970,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   transition: background 100ms ease, width 100ms ease, left 100ms ease;
 }
 .sch-row.sch-head .sch-cell:hover .sch-col-resize::before { background: var(--line-soft); }
-.sch-col-resize:hover::before,
-.sch-col-resize:active::before {
+/* Carries the header prefix so it outranks the cell-hover rule above, which
+   otherwise kept the line grey while the pointer was on the handle itself —
+   the geometry grew but the accent never landed. */
+.sch-row.sch-head .sch-cell .sch-col-resize:hover::before,
+.sch-row.sch-head .sch-cell .sch-col-resize:active::before {
   background: var(--accent);
   width: 2px;
   left: 3.5px;
@@ -3056,6 +3059,19 @@ body.is-col-resizing * {
 .sch-row.sch-head .sch-cell.col-fmt,
 .sch-row.sch-head .sch-cell.col-pdp {
   box-shadow: inset 1px 0 0 var(--line-soft);
+}
+/* One edge, one line. The separator above and the resize handle's hairline
+   both draw the boundary, a pixel apart — which reads as a double border
+   around whichever column opens a group (Qualité by default, Dimension and
+   PDP when shown), and again on the last pinned column, whose border-right
+   lands on the same edge. The full-height line wins it; the hairline steps
+   aside and still lights up under the pointer, which is when it says
+   anything. */
+.sch-row.sch-head .sch-cell.col-name:has(+ .sch-cell) .sch-col-resize:not(:hover):not(:active)::before,
+.sch-row.sch-head .sch-cell:has(+ .sch-cell.col-fmt) .sch-col-resize:not(:hover):not(:active)::before,
+.sch-row.sch-head .sch-cell:has(+ .sch-cell.col-pdp) .sch-col-resize:not(:hover):not(:active)::before,
+.sch-row.sch-head .sch-cell.is-pinned-last .sch-col-resize:not(:hover):not(:active)::before {
+  background: transparent;
 }
 .sch-cell.col-m2 {
   background: color-mix(in srgb, var(--hl-green) 55%, var(--paper));
