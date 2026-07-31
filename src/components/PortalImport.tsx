@@ -83,6 +83,15 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
           collage à la main.
         </p>
 
+        <p className="faint small sch-import-hint">
+          <strong>Import entièrement automatique :</strong> si les extensions
+          navigateur sont autorisées sur le poste, le dossier{' '}
+          <code>extension/</code> du dépôt en contient une qui lit la grille
+          directement dans son cadre — sans copie ni clic, dès que la recherche
+          aboutit. Le favori ci-dessous reste la solution quand les extensions
+          sont bloquées.
+        </p>
+
         {!SYNC_ENABLED ? (
           <div className="sch-import-status sch-error">
             ⚠ Cette copie de Working Book est en mode local (aucun serveur

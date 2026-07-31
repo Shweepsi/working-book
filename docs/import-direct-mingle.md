@@ -34,6 +34,19 @@ de la feuille, le collage et le bouton Importer.
 Si le mashup est ouvert **seul dans son onglet**, il n'y a plus de cadre : le
 favori lit la page directement et la copie devient inutile.
 
+### Se passer aussi de la copie : l'extension
+
+Une seule chose au monde peut lire un cadre d'un autre domaine : une **extension
+navigateur**, via `all_frames`. Le navigateur exécute alors le script *à
+l'intérieur* du cadre de la grille.
+
+Si les extensions sont autorisées sur le poste, c'est la meilleure option : plus
+de copie, plus de clic, l'envoi part tout seul dès que la recherche aboutit.
+Voir [`extension/README.md`](../extension/README.md).
+
+Le favori décrit ci-dessous reste la solution quand les extensions sont
+bloquées par l'IT.
+
 ## 1. Installer le favori (une seule fois, par poste)
 
 1. Dans Working Book, onglet **Planning** → bouton **Importer rapport Operator
