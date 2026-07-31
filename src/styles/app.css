@@ -3053,23 +3053,16 @@ body.is-col-resizing * {
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }
 
-/* Subtle column-group separators in the header to set rhythm:
-   identity (1-5) → quantities (6-9) → format/qualité (10-12) → PDP/m² (13-14) */
-.sch-row.sch-head .sch-cell.col-name + .sch-cell,
-.sch-row.sch-head .sch-cell.col-fmt,
-.sch-row.sch-head .sch-cell.col-pdp {
-  box-shadow: inset 1px 0 0 var(--line-soft);
-}
-/* One edge, one line. The separator above and the resize handle's hairline
-   both draw the boundary, a pixel apart — which reads as a double border
-   around whichever column opens a group (Qualité by default, Dimension and
-   PDP when shown), and again on the last pinned column, whose border-right
-   lands on the same edge. The full-height line wins it; the hairline steps
-   aside and still lights up under the pointer, which is when it says
-   anything. */
-.sch-row.sch-head .sch-cell.col-name:has(+ .sch-cell) .sch-col-resize:not(:hover):not(:active)::before,
-.sch-row.sch-head .sch-cell:has(+ .sch-cell.col-fmt) .sch-col-resize:not(:hover):not(:active)::before,
-.sch-row.sch-head .sch-cell:has(+ .sch-cell.col-pdp) .sch-col-resize:not(:hover):not(:active)::before,
+/* Every column edge in the header carries the same hairline — the one the
+   resize handle draws. There used to be heavier full-height separators marking
+   column groups (identity → quantities → format/qualité → PDP/m²), but they
+   were keyed to the old column order: once the default order moved Qualité and
+   PDP next to each other, two of the three landed side by side and framed
+   Qualité alone, while the run of numbers they were meant to open got nothing.
+   A uniform edge everywhere is what the table reads best as.
+   One edge, one line: on the last pinned column the border-right already draws
+   it, so the hairline steps aside there rather than stacking a pixel away. It
+   still lights up under the pointer, which is when it says anything. */
 .sch-row.sch-head .sch-cell.is-pinned-last .sch-col-resize:not(:hover):not(:active)::before {
   background: transparent;
 }
@@ -4466,10 +4459,9 @@ button.as-row:focus-visible {
      guarantee every label fits. */
   white-space: normal;
   overflow: visible;
-  /* Screen's column-group separators (inset shadow before Qualité / Dimension)
-     double up with the uniform per-cell divider that's already there in print,
-     reading as one column singled out with a heavier rule. The uniform
-     dividers alone carry the rhythm on paper. */
+  /* Nothing heavier than the uniform per-cell divider on paper: this also
+     catches the pinned-column shadow, which the table keeps once it has been
+     scrolled sideways and which prints as a smear. */
   box-shadow: none;
 }
 :root.is-print-preview .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
