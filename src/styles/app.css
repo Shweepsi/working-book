@@ -2460,6 +2460,46 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-size: var(--fs-2xs);
 }
 
+/* Swipe-to-delete wrapper around a rail card. The action layer sits underneath
+   and is uncovered as the card slides left. `pan-y` leaves the rail's own
+   vertical scrolling to the browser and claims only the horizontal axis. */
+.sch-swipe {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.sch-swipe.is-dragging { user-select: none; }
+.sch-swipe-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-right: var(--space-5);
+  background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
+  color: var(--flag-unsched-fg);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: background 120ms ease, color 120ms ease;
+}
+/* Past the release threshold the strip goes solid: the card tells the operator
+   the delete is armed before they lift their finger. */
+.sch-swipe.is-armed .sch-swipe-action {
+  background: var(--flag-unsched-bd);
+  color: var(--paper);
+}
+.sch-swipe-action-label { letter-spacing: 0.02em; }
+/* Opaque so the action strip stays hidden until the card actually moves. */
+.sch-swipe-surface {
+  position: relative;
+  background: var(--paper);
+  border-radius: var(--radius-md);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.sch-swipe.is-dragging .sch-swipe-surface { transition: none; }
+
 .sch-detail {
   display: flex;
   flex-direction: column;
