@@ -1,4 +1,4 @@
-const DEFAULTS = { apiBase: '', token: '', auto: true };
+const DEFAULTS = { apiBase: '', auto: true };
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -26,14 +26,12 @@ async function ensurePermission(apiBase) {
 async function load() {
   const cfg = await chrome.storage.sync.get(DEFAULTS);
   $('apiBase').value = cfg.apiBase;
-  $('token').value = cfg.token;
   $('auto').checked = cfg.auto !== false;
 }
 
 function readForm() {
   return {
     apiBase: $('apiBase').value.trim().replace(/\/+$/, ''),
-    token: $('token').value.trim(),
     auto: $('auto').checked,
   };
 }
@@ -69,21 +67,16 @@ async function test() {
       say(`Le serveur répond ${res.status}. Vérifiez l’adresse.`, 'err');
       return;
     }
-    // /api/health is unauthenticated, so a green light there says nothing about
-    // the token. Poke the real endpoint with a body that parses to no records:
-    // it is rejected before anything is written, so this can't touch the report.
+    // /api/health only proves the Worker is up. Poke the real endpoint too, with
+    // a body that parses to no records: it is rejected before anything is
+    // written, so this can't touch the stored report.
     const probe = await fetch(`${cfg.apiBase}/api/schedules/ingest`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(cfg.token ? { 'X-WB-Token': cfg.token } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: 'test de connexion Working Book' }),
     });
-    if (probe.status === 401) {
-      say('Serveur joignable, mais le jeton est refusé (401).', 'err');
-    } else if (probe.status === 422) {
-      say('Connexion et jeton corrects — prêt à importer.', 'ok');
+    if (probe.status === 422) {
+      say('Connexion correcte — prêt à importer.', 'ok');
     } else {
       say(`Serveur joignable (réponse ${probe.status}).`, 'ok');
     }

@@ -20,9 +20,14 @@ function isRemoteAllowed(): boolean {
   return SYNC_ENABLED;
 }
 
-// Legacy key from the removed local-only toggle. Cleared on init so a stored
-// "local" preference can't linger in localStorage with no UI to clear it.
-const LEGACY_MODE_KEY = 'wb.sync.mode';
+// Keys written by features that no longer exist. Cleared on init so nothing
+// lingers in localStorage with no UI left to clear it — the ingest token
+// especially, which was a credential before the endpoint stopped asking for one.
+const LEGACY_KEYS = [
+  'wb.sync.mode', // the removed local-only sync toggle
+  'wb.schedules.ingest.token',
+  'wb.schedules.ingest.mode',
+];
 
 interface Mutation {
   id: string;
@@ -179,7 +184,7 @@ export function initSync(): void {
   try {
     const raw = window.localStorage.getItem(QUEUE_KEY);
     queue = raw ? (JSON.parse(raw) as Mutation[]) : [];
-    window.localStorage.removeItem(LEGACY_MODE_KEY);
+    for (const key of LEGACY_KEYS) window.localStorage.removeItem(key);
   } catch {
     queue = [];
   }

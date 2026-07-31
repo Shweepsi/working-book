@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { API_BASE, SYNC_ENABLED } from '../lib/api';
 import { bookmarkletHref, bookmarkletSource } from '../lib/bookmarklet';
-import { load, save } from '../lib/storage';
 import { useEscapeToClose } from '../lib/hooks';
 
 // Set-up sheet for the direct import. Nothing here talks to Infor — it builds
 // the bookmarklet the operator installs once, then uses from the Operator
 // Mashup itself, where their session already is.
-
-const KEY_TOKEN = 'wb.schedules.ingest.token';
 
 interface PortalImportProps {
   onClose: () => void;
@@ -16,18 +13,12 @@ interface PortalImportProps {
 }
 
 export default function PortalImport({ onClose, onBack }: PortalImportProps) {
-  const [token, setToken] = useState(() => {
-    const stored = load<unknown>(KEY_TOKEN, '');
-    return typeof stored === 'string' ? stored : '';
-  });
   const [copied, setCopied] = useState(false);
   const linkRef = useRef<HTMLAnchorElement>(null);
 
   useEscapeToClose(onClose);
-  useEffect(() => { save(KEY_TOKEN, token); }, [token]);
 
-  const opts = { apiBase: API_BASE, token };
-  const href = SYNC_ENABLED ? bookmarkletHref(opts) : '';
+  const href = SYNC_ENABLED ? bookmarkletHref(API_BASE) : '';
 
   // Assigned through the DOM rather than as a prop: React refuses to render a
   // `javascript:` href and would strip it to about:blank.
@@ -117,25 +108,6 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
               glisser dans la liste de gauche.
             </p>
 
-            <div className="sch-portal-field">
-              <h4>
-                Jeton <span className="faint">· optionnel</span>
-              </h4>
-              <input
-                type="text"
-                className="sch-portal-token mono"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="laisser vide si le serveur n’en demande pas"
-                spellCheck={false}
-                autoComplete="off"
-              />
-              <p className="faint small">
-                À renseigner uniquement si <code>INGEST_TOKEN</code> a été défini
-                sur le serveur. Il est alors recopié tel quel dans le favori.
-              </p>
-            </div>
-
             <details className="sch-import-warnings sch-portal-source">
               <summary>Voir ce que fait le favori</summary>
               <p className="faint small">
@@ -143,7 +115,7 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
                 <code>{API_BASE}/api/schedules/ingest</code>. Rien d’autre ne
                 quitte la page.
               </p>
-              <pre className="mono small">{bookmarkletSource(opts)}</pre>
+              <pre className="mono small">{bookmarkletSource(API_BASE)}</pre>
             </details>
           </>
         )}

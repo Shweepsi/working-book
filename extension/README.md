@@ -30,13 +30,12 @@ Le favori reste utile là où les extensions sont interdites.
 2. Dans Edge : `edge://extensions` — dans Chrome : `chrome://extensions`.
 3. Activer **Mode développeur**.
 4. **Charger l'extension non empaquetée**, puis désigner le dossier `extension/`.
-5. Ouvrir les **options** de l'extension et renseigner :
-   - **Adresse du serveur** : l'URL du Worker (la même que `VITE_API_URL`).
-   - **Jeton** : uniquement si `INGEST_TOKEN` est défini côté serveur.
+5. Ouvrir les **options** de l'extension et renseigner l'**adresse du serveur** :
+   l'URL du Worker, la même que `VITE_API_URL`.
 6. Cliquer **Enregistrer** — le navigateur demande l'autorisation d'accéder au
    serveur, il faut l'accepter — puis **Tester la connexion**.
 
-`Connexion et jeton corrects` confirme que tout est en place.
+`Connexion correcte` confirme que tout est en place.
 
 ## Utilisation
 
@@ -50,7 +49,6 @@ La pastille sur l'icône indique le résultat :
 | vert, un nombre | lignes importées |
 | orange `0` | rapport lu mais aucune ligne décodée — le rapport stocké n'est pas touché |
 | orange `vide` | aucune grille trouvée dans l'onglet |
-| rouge `401` | jeton refusé |
 | rouge `config` | adresse du serveur non renseignée |
 | rouge `rés.` | serveur injoignable |
 

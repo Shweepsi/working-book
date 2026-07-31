@@ -100,17 +100,16 @@ a deliberate act, done from the Schedule tab.
 A dump that yields no decodable row answers `422 no_records` and leaves the
 stored report alone, so a mis-click on the wrong screen can't damage it.
 
-Two optional settings govern it, both unset by default:
+There is no auth on it, deliberately: the whole API is unauthenticated, so a
+token on this one endpoint would have locked one door of an open house while
+costing every operator a value to copy into their bookmarklet and extension.
 
-| Setting          | Kind   | Default                 | Meaning |
-| ---------------- | ------ | ----------------------- | ------- |
-| `INGEST_TOKEN`   | secret | *(none)*                | When set, the request must carry a matching `X-WB-Token` header, else `401`. Unset leaves the endpoint as open as the rest of the API. |
-| `INGEST_ORIGINS` | var    | `*.inforcloudsuite.com` | Extra CORS origins accepted **on this endpoint only** — the other routes keep `ALLOWED_ORIGINS` untouched. |
+One optional setting governs it:
 
-```bash
-# Recommended: gate the endpoint, since its CORS list is wider than the others'.
-npx wrangler secret put INGEST_TOKEN --env production
-```
+| Setting          | Kind | Default                 | Meaning |
+| ---------------- | ---- | ----------------------- | ------- |
+| `INGEST_ORIGINS` | var  | `*.inforcloudsuite.com` | Extra CORS origins accepted **on this endpoint only** — the other routes keep `ALLOWED_ORIGINS` untouched. |
 
-Paste the same value into the *Jeton* field of the Import direct sheet; it is
-baked into the generated bookmarklet.
+Note that CORS is no defence against non-browser clients; it only keeps other
+web pages from posting here on an operator's behalf. If this ever needs real
+protection, it belongs in front of the whole API, not on this route alone.

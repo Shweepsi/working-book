@@ -62,9 +62,6 @@ changement d'onglet, l'ouverture de la feuille, le collage et le bouton.
    **Copier le lien**, créer un favori à la main et coller le texte copié dans le
    champ **Adresse**.
 
-Le champ **Jeton** ne sert que si un jeton a été configuré côté serveur
-(`INGEST_TOKEN`). Sinon, le laisser vide.
-
 ### Importer
 
 1. Ouvrir l'Operator Mashup et lancer la recherche.
@@ -87,21 +84,14 @@ recliquer.
 | *Le presse-papiers ne contient pas de rapport* | Rien de copié, ou une copie d'autre chose. | Cliquer dans le rapport, <kbd>Ctrl</kbd> + <kbd>A</kbd> / <kbd>Ctrl</kbd> + <kbd>C</kbd>, recliquer le favori. |
 | *Lecture du presse-papiers refusée* | L'autorisation navigateur a été refusée. | La réactiver via l'icône dans la barre d'adresse, puis recliquer. |
 | *Envoi impossible* | Serveur injoignable (réseau, ou politique de sécurité du portail). | **Rien n'a été importé.** Réessayer ; si ça persiste, coller dans Working Book → Schedule → **Importer**. |
-| *Échec de l'import (401 unauthorized)* | Un jeton est exigé par le serveur et celui du favori ne correspond pas. | Corriger le champ **Jeton** dans la feuille Import direct, puis réinstaller le favori (il embarque le jeton). |
 | *Échec de l'import (422 no_records)* | Du texte a été lu mais aucune ligne n'a pu être décodée. | Vérifier qu'on est bien sur le rapport PMS230 et non sur un écran de recherche vide. Le rapport déjà chargé n'est pas touché. |
 
-Le favori embarque l'adresse du serveur et le jeton au moment où il est
-installé. Si l'un des deux change, refaire l'installation.
+Le favori embarque l'adresse du serveur au moment où il est installé. Si elle
+change, refaire l'installation.
 
 ## Pour l'administrateur
 
-L'endpoint est `POST /api/schedules/ingest`. Comme il accepte les origines
-`*.inforcloudsuite.com` — nécessaire pour que le favori et l'extension puissent
-écrire depuis le portail — il est recommandé de le protéger par un jeton :
-
-```bash
-cd worker
-npx wrangler secret put INGEST_TOKEN --env production
-```
-
-Détails dans [`worker/README.md`](../worker/README.md).
+L'endpoint est `POST /api/schedules/ingest`. Il accepte les origines
+`*.inforcloudsuite.com`, nécessaire pour que le favori et l'extension puissent
+écrire depuis le portail, et n'exige aucune authentification — comme le reste de
+l'API. Détails dans [`worker/README.md`](../worker/README.md).

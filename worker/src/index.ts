@@ -11,9 +11,6 @@ export interface Env {
   // bookmarklet runs inside the Infor portal, so its Origin is never the app's
   // own — see DEFAULT_INGEST_ORIGINS.
   INGEST_ORIGINS?: string;
-  // Shared secret for the ingest endpoint, set with `wrangler secret put`.
-  // Optional: unset means the endpoint is as open as the rest of the API.
-  INGEST_TOKEN?: string;
 }
 
 const MAX_BODY_BYTES = 512 * 1024;
@@ -26,7 +23,6 @@ const POSTE_RE = /^[ABCD]$/;
 const SHIFT_RE = /^[MANR]$/;
 
 const INGEST_PATH = '/api/schedules/ingest';
-const INGEST_TOKEN_HEADER = 'X-WB-Token';
 // Every Infor CloudSuite tenant lives under this domain, portal and embedded
 // M3 host alike, and the bookmarklet may run from either.
 const DEFAULT_INGEST_ORIGINS = '*.inforcloudsuite.com';
@@ -42,7 +38,6 @@ export default {
         ? corsHeaders(env, origin, {
             extraOrigins: splitPatterns(env.INGEST_ORIGINS ?? DEFAULT_INGEST_ORIGINS),
             methods: 'POST, OPTIONS',
-            headers: `Content-Type, ${INGEST_TOKEN_HEADER}`,
           })
         : corsHeaders(env, origin);
 
@@ -305,15 +300,6 @@ async function writeSchedules(env: Env, value: unknown): Promise<number> {
   return now;
 }
 
-// Constant-time-ish comparison. Length still leaks, which for a shared import
-// token is not worth the extra machinery.
-function tokenMatches(got: string, expected: string): boolean {
-  if (got.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
-}
-
 // Direct import from the Infor portal. The "Import direct" bookmarklet and the
 // browser extension both post the raw Operator Mashup text here; we run it
 // through the very same parser the paste sheet uses, so no route can drift from
@@ -330,11 +316,6 @@ async function handleSchedulesIngest(
   cors: Record<string, string>,
 ): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, cors, 405);
-
-  const expected = (env.INGEST_TOKEN ?? '').trim();
-  if (expected && !tokenMatches(request.headers.get(INGEST_TOKEN_HEADER) ?? '', expected)) {
-    return json({ error: 'unauthorized' }, cors, 401);
-  }
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
