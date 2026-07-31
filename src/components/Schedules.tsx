@@ -11,7 +11,8 @@ import {
   totalM2,
   totalReqLites,
 } from '../lib/coaterMath';
-import PasteImport, { type ImportMode } from './PasteImport';
+import PasteImport from './PasteImport';
+import PortalImport from './PortalImport';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
 
@@ -333,8 +334,7 @@ function describePMS230(r: PMS230Result): string {
   const records = r.records?.length ?? 0;
   const schedules = r.schedules?.length ?? 0;
   const m2 = totalM2(r.records ?? []);
-  const page = r.totalPages ? ` · page ${r.currentPage}/${r.totalPages}` : '';
-  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${fmtNum(m2, 2)} m²${page}`;
+  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${fmtNum(m2, 2)} m²`;
 }
 
 function describePolicy(r: PolicyResult): string {
@@ -374,6 +374,10 @@ export default function Schedules({ density }: SchedulesProps) {
     KEY_DATA,
     { domain: 'schedules', params: {} },
     dataInit,
+    // The bookmarklet writes this partition from the Infor portal, so the
+    // report can change while the app sits open on another screen. Pick it up
+    // when the operator comes back rather than only on a fresh mount.
+    { refreshOnFocus: true },
   );
   const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
   const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
@@ -383,7 +387,7 @@ export default function Schedules({ density }: SchedulesProps) {
   );
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
-  const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
+  const [importMode, setImportMode] = useState<'pms230' | 'policy' | 'portal' | null>(null);
   // Schedule number waiting on the delete confirmation, or null.
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
@@ -741,10 +745,11 @@ export default function Schedules({ density }: SchedulesProps) {
     });
   }
 
-  function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
-    // `replace` only reaches here on the first import — the sheet offers
-    // "Ajouter" alone once a report is loaded, so there is nothing to undo.
-    setData((prev) => (mode === 'append' ? mergePMS230(prev, parsed) : parsed));
+  function handlePms230Confirm(parsed: PMS230Result) {
+    // Every import adds, whichever route it came in by. `mergePMS230` keys on
+    // schedule|MO, so re-importing a page updates its rows rather than
+    // duplicating them; dropping a schedule is done from the rail.
+    setData((prev) => mergePMS230(prev, parsed));
     setImportMode(null);
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
@@ -936,26 +941,45 @@ export default function Schedules({ density }: SchedulesProps) {
           hint="Dans l'Operator Mashup, faites votre recherche. Ctrl+A puis Ctrl+C, et coller ci-dessous."
           parser={parsePMS230}
           describe={describePMS230}
-          showAppend={!!data}
+          confirmLabel="Ajouter"
           onConfirm={handlePms230Confirm}
           onClose={() => setImportMode(null)}
           headerActions={
-            <button
-              type="button"
-              className="btn ghost mini sch-import-policy-btn"
-              onClick={() => setImportMode('policy')}
-              aria-label="Importer la politique MTO/MTS"
-              title={
-                policy
-                  ? `Politique MTO/MTS · ${policy.count} produits chargés — cliquer pour réimporter`
-                  : 'Importer la table de politique MTO/MTS'
-              }
-            >
-              <span className="glyph" aria-hidden="true">⚙</span>
-              <span className="lbl-full">Politique MTO/MTS</span>
-              <span className="lbl-short" aria-hidden="true">MTO</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn ghost mini sch-import-policy-btn"
+                onClick={() => setImportMode('portal')}
+                aria-label="Configurer l’import direct depuis Mingle"
+                title="Import direct — importer depuis l’Operator Mashup en un clic, sans copier-coller"
+              >
+                <span className="glyph" aria-hidden="true">⇱</span>
+                <span className="lbl-full">Import direct</span>
+                <span className="lbl-short" aria-hidden="true">Direct</span>
+              </button>
+              <button
+                type="button"
+                className="btn ghost mini sch-import-policy-btn"
+                onClick={() => setImportMode('policy')}
+                aria-label="Importer la politique MTO/MTS"
+                title={
+                  policy
+                    ? `Politique MTO/MTS · ${policy.count} produits chargés — cliquer pour réimporter`
+                    : 'Importer la table de politique MTO/MTS'
+                }
+              >
+                <span className="glyph" aria-hidden="true">⚙</span>
+                <span className="lbl-full">Politique MTO/MTS</span>
+                <span className="lbl-short" aria-hidden="true">MTO</span>
+              </button>
+            </>
           }
+        />
+      )}
+      {importMode === 'portal' && (
+        <PortalImport
+          onBack={() => setImportMode('pms230')}
+          onClose={() => setImportMode(null)}
         />
       )}
       {importMode === 'policy' && (
@@ -1122,7 +1146,6 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
   const m2 = data ? fmtNum(totalM2(data.records), 2) : null;
   const policyCount = policy?.count ?? 0;
   const importedAt = data?.importedAt ? new Date(data.importedAt) : null;
-  const pageWarn = data?.totalPages && data.totalPages > 1;
 
   return (
     <div className="sch-summary">
@@ -1155,11 +1178,6 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-            </span>
-          )}
-          {pageWarn && (
-            <span className="sch-warn-chip" title="Le paste ne couvre qu'une partie du rapport">
-              ⚠ Page {data.currentPage}/{data.totalPages} — colle les pages suivantes (bouton Ajouter)
             </span>
           )}
         </div>

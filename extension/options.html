@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Working Book — réglages</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        padding: 24px;
+        max-width: 620px;
+        font: 14px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+      }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p.lede { margin: 0 0 20px; opacity: 0.7; }
+      label { display: block; margin-top: 18px; font-weight: 600; }
+      .hint { font-weight: 400; opacity: 0.7; font-size: 13px; margin-top: 4px; }
+      input[type='text'], input[type='url'], select {
+        width: 100%;
+        margin-top: 6px;
+        padding: 8px 10px;
+        border: 1px solid rgba(128, 128, 128, 0.5);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+      }
+      .row { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+      .row label { margin: 0; }
+      .actions { display: flex; gap: 8px; margin-top: 24px; }
+      button {
+        padding: 8px 16px;
+        border: 1px solid rgba(128, 128, 128, 0.5);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.primary { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+      #status { margin-top: 16px; min-height: 20px; font-size: 13px; }
+      .ok { color: #2e7d32; }
+      .err { color: #c62828; }
+      code { font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Working Book — import Operator Mashup</h1>
+    <p class="lede">
+      Le rapport PMS230 affiché dans Mingle est envoyé vers Working Book, sans
+      copier-coller ni changement d’onglet.
+    </p>
+
+    <label for="apiBase">
+      Adresse du serveur Working Book
+      <div class="hint">
+        L’URL du Worker, par ex. <code>https://working-book-api.xxx.workers.dev</code>.
+        C’est la même valeur que <code>VITE_API_URL</code>.
+      </div>
+    </label>
+    <input id="apiBase" type="url" placeholder="https://…workers.dev" spellcheck="false" />
+
+    <div class="row">
+      <input id="auto" type="checkbox" />
+      <label for="auto">Envoyer automatiquement dès que le rapport change</label>
+    </div>
+    <div class="hint">
+      Décoché, l’envoi ne part qu’au clic sur l’icône de l’extension.
+      Chaque envoi <strong>s’ajoute</strong> au rapport ; réimporter une même
+      page met simplement ses lignes à jour.
+    </div>
+
+    <div class="actions">
+      <button id="save" class="primary" type="button">Enregistrer</button>
+      <button id="test" type="button">Tester la connexion</button>
+    </div>
+
+    <div id="status" aria-live="polite"></div>
+
+    <script src="options.js"></script>
+  </body>
+</html>

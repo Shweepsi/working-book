@@ -20,9 +20,14 @@ function isRemoteAllowed(): boolean {
   return SYNC_ENABLED;
 }
 
-// Legacy key from the removed local-only toggle. Cleared on init so a stored
-// "local" preference can't linger in localStorage with no UI to clear it.
-const LEGACY_MODE_KEY = 'wb.sync.mode';
+// Keys written by features that no longer exist. Cleared on init so nothing
+// lingers in localStorage with no UI left to clear it — the ingest token
+// especially, which was a credential before the endpoint stopped asking for one.
+const LEGACY_KEYS = [
+  'wb.sync.mode', // the removed local-only sync toggle
+  'wb.schedules.ingest.token',
+  'wb.schedules.ingest.mode',
+];
 
 interface Mutation {
   id: string;
@@ -148,6 +153,14 @@ async function flush(): Promise<void> {
   }
 }
 
+// True while a write for this partition is still waiting to reach the Worker.
+// A background refresh has to stand down in that window: our own value is the
+// newer one, and adopting the remote would roll the operator's change back.
+export function hasPendingMutation(remote: SyncRemote): boolean {
+  const path = buildPath(remote);
+  return queue.some((m) => m.path === path);
+}
+
 export function enqueueMutation(remote: SyncRemote, payload: unknown): void {
   if (!isRemoteAllowed()) return;
   const path = buildPath(remote);
@@ -171,7 +184,7 @@ export function initSync(): void {
   try {
     const raw = window.localStorage.getItem(QUEUE_KEY);
     queue = raw ? (JSON.parse(raw) as Mutation[]) : [];
-    window.localStorage.removeItem(LEGACY_MODE_KEY);
+    for (const key of LEGACY_KEYS) window.localStorage.removeItem(key);
   } catch {
     queue = [];
   }
@@ -204,6 +217,19 @@ export function useSyncStatus(): SyncSnapshot {
 
 type Updater<T> = T | ((prev: T) => T);
 
+export interface SyncedStateOptions {
+  // Re-read the partition whenever the window comes back to the foreground.
+  // For domains this app is the only writer of, the mount-time fetch is enough;
+  // turn this on where something outside the app can write — the schedules blob
+  // takes direct imports from the Infor portal bookmarklet, and an operator who
+  // left the tab open would otherwise sit on a stale report indefinitely.
+  refreshOnFocus?: boolean;
+}
+
+// A foreground refresh is a courtesy, not a poll: focus fires on every alt-tab
+// and window click, and the report only changes when someone imports one.
+const REFRESH_MIN_INTERVAL_MS = 10_000;
+
 // Drop-in replacement for the `useState(initFn) + useEffect(save)` pattern. The
 // component owns the initial load (so it can do its own validation / legacy
 // migration); this hook layers cache write-back and remote sync on top.
@@ -211,6 +237,7 @@ export function useSyncedState<T>(
   cacheKey: string,
   remote: SyncRemote | null,
   init: () => T,
+  options: SyncedStateOptions = {},
 ): [T, (next: Updater<T>) => void] {
   const [value, setValueState] = useState<T>(init);
   const dirtyRef = useRef(false);
@@ -218,6 +245,7 @@ export function useSyncedState<T>(
   initRef.current = init;
   const remoteRef = useRef(remote);
   remoteRef.current = remote;
+  const { refreshOnFocus = false } = options;
 
   useEffect(() => {
     setValueState(initRef.current());
@@ -238,6 +266,40 @@ export function useSyncedState<T>(
       cancelled = true;
     };
   }, [cacheKey]);
+
+  useEffect(() => {
+    if (!refreshOnFocus || typeof window === 'undefined') return;
+    let cancelled = false;
+    let lastAt = 0;
+    const refresh = () => {
+      const r = remoteRef.current;
+      if (!r || !isRemoteAllowed()) return;
+      if (document.visibilityState === 'hidden') return;
+      if (Date.now() - lastAt < REFRESH_MIN_INTERVAL_MS) return;
+      // Unlike the mount fetch this ignores `dirtyRef`: a local edit is only
+      // ever ahead of the Worker until its mutation flushes, and `queue` is
+      // what tracks that. Once it has drained the remote holds our own write,
+      // so refusing to adopt it forever would just pin a stale tab.
+      if (hasPendingMutation(r)) return;
+      lastAt = Date.now();
+      apiGet<T>(buildPath(r))
+        .then((envelope) => {
+          if (cancelled || !envelope || envelope.data == null) return;
+          save(cacheKey, envelope.data);
+          setValueState(envelope.data);
+        })
+        .catch(() => {
+          // Same as on mount — a failed refresh leaves the cache in place.
+        });
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [cacheKey, refreshOnFocus]);
 
   const setValue = useCallback(
     (next: Updater<T>) => {

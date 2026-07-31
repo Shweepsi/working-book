@@ -82,6 +82,42 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `PUT  /api/policy` body: `PolicyResult`
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
 - `PUT  /api/schedules` body: `PMS230Result | null`
+- `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
+
+## Direct import from the Infor portal
+
+`POST /api/schedules/ingest` takes a raw Operator Mashup dump instead of a
+parsed report. It runs `parsePMS230` — the same module the paste sheet imports,
+so no route can drift from the others — and merges the result into the shared
+report. Two callers: the "Import direct" bookmarklet the app generates
+(Schedule → *Importer rapport Operator Mashup* → *⇱ Import direct*), which
+reads the operator's clipboard, and the browser extension in `extension/`,
+which reads the M3 grid directly. Both run inside the operator's already
+authenticated session; the Worker never talks to Infor and holds no Infor
+credentials.
+
+**Every import adds.** There is no replace and no mode parameter: an operator
+walking a multi-page report, or re-importing after a fresh search, only ever
+wants more rows. `mergePMS230` keys on `schedule|MO`, so re-sending a page
+updates those rows in place instead of duplicating them. Removing a schedule is
+a deliberate act, done from the Schedule tab.
+
+A dump that yields no decodable row answers `422 no_records` and leaves the
+stored report alone, so a mis-click on the wrong screen can't damage it.
+
+There is no auth on it, deliberately: the whole API is unauthenticated, so a
+token on this one endpoint would have locked one door of an open house while
+costing every operator a value to copy into their bookmarklet and extension.
+
+One optional setting governs it:
+
+| Setting          | Kind | Default                 | Meaning |
+| ---------------- | ---- | ----------------------- | ------- |
+| `INGEST_ORIGINS` | var  | `*.inforcloudsuite.com` | Extra CORS origins accepted **on this endpoint only** — the other routes keep `ALLOWED_ORIGINS` untouched. |
+
+Note that CORS is no defence against non-browser clients; it only keeps other
+web pages from posting here on an operator's behalf. If this ever needs real
+protection, it belongs in front of the whole API, not on this route alone.

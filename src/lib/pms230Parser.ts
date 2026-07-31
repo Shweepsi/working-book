@@ -53,8 +53,6 @@ export interface PMS230Result {
   records: PMS230Record[];
   schedules: PMS230Schedule[];
   warnings: string[];
-  currentPage: number | null;
-  totalPages: number | null;
   importedAt: string;
 }
 
@@ -71,7 +69,6 @@ const SHORT_INT_RE = /^\d{1,4}$/;
 const DECIMAL_RE  = /^\d+\.\d{2}$/;
 const THICKNESS_RE = /^\d{2}\.\d{2}$/;
 const INCHES_RE   = /\s\d+\/\d+$/; // "126 3/8", "236 7/32"
-const PAGE_RE     = /^Page\s+(\d+)\s+of\s+(\d+)$/;
 
 const NOISE_LINES = new Set([
   'Facility', 'Work Center', 'From Start Date', 'To Start Date',
@@ -105,11 +102,26 @@ function isNoise(line: string): boolean {
 
 // --- HTML path ---------------------------------------------------------------
 
+// Just enough of the DOM to walk a parsed clipboard document, read off
+// `globalThis` instead of the ambient lib. The Worker imports this module for
+// its /api/schedules/ingest endpoint and builds without `lib.dom`, where
+// `DOMParser` and `Document` aren't declared at all — the browser still hands
+// us the real implementation at runtime, and the Worker only ever takes the
+// plain-text path below.
+interface ParsedDocLike {
+  body: { innerText?: string | null } | null;
+  documentElement: { textContent: string | null };
+}
+type DOMParserLike = new () => {
+  parseFromString(source: string, type: string): ParsedDocLike;
+};
+
 function parseHTMLPayload(html: string | null | undefined): string | null {
-  if (!html || typeof DOMParser === 'undefined') return null;
-  let doc: Document;
+  const Parser = (globalThis as { DOMParser?: DOMParserLike }).DOMParser;
+  if (!html || !Parser) return null;
+  let doc: ParsedDocLike;
   try {
-    doc = new DOMParser().parseFromString(html, 'text/html');
+    doc = new Parser().parseFromString(html, 'text/html');
   } catch {
     return null;
   }
@@ -117,19 +129,20 @@ function parseHTMLPayload(html: string | null | undefined): string | null {
   // structure alone, so we extract all cell-like text and feed it back through
   // the plain-text path. This still benefits from HTML's accurate cell
   // separation (whitespace inside a cell stays inside one line).
-  const text = (doc.body as HTMLElement | null)?.innerText ?? doc.documentElement.textContent ?? '';
+  const text = doc.body?.innerText ?? doc.documentElement.textContent ?? '';
   if (!text.trim()) return null;
   return text;
 }
 
 // --- Plain-text tokenisation -------------------------------------------------
 
-function tokenise(text: string): string[] {
+// Every non-empty line of the dump, one cell per line. Noise is filtered by the
+// caller, straight after.
+function splitLines(text: string): string[] {
   return normalise(text)
     .split('\n')
     .map((l) => l.replace(/\t/g, ' ').trim())
-    .filter(Boolean)
-    .filter((l) => !isNoise(l));
+    .filter(Boolean);
 }
 
 function findScheduleAnchors(tokens: string[]): number[] {
@@ -141,23 +154,6 @@ function findScheduleAnchors(tokens: string[]): number[] {
     if (SCHEDULE_RE.test(tokens[i]!)) anchors.push(i);
   }
   return anchors;
-}
-
-interface PageInfo { currentPage: number | null; totalPages: number | null }
-
-function findPageInfo(tokens: string[]): PageInfo {
-  // The "Page X of Y" footer often arrives split across three tokens:
-  // "Page", "1", "of 4" — or as one combined string. Handle both.
-  for (let i = 0; i < tokens.length; i++) {
-    const m = tokens[i]!.match(PAGE_RE);
-    if (m) return { currentPage: +m[1]!, totalPages: +m[2]! };
-    if (tokens[i] === 'Page' && /^\d+$/.test(tokens[i + 1] ?? '')) {
-      const tail = tokens[i + 2] ?? '';
-      const m2 = tail.match(/^of\s+(\d+)$/) || tail.match(/^(\d+)$/);
-      if (m2) return { currentPage: +tokens[i + 1]!, totalPages: +m2[1]! };
-    }
-  }
-  return { currentPage: null, totalPages: null };
 }
 
 function decodeRecord(slice: string[], warnings: string[], recordIdx: number): DecodedRecord | null {
@@ -388,9 +384,8 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     if (fromHtml && fromHtml.trim().length > source.trim().length) source = fromHtml;
   }
 
-  const tokens = tokenise(source);
+  const tokens = splitLines(source).filter((l) => !isNoise(l));
   const warnings: string[] = [];
-  const { currentPage, totalPages } = findPageInfo(tokens);
   const anchors = findScheduleAnchors(tokens);
   const records: PMS230Record[] = [];
 
@@ -414,8 +409,6 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     records,
     schedules,
     warnings,
-    currentPage,
-    totalPages,
     importedAt: new Date().toISOString(),
   };
 }
@@ -438,8 +431,6 @@ export function mergePMS230(prev: PMS230Result | null | undefined, next: PMS230R
     records,
     schedules: summariseSchedules(records),
     warnings: [...(prev.warnings ?? []), ...(next.warnings ?? [])],
-    currentPage: next.currentPage ?? prev.currentPage,
-    totalPages: next.totalPages ?? prev.totalPages,
     importedAt: next.importedAt,
   };
 }

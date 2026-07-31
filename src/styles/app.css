@@ -2307,15 +2307,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--flag-unsched-fg);
   font-weight: 600;
 }
-.sch-warn-chip {
-  margin-left: auto;
-  padding: var(--space-2) var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--hl-yellow);
-  color: var(--flag-sched-fg);
-  font-size: var(--fs-sm);
-  border: 1px solid var(--flag-sched-bd);
-}
 .sch-policy-chip {
   display: inline-flex;
   align-items: center;
@@ -3273,6 +3264,40 @@ body.is-col-resizing * {
   gap: var(--space-4);
   align-items: center;
 }
+
+/* Direct-import sheet — builds the Operator Mashup bookmarklet. */
+.sch-portal { width: min(720px, 92vw); }
+.sch-portal-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+}
+.sch-portal-steps li { margin-bottom: 10px; }
+.sch-portal-steps kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-family: inherit;
+  font-size: 0.9em;
+  color: var(--ink);
+}
+.sch-portal-drag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: 8px;
+}
+/* Rendered as an <a> so it can be dragged onto the bookmarks bar — the drag is
+   the whole point, so it must not look or behave like a link. */
+.sch-portal-bookmarklet {
+  cursor: grab;
+  text-decoration: none;
+  user-select: none;
+}
+.sch-portal-bookmarklet:active { cursor: grabbing; }
 
 /* Row-detail sheet — opened on row click. */
 .sch-row-sheet { width: min(640px, calc(100% - 40px)); }
