@@ -1635,6 +1635,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 :root.is-print-preview .no-print {
   display: none !important;
 }
+/* Without this the sheet stretches to the viewport: .app keeps its on-screen
+   min-height: 100dvh and .app-main is its flex:1 child, so a half-page
+   schedule rendered as a sheet of arbitrary window-dependent height. */
+:root.is-print-preview .app { min-height: 0; }
 :root.is-print-preview .app-main {
   /* A fixed width, not a max-width: the sheet has to stay paper-sized whatever
      the window does. Sized off the viewport it shrank below ~1123px and showed
@@ -1642,10 +1646,19 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      one question it exists for — "does this fit". Narrow windows scroll. */
   width: 210mm;
   max-width: none;
-  /* A4 content height once the 5mm @page margins are taken off. */
+  /* Per-page content height and vertical padding, mirroring the @page margins
+     App.tsx installs (portrait 5mm, schedule 8mm top/bottom). Keep the pairs
+     in sync: A4 portrait 297mm − 2×5mm = 287mm. */
+  --preview-pad-v: 5mm;
   --preview-page-h: 287mm;
   margin: 24px auto 80px;
-  padding: 5mm;
+  padding: var(--preview-pad-v) 5mm;
+  /* Padding + one page of content = the physical sheet, so single-page
+     content shows blank paper down to the sheet edge, like the real printout.
+     (Content longer than a page grows the sheet to its own height — trailing
+     pages are marked by the rule, not padded out.) 2px short of exact, so the
+     page-end rule isn't painted when the content is exactly one page. */
+  min-height: calc(var(--preview-page-h) + 2 * var(--preview-pad-v) - 2px);
   background: var(--print-bg);
   color: var(--print-ink-strong);
   border-radius: 2px;
@@ -1661,12 +1674,18 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     var(--print-line) var(--preview-page-h)
   );
   background-origin: content-box;
+  /* Confine the marker to the content box: the repeat also runs backwards,
+     and unclipped its tail painted a stray full-width line in the top
+     padding, just above the title. */
+  background-clip: content-box;
 }
 /* Schedule view is laid out in landscape on paper (see PAGE_SIZE_STYLE_ID in
-   App.tsx), so the preview swaps to a landscape sheet to match. */
+   App.tsx), so the preview swaps to a landscape sheet to match:
+   A4 landscape 210mm − 2×8mm = 194mm per page. */
 :root.is-print-preview .app-main:has(.sch) {
   width: 297mm;
-  --preview-page-h: 180mm;
+  --preview-pad-v: 8mm;
+  --preview-page-h: 194mm;
 }
 :root.is-print-preview .print-only { display: block; }
 :root.is-print-preview .print-header {
@@ -4232,8 +4251,17 @@ button.as-row:focus-visible {
 :root.is-print-preview .sch-body { display: block; }
 :root.is-print-preview .sch-detail-head {
   padding: 0 !important;
+  /* Breathing room before the title, on top of the page margin. */
+  margin-top: 2mm !important;
   margin-bottom: 0 !important;
-  border-bottom: 1pt solid var(--line-soft);
+  /* Strip the on-screen card chrome — grey fill, rounded corners, side
+     borders. Keeping it while moving the closing rule under the meta line
+     left a box open at the bottom, its side borders dangling. On paper the
+     header is a document head: text on white, one strong rule below the
+     meta line (.sch-print-meta). */
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 :root.is-print-preview .sch-detail-head h3 { font-size: 17pt !important; }
 :root.is-print-preview .sch-stat-tile { padding: 0 6pt !important; }
@@ -4251,9 +4279,13 @@ button.as-row:focus-visible {
   display: flex !important;
   flex-wrap: wrap;
   gap: 4pt 12pt;
-  padding: 3pt 0;
+  margin-top: 2pt;
+  padding: 0 0 4pt;
   font-size: 8pt;
   color: var(--ink-soft);
+  /* Closes the header block — title, stats, meta — over the full width,
+     with the table starting directly beneath. */
+  border-bottom: 1pt solid var(--line-soft);
 }
 /* Back to a real table box: <thead> then repeats on every printed page, and
    the <colgroup> percentages take over from --sch-grid. The aperçu runs the
@@ -4299,12 +4331,39 @@ button.as-row:focus-visible {
   border-right: 0.5pt solid var(--line-faint);
 }
 :root.is-print-preview .sch-cell:last-child { border-right: 0; }
-:root.is-print-preview .sch-row.sch-head .sch-cell {
+/* Hairline between data rows. On screen the bands and hover carry the eye;
+   on a 12-column sheet a ruler line is what lets it track across. */
+:root.is-print-preview .sch-table .sch-row-clickable .sch-cell {
+  border-bottom: 0.5pt solid var(--line-faint);
+}
+:root.is-print-preview .sch-table .sch-group-label {
+  border-bottom: 0.5pt solid var(--line-faint);
+}
+/* Accounting rule above the total. The 2px screen border was dropped wholesale
+   in print, which left the band floating on background contrast alone. 1.5pt,
+   not 1pt: at screen DPI 1pt snaps to the same 1px as the row hairlines and
+   the border-collapse tie-break then hands the edge to the hairline above. */
+:root.is-print-preview .sch-table .sch-row.sch-total .sch-cell {
+  border-top: 1.5pt solid var(--line-soft);
+}
+/* Keep the pinned-column divider at the sheet's uniform hairline — parity
+   with the @media print block below. */
+:root.is-print-preview .sch-table .sch-cell.is-pinned-last {
+  border-right: 0.5pt solid var(--line-faint);
+}
+:root.is-print-preview .sch-table .sch-row.sch-head .sch-cell {
   padding: 4pt !important;
   /* Wrap rather than truncate: with many columns visible no fixed weight can
      guarantee every label fits. */
   white-space: normal;
   overflow: visible;
+  /* Close the header band: without this line it sat flush on the first group
+     band in the same grey and the two merged into one block. */
+  border-bottom: 0.75pt solid var(--line-soft);
+  /* The screen's strong group separators (inset shadows before Qualité / PDP)
+     don't carry into the body rows on paper, where they read as printing
+     defects — the uniform cell borders do the separating. */
+  box-shadow: none;
 }
 :root.is-print-preview .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
 :root.is-print-preview .sch-total-label { padding: 3pt 4pt !important; }
@@ -4348,6 +4407,7 @@ button.as-row:focus-visible {
   :root.is-print-preview .app-main {
     width: auto !important;
     max-width: none !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
@@ -4358,8 +4418,11 @@ button.as-row:focus-visible {
   .sch-body { display: block; }
   .sch-detail-head {
     padding: 0 !important;
+    margin-top: 2mm !important;
     margin-bottom: 0 !important;
-    border-bottom: 1pt solid var(--line-soft);
+    background: none;
+    border: 0;
+    border-radius: 0;
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
   .sch-stat-tile { padding: 0 6pt !important; }
@@ -4377,9 +4440,11 @@ button.as-row:focus-visible {
     display: flex !important;
     flex-wrap: wrap;
     gap: 4pt 12pt;
-    padding: 3pt 0;
+    margin-top: 2pt;
+    padding: 0 0 4pt;
     font-size: 8pt;
     color: var(--ink-soft);
+    border-bottom: 1pt solid var(--line-soft);
   }
   .sch-table {
     display: table;
@@ -4426,10 +4491,29 @@ button.as-row:focus-visible {
     border-right: 0.5pt solid var(--line-faint);
   }
   .sch-cell:last-child { border-right: 0; }
-  .sch-row.sch-head .sch-cell {
+  .sch-table .sch-row-clickable .sch-cell {
+    border-bottom: 0.5pt solid var(--line-faint);
+  }
+  .sch-table .sch-group-label {
+    border-bottom: 0.5pt solid var(--line-faint);
+  }
+  .sch-table .sch-row.sch-total .sch-cell {
+    border-top: 1.5pt solid var(--line-soft);
+  }
+  /* The base .sch-cell.is-pinned-last (0,2,0) divider outranks the generic
+     print hairline (0,1,0); restate it so a pinned layout doesn't print a
+     heavier vertical rule than the aperçu shows. */
+  .sch-table .sch-cell.is-pinned-last {
+    border-right: 0.5pt solid var(--line-faint);
+  }
+  .sch-table .sch-row.sch-head .sch-cell {
     padding: 4pt !important;
     white-space: normal;
     overflow: visible;
+    border-bottom: 0.75pt solid var(--line-soft);
+    /* !important: the on-screen group separators (inset shadows keyed on
+       .col-name + .sch-cell etc.) are one class more specific than this. */
+    box-shadow: none !important;
   }
   .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
   .sch-total-label { padding: 3pt 4pt !important; }

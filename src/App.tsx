@@ -164,8 +164,13 @@ export default function App() {
       document.head.appendChild(
         Object.assign(document.createElement('style'), { id: PAGE_SIZE_STYLE_ID }),
       );
-    const orientation = tab === 'sched' ? 'landscape' : 'portrait';
-    el.textContent = `@media print { @page { size: A4 ${orientation}; margin: 5mm; } }`;
+    // The schedule sheet gets taller top/bottom margins: 5mm glued the title
+    // to the paper edge, and on later pages the repeated column header sat
+    // just as tight. Sides stay at 5mm — the table needs the width.
+    el.textContent =
+      tab === 'sched'
+        ? '@media print { @page { size: A4 landscape; margin: 8mm 5mm; } }'
+        : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
   }, [tab]);
 
   const dateObj = dateFromISO(date);

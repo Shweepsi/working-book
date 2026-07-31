@@ -389,6 +389,68 @@ inégale et la version emoji s'affichant en couleur. La sortie reste la barre
 flottante. Vérifié à 1600 px et à 600 px, en thème clair et sombre ; la section
 « Impression » a disparu du popover, qui ne porte plus que Thème et Densité.
 
+**Second passage, sur captures réelles** (schedule 2213000219, 11 lignes) :
+
+- *Élargir Article comprimait encore le papier* — la correction précédente
+  n'excluait que les largeurs auto-gelées, pas celles glissées explicitement.
+  Article à 1100 px : Qualité passait de 79 à 47 pt, 152 cellules en
+  débordement. Le gabarit papier ne lit plus **aucune** largeur écran, seulement
+  `COL_PRINT_WEIGHT`. Vérifié : gabarits strictement identiques avec et sans
+  redimensionnement.
+- *Marge avant le titre* — marges `@page` du schedule portées à 8 mm haut/bas
+  (les côtés restent à 5 mm, le tableau a besoin de la largeur), plus 2 mm de
+  marge de flux sur l'en-tête. Les pages suivantes en profitent aussi :
+  l'en-tête de colonnes répété ne colle plus au bord.
+- *Ligne méta intégrée* — le filet de clôture passe de `.sch-detail-head` à
+  `.sch-print-meta` : titre, stats et ligne méta forment un seul bloc d'en-tête
+  fermé par la règle, le tableau démarre dessous.
+- *Bordures* — la bande d'en-tête de colonnes fusionnait avec la première bande
+  de groupe (même gris, aucun filet) : elle est close par un filet 0.75 pt. Les
+  séparateurs forts hérités de l'écran (ombres internes avant Qualité / PDP) ne
+  continuaient pas dans le corps et lisaient comme des défauts : supprimés au
+  papier. Filets 0.5 pt entre lignes de données et sous les étiquettes de
+  groupe ; règle comptable 1 pt au-dessus du Total.
+- *m² total tronqué* — le total (« 115 875,59 » sur le jeu reconstitué, qui
+  s'arrondit à un centième du rapport réel) sortait « 115 875,… » : le 9 pt gras
+  débordait la pondération héritée des cellules de données. Pondération m²
+  88 → 100 ; plus aucune cellule tronquée aux trois densités.
+- *Feuille d'aperçu* — elle s'étirait à la hauteur de la fenêtre
+  (`min-height: 100dvh` de `.app` fuyait dans l'aperçu) et son repère de fin de
+  page était calé à 180 mm au lieu de la vraie hauteur utile. La feuille fait
+  désormais exactement une page physique (297 × 210 mm paysage, 210 × 297
+  portrait) et le repère suit les marges réelles (194 mm / 287 mm). La
+  prédiction du repère a été validée contre la pagination réelle de Chromium :
+  les 22 lignes prédites en page 1 y sont toutes.
+
+**Vérification adversariale du second passage** (trois relecteurs indépendants —
+cascade CSS, QA visuelle sur captures, audit de régression) ; leurs trouvailles,
+toutes corrigées :
+
+- La carte d'en-tête gardait à l'impression son fond gris, ses coins arrondis et
+  ses bordures latérales, dont le bas restait ouvert une fois le filet déplacé
+  sous la ligne méta. Le chrome de carte est retiré au papier : l'en-tête est un
+  en-tête de document — texte sur blanc, un seul filet de clôture.
+- La règle au-dessus du Total, déclarée 1 pt, s'arrondissait au même pixel que
+  les filets 0.5 pt et l'arbitrage `border-collapse` donnait alors l'arête à la
+  couleur du filet du dessus : elle sortait indiscernable des lignes ordinaires.
+  Passée à 1.5 pt (2 px), elle gagne l'arbitrage et se lit comme une vraie règle.
+- Le dégradé du repère de fin de page peignait aussi sa queue dans le padding
+  haut de la feuille d'aperçu (ligne parasite au-dessus du titre), et une
+  feuille d'exactement une page peignait son propre repère collé au bord bas.
+  `background-clip: content-box` et une hauteur raccourcie de 2 px règlent les
+  deux ; un balayage pixel confirme zéro ligne parasite.
+- Préexistant : avec une colonne épinglée, le séparateur `is-pinned-last`
+  (1 px, plus spécifique) l'emportait sur le filet uniforme du papier dans le
+  bloc `@media print` mais pas dans l'aperçu — divergence aperçu/papier.
+  Restaté dans les deux blocs.
+- Les décomptes de pages par densité manquaient à la suite : ajoutés — 11 lignes
+  → 1 page, 38 lignes → 2 pages, aux trois densités, en-tête de colonnes présent
+  sur chaque page de chaque PDF.
+- Les deux PDF « impression normale » et « impression depuis l'aperçu » ne sont
+  jamais identiques octet à octet (métadonnées de création) ; l'identité est
+  établie sur le texte positionné : 190 éléments, positions au dixième de point
+  près, strictement égaux.
+
 ## Limites connues
 
 - L'aperçu ne peut pas montrer l'en-tête revenir à chaque saut de page : c'est un

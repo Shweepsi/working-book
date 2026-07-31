@@ -1151,6 +1151,9 @@ const COL_PRINT_WEIGHT: Record<string, number> = {
   // The most identifying field on the row — worth the widest text track.
   itemName: 300,
   pdp: 130,
+  // The 9pt bold total ("115 875,58") needs more room than the data cells the
+  // 88px screen default is sized for — it clipped to "115 875,…" on paper.
+  m2: 100,
 };
 
 interface ColumnResizeHandleProps {
