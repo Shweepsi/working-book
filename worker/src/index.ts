@@ -1,5 +1,5 @@
-// Working Book API. Three domains, each stored as a JSON blob keyed by its
-// natural partition. The front owns conflict resolution (last-write-wins);
+// Working Book API. One domain per route, each stored as a JSON blob keyed by
+// its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
 import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
@@ -59,6 +59,8 @@ export default {
           return await handlePolicy(request, env, cors);
         case '/api/schedules':
           return await handleSchedules(request, env, cors);
+        case '/api/speeds':
+          return await handleSpeeds(request, env, cors);
         case INGEST_PATH:
           return await handleSchedulesIngest(request, env, cors);
         default:
@@ -266,6 +268,44 @@ async function handleSchedules(
     const body = await readJsonBody(request);
     if (body !== null && typeof body !== 'object') return json({ error: 'expected_object_or_null' }, cors, 400);
     const now = await writeSchedules(env, body);
+    return json({ ok: true, updated_at: now }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+// Coater speed per schedule — singleton holding a `{ schedule: m/min }` map.
+// Its own partition rather than a field on the report: the ingest endpoint
+// rewrites `schedules` from the Infor portal, and a client PUTing its copy of
+// the report just to record a speed would undo an import that landed meanwhile.
+async function handleSpeeds(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare(
+      'SELECT state_json, updated_at FROM schedule_speeds WHERE id = 1',
+    ).first<{ state_json: string; updated_at: number }>();
+    if (!row) return json({ data: null, updated_at: null }, cors);
+    return json({ data: JSON.parse(row.state_json), updated_at: row.updated_at }, cors);
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return json({ error: 'expected_object' }, cors, 400);
+    }
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO schedule_speeds (id, state_json, updated_at)
+       VALUES (1, ?1, ?2)
+       ON CONFLICT(id) DO UPDATE SET
+         state_json = excluded.state_json,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(JSON.stringify(body), now)
+      .run();
     return json({ ok: true, updated_at: now }, cors);
   }
 
