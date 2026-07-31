@@ -3294,40 +3294,6 @@ body.is-col-resizing * {
   user-select: none;
 }
 .sch-portal-bookmarklet:active { cursor: grabbing; }
-.sch-portal-field { margin-top: 14px; }
-.sch-portal-field h4 {
-  margin: 0 0 6px;
-  font-size: var(--fs-md);
-  font-weight: 600;
-}
-.sch-portal-field p { margin: 6px 0 0; }
-.sch-portal-token {
-  width: 100%;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: var(--fs-md);
-}
-.sch-portal-token:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-.sch-portal-source { margin-top: 14px; }
-.sch-portal-source pre {
-  margin: 6px 0 0;
-  padding: var(--space-4) var(--space-5);
-  max-height: 200px;
-  overflow: auto;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper);
-  color: var(--ink-soft);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
 
 /* Row-detail sheet — opened on row click. */
 .sch-row-sheet { width: min(640px, calc(100% - 40px)); }

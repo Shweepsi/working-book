@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { API_BASE, SYNC_ENABLED } from '../lib/api';
-import { bookmarkletHref, bookmarkletSource } from '../lib/bookmarklet';
+import { bookmarkletHref } from '../lib/bookmarklet';
 import { useEscapeToClose } from '../lib/hooks';
 
 // Set-up sheet for the direct import. Nothing here talks to Infor — it builds
@@ -100,23 +100,6 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
                 <kbd>C</kbd>, puis cliquez le favori et validez.
               </li>
             </ol>
-
-            <p className="faint small">
-              Chaque import <strong>s’ajoute</strong> au rapport : un rapport en
-              plusieurs pages se prend page par page, et réimporter la même page
-              met simplement ses lignes à jour. Pour retirer un schedule, faites-le
-              glisser dans la liste de gauche.
-            </p>
-
-            <details className="sch-import-warnings sch-portal-source">
-              <summary>Voir ce que fait le favori</summary>
-              <p className="faint small">
-                Il lit le presse-papiers et l’envoie à{' '}
-                <code>{API_BASE}/api/schedules/ingest</code>. Rien d’autre ne
-                quitte la page.
-              </p>
-              <pre className="mono small">{bookmarkletSource(API_BASE)}</pre>
-            </details>
           </>
         )}
 
