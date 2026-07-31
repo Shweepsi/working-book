@@ -149,18 +149,9 @@ export default function App() {
     document.documentElement.classList.toggle('is-print-preview', printPreview);
   }, [printPreview]);
 
-  // Tag the document while the OS is rendering the print preview so the
-  // print rules can be expressed once with both selectors and stay in sync.
-  useEffect(() => {
-    const onBefore = () => document.documentElement.classList.add('is-printing');
-    const onAfter = () => document.documentElement.classList.remove('is-printing');
-    window.addEventListener('beforeprint', onBefore);
-    window.addEventListener('afterprint', onAfter);
-    return () => {
-      window.removeEventListener('beforeprint', onBefore);
-      window.removeEventListener('afterprint', onAfter);
-    };
-  }, []);
+  // Nothing tags the document for printing: the paper rules win on their own
+  // (see the schedule print section at the bottom of app.css), so printing
+  // doesn't hang on a `beforeprint` listener some engines never fire.
 
   // Paper orientation per view. `@page` can't be selector-scoped, and binding a
   // named page with the `page` property makes Chromium force a break around

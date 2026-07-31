@@ -1,5 +1,10 @@
 # Audit — tableau Schedule, aperçu d'impression et rendu papier
 
+> **Statut : corrigé.** Tous les constats ci-dessous ont été traités ; le détail
+> des correctifs et les mesures d'après-correction sont en fin de document
+> (« Corrections »). Le texte des constats est laissé au présent, tel qu'il
+> décrivait le comportement au moment de l'audit.
+
 Portée : `src/components/Schedules.tsx`, le bloc unifié `:root.is-print-preview` /
 `:root.is-printing` de `src/styles/app.css`, le bloc `@media print`, et le pilotage
 depuis `src/App.tsx` (`is-printing`, `#wb-page-size`) / `src/components/Settings.tsx`
@@ -309,3 +314,68 @@ déjà `no-print` dans le JSX, donc les deux blocs les masquent bien.
 3. **P2** — répétition de l'en-tête de colonnes.
 4. **P2** — impression depuis l'aperçu.
 5. **P3/P4** — métadonnées, mention de filtrage, fidélité de l'aperçu, nettoyages.
+
+---
+
+# Corrections
+
+Mêmes mesures, même harnais, après correctifs.
+
+## Le tableau devient un vrai `<table>`
+
+Le point structurel qui débloque le reste. Le rendu à l'écran est inchangé : la
+boîte tableau est dissoute en flex/grid (`thead`/`tbody` en `display: contents`,
+chaque `<tr>` redevient la grille pilotée par `--sch-grid`), et n'est rétablie
+que pour l'aperçu et le papier. Les largeurs papier passent par un `<colgroup>`
+en pourcentages au lieu du gabarit `fr` — `--sch-grid-print` disparaît.
+
+Parité écran vérifiée avant/après sur six scénarios (défaut, colonnes épinglées
++ défilement horizontal, après un redimensionnement de colonne, densités
+compact et avancé, feuille de détail ouverte) : largeurs de colonnes, hauteurs
+de lignes, `scrollHeight`, positions collantes, décalages des colonnes
+épinglées, tri, clic et navigation clavier **identiques au pixel près** — les
+seuls écarts relevés sont le nom de la balise (`DIV` → `TABLE`) et la classe
+`as-row` qui disparaît du `<tr>`.
+
+Deux pièges rencontrés et corrigés au passage, tous deux dus au même mécanisme
+(un `<td>` en `display: flex` cesse d'être une cellule de tableau et emporte son
+`colSpan`) : le libellé du total et sa variante en ligne portent désormais leur
+mise en page sur un `<span>` interne.
+
+Effet de bord évité : le `<button>` que les lignes traversaient portait
+`border: 0`, ce qui neutralisait silencieusement le `border-bottom` de
+`.sch-row`. Le passage au `<tr>` faisait réapparaître un filet qui n'a jamais
+fait partie du dessin ; il est explicitement remis à zéro.
+
+## Constat par constat
+
+| constat | correctif | vérification |
+| --- | --- | --- |
+| **P1** repli `@media print` inerte | Les règles papier vivent maintenant en fin de `app.css`, après les règles de base et de densité, avec `!important` là où une règle de densité est plus spécifique. Du coup `@media print` gagne seul : `is-printing` et l'écouteur `beforeprint` d'`App.tsx` sont supprimés, et l'impression ne dépend plus d'un évènement que certains moteurs ne déclenchent pas. | En media `print` sans aucune classe : `max-height: none`, `overflow: visible`, `min-width: 0`, en-tête `static`, cellules `4px 5.33px` / `11.33px`, vitesse visible, **38 lignes sur 38** au papier |
+| **P2** densité vs papier | Dimensionnement papier en `!important` sur cellules, en-tête, total, pastille MTO/MTS, tuiles de stat ; `.sch-customer` masqué à l'impression. | compact / normal / avancé donnent maintenant **la même feuille** : cellules `4px 5.33px`, police `11.33px`, en-tête `10px`, total `12px`, **2 pages dans les trois cas** (contre 3 en avancé) |
+| **P2** en-tête non répété | `<thead>` réel en `display: table-header-group`. | texte extrait page par page du PDF : l'en-tête de colonnes est présent sur **les deux pages**, aux trois densités |
+| **P2** Article tronqué | `.sch-name` passe en `white-space: normal` à l'impression, et les colonnes de texte reçoivent une pondération papier propre (`COL_PRINT_WEIGHT`) au lieu du plancher du `minmax`. | **0 cellule tronquée sur 38** (contre 30/38), et 0 cellule débordante aux trois densités, en-têtes compris |
+| **P2** impression depuis l'aperçu | Les règles de l'aperçu sont neutralisées sous `@media print`. | même géométrie que l'impression normale (`padding: 0`, `margin: 0`, ligne à 1084 px, hauteur 1169 px) et rendu **identique au pixel près** |
+| **P3** fidélité de l'aperçu | Largeur fixe (`210mm` / `297mm`) au lieu de `max-width`, plus un filet en repère de fin de page. | fenêtre de 1600 px et de 900 px : ligne de **1084 px dans les deux cas**, 0 troncature — l'aperçu ne dépend plus de la taille de la fenêtre |
+| **P3** pas de métadonnées | Ligne `print-only` sous l'en-tête : nombre de lignes, date d'import du rapport, tri actif. | `38 lignes · rapport importé le 31/07/2026 08:00 · tri : Format ↓` |
+| **P3** filtrage muet | La même ligne porte les filtres actifs, en gras. | vue filtrée : `19 lignes · … · tri : Article ↑ · filtré : Qualité A2` |
+| **P3** clic mort en aperçu | `pointer-events: none` sur les lignes en aperçu. | `pointerEvents: none` |
+| **P4** dérive aperçu / impression | Les règles manquantes sont reportées dans le bloc aperçu : puces de flag (seule l'active), `grid-area` des colonnes d'évènement, et toute la mise en forme Production Test. | — |
+| **P4** `grid-column` mort | Déclaration retirée ; le commentaire dit que la portée vient de `TotalRow`. | — |
+| **P4** total sans libellé | Si toutes les colonnes visibles portent un total, le libellé partage la première cellule avec sa valeur. | colonnes réduites à Sched/Prod/Req/m² → `Total · 38 2798 741 2057 7 162,79` |
+| **P4** `sortKey` non validé | `SORT_KEYS`, dérivé de `COLUMNS`, filtre ce qui vient de `localStorage`. | `sortKey: 'bogus'` en stock → retombe sur `longueur`, tri par dimension appliqué |
+| **P4** `@page` portrait | Commentaire expliquant que la règle n'est qu'un défaut, réécrit par `#wb-page-size`. | — |
+| **P4** en-têtes trop étroits | Pondérations papier pour MTO/MTS, Qualité et Format, et les libellés d'en-tête peuvent passer à la ligne plutôt que d'être coupés. | 0 en-tête débordant aux trois densités |
+
+## Limites connues
+
+- L'aperçu ne peut pas montrer l'en-tête revenir à chaque saut de page : c'est un
+  comportement de média paginé, qui n'existe pas sur un écran défilant. Il marque
+  en revanche la fin de chaque feuille.
+- Les lignes de données sont des `<tr tabindex="0">` et non plus des `<button>` :
+  focusables, activables à Entrée / Espace et nommées par `aria-label`, mais une
+  synthèse vocale ne les annonce plus comme boutons. C'est le compromis habituel
+  d'une ligne de tableau cliquable, et la répétition de l'en-tête l'imposait.
+- Tout a été mesuré sous Chromium. Le repli fragile ayant disparu, plus rien ne
+  dépend de `beforeprint`, mais la répétition de `<thead>` et les sauts de page
+  restent à confirmer sur un autre moteur.
