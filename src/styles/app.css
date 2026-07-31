@@ -2267,7 +2267,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 /* ---------- Schedules tab (PMS230 import) ---------- */
 
 .sch {
-  --sch-header-offset: 64px; /* approx app-header height; covers sticky offsets */
   display: flex;
   flex-direction: column;
   gap: var(--d-gap);
@@ -2364,14 +2363,14 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   align-items: start;
 }
 
+/* Height comes from the layout, not from a guess at the header's: on desktop
+   the rail is a full-height grid item that scrolls inside itself (see the
+   viewport lock), everywhere else it sizes to its cards above the detail. */
 .sch-rail {
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-xl);
   background: var(--paper);
   overflow: hidden;
-  position: sticky;
-  top: calc(env(safe-area-inset-top) + var(--sch-header-offset));
-  max-height: calc(100vh - var(--sch-header-offset) - 32px);
   overflow-y: auto;
 }
 .sch-rail-title {
@@ -2799,7 +2798,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   overflow-x: auto;
   /* Vertical scroll inside the table — required so position:sticky on the
      header/total rows actually anchors to the visible table area instead of
-     vanishing into page scroll. dvh handles mobile browser chrome. */
+     vanishing into page scroll. dvh handles mobile browser chrome.
+     Phone / tablet only: past 1280px the table is sized by the viewport lock
+     further down instead of by this offset, which is a guess and was wrong by
+     the height of whatever chrome happened to wrap that day. */
   max-height: calc(100dvh - var(--sch-table-vert-offset, 240px));
   min-height: 320px;
   background: var(--paper);
@@ -3142,10 +3144,7 @@ body.is-col-resizing * {
    Only paddings, font-sizes and row heights change; column layout stays fixed
    so the table layout is predictable across densities. */
 
-:root[data-density='compact'] .sch {
-  --sch-header-offset: 56px;
-  --sch-table-vert-offset: 190px;
-}
+:root[data-density='compact'] .sch { --sch-table-vert-offset: 190px; }
 :root[data-density='compact'] .sch-summary { padding: 8px 12px; gap: 6px; }
 :root[data-density='compact'] .sch-summary-stats { gap: 12px; font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
@@ -3430,10 +3429,6 @@ body.is-col-resizing * {
   .sch-body {
     grid-template-columns: 1fr;
   }
-  .sch-rail {
-    position: static;
-    max-height: none;
-  }
   .sch-rail-list {
     flex-direction: row;
     flex-wrap: wrap;
@@ -3442,6 +3437,48 @@ body.is-col-resizing * {
     flex-direction: row;
     align-items: baseline;
     gap: var(--space-6);
+  }
+}
+
+/* Viewport lock — the schedule is one screen, not a page that scrolls.
+   The table used to size itself off `--sch-table-vert-offset`, a per-density
+   guess at how tall the chrome above it stands. The guess ran 80–250px short
+   of the real thing (the summary bar, the MTO/MTS hint, the detail header and
+   the controls each wrap on their own terms), so the table hung past the
+   bottom of the window and the page grew a second scrollbar alongside the
+   table's own. Pin the shell to the viewport instead and let the table take
+   whatever is left: no guess, and the only scrollbar is the table's.
+   Desktop only, i.e. wherever the rail is a side column. Below 1281px the rail
+   sits on top of the detail and grows with the number of schedules, so locking
+   to the viewport there would starve the table — that layout keeps the page
+   scroll it was drawn around. */
+@media screen and (min-width: 1281px) {
+  :root:not(.is-print-preview) .app:has(.sch) {
+    height: 100vh;
+    height: 100dvh;
+  }
+  :root:not(.is-print-preview) .app-main:has(.sch) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  :root:not(.is-print-preview) .sch { flex: 1; min-height: 0; }
+  /* `start` leaves both columns at content height, which is what the rail
+     wants when the page scrolls and exactly what the detail must not do here. */
+  :root:not(.is-print-preview) .sch-body {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+  /* The rail fills its column and scrolls inside itself. */
+  :root:not(.is-print-preview) .sch-rail { min-height: 0; }
+  :root:not(.is-print-preview) .sch-detail { min-height: 0; }
+  :root:not(.is-print-preview) .sch-table {
+    flex: 1;
+    max-height: none;
+    /* Floor rather than 0 so a very short window shows a usable table and
+       hands the overflow back to the page, as it did before. */
+    min-height: 180px;
   }
 }
 
