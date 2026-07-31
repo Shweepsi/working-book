@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, removeSchedule, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -20,9 +20,14 @@ const KEY_POLICY = 'wb.schedules.policy.v1';
 const KEY_SPEED  = 'wb.schedules.vitesse';
 const KEY_TABLE  = 'wb.schedules.table.v1';
 
-// Undo window on "Vider". Wider than the toast default because the action is
-// coarse and the operator may be away from the screen when it lands.
-const CLEAR_UNDO_TTL = 10_000;
+// Undo window on a schedule delete. Wider than the toast default because the
+// action is coarse and the operator may be away from the screen when it lands.
+const DELETE_UNDO_TTL = 10_000;
+
+// How far a rail card has to travel left before the release counts as a delete
+// swipe. Absolute rather than a share of the width so the gesture feels the
+// same on the 240px desktop rail and on the wider phone chips.
+const SWIPE_DELETE_PX = 88;
 
 type DisplayRow = PMS230Record & { mtoMts: string };
 
@@ -336,13 +341,14 @@ function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
-function clearConfirmBody(data: PMS230Result): string {
-  const records = data.records?.length ?? 0;
-  const schedules = data.schedules?.length ?? 0;
+function deleteConfirmBody(data: PMS230Result, schedule: string): string {
+  const records = data.records.filter((r) => r.schedule === schedule).length;
+  const rest = (data.schedules?.length ?? 0) - 1;
   return (
-    `${records} ligne${records > 1 ? 's' : ''} sur ${schedules} schedule${schedules > 1 ? 's' : ''} ` +
-    `seront effacée${records > 1 ? 's' : ''}. La table MTO/MTS est conservée. Il faudra recoller ` +
-    'le rapport depuis Operator Mashup pour le retrouver.'
+    `${records} ligne${records > 1 ? 's' : ''} quitte${records > 1 ? 'nt' : ''} le rapport. ` +
+    (rest > 0
+      ? `Les ${rest} autre${rest > 1 ? 's' : ''} schedule${rest > 1 ? 's' : ''} et la table MTO/MTS sont conservés.`
+      : "C'est le dernier schedule du rapport — la table MTO/MTS est conservée.")
   );
 }
 
@@ -378,7 +384,8 @@ export default function Schedules({ density }: SchedulesProps) {
   const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
   const [selected, setSelected] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | null>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
+  // Schedule number waiting on the delete confirmation, or null.
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
     () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
@@ -681,14 +688,58 @@ export default function Schedules({ density }: SchedulesProps) {
   );
 
   // Auto-select the first visible schedule once data loads, and re-pick if the
-  // current selection has been hidden (e.g. after a re-import).
+  // current selection has been hidden (e.g. after a re-import or a delete).
   useEffect(() => {
     if (!data) return;
     if (selected && visibleSchedules.some((s) => s.schedule === selected)) return;
-    setSelected(visibleSchedules[0]?.schedule ?? null);
+    const next = visibleSchedules[0]?.schedule ?? null;
+    setSelected(next);
+    // A forced re-pick is a selection change like any other, so the filters go
+    // with it (see selectSchedule). `selected` is null on the first load —
+    // nothing was selected to move away from, and the operator's stored filters
+    // survive a reload.
+    if (selected && next !== selected) clearFilters();
   }, [data, selected, visibleSchedules]);
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
+
+  // Filters are global — one qualité/PDP/MTO set shared by every schedule. Kept
+  // across a selection change they routinely match nothing in the schedule the
+  // operator just opened, and an empty table reads as "this schedule has no
+  // work", not "you filtered it away". Changing schedule resets them.
+  function selectSchedule(schedule: string) {
+    if (schedule === selected) return;
+    setSelected(schedule);
+    clearFilters();
+  }
+
+  function handleDeleteSchedule(schedule: string) {
+    if (!data) return;
+    const snapshot = data;
+    const snapshotSelected = selected;
+    const snapshotFilters = {
+      qualite: tableSettings.qualite,
+      pdp: tableSettings.pdp,
+      mtoMts: tableSettings.mtoMts,
+    };
+    const next = removeSchedule(snapshot, schedule);
+    // A sync from another device can drop the schedule while the confirmation
+    // sits open. Nothing was removed here, so nothing is announced or undone.
+    if (next === snapshot) return;
+    setData(next);
+    // `selected` deliberately stays on the deleted schedule: the auto-select
+    // effect above re-picks the first survivor and resets the filters through
+    // the same path a manual selection change takes.
+    toast.show({
+      message: `Schedule ${schedule} supprimé`,
+      ttl: DELETE_UNDO_TTL,
+      undo: () => {
+        setData(snapshot);
+        setSelected(snapshotSelected);
+        setTableSettings((s) => ({ ...s, ...snapshotFilters }));
+      },
+    });
+  }
 
   function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
     // `replace` only reaches here on the first import — the sheet offers
@@ -714,36 +765,18 @@ export default function Schedules({ density }: SchedulesProps) {
         data={data}
         policy={policy}
         onImport={() => setImportMode('pms230')}
-        onClear={() => setConfirmClear(true)}
       />
 
-      {/* `data` guards the sheet as well as the button: a sync from another
+      {/* `data` guards the sheet as well as the gesture: a sync from another
           device can empty the report while the dialog sits open, and there is
           then nothing left to confirm. */}
-      {confirmClear && data && (
+      {pendingDelete && data && (
         <ConfirmSheet
-          title="Vider le rapport ?"
-          body={clearConfirmBody(data)}
-          confirmLabel="Vider"
-          onConfirm={() => {
-            const snapshot = data;
-            const snapshotSelected = selected;
-            setData(null);
-            setSelected(null);
-            if (!snapshot) return;
-            toast.show({
-              message: 'Rapport Operator Mashup effacé',
-              // Longer than the 6s default: this one wipes the whole report,
-              // and recovering past the toast means re-pasting from Operator
-              // Mashup.
-              ttl: CLEAR_UNDO_TTL,
-              undo: () => {
-                setData(snapshot);
-                setSelected(snapshotSelected);
-              },
-            });
-          }}
-          onClose={() => setConfirmClear(false)}
+          title={`Supprimer le schedule ${pendingDelete} ?`}
+          body={deleteConfirmBody(data, pendingDelete)}
+          confirmLabel="Supprimer"
+          onConfirm={() => handleDeleteSchedule(pendingDelete)}
+          onClose={() => setPendingDelete(null)}
         />
       )}
 
@@ -773,19 +806,29 @@ export default function Schedules({ density }: SchedulesProps) {
                 const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0, shortName: '' };
                 return (
                   <li key={s.schedule}>
-                    <button
-                      type="button"
-                      className={`sch-rail-item ${selected === s.schedule ? 'active' : ''}`}
-                      onClick={() => setSelected(s.schedule)}
-                    >
-                      <div className="sch-rail-top">
-                        <span className="mono sch-rail-num">{s.schedule}</span>
-                        <span className="sch-rail-root">{stat.shortName || shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
-                      </div>
-                      <div className="sch-rail-meta faint small mono">
-                        {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
-                      </div>
-                    </button>
+                    <SwipeToDelete onDelete={() => setPendingDelete(s.schedule)}>
+                      <button
+                        type="button"
+                        className={`sch-rail-item ${selected === s.schedule ? 'active' : ''}`}
+                        onClick={() => selectSchedule(s.schedule)}
+                        // Keyboard equivalent of the swipe — the gesture is the
+                        // only other way in, and it needs a pointer.
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+                          e.preventDefault();
+                          setPendingDelete(s.schedule);
+                        }}
+                        title={`Schedule ${s.schedule} — glisser vers la gauche (ou touche Suppr) pour le retirer du rapport`}
+                      >
+                        <div className="sch-rail-top">
+                          <span className="mono sch-rail-num">{s.schedule}</span>
+                          <span className="sch-rail-root">{stat.shortName || shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
+                        </div>
+                        <div className="sch-rail-meta faint small mono">
+                          {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
+                        </div>
+                      </button>
+                    </SwipeToDelete>
                   </li>
                 );
               })}
@@ -937,10 +980,100 @@ export default function Schedules({ density }: SchedulesProps) {
   );
 }
 
+// Swipe a rail card to the left to retire its schedule. The gesture is the
+// discoverable route on the shop-floor tablets; ConfirmSheet is what actually
+// guards the delete, so an accidental swipe costs one tap. Pointer events mean
+// a mouse drag works the same way, and the card carries a Suppr key handler for
+// anyone on a keyboard.
+function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children: ReactNode }) {
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  // Mirrors `dx` for the release decision: pointerup can land in the same batch
+  // as the last pointermove, and the ref is current where the state may not be.
+  const offset = useRef(0);
+  const start = useRef<{ x: number; y: number; id: number; axis: 'unknown' | 'x' | 'y' } | null>(null);
+  // Set once the pointer has travelled far enough to read as a swipe, so the
+  // click that follows the release doesn't also select the schedule.
+  const swiped = useRef(false);
+
+  function reset(e: ReactPointerEvent<HTMLDivElement>) {
+    const s = start.current;
+    start.current = null;
+    setDragging(false);
+    offset.current = 0;
+    setDx(0);
+    if (s && e.currentTarget.hasPointerCapture(s.id)) e.currentTarget.releasePointerCapture(s.id);
+  }
+
+  function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, axis: 'unknown' };
+    swiped.current = false;
+  }
+
+  function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const s = start.current;
+    if (!s || e.pointerId !== s.id) return;
+    const mx = e.clientX - s.x;
+    const my = e.clientY - s.y;
+    if (s.axis === 'unknown') {
+      if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
+      // Lock onto whichever axis the finger committed to first. A vertical lock
+      // hands the gesture straight back to the rail's scroller.
+      s.axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+      if (s.axis === 'x') {
+        e.currentTarget.setPointerCapture(s.id);
+        setDragging(true);
+      }
+    }
+    if (s.axis !== 'x') return;
+    // Left only — nothing is armed on the right, so that side gets a few pixels
+    // of give and no more.
+    const next = Math.max(-SWIPE_DELETE_PX * 1.5, Math.min(12, mx));
+    if (next <= -8) swiped.current = true;
+    offset.current = next;
+    setDx(next);
+  }
+
+  function onPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    const axis = start.current?.axis;
+    const travelled = offset.current;
+    reset(e);
+    if (axis === 'x' && travelled <= -SWIPE_DELETE_PX) onDelete();
+  }
+
+  return (
+    <div
+      className={`sch-swipe${dragging ? ' is-dragging' : ''}${dx <= -SWIPE_DELETE_PX ? ' is-armed' : ''}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={reset}
+      onClickCapture={(e) => {
+        if (!swiped.current) return;
+        swiped.current = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <div className="sch-swipe-action" aria-hidden="true">
+        {/* Dingbat rather than an emoji: it inherits the strip's colour instead
+            of dropping a full-colour glyph into the muted palette. */}
+        <span className="sch-swipe-action-glyph">✕</span>
+        <span className="sch-swipe-action-label">Supprimer</span>
+      </div>
+      <div className="sch-swipe-surface" style={{ transform: `translate3d(${dx}px, 0, 0)` }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // Confirmation step in front of a destructive action. The app's default is
 // "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
-// edits; wiping the whole report is coarse enough to be worth a stop first.
-// The undo toast still fires afterwards.
+// edits; dropping a whole schedule is coarse enough — and reachable by an
+// accidental swipe — to be worth a stop first. The undo toast still fires
+// afterwards.
 function ConfirmSheet({
   title, body, confirmLabel, onConfirm, onClose,
 }: {
@@ -981,10 +1114,9 @@ interface SummaryBarProps {
   data: PMS230Result | null;
   policy: PolicyResult | null;
   onImport: () => void;
-  onClear: () => void;
 }
 
-function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
+function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
   const records = data?.records?.length ?? 0;
   const schedules = data?.schedules?.length ?? 0;
   const m2 = data ? fmtNum(totalM2(data.records), 2) : null;
@@ -998,16 +1130,6 @@ function SummaryBar({ data, policy, onImport, onClear }: SummaryBarProps) {
         <button className="btn primary" onClick={onImport}>
           {data ? 'Réimporter rapport Operator Mashup' : 'Importer rapport Operator Mashup'}
         </button>
-        {data && (
-          <button
-            className="btn destructive"
-            onClick={onClear}
-            style={{ marginLeft: 'auto' }}
-            title="Effacer le rapport Operator Mashup (la table MTO/MTS est conservée)"
-          >
-            ⚠ Vider
-          </button>
-        )}
       </div>
       {/* The MTO/MTS chip is not gated on `data`: the policy syncs on its own
           and an operator who has not pasted a report yet would otherwise see
