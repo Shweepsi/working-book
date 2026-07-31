@@ -1135,7 +1135,13 @@ const COL_WIDTHS: Record<string, string> = {
 // paper: the sheet is narrower than a desktop table, every track shrinks, and
 // Article never gets more than the 180px floor it would only ever hit in the
 // most cramped viewport. These weights buy back a fair share for the columns
-// that carry text. A width the operator dragged still wins over them.
+// that carry text.
+//
+// They are the whole story: the printed sheet ignores column widths dragged on
+// screen. Letting those through meant stretching Article on a wide monitor
+// squeezed every other column on paper — dragged to 1100px it took Qualité from
+// 79pt to 47pt and pushed 152 cells into overflow. A resize is a screen
+// preference; the page is a fixed width and has to keep its own proportions.
 const COL_PRINT_WEIGHT: Record<string, number> = {
   // These two can't fit their own header label at 7.5pt on their screen width.
   mtoMts: 92,
@@ -1276,13 +1282,12 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
   //
   // On paper the table falls back to real table layout (so <thead> repeats on
   // every page), so the print widths ship as <col> percentages instead of a
-  // grid template. They deliberately read `widths` alone, not the auto-frozen
-  // ones: the freeze exists to stop on-screen reflow, and letting it through
-  // would let a column stretched on a wide monitor squeeze the numbers on
-  // paper. Failing that they fall back to COL_PRINT_WEIGHT.
+  // grid template. They come from COL_PRINT_WEIGHT alone — neither a dragged
+  // width nor an auto-frozen one reaches the sheet, so resizing a column on
+  // screen leaves the printout exactly as it was.
   const { gridTemplate, printCols, minPx } = useMemo(() => {
     const screenPx = (key: string): number | undefined => widths[key] ?? autoWidths[key];
-    const weights = columns.map((c) => columnPx(c.key, widths[c.key] ?? COL_PRINT_WEIGHT[c.key]));
+    const weights = columns.map((c) => columnPx(c.key, COL_PRINT_WEIGHT[c.key]));
     const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
     return {
       gridTemplate: columns

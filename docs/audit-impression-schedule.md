@@ -367,6 +367,28 @@ fait partie du dessin ; il est explicitement remis à zéro.
 | **P4** `@page` portrait | Commentaire expliquant que la règle n'est qu'un défaut, réécrit par `#wb-page-size`. | — |
 | **P4** en-têtes trop étroits | Pondérations papier pour MTO/MTS, Qualité et Format, et les libellés d'en-tête peuvent passer à la ligne plutôt que d'être coupés. | 0 en-tête débordant aux trois densités |
 
+## Retours d'usage
+
+Deux points remontés à l'essai, corrigés dans la foulée.
+
+**Élargir une colonne comprimait toutes les autres à l'impression.** Les
+pondérations papier laissaient passer les largeurs redimensionnées à l'écran.
+Mesuré, Article tiré à 1100 px : MTO/MTS tombait de 82 à 50 pt, Qualité de 79 à
+47 pt, m² de 79 à 47 pt, et **152 cellules débordaient** sur la feuille. Le
+gabarit papier ignore désormais complètement `widths` et `autoWidths` : il ne
+dépend plus que de `COL_PRINT_WEIGHT` et des colonnes visibles. Vérifié —
+Article à 700 px puis à 1100 px donne exactement la même feuille qu'un tableau
+jamais redimensionné, à toutes les colonnes près.
+
+**L'aperçu quitte la roulette des paramètres** pour un bouton dédié dans
+l'en-tête, à côté de l'aide et du réglage. Vérifier la mise en page papier est
+un geste récurrent, pas une préférence à régler une fois. Le bouton est un
+`aria-pressed` avec une icône d'imprimante dessinée en CSS — comme
+`.sch-cols-icon`, les caractères d'imprimante ayant une couverture de police
+inégale et la version emoji s'affichant en couleur. La sortie reste la barre
+flottante. Vérifié à 1600 px et à 600 px, en thème clair et sombre ; la section
+« Impression » a disparu du popover, qui ne porte plus que Thème et Densité.
+
 ## Limites connues
 
 - L'aperçu ne peut pas montrer l'en-tête revenir à chaque saut de page : c'est un

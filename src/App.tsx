@@ -291,6 +291,18 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator />
+          {/* Sits in the header rather than behind the settings cog: checking
+              the paper layout is a recurring gesture, not a preference. */}
+          <button
+            type="button"
+            className={`btn ghost icon print-preview-trigger ${printPreview ? 'is-on' : ''}`}
+            onClick={() => setPrintPreview((v) => !v)}
+            aria-pressed={printPreview}
+            aria-label="Aperçu d’impression"
+            title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
+          >
+            <span className="print-preview-icon" aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="btn ghost icon kbd-help-trigger"
@@ -307,8 +319,6 @@ export default function App() {
             onThemeChange={setTheme}
             density={density}
             onDensityChange={setDensity}
-            printPreview={printPreview}
-            onPrintPreviewChange={setPrintPreview}
           />
         </div>
       </header>

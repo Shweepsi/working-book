@@ -20,11 +20,9 @@ interface SettingsProps {
   onThemeChange: (theme: Theme) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
-  printPreview: boolean;
-  onPrintPreviewChange: (v: boolean) => void;
 }
 
-export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange, printPreview, onPrintPreviewChange }: SettingsProps) {
+export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange }: SettingsProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,22 +90,6 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
               ))}
             </div>
             {densityHelp && <div className="popover-help">{densityHelp}</div>}
-          </div>
-          <div>
-            <h4>Impression</h4>
-            <button
-              type="button"
-              className={`btn ${printPreview ? 'primary' : ''} popover-action`}
-              onClick={() => {
-                onPrintPreviewChange(!printPreview);
-                onOpenChange(false);
-              }}
-            >
-              {printPreview ? '✓ Aperçu activé' : 'Aperçu d’impression'}
-            </button>
-            <div className="popover-help">
-              Affiche la mise en page papier à l’écran sans déclencher la boîte d’impression.
-            </div>
           </div>
         </div>
       )}

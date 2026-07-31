@@ -1809,6 +1809,43 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   justify-content: center;
 }
 
+/* Aperçu trigger in the header. CSS-drawn like .sch-cols-icon rather than a
+   glyph: the printer characters have patchy font coverage and the emoji one
+   renders in colour, which the rest of the header chrome doesn't. */
+.print-preview-trigger.is-on {
+  color: var(--accent);
+  background: var(--paper-2);
+  border-color: var(--line-soft);
+}
+.print-preview-icon {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 13px;
+}
+/* Sheet emerging from the top */
+.print-preview-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3px;
+  right: 3px;
+  height: 5px;
+  border: 1.5px solid currentColor;
+  border-bottom: 0;
+}
+/* Printer body */
+.print-preview-icon::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 1px 1px 2px 2px;
+}
+
 /* ---------- Real print (A4 portrait) ---------- */
 @media print {
   /* Default orientation only. App.tsx rewrites the rule per view through the
