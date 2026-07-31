@@ -75,7 +75,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'prodLites',  label: 'Prod',     cls: 'col-num',  sortKey: 'prodLites'  },
   { key: 'reqLites',   label: 'Req',      cls: 'col-num',  sortKey: 'reqLites'   },
   { key: 'opTm',       label: 'Op Tm',    cls: 'col-num',  sortKey: 'opTm'       },
-  { key: 'format',     label: 'Format',   cls: 'col-fmt',  sortKey: 'longueur'   },
+  { key: 'format',     label: 'Dimension', cls: 'col-fmt', sortKey: 'longueur'   },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
   { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'                                         },
   { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',  sortKey: 'packsReq'   },
@@ -135,9 +135,9 @@ interface TableSettings {
 const TABLE_SETTINGS_VERSION = 6;
 
 // The planner's canonical ordering: widest dimension first, which is also what
-// the longueur group-break rows are built around. It is carried by the Format
-// header — hidden by default in compact/normal — so `toggleSort` has to offer a
-// way back to it that doesn't depend on that column being visible.
+// the longueur group-break rows are built around. It is carried by the
+// Dimension header — hidden by default in compact/normal — so `toggleSort` has
+// to offer a way back to it that doesn't depend on that column being visible.
 const DEFAULT_SORT_KEY: SortKey = 'longueur';
 const DEFAULT_SORT_DIR: SortDir = 'desc';
 
@@ -491,7 +491,7 @@ export default function Schedules({ density }: SchedulesProps) {
       if (s.sortKey !== key) return { ...s, sortKey: key, sortDir: firstDir };
       // Cycle on the active column: preferred direction, then the other, then
       // back to the dimension sort. Without that third step the default is a
-      // dead end whenever Format is hidden, which it is by default.
+      // dead end whenever Dimension is hidden, which it is by default.
       if (s.sortDir === firstDir) {
         return { ...s, sortDir: firstDir === 'asc' ? 'desc' : 'asc' };
       }
@@ -837,9 +837,9 @@ export default function Schedules({ density }: SchedulesProps) {
 
             {/* Provenance + view state, paper only. The sheet leaves the
                 screen without any of the app chrome, so it has to say where
-                its rows came from and whether they are the whole picture. */}
+                its rows came from and whether they are the whole picture.
+                Row count is left out — the Total row already carries it. */}
             <div className="sch-print-meta print-only">
-              <span>{visibleRows.length} ligne{visibleRows.length > 1 ? 's' : ''}</span>
               {data?.importedAt && (
                 <span>
                   rapport importé le{' '}
@@ -1861,7 +1861,7 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         </div>
 
         <div className="sch-row-sheet-section">
-          <div className="sch-row-sheet-section-title">Format</div>
+          <div className="sch-row-sheet-section-title">Dimension</div>
           <div className="sch-row-sheet-stats">
             <Stat label="Largeur × Longueur" value={format} wide />
             <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />

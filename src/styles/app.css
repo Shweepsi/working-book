@@ -4255,8 +4255,9 @@ button.as-row:focus-visible {
    Only the bottom leg stays open here, for the meta line to carry on from. */
 :root.is-print-preview .sch-detail-head {
   padding: 0 !important;
-  /* Breathing room before the title, on top of the page margin. */
-  margin-top: 2mm !important;
+  /* Breathing room before the title, on top of the page margin — 2mm read as
+     flush against the header card's own bold 17pt title. */
+  margin-top: 6mm !important;
   margin-bottom: 0 !important;
 }
 :root.is-print-preview .sch-detail-head h3 { font-size: 17pt !important; }
@@ -4343,6 +4344,11 @@ button.as-row:focus-visible {
      guarantee every label fits. */
   white-space: normal;
   overflow: visible;
+  /* Screen's column-group separators (inset shadow before Qualité / Dimension)
+     double up with the uniform per-cell divider that's already there in print,
+     reading as one column singled out with a heavier rule. The uniform
+     dividers alone carry the rhythm on paper. */
+  box-shadow: none;
 }
 :root.is-print-preview .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
 :root.is-print-preview .sch-total-label { padding: 3pt 4pt !important; }
@@ -4397,7 +4403,7 @@ button.as-row:focus-visible {
   .sch-body { display: block; }
   .sch-detail-head {
     padding: 0 !important;
-    margin-top: 2mm !important;
+    margin-top: 6mm !important;
     margin-bottom: 0 !important;
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
@@ -4479,6 +4485,7 @@ button.as-row:focus-visible {
     padding: 4pt !important;
     white-space: normal;
     overflow: visible;
+    box-shadow: none;
   }
   .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
   .sch-total-label { padding: 3pt 4pt !important; }

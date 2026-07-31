@@ -479,6 +479,36 @@ page aux trois densités, redimensionner Article sans effet sur le papier,
 impression depuis l'aperçu strictement identique à l'impression normale,
 aucune ligne parasite dans l'aperçu, et écran inchangé au pixel près.
 
+**Troisième passage, quatre retours ciblés** sur le schedule 2213000514
+(SGNRGAR, 4 lignes) :
+
+- *Marge avant le titre* — 8 mm de marge `@page` plus 2 mm de marge de flux sur
+  l'en-tête (14 mm de la révision précédente) restaient visuellement quasi
+  invisibles : le titre en 17 pt gras occupait la respiration à lui seul. La
+  marge de flux passe à 6 mm — la mesure confirme un vrai espace blanc de 14 mm
+  avant le titre (8 + 6), plus perceptible qu'un simple padding technique.
+- *« Format » renommé « Dimension »* partout où il est visible : le libellé de
+  colonne, le titre de section dans la fiche de détail d'une ligne, et le tri
+  qui en découle (« tri : Dimension ↓ » dans la ligne méta). La clé interne
+  `format` est conservée pour ne pas invalider les préférences de colonnes déjà
+  enregistrées.
+- *Nombre de lignes retiré de la ligne méta* — redondant avec le total qui
+  l'affiche déjà (« Total · 4 lignes »). La ligne méta ne porte plus que la
+  date d'import, le tri actif et, le cas échéant, les filtres.
+- *Bordure plus épaisse autour de Qualité* — un doublon entre le filet uniforme
+  entre colonnes (0.5 pt, propre au papier) et le séparateur de groupe hérité
+  de l'écran (ombre interne avant Qualité / Dimension) faisait ressortir cette
+  frontière plus que les autres. Le séparateur de groupe est neutralisé au
+  papier ; les filets uniformes suffisent à porter le rythme des colonnes.
+
+Revérifié après ces quatre changements : 38 lignes → 2 pages avec en-tête sur
+chaque page aux trois densités, redimensionner une colonne toujours sans effet
+sur le papier, impression depuis l'aperçu toujours identique à l'impression
+normale, aucune ligne parasite dans l'aperçu. Écran : deux différences
+relevées, toutes deux attendues et vérifiées — le libellé « FORMAT » devenu
+« DIMENSION » dans l'en-tête de colonne (densité avancée) et dans le titre de
+section de la fiche de détail ; rien d'autre n'a bougé au pixel près.
+
 ## Limites connues
 
 - L'aperçu ne peut pas montrer l'en-tête revenir à chaque saut de page : c'est un
