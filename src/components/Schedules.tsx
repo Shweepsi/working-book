@@ -75,7 +75,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'prodLites',  label: 'Prod',     cls: 'col-num',  sortKey: 'prodLites'  },
   { key: 'reqLites',   label: 'Req',      cls: 'col-num',  sortKey: 'reqLites'   },
   { key: 'opTm',       label: 'Op Tm',    cls: 'col-num',  sortKey: 'opTm'       },
-  { key: 'format',     label: 'Format',   cls: 'col-fmt',  sortKey: 'longueur'   },
+  { key: 'format',     label: 'Dimension', cls: 'col-fmt', sortKey: 'longueur'   },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
   { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'                                         },
   { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',  sortKey: 'packsReq'   },
@@ -85,6 +85,15 @@ const COLUMNS: ColumnDef[] = [
 
 // Columns whose footer cell carries a summed value (see TotalRow).
 const TOTAL_KEYS = new Set(['schedLites', 'prodLites', 'reqLites', 'm2']);
+
+// Every sort key a column actually offers. Used to validate what comes back
+// from localStorage: an unknown key would fall through `compareRows`' switch
+// and return undefined, which reads as "non-zero" in the comparator and skips
+// the tiebreakers entirely.
+const SORT_KEYS = new Set<string>(
+  COLUMNS.map((c) => c.sortKey).filter((k): k is SortKey => !!k),
+);
+const isSortKey = (v: unknown): v is SortKey => typeof v === 'string' && SORT_KEYS.has(v);
 
 // --- Column layout model ---------------------------------------------------
 
@@ -126,9 +135,9 @@ interface TableSettings {
 const TABLE_SETTINGS_VERSION = 6;
 
 // The planner's canonical ordering: widest dimension first, which is also what
-// the longueur group-break rows are built around. It is carried by the Format
-// header — hidden by default in compact/normal — so `toggleSort` has to offer a
-// way back to it that doesn't depend on that column being visible.
+// the longueur group-break rows are built around. It is carried by the
+// Dimension header — hidden by default in compact/normal — so `toggleSort` has
+// to offer a way back to it that doesn't depend on that column being visible.
 const DEFAULT_SORT_KEY: SortKey = 'longueur';
 const DEFAULT_SORT_DIR: SortDir = 'desc';
 
@@ -246,7 +255,10 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
   }
   return {
     version: TABLE_SETTINGS_VERSION,
-    sortKey: migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : DEFAULT_SORT_KEY) as SortKey,
+    sortKey: (() => {
+      const migrated = migrateKey(typeof raw.sortKey === 'string' ? raw.sortKey : DEFAULT_SORT_KEY);
+      return isSortKey(migrated) ? migrated : DEFAULT_SORT_KEY;
+    })(),
     sortDir: raw.sortDir === 'asc' ? 'asc' : DEFAULT_SORT_DIR,
     layouts,
     qualite: arr(raw.qualite),
@@ -457,13 +469,29 @@ export default function Schedules({ density }: SchedulesProps) {
     tableSettings.pdp.length > 0 ||
     tableSettings.mtoMts.length > 0;
 
+  // The controls bar is no-print, so on paper nothing would otherwise betray
+  // that the rows were narrowed or re-ordered — and the total is computed on
+  // the filtered set, so the sheet would read as a complete planning.
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (tableSettings.mtoMts.length > 0) parts.push(`MTO/MTS ${tableSettings.mtoMts.join(', ')}`);
+    if (tableSettings.qualite.length > 0) parts.push(`Qualité ${tableSettings.qualite.join(', ')}`);
+    if (tableSettings.pdp.length > 0) parts.push(`PDP ${tableSettings.pdp.join(', ')}`);
+    return parts.join(' · ');
+  }, [tableSettings.mtoMts, tableSettings.qualite, tableSettings.pdp]);
+
+  const sortSummary = useMemo(() => {
+    const col = COLUMNS.find((c) => c.sortKey === tableSettings.sortKey);
+    return `${col?.label ?? tableSettings.sortKey} ${tableSettings.sortDir === 'asc' ? '↑' : '↓'}`;
+  }, [tableSettings.sortKey, tableSettings.sortDir]);
+
   function toggleSort(key: SortKey) {
     setTableSettings((s) => {
       const firstDir = firstSortDir(key);
       if (s.sortKey !== key) return { ...s, sortKey: key, sortDir: firstDir };
       // Cycle on the active column: preferred direction, then the other, then
       // back to the dimension sort. Without that third step the default is a
-      // dead end whenever Format is hidden, which it is by default.
+      // dead end whenever Dimension is hidden, which it is by default.
       if (s.sortDir === firstDir) {
         return { ...s, sortDir: firstDir === 'asc' ? 'desc' : 'asc' };
       }
@@ -807,6 +835,21 @@ export default function Schedules({ density }: SchedulesProps) {
               );
             })()}
 
+            {/* Provenance + view state, paper only. The sheet leaves the
+                screen without any of the app chrome, so it has to say where
+                its rows came from and whether they are the whole picture.
+                Row count is left out — the Total row already carries it. */}
+            <div className="sch-print-meta print-only">
+              {data?.importedAt && (
+                <span>
+                  rapport importé le{' '}
+                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+              <span>tri : {sortSummary}</span>
+              {filterSummary && <strong>filtré : {filterSummary}</strong>}
+            </div>
+
             <TableControls
               settings={tableSettings}
               layout={layout}
@@ -1087,6 +1130,32 @@ const COL_WIDTHS: Record<string, string> = {
   m2: '88px',
 };
 
+// Track weights used to build the print template. `columnPx` falls back to a
+// flexible column's minmax floor, which under-serves the identity columns on
+// paper: the sheet is narrower than a desktop table, every track shrinks, and
+// Article never gets more than the 180px floor it would only ever hit in the
+// most cramped viewport. These weights buy back a fair share for the columns
+// that carry text.
+//
+// They are the whole story: the printed sheet ignores column widths dragged on
+// screen. Letting those through meant stretching Article on a wide monitor
+// squeezed every other column on paper — dragged to 1100px it took Qualité from
+// 79pt to 47pt and pushed 152 cells into overflow. A resize is a screen
+// preference; the page is a fixed width and has to keep its own proportions.
+const COL_PRINT_WEIGHT: Record<string, number> = {
+  // These two can't fit their own header label at 7.5pt on their screen width.
+  mtoMts: 92,
+  qualite: 88,
+  // "2 140 × 3 210" overruns the screen width once the sheet is this narrow.
+  format: 132,
+  // The most identifying field on the row — worth the widest text track.
+  itemName: 300,
+  pdp: 130,
+  // The 9pt bold total ("115 875,58") needs more room than the data cells the
+  // 88px screen default is sized for — it clipped to "115 875,…" on paper.
+  m2: 100,
+};
+
 interface ColumnResizeHandleProps {
   colKey: string;
   // Returns the column's actual rendered width and freezes the flexible
@@ -1146,7 +1215,7 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
 function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
 
   // Toggle .is-scrolled-x once the operator has scrolled past the pinned
   // columns, so the divider shadow only appears when it's actually meaningful.
@@ -1184,7 +1253,7 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
     return out;
   }, [columns, pinned, widths, autoWidths]);
 
-  const headRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLTableRowElement>(null);
 
   // Starting a drag pins every flexible track to what it currently shows.
   // Article and PDP are `fr` columns, so widening any fixed column used to
@@ -1212,22 +1281,22 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
   }, [columns, widths, autoWidths, onFreezeWidths]);
 
   // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
-  // minPx keeps the grid from collapsing in narrow viewports. The fr-based
-  // variant is used in print, where the page is narrower than the sum of
-  // pixel widths and we want columns to scale down proportionally.
+  // minPx keeps the grid from collapsing in narrow viewports.
   //
-  // Print weights deliberately read `widths` alone, not the auto-frozen ones:
-  // the freeze exists to stop on-screen reflow, and letting it through would
-  // let a column stretched on a wide monitor squeeze the numbers on paper.
-  const { gridTemplate, gridTemplatePrint, minPx } = useMemo(() => {
+  // On paper the table falls back to real table layout (so <thead> repeats on
+  // every page), so the print widths ship as <col> percentages instead of a
+  // grid template. They come from COL_PRINT_WEIGHT alone — neither a dragged
+  // width nor an auto-frozen one reaches the sheet, so resizing a column on
+  // screen leaves the printout exactly as it was.
+  const { gridTemplate, printCols, minPx } = useMemo(() => {
     const screenPx = (key: string): number | undefined => widths[key] ?? autoWidths[key];
+    const weights = columns.map((c) => columnPx(c.key, COL_PRINT_WEIGHT[c.key]));
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
     return {
       gridTemplate: columns
         .map((c) => { const px = screenPx(c.key); return px ? `${px}px` : (COL_WIDTHS[c.key] || 'auto'); })
         .join(' '),
-      gridTemplatePrint: columns
-        .map((c) => `minmax(0, ${columnPx(c.key, widths[c.key])}fr)`)
-        .join(' '),
+      printCols: weights.map((w) => `${((w / weightSum) * 100).toFixed(4)}%`),
       minPx: columns.reduce((acc, c) => acc + columnPx(c.key, screenPx(c.key)), 0),
     };
   }, [columns, widths, autoWidths]);
@@ -1241,17 +1310,26 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
   }
 
   return (
-    <div
+    // A real <table>, not a div grid: it is the only way the column header
+    // repeats on every printed page, and a schedule routinely runs past one
+    // sheet. On screen the table display is swapped back to flex/grid (see
+    // .sch-table in app.css) so the layout is exactly what it always was;
+    // the table box only comes back for the aperçu and the paper.
+    <table
       ref={tableRef}
       className="sch-table"
-      role="table"
       style={{
         ['--sch-grid' as string]: gridTemplate,
-        ['--sch-grid-print' as string]: gridTemplatePrint,
         ['--sch-min' as string]: `${minPx}px`,
       }}
     >
-      <div className="sch-row sch-head" role="row" ref={headRef}>
+      {/* Drives the column widths under table layout. Generates no box on
+          screen, where --sch-grid is in charge. */}
+      <colgroup>
+        {enrichedColumns.map((c, i) => <col key={c.key} style={{ width: printCols[i] }} />)}
+      </colgroup>
+      <thead>
+      <tr className="sch-row sch-head" ref={headRef}>
         {enrichedColumns.map((c) => {
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
@@ -1272,10 +1350,10 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
           const isDragOver = dragOverKey === c.key && dragKeyRef.current && dragKeyRef.current !== c.key;
           const sameGroupDrag = isDragOver && pinned.includes(dragKeyRef.current!) === pinned.includes(c.key);
           return (
-            <div
+            <th
               key={c.key}
+              scope="col"
               className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pin.className}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
-              role="columnheader"
               aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
               title={sortHint}
               tabIndex={sortable ? 0 : undefined}
@@ -1321,21 +1399,24 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
               {c.label}
               {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
               <ColumnResizeHandle colKey={c.key} onResizeStart={beginResize} onResize={onResize} />
-            </div>
+            </th>
           );
         })}
-      </div>
+      </tr>
+      </thead>
+      <tbody>
       {items.map((it) =>
         it.kind === 'break'
           ? (
-            <div key={it.id} className="sch-row sch-group-break" role="row">
-              <div className="sch-group-label">{fmtNum(it.longueur, 0)} mm</div>
-            </div>
+            <tr key={it.id} className="sch-row sch-group-break">
+              <td className="sch-group-label" colSpan={enrichedColumns.length}>{fmtNum(it.longueur, 0)} mm</td>
+            </tr>
           )
           : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
       )}
       <TotalRow rows={totals} columns={enrichedColumns} />
-    </div>
+      </tbody>
+    </table>
   );
 }
 
@@ -1579,10 +1660,16 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
   const isQc = row.largeur === 0 && row.longueur === 0;
   const open = () => onOpen(row);
   return (
-    <button
-      type="button"
-      className={`sch-row sch-row-clickable as-row ${isQc ? 'is-qc' : ''}`}
+    // A <tr> rather than a <button>: the row has to be a table row for the
+    // printed header to repeat. It keeps the keyboard affordance a button
+    // gave it — focusable, Enter/Espace activates.
+    <tr
+      className={`sch-row sch-row-clickable ${isQc ? 'is-qc' : ''}`}
+      tabIndex={0}
       onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      }}
       aria-label={`Détails ${row.product} ${row.itemName}`}
     >
       {columns.map((c) => {
@@ -1596,17 +1683,17 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
         const titleAttr = c.key === 'pdp' ? row.pdp : undefined;
         const pin = pinnedAttrs(c);
         return (
-          <span
+          <td
             key={c.key}
             className={`sch-cell ${c.cls} ${monoExtra}${pin.className}`}
             title={titleAttr}
             style={pin.style}
           >
             {renderRowCell(c, row)}
-          </span>
+          </td>
         );
       })}
-    </button>
+    </tr>
   );
 });
 
@@ -1629,37 +1716,63 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
     while (labelEnd < columns.length && !isTotalled(columns[labelEnd]!)) labelEnd++;
   }
   const spans = labelEnd - labelStart > 1;
+  // Every visible column carries a total — reachable once the identity columns
+  // are all hidden. There is no free cell to put the label in, so it shares
+  // the first one with its value rather than disappearing.
+  const inlineLabel = labelStart === -1;
+  const totalFor = (key: string): ReactNode => {
+    if (key === 'schedLites') return sched;
+    if (key === 'prodLites') return prod;
+    if (key === 'reqLites') return req;
+    if (key === 'm2') return fmtNum(m2, 2);
+    return '';
+  };
   return (
-    <div className="sch-row sch-total" role="row">
+    <tr className="sch-row sch-total">
       {columns.map((c, i) => {
         if (spans && i >= labelStart && i < labelEnd) {
           if (i === labelStart) {
             return (
-              <div
+              // gridColumn drives the span on screen, colSpan under table
+              // layout — each is inert in the other mode.
+              <td
                 key={c.key}
                 className="sch-cell sch-total-label"
-                role="cell"
+                colSpan={labelEnd - labelStart}
                 style={{ gridColumn: `${labelStart + 1} / ${labelEnd + 1}` }}
               >
-                <span>Total</span>
-                <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
-              </div>
+                {/* Inner wrapper carries the flex layout: a display:flex <td>
+                    stops being a table-cell, and its colSpan goes with it. */}
+                <span className="sch-total-label-in">
+                  <span>Total</span>
+                  <span className="faint small">{rows.length} ligne{rows.length > 1 ? 's' : ''}</span>
+                </span>
+              </td>
             );
           }
           return null;
         }
+        const pin = pinnedAttrs(c);
+        if (inlineLabel && i === 0) {
+          return (
+            <td key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} style={pin.style}>
+              {/* Inner wrapper, not the cell itself: the cell has to stay a
+                  table-cell under table layout. */}
+              <span className="sch-total-inline">
+                <span className="faint small">Total · {rows.length}</span>
+                <strong>{totalFor(c.key)}</strong>
+              </span>
+            </td>
+          );
+        }
         let content: ReactNode = '';
         if (i === labelStart) content = <strong>Total · {rows.length}</strong>;
-        else if (c.key === 'schedLites') content = <strong>{sched}</strong>;
-        else if (c.key === 'prodLites') content = <strong>{prod}</strong>;
-        else if (c.key === 'reqLites') content = <strong>{req}</strong>;
-        else if (c.key === 'm2') content = <strong>{fmtNum(m2, 2)}</strong>;
-        const pin = pinnedAttrs(c);
+        else content = totalFor(c.key) === '' ? '' : <strong>{totalFor(c.key)}</strong>;
         return (
-          <div key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} role="cell" style={pin.style}>{content}</div>
+          <td key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} style={pin.style}>{content}</td>
         );
       })}
-    </div>
+    </tr>
   );
 }
 
@@ -1748,7 +1861,7 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
         </div>
 
         <div className="sch-row-sheet-section">
-          <div className="sch-row-sheet-section-title">Format</div>
+          <div className="sch-row-sheet-section-title">Dimension</div>
           <div className="sch-row-sheet-stats">
             <Stat label="Largeur × Longueur" value={format} wide />
             <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />

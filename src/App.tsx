@@ -149,18 +149,9 @@ export default function App() {
     document.documentElement.classList.toggle('is-print-preview', printPreview);
   }, [printPreview]);
 
-  // Tag the document while the OS is rendering the print preview so the
-  // print rules can be expressed once with both selectors and stay in sync.
-  useEffect(() => {
-    const onBefore = () => document.documentElement.classList.add('is-printing');
-    const onAfter = () => document.documentElement.classList.remove('is-printing');
-    window.addEventListener('beforeprint', onBefore);
-    window.addEventListener('afterprint', onAfter);
-    return () => {
-      window.removeEventListener('beforeprint', onBefore);
-      window.removeEventListener('afterprint', onAfter);
-    };
-  }, []);
+  // Nothing tags the document for printing: the paper rules win on their own
+  // (see the schedule print section at the bottom of app.css), so printing
+  // doesn't hang on a `beforeprint` listener some engines never fire.
 
   // Paper orientation per view. `@page` can't be selector-scoped, and binding a
   // named page with the `page` property makes Chromium force a break around
@@ -173,8 +164,13 @@ export default function App() {
       document.head.appendChild(
         Object.assign(document.createElement('style'), { id: PAGE_SIZE_STYLE_ID }),
       );
-    const orientation = tab === 'sched' ? 'landscape' : 'portrait';
-    el.textContent = `@media print { @page { size: A4 ${orientation}; margin: 5mm; } }`;
+    // The schedule sheet gets taller top/bottom margins: 5mm glued the title
+    // to the paper edge, and on later pages the repeated column header sat
+    // just as tight. Sides stay at 5mm — the table needs the width.
+    el.textContent =
+      tab === 'sched'
+        ? '@media print { @page { size: A4 landscape; margin: 8mm 5mm; } }'
+        : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
   }, [tab]);
 
   const dateObj = dateFromISO(date);
@@ -300,6 +296,18 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator />
+          {/* Sits in the header rather than behind the settings cog: checking
+              the paper layout is a recurring gesture, not a preference. */}
+          <button
+            type="button"
+            className={`btn ghost icon print-preview-trigger ${printPreview ? 'is-on' : ''}`}
+            onClick={() => setPrintPreview((v) => !v)}
+            aria-pressed={printPreview}
+            aria-label="Aperçu d’impression"
+            title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
+          >
+            <span className="print-preview-icon" aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="btn ghost icon kbd-help-trigger"
@@ -316,8 +324,6 @@ export default function App() {
             onThemeChange={setTheme}
             density={density}
             onDensityChange={setDensity}
-            printPreview={printPreview}
-            onPrintPreviewChange={setPrintPreview}
           />
         </div>
       </header>
