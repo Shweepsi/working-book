@@ -110,6 +110,9 @@ jobs:
         env:
           # main → prod Worker + D1 prod; any branch/PR → dev Worker + D1 dev.
           VITE_API_URL: ${{ github.ref == 'refs/heads/main' && secrets.VITE_API_URL_PROD || secrets.VITE_API_URL_DEV }}
+          # Same split, named for the front end: the preview-only tabs (Logbook,
+          # Test, Cosmétique) ship with the dev Worker and nowhere else.
+          VITE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
       - name: Create Pages project (idempotent — no-op if already exists)
         run: ${{ env.WRANGLER }} pages project create working-book --production-branch=main || true
       - name: Deploy to Cloudflare Pages

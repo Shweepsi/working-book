@@ -5,6 +5,7 @@ import Schedules from './components/Schedules';
 import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
+import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { registerServiceWorker } from './lib/pwa';
 import { load, save } from './lib/storage';
@@ -22,12 +23,29 @@ import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
-const TABS = [
-  { key: 'logbook', label: 'Logbook' },
-  { key: 'test', label: 'Test' },
-  { key: 'suivi', label: 'Cosmétique' },
+interface TabDef {
+  key: TabKey;
+  label: string;
+  // Still being reworked: shipped to the dev-Worker previews only, so the
+  // production site shows Schedule on its own.
+  preview?: boolean;
+  // Reads the header's date and shift. Cosmétique and Schedule hold their own
+  // scope, so they don't.
+  shiftScoped?: boolean;
+}
+
+const ALL_TABS: readonly TabDef[] = [
+  { key: 'logbook', label: 'Logbook', preview: true, shiftScoped: true },
+  { key: 'test', label: 'Test', preview: true, shiftScoped: true },
+  { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
-] as const satisfies readonly { key: TabKey; label: string }[];
+];
+
+const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
+
+// The date picker and the shift chips exist for the shift-scoped tabs. Once
+// those are filtered out they steer nothing on screen, so they go with them.
+const SHIFT_HEADER = TABS.some((t) => t.shiftScoped);
 
 const SHIFT_TABS = [
   { key: 'M', label: 'Matin' },
@@ -63,8 +81,11 @@ function resolvedTheme(pref: Theme): 'light' | 'dark' {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function isTabKey(value: string): value is TabKey {
-  return value === 'logbook' || value === 'test' || value === 'sched' || value === 'suivi';
+// Deliberately checks the *visible* tabs: a `#logbook` bookmark opened on the
+// production site falls back to the default rather than restoring a tab that
+// build doesn't ship.
+function isVisibleTab(value: string): value is TabKey {
+  return TABS.some((t) => t.key === value);
 }
 
 function isLiveShiftKey(value: string): value is LiveShiftKey {
@@ -77,7 +98,7 @@ const PAGE_SIZE_STYLE_ID = 'wb-page-size';
 export default function App() {
   const [tab, setTab] = useState<TabKey>(() => {
     const hash = window.location.hash.replace('#', '');
-    return isTabKey(hash) ? hash : 'logbook';
+    return isVisibleTab(hash) ? hash : TABS[0].key;
   });
 
   const [date, setDate] = useState<string>(
@@ -205,15 +226,25 @@ export default function App() {
     setTab(TABS[next].key);
   }
 
+  // Only the shortcuts whose target is on screen — see SHIFT_HEADER. A build
+  // with one tab and no shift header keeps just the help toggle.
   const bindings = useMemo<KeyBinding[]>(
     () => [
-      { key: 'ArrowLeft',  ctrl: false, shift: false, alt: false, run: () => setDate(addDaysISO(date, -1)) },
-      { key: 'ArrowRight', ctrl: false, shift: false, alt: false, run: () => setDate(addDaysISO(date, +1)) },
-      { key: '[', shift: false, run: () => cycleShift(-1) },
-      { key: ']', shift: false, run: () => cycleShift(+1) },
-      { key: 't', shift: false, run: jumpLive },
-      { key: 'Tab', shift: false, ctrl: true, run: () => cycleTab(+1) },
-      { key: 'Tab', shift: true,  ctrl: true, run: () => cycleTab(-1) },
+      ...(SHIFT_HEADER
+        ? ([
+            { key: 'ArrowLeft',  ctrl: false, shift: false, alt: false, run: () => setDate(addDaysISO(date, -1)) },
+            { key: 'ArrowRight', ctrl: false, shift: false, alt: false, run: () => setDate(addDaysISO(date, +1)) },
+            { key: '[', shift: false, run: () => cycleShift(-1) },
+            { key: ']', shift: false, run: () => cycleShift(+1) },
+            { key: 't', shift: false, run: jumpLive },
+          ] satisfies KeyBinding[])
+        : []),
+      ...(TABS.length > 1
+        ? ([
+            { key: 'Tab', shift: false, ctrl: true, run: () => cycleTab(+1) },
+            { key: 'Tab', shift: true,  ctrl: true, run: () => cycleTab(-1) },
+          ] satisfies KeyBinding[])
+        : []),
       { key: '?', shift: true, run: () => setHelpOpen((v) => !v) },
     ],
     [date, shiftKey, tab],
@@ -223,76 +254,84 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="app-header no-print">
+      <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
         </div>
 
-        <div className="tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              className={`tab ${tab === t.key ? 'active' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="date-nav" role="group" aria-label="Date">
-          <button
-            type="button"
-            className="btn ghost icon"
-            onClick={() => setDate(addDaysISO(date, -1))}
-            aria-label="Jour précédent"
-          >
-            ‹
-          </button>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="date-input"
-          />
-          <button
-            type="button"
-            className="btn ghost icon"
-            onClick={() => setDate(addDaysISO(date, +1))}
-            aria-label="Jour suivant"
-          >
-            ›
-          </button>
-          <button
-            type="button"
-            className="btn ghost mini live-btn"
-            onClick={jumpLive}
-            disabled={onLiveShift}
-            title={onLiveShift ? 'Déjà sur le shift en cours' : 'Aller au shift en cours'}
-          >
-            Live
-          </button>
-        </div>
-
-        <div className="shift-switch" role="group" aria-label="Shift">
-          {SHIFT_TABS.map((s) => {
-            const p = posteFor(dateObj, s.key);
-            const isLive = date === live.date && live.shiftKey === s.key;
-            return (
+        {/* A single tab is a permanently-active pill with nothing to switch to,
+            so the bar comes out with the tabs it was hiding. */}
+        {TABS.length > 1 && (
+          <div className="tabs">
+            {TABS.map((t) => (
               <button
-                key={s.key}
-                type="button"
-                className={`shift-chip ${shiftKey === s.key ? 'active' : ''} ${isLive ? 'is-live' : ''} shift-${s.key}`}
-                onClick={() => setShiftKey(s.key)}
-                title={isLive ? `${s.label} · Poste ${p} · en cours` : `${s.label} · Poste ${p}`}
+                key={t.key}
+                className={`tab ${tab === t.key ? 'active' : ''}`}
+                onClick={() => setTab(t.key)}
               >
-                {isLive && <span className="live-dot" aria-hidden="true" />}
-                <span className="shift-name">{s.label}</span>
-                <span className="shift-poste">{p}</span>
+                {t.label}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {SHIFT_HEADER && (
+          <>
+            <div className="date-nav" role="group" aria-label="Date">
+              <button
+                type="button"
+                className="btn ghost icon"
+                onClick={() => setDate(addDaysISO(date, -1))}
+                aria-label="Jour précédent"
+              >
+                ‹
+              </button>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="date-input"
+              />
+              <button
+                type="button"
+                className="btn ghost icon"
+                onClick={() => setDate(addDaysISO(date, +1))}
+                aria-label="Jour suivant"
+              >
+                ›
+              </button>
+              <button
+                type="button"
+                className="btn ghost mini live-btn"
+                onClick={jumpLive}
+                disabled={onLiveShift}
+                title={onLiveShift ? 'Déjà sur le shift en cours' : 'Aller au shift en cours'}
+              >
+                Live
+              </button>
+            </div>
+
+            <div className="shift-switch" role="group" aria-label="Shift">
+              {SHIFT_TABS.map((s) => {
+                const p = posteFor(dateObj, s.key);
+                const isLive = date === live.date && live.shiftKey === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className={`shift-chip ${shiftKey === s.key ? 'active' : ''} ${isLive ? 'is-live' : ''} shift-${s.key}`}
+                    onClick={() => setShiftKey(s.key)}
+                    title={isLive ? `${s.label} · Poste ${p} · en cours` : `${s.label} · Poste ${p}`}
+                  >
+                    {isLive && <span className="live-dot" aria-hidden="true" />}
+                    <span className="shift-name">{s.label}</span>
+                    <span className="shift-poste">{p}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         <div className="shift-meta">
           <SyncIndicator />
@@ -376,12 +415,22 @@ function KeyboardHelp({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Mirrors the bindings actually registered in App — a sheet promising keys
+  // that do nothing is worse than a short sheet.
   const rows: Array<{ keys: string[]; label: string }> = [
-    { keys: ['←', '→'], label: 'Jour précédent / suivant' },
-    { keys: ['[', ']'], label: 'Shift précédent / suivant' },
-    { keys: ['T'], label: 'Aller au shift en cours' },
-    { keys: ['Ctrl', '⇥'], label: 'Onglet suivant' },
-    { keys: ['Ctrl', 'Maj', '⇥'], label: 'Onglet précédent' },
+    ...(SHIFT_HEADER
+      ? [
+          { keys: ['←', '→'], label: 'Jour précédent / suivant' },
+          { keys: ['[', ']'], label: 'Shift précédent / suivant' },
+          { keys: ['T'], label: 'Aller au shift en cours' },
+        ]
+      : []),
+    ...(TABS.length > 1
+      ? [
+          { keys: ['Ctrl', '⇥'], label: 'Onglet suivant' },
+          { keys: ['Ctrl', 'Maj', '⇥'], label: 'Onglet précédent' },
+        ]
+      : []),
     { keys: ['Maj', '?'], label: 'Afficher / masquer cette aide' },
     { keys: ['Échap'], label: 'Fermer' },
   ];
