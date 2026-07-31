@@ -68,25 +68,14 @@
     </label>
     <input id="token" type="text" spellcheck="false" autocomplete="off" />
 
-    <label for="mode">
-      Comportement
-      <div class="hint">
-        <strong>Auto</strong> : la page 1 remplace le rapport, les suivantes s’y
-        ajoutent. À laisser tel quel.
-      </div>
-    </label>
-    <select id="mode">
-      <option value="auto">Auto</option>
-      <option value="append">Toujours ajouter</option>
-      <option value="replace">Toujours remplacer</option>
-    </select>
-
     <div class="row">
       <input id="auto" type="checkbox" />
       <label for="auto">Envoyer automatiquement dès que le rapport change</label>
     </div>
     <div class="hint">
       Décoché, l’envoi ne part qu’au clic sur l’icône de l’extension.
+      Chaque envoi <strong>s’ajoute</strong> au rapport ; réimporter une même
+      page met simplement ses lignes à jour.
     </div>
 
     <div class="actions">

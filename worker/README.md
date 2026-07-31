@@ -74,7 +74,7 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `PUT  /api/policy` body: `PolicyResult`
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
 - `PUT  /api/schedules` body: `PMS230Result | null`
-- `POST /api/schedules/ingest` body: `{ text: string, mode?: 'auto' | 'append' | 'replace' }` — direct import (see below)
+- `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
@@ -83,24 +83,22 @@ stored JSON wholesale on every `PUT`.
 
 `POST /api/schedules/ingest` takes a raw Operator Mashup dump instead of a
 parsed report. It runs `parsePMS230` — the same module the paste sheet imports,
-so the two routes can't drift — and stores the result as the shared report. The
-caller is the "Import direct" bookmarklet the app generates (Planning →
-*Importer rapport Operator Mashup* → *⇱ Import direct*), which runs inside the
-operator's already-authenticated portal session; the Worker never talks to Infor
-itself and holds no Infor credentials.
+so no route can drift from the others — and merges the result into the shared
+report. Two callers: the "Import direct" bookmarklet the app generates
+(Schedule → *Importer rapport Operator Mashup* → *⇱ Import direct*), which
+reads the operator's clipboard, and the browser extension in `extension/`,
+which reads the M3 grid directly. Both run inside the operator's already
+authenticated session; the Worker never talks to Infor and holds no Infor
+credentials.
 
-How the bookmarklet gets the text is its own business: it scrapes the page when
-the mashup is same-origin, and otherwise reads the clipboard, because on the
-real portal the M3 grid is served from a different host than mingle-portal and
-the same-origin policy blocks the top frame from reading it. Either way what
-lands here is the same dump the paste sheet would have received.
-
-`mode` defaults to `auto`: a dump reporting page 1, or carrying no pagination at
-all, replaces the stored report; any later page is merged into it. That lets an
-operator walk a multi-page report with one click per page.
+**Every import adds.** There is no replace and no mode parameter: an operator
+walking a multi-page report, or re-importing after a fresh search, only ever
+wants more rows. `mergePMS230` keys on `schedule|MO`, so re-sending a page
+updates those rows in place instead of duplicating them. Removing a schedule is
+a deliberate act, done from the Schedule tab.
 
 A dump that yields no decodable row answers `422 no_records` and leaves the
-stored report alone, so a mis-click on the wrong page can't wipe it.
+stored report alone, so a mis-click on the wrong screen can't damage it.
 
 Two optional settings govern it, both unset by default:
 

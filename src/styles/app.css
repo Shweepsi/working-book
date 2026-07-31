@@ -2303,15 +2303,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--flag-unsched-fg);
   font-weight: 600;
 }
-.sch-warn-chip {
-  margin-left: auto;
-  padding: var(--space-2) var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--hl-yellow);
-  color: var(--flag-sched-fg);
-  font-size: var(--fs-sm);
-  border: 1px solid var(--flag-sched-bd);
-}
 .sch-policy-chip {
   display: inline-flex;
   align-items: center;

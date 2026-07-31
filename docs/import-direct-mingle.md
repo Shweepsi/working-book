@@ -1,111 +1,103 @@
 # Import direct depuis Mingle
 
 Comment envoyer le rapport Operator Mashup dans Working Book **sans quitter le
-portail Infor** : plus de changement d'onglet, plus de collage à la main.
+portail Infor**.
 
-Le copier-coller complet reste disponible et inchangé : c'est le repli quand
-l'import direct est bloqué.
+Deux façons, selon ce qui est autorisé sur le poste :
+
+| | Ce qu'il faut faire | À installer |
+| --- | --- | --- |
+| **Extension** | rien, l'envoi part tout seul | une extension navigateur |
+| **Favori** | Ctrl+A, Ctrl+C, un clic | un favori (marche partout) |
+
+Le copier-coller classique reste disponible et inchangé.
+
+**Tout import s'ajoute au rapport.** Il n'y a pas de « remplacer » : un rapport
+en plusieurs pages se prend page par page, et réimporter une même page met
+simplement ses lignes à jour au lieu de les dupliquer. Pour retirer un schedule,
+faites-le glisser dans la liste de gauche de l'onglet Schedule.
 
 ## Le principe
 
 Working Book ne se connecte pas à Infor et ne détient aucun identifiant Infor.
+Le rapport est lu dans la session déjà ouverte de l'opérateur, puis envoyé au
+serveur Working Book, qui le passe par le même analyseur que la zone de collage
+et le partage avec tous les postes.
 
-C'est un **favori** (bookmarklet) installé dans le navigateur qui fait le
-travail : cliqué depuis l'Operator Mashup, il récupère le rapport dans la
-session déjà ouverte de l'opérateur et l'envoie au serveur Working Book. Le
-serveur le passe par le même analyseur que la zone de collage, puis le partage
-avec tous les postes.
+Rien à demander à l'IT, aucun compte de service, aucun mot de passe stocké.
 
-Conséquence : rien à demander à l'IT, aucun compte de service, aucun mot de
-passe stocké nulle part.
+## Option 1 — l'extension (le plus simple à l'usage)
 
-### Pourquoi il faut copier le rapport d'abord
+Aucune manipulation à l'import : ouvrez l'Operator Mashup, lancez la recherche,
+c'est envoyé.
 
-Dans Mingle, le rapport M3 est affiché dans un **cadre servi par un autre
+C'est possible parce qu'une extension a une capacité que rien d'autre n'a : le
+navigateur exécute son script **à l'intérieur** du cadre où vit la grille M3.
+
+Installation et détails : [`extension/README.md`](../extension/README.md).
+
+## Option 2 — le favori
+
+À utiliser quand les extensions sont bloquées par l'IT.
+
+### Pourquoi il faut copier le rapport
+
+Dans Mingle, la grille M3 est affichée dans un **cadre servi par un autre
 domaine** que le portail. Le navigateur interdit à toute page — favori compris —
-de lire le contenu d'un cadre d'un autre domaine : c'est la protection de base
-du web, et aucune écriture du favori ne peut la contourner.
+de lire le contenu d'un tel cadre. C'est la protection de base du web, aucune
+astuce ne la contourne.
 
-Le favori passe donc par le presse-papiers : <kbd>Ctrl</kbd> + <kbd>A</kbd>,
-<kbd>Ctrl</kbd> + <kbd>C</kbd> dans le rapport, là où l'opérateur se trouve
-déjà, puis un clic. Ce qui disparaît, c'est le changement d'onglet, l'ouverture
-de la feuille, le collage et le bouton Importer.
+Le favori passe donc par le presse-papiers. Ce qui disparaît quand même : le
+changement d'onglet, l'ouverture de la feuille, le collage et le bouton.
 
-Si le mashup est ouvert **seul dans son onglet**, il n'y a plus de cadre : le
-favori lit la page directement et la copie devient inutile.
+### Installer (une fois par poste)
 
-### Se passer aussi de la copie : l'extension
-
-Une seule chose au monde peut lire un cadre d'un autre domaine : une **extension
-navigateur**, via `all_frames`. Le navigateur exécute alors le script *à
-l'intérieur* du cadre de la grille.
-
-Si les extensions sont autorisées sur le poste, c'est la meilleure option : plus
-de copie, plus de clic, l'envoi part tout seul dès que la recherche aboutit.
-Voir [`extension/README.md`](../extension/README.md).
-
-Le favori décrit ci-dessous reste la solution quand les extensions sont
-bloquées par l'IT.
-
-## 1. Installer le favori (une seule fois, par poste)
-
-1. Dans Working Book, onglet **Planning** → bouton **Importer rapport Operator
-   Mashup**.
+1. Dans Working Book, onglet **Schedule** → **Importer rapport Operator Mashup**.
 2. Dans l'en-tête de la feuille, cliquer **⇱ Import direct**.
-3. Afficher la barre de favoris du navigateur : <kbd>Ctrl</kbd> +
-   <kbd>Maj</kbd> + <kbd>O</kbd> sur Edge et Chrome.
+3. Afficher la barre de favoris : <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>O</kbd>
+   sur Edge et Chrome.
 4. Glisser le bouton **⇱ Working Book — importer** sur la barre de favoris.
 
    Si le glisser-déposer ne passe pas (poste verrouillé, tablette) : cliquer
-   **Copier le lien**, créer un favori à la main et coller le texte copié dans
-   le champ **Adresse**.
+   **Copier le lien**, créer un favori à la main et coller le texte copié dans le
+   champ **Adresse**.
 
 Le champ **Jeton** ne sert que si un jeton a été configuré côté serveur
 (`INGEST_TOKEN`). Sinon, le laisser vide.
 
-## 2. Importer
+### Importer
 
-1. Ouvrir l'Operator Mashup et lancer la recherche habituelle.
+1. Ouvrir l'Operator Mashup et lancer la recherche.
 2. Cliquer dans le rapport, puis <kbd>Ctrl</kbd> + <kbd>A</kbd> et
    <kbd>Ctrl</kbd> + <kbd>C</kbd>.
-3. Cliquer le favori **⇱ Working Book — importer**. Il annonce ce qu'il a trouvé
-   et demande validation.
-4. Un message confirme : `N lignes lues`, et l'état du rapport.
-5. Revenir dans Working Book : le rapport est là. Si l'onglet était resté
-   ouvert, il se met à jour tout seul au retour dessus.
+3. Cliquer le favori. Il annonce ce qu'il a trouvé et demande validation.
+4. Revenir dans Working Book : le rapport est là. Si l'onglet était resté ouvert,
+   il se met à jour tout seul au retour dessus.
 
 La première fois, le navigateur demande l'autorisation de lire le
 presse-papiers. Accepter, sinon le favori ne peut rien recevoir.
 
-### Rapport sur plusieurs pages
-
-Le message indique `Page 1/4` le cas échéant. Passer à la page suivante dans le
-mashup, recopier et recliquer le favori : les pages **s'ajoutent** les unes aux
-autres.
-
-C'est le réglage **Auto** : la page 1 remplace le rapport, les suivantes le
-complètent. Relancer une recherche et cliquer sur sa page 1 repart donc d'un
-rapport propre. Les réglages **Ajouter** et **Remplacer** forcent l'un ou
-l'autre comportement pour ceux qui préfèrent décider eux-mêmes.
+Pour un rapport en plusieurs pages : passer à la page suivante, recopier,
+recliquer.
 
 ## En cas de problème
 
 | Message | Cause | Quoi faire |
 | ------- | ----- | ---------- |
-| *Aucune ligne de planning lisible sur cette page* | Ni la page ni le presse-papiers ne contiennent de rapport. | Lancer la recherche, cliquer dans le rapport, <kbd>Ctrl</kbd> + <kbd>A</kbd> / <kbd>Ctrl</kbd> + <kbd>C</kbd>, puis recliquer le favori. |
+| *Le presse-papiers ne contient pas de rapport* | Rien de copié, ou une copie d'autre chose. | Cliquer dans le rapport, <kbd>Ctrl</kbd> + <kbd>A</kbd> / <kbd>Ctrl</kbd> + <kbd>C</kbd>, recliquer le favori. |
 | *Lecture du presse-papiers refusée* | L'autorisation navigateur a été refusée. | La réactiver via l'icône dans la barre d'adresse, puis recliquer. |
-| *Envoi impossible* | Le serveur n'a pas été joignable (réseau, ou politique de sécurité du portail). | **Rien n'a été importé.** Réessayer ; si ça persiste, coller dans Working Book → Planning → **Importer**. |
+| *Envoi impossible* | Serveur injoignable (réseau, ou politique de sécurité du portail). | **Rien n'a été importé.** Réessayer ; si ça persiste, coller dans Working Book → Schedule → **Importer**. |
 | *Échec de l'import (401 unauthorized)* | Un jeton est exigé par le serveur et celui du favori ne correspond pas. | Corriger le champ **Jeton** dans la feuille Import direct, puis réinstaller le favori (il embarque le jeton). |
 | *Échec de l'import (422 no_records)* | Du texte a été lu mais aucune ligne n'a pu être décodée. | Vérifier qu'on est bien sur le rapport PMS230 et non sur un écran de recherche vide. Le rapport déjà chargé n'est pas touché. |
 
 Le favori embarque l'adresse du serveur et le jeton au moment où il est
-installé. Si l'un des deux change, refaire l'étape 1.
+installé. Si l'un des deux change, refaire l'installation.
 
 ## Pour l'administrateur
 
 L'endpoint est `POST /api/schedules/ingest`. Comme il accepte les origines
-`*.inforcloudsuite.com` — nécessaire pour que le favori puisse écrire depuis le
-portail — il est recommandé de le protéger par un jeton :
+`*.inforcloudsuite.com` — nécessaire pour que le favori et l'extension puissent
+écrire depuis le portail — il est recommandé de le protéger par un jeton :
 
 ```bash
 cd worker

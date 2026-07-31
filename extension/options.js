@@ -1,4 +1,4 @@
-const DEFAULTS = { apiBase: '', token: '', mode: 'auto', auto: true };
+const DEFAULTS = { apiBase: '', token: '', auto: true };
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -27,7 +27,6 @@ async function load() {
   const cfg = await chrome.storage.sync.get(DEFAULTS);
   $('apiBase').value = cfg.apiBase;
   $('token').value = cfg.token;
-  $('mode').value = cfg.mode;
   $('auto').checked = cfg.auto !== false;
 }
 
@@ -35,7 +34,6 @@ function readForm() {
   return {
     apiBase: $('apiBase').value.trim().replace(/\/+$/, ''),
     token: $('token').value.trim(),
-    mode: $('mode').value,
     auto: $('auto').checked,
   };
 }
@@ -80,7 +78,7 @@ async function test() {
         'Content-Type': 'application/json',
         ...(cfg.token ? { 'X-WB-Token': cfg.token } : {}),
       },
-      body: JSON.stringify({ text: 'test de connexion Working Book', mode: 'auto' }),
+      body: JSON.stringify({ text: 'test de connexion Working Book' }),
     });
     if (probe.status === 401) {
       say('Serveur joignable, mais le jeton est refusé (401).', 'err');

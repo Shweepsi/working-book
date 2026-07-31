@@ -11,7 +11,7 @@ import {
   totalM2,
   totalReqLites,
 } from '../lib/coaterMath';
-import PasteImport, { type ImportMode } from './PasteImport';
+import PasteImport from './PasteImport';
 import PortalImport from './PortalImport';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
@@ -334,8 +334,7 @@ function describePMS230(r: PMS230Result): string {
   const records = r.records?.length ?? 0;
   const schedules = r.schedules?.length ?? 0;
   const m2 = totalM2(r.records ?? []);
-  const page = r.totalPages ? ` · page ${r.currentPage}/${r.totalPages}` : '';
-  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${fmtNum(m2, 2)} m²${page}`;
+  return `✓ ${records} lignes · ${schedules} schedule${schedules > 1 ? 's' : ''} · ${fmtNum(m2, 2)} m²`;
 }
 
 function describePolicy(r: PolicyResult): string {
@@ -746,10 +745,11 @@ export default function Schedules({ density }: SchedulesProps) {
     });
   }
 
-  function handlePms230Confirm(parsed: PMS230Result, mode: ImportMode) {
-    // `replace` only reaches here on the first import — the sheet offers
-    // "Ajouter" alone once a report is loaded, so there is nothing to undo.
-    setData((prev) => (mode === 'append' ? mergePMS230(prev, parsed) : parsed));
+  function handlePms230Confirm(parsed: PMS230Result) {
+    // Every import adds, whichever route it came in by. `mergePMS230` keys on
+    // schedule|MO, so re-importing a page updates its rows rather than
+    // duplicating them; dropping a schedule is done from the rail.
+    setData((prev) => mergePMS230(prev, parsed));
     setImportMode(null);
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
@@ -941,7 +941,7 @@ export default function Schedules({ density }: SchedulesProps) {
           hint="Dans l'Operator Mashup, faites votre recherche. Ctrl+A puis Ctrl+C, et coller ci-dessous."
           parser={parsePMS230}
           describe={describePMS230}
-          showAppend={!!data}
+          confirmLabel="Ajouter"
           onConfirm={handlePms230Confirm}
           onClose={() => setImportMode(null)}
           headerActions={
@@ -1146,7 +1146,6 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
   const m2 = data ? fmtNum(totalM2(data.records), 2) : null;
   const policyCount = policy?.count ?? 0;
   const importedAt = data?.importedAt ? new Date(data.importedAt) : null;
-  const pageWarn = data?.totalPages && data.totalPages > 1;
 
   return (
     <div className="sch-summary">
@@ -1179,11 +1178,6 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
           {importedAt && (
             <span className="faint small">
               importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-            </span>
-          )}
-          {pageWarn && (
-            <span className="sch-warn-chip" title="Le paste ne couvre qu'une partie du rapport">
-              ⚠ Page {data.currentPage}/{data.totalPages} — colle les pages suivantes (bouton Ajouter)
             </span>
           )}
         </div>

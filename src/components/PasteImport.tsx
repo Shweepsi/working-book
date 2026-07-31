@@ -8,8 +8,6 @@ export interface PastePayload {
   text: string;
 }
 
-export type ImportMode = 'replace' | 'append';
-
 // Result must expose at least `warnings` and either `records.length` (PMS230) or
 // `count` (policy) so the "ready to import" gate can fire.
 export interface PasteImportResult {
@@ -21,8 +19,10 @@ export interface PasteImportResult {
 export interface PasteImportProps<R extends PasteImportResult> {
   parser: (payload: PastePayload) => R;
   describe: (result: R) => string;
-  showAppend?: boolean;
-  onConfirm: (result: R, mode: ImportMode) => void;
+  // Wording of the confirm button. The schedule report says "Ajouter" — every
+  // import merges into what's stored — while the policy table replaces.
+  confirmLabel?: string;
+  onConfirm: (result: R) => void;
   onClose: () => void;
   title: string;
   hint?: string;
@@ -34,7 +34,7 @@ export interface PasteImportProps<R extends PasteImportResult> {
 export default function PasteImport<R extends PasteImportResult>({
   parser,
   describe,
-  showAppend = false,
+  confirmLabel = 'Importer',
   onConfirm,
   onClose,
   title,
@@ -202,22 +202,13 @@ export default function PasteImport<R extends PasteImportResult>({
         <div className="actions">
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
-          {/* Once something is loaded the only import is additive — a paste
-              covers one page of the source report, so replacing would silently
-              drop the pages already collected. Starting over goes through
-              "Vider", which asks for confirmation. */}
           <button
             className="btn primary"
             type="button"
             disabled={!ready}
-            onClick={() => result && onConfirm(result, showAppend ? 'append' : 'replace')}
-            title={
-              showAppend
-                ? 'Fusionner avec les données existantes (dédup sur schedule|MO)'
-                : undefined
-            }
+            onClick={() => result && onConfirm(result)}
           >
-            {showAppend ? 'Ajouter' : 'Importer'}
+            {confirmLabel}
           </button>
         </div>
       </div>

@@ -68,8 +68,10 @@ déclencheur.
   deux envois automatiques sont séparés d'au moins 5 s.
 - Le serveur refuse (`422`) un contenu dont aucune ligne ne se décode, **sans
   toucher** au rapport déjà stocké.
-- Pagination : le mode `auto` fait remplacer par la page 1 et ajouter par les
-  suivantes, exactement comme les autres voies d'import.
+- **Tout envoi s'ajoute** au rapport, jamais ne le remplace. Réenvoyer une même
+  page met ses lignes à jour au lieu de les dupliquer (clé `schedule|MO`), donc
+  un envoi automatique de trop est sans conséquence. Retirer un schedule se fait
+  depuis l'onglet Schedule de l'app.
 
 ## Ce qui sort du poste
 

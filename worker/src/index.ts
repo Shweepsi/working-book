@@ -314,13 +314,16 @@ function tokenMatches(got: string, expected: string): boolean {
   return diff === 0;
 }
 
-type IngestMode = 'auto' | 'append' | 'replace';
-const INGEST_MODES: readonly string[] = ['auto', 'append', 'replace'];
-
-// Direct import from the Infor portal. The "Import direct" bookmarklet reads the
-// Operator Mashup grid in the operator's own authenticated session and POSTs the
-// raw text here; we run it through the very same parser the paste sheet uses, so
-// both routes can't drift apart, and store the result as the shared report.
+// Direct import from the Infor portal. The "Import direct" bookmarklet and the
+// browser extension both post the raw Operator Mashup text here; we run it
+// through the very same parser the paste sheet uses, so no route can drift from
+// the others, and merge the result into the shared report.
+//
+// Every import adds. There is no replace: an operator walking a multi-page
+// report, or re-importing after a fresh search, only ever wants more rows —
+// and `mergePMS230` keys on schedule|MO, so re-sending the same page updates
+// those rows in place instead of duplicating them. Removing a schedule is a
+// deliberate act, done from the Schedule tab.
 async function handleSchedulesIngest(
   request: Request,
   env: Env,
@@ -335,40 +338,25 @@ async function handleSchedulesIngest(
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
-  const { text, mode } = body as { text?: unknown; mode?: unknown };
+  const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
-  if (mode !== undefined && (typeof mode !== 'string' || !INGEST_MODES.includes(mode))) {
-    return json({ error: 'invalid_mode' }, cors, 400);
-  }
 
   const parsed = parsePMS230(text);
   if (parsed.records.length === 0) {
-    // Something was scraped but no row survived decoding — usually the wrong
-    // page, or a search that returned nothing. Say so instead of wiping the
-    // stored report with an empty one.
+    // Text arrived but no row survived decoding — usually the wrong screen, or
+    // a search that returned nothing. Say so rather than touching the report.
     return json({ error: 'no_records', warnings: parsed.warnings.slice(0, 10) }, cors, 422);
   }
 
-  // `auto` reads the report's own pagination: page 1 (or an unpaginated report)
-  // is a fresh search and replaces, any later page adds to what's already
-  // stored. That matches how the operator walks the report — one click per
-  // page, in order — without asking them to pick a mode each time.
-  const append =
-    (mode as IngestMode | undefined) === 'append' ||
-    (mode !== 'replace' && parsed.currentPage != null && parsed.currentPage > 1);
-
-  const merged = append ? mergePMS230(await readSchedules(env), parsed) : parsed;
+  const merged = mergePMS230(await readSchedules(env), parsed);
   const updatedAt = await writeSchedules(env, merged);
 
   return json(
     {
       ok: true,
-      mode: append ? 'append' : 'replace',
       imported: parsed.records.length,
       records: merged.records.length,
       schedules: merged.schedules.length,
-      currentPage: parsed.currentPage,
-      totalPages: parsed.totalPages,
       warnings: parsed.warnings.length,
       updated_at: updatedAt,
     },

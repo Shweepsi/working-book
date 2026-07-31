@@ -4,7 +4,7 @@
 // bookmarklet could never have: host permissions bypass CORS, and the portal's
 // own Content-Security-Policy has no say over an extension background fetch.
 
-const DEFAULTS = { apiBase: '', token: '', mode: 'auto', auto: true };
+const DEFAULTS = { apiBase: '', token: '', auto: true };
 
 const BADGE = {
   ok: { color: '#2e7d32', ttl: 4000 },
@@ -45,7 +45,7 @@ async function ingest(text) {
     res = await fetch(`${cfg.apiBase.replace(/\/+$/, '')}/api/schedules/ingest`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ text, mode: cfg.mode }),
+      body: JSON.stringify({ text }),
     });
   } catch (err) {
     badge('rés.', 'err');

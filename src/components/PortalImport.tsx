@@ -1,18 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { API_BASE, SYNC_ENABLED } from '../lib/api';
-import { bookmarkletHref, bookmarkletSource, INGEST_MODES, type IngestMode } from '../lib/bookmarklet';
+import { bookmarkletHref, bookmarkletSource } from '../lib/bookmarklet';
 import { load, save } from '../lib/storage';
 import { useEscapeToClose } from '../lib/hooks';
 
 // Set-up sheet for the direct import. Nothing here talks to Infor — it builds
-// the bookmarklet the operator installs once, then clicks from the Operator
+// the bookmarklet the operator installs once, then uses from the Operator
 // Mashup itself, where their session already is.
 
 const KEY_TOKEN = 'wb.schedules.ingest.token';
-const KEY_MODE = 'wb.schedules.ingest.mode';
-
-const isMode = (v: unknown): v is IngestMode =>
-  typeof v === 'string' && INGEST_MODES.some((m) => m.key === v);
 
 interface PortalImportProps {
   onClose: () => void;
@@ -24,18 +20,13 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
     const stored = load<unknown>(KEY_TOKEN, '');
     return typeof stored === 'string' ? stored : '';
   });
-  const [mode, setMode] = useState<IngestMode>(() => {
-    const stored = load<unknown>(KEY_MODE, 'auto');
-    return isMode(stored) ? stored : 'auto';
-  });
   const [copied, setCopied] = useState(false);
   const linkRef = useRef<HTMLAnchorElement>(null);
 
   useEscapeToClose(onClose);
   useEffect(() => { save(KEY_TOKEN, token); }, [token]);
-  useEffect(() => { save(KEY_MODE, mode); }, [mode]);
 
-  const opts = { apiBase: API_BASE, token, mode };
+  const opts = { apiBase: API_BASE, token };
   const href = SYNC_ENABLED ? bookmarkletHref(opts) : '';
 
   // Assigned through the DOM rather than as a prop: React refuses to render a
@@ -62,8 +53,6 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
     }
   }
 
-  const modeHelp = INGEST_MODES.find((m) => m.key === mode)?.help;
-
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
@@ -78,18 +67,9 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
         </div>
 
         <p className="faint small sch-import-hint">
-          À installer une fois. Ensuite, depuis l’Operator Mashup, un clic sur le
-          favori envoie le rapport ici — plus de changement d’onglet ni de
-          collage à la main.
-        </p>
-
-        <p className="faint small sch-import-hint">
-          <strong>Import entièrement automatique :</strong> si les extensions
-          navigateur sont autorisées sur le poste, le dossier{' '}
-          <code>extension/</code> du dépôt en contient une qui lit la grille
-          directement dans son cadre — sans copie ni clic, dès que la recherche
-          aboutit. Le favori ci-dessous reste la solution quand les extensions
-          sont bloquées.
+          À installer une fois. Ensuite, depuis l’Operator Mashup :{' '}
+          <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>Ctrl</kbd> + <kbd>C</kbd>, un clic
+          sur le favori. Plus de changement d’onglet ni de collage.
         </p>
 
         {!SYNC_ENABLED ? (
@@ -124,44 +104,18 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
                 </div>
               </li>
               <li>
-                Ouvrez l’Operator Mashup, lancez la recherche, puis cliquez dans
-                le rapport et faites <kbd>Ctrl</kbd> + <kbd>A</kbd> puis{' '}
-                <kbd>Ctrl</kbd> + <kbd>C</kbd>.
-                <p className="faint small">
-                  Le rapport M3 est affiché dans un cadre servi par un autre
-                  domaine que le portail : le navigateur interdit au favori de le
-                  lire directement, quelle qu’en soit l’écriture. Il passe donc
-                  par le presse-papiers. Si le mashup est ouvert seul dans son
-                  onglet, cette étape saute d’elle-même.
-                </p>
-              </li>
-              <li>
-                Cliquez le favori et validez. Un message confirme le nombre de
-                lignes importées.
-              </li>
-              <li>
-                Si le rapport tient sur plusieurs pages, passez à la suivante,
-                recopiez et recliquez : elles s’ajoutent les unes aux autres.
+                Dans l’Operator Mashup : lancez la recherche, cliquez dans le
+                rapport, <kbd>Ctrl</kbd> + <kbd>A</kbd> puis <kbd>Ctrl</kbd> +{' '}
+                <kbd>C</kbd>, puis cliquez le favori et validez.
               </li>
             </ol>
 
-            <div className="sch-portal-field">
-              <h4>Comportement</h4>
-              <div className="seg" role="group" aria-label="Comportement de l’import">
-                {INGEST_MODES.map((m) => (
-                  <button
-                    key={m.key}
-                    type="button"
-                    className={mode === m.key ? 'active' : ''}
-                    onClick={() => setMode(m.key)}
-                    aria-pressed={mode === m.key}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              {modeHelp && <p className="faint small">{modeHelp}</p>}
-            </div>
+            <p className="faint small">
+              Chaque import <strong>s’ajoute</strong> au rapport : un rapport en
+              plusieurs pages se prend page par page, et réimporter la même page
+              met simplement ses lignes à jour. Pour retirer un schedule, faites-le
+              glisser dans la liste de gauche.
+            </p>
 
             <div className="sch-portal-field">
               <h4>
@@ -185,8 +139,9 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
             <details className="sch-import-warnings sch-portal-source">
               <summary>Voir ce que fait le favori</summary>
               <p className="faint small">
-                Il envoie le texte du rapport à <code>{API_BASE}/api/schedules/ingest</code>.
-                Rien d’autre ne quitte la page.
+                Il lit le presse-papiers et l’envoie à{' '}
+                <code>{API_BASE}/api/schedules/ingest</code>. Rien d’autre ne
+                quitte la page.
               </p>
               <pre className="mono small">{bookmarkletSource(opts)}</pre>
             </details>
