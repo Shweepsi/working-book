@@ -89,6 +89,12 @@ caller is the "Import direct" bookmarklet the app generates (Planning →
 operator's already-authenticated portal session; the Worker never talks to Infor
 itself and holds no Infor credentials.
 
+How the bookmarklet gets the text is its own business: it scrapes the page when
+the mashup is same-origin, and otherwise reads the clipboard, because on the
+real portal the M3 grid is served from a different host than mingle-portal and
+the same-origin policy blocks the top frame from reading it. Either way what
+lands here is the same dump the paste sheet would have received.
+
 `mode` defaults to `auto`: a dump reporting page 1, or carrying no pagination at
 all, replaces the stored report; any later page is merged into it. That lets an
 operator walk a multi-page report with one click per page.

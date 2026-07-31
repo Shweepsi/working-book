@@ -79,8 +79,8 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
 
         <p className="faint small sch-import-hint">
           À installer une fois. Ensuite, depuis l’Operator Mashup, un clic sur le
-          favori lit le rapport affiché et l’envoie ici — plus de Ctrl+A / Ctrl+C
-          ni de changement d’onglet.
+          favori envoie le rapport ici — plus de changement d’onglet ni de
+          collage à la main.
         </p>
 
         {!SYNC_ENABLED ? (
@@ -115,12 +115,24 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
                 </div>
               </li>
               <li>
-                Ouvrez l’Operator Mashup, lancez la recherche, puis cliquez le
-                favori. Un message confirme le nombre de lignes lues.
+                Ouvrez l’Operator Mashup, lancez la recherche, puis cliquez dans
+                le rapport et faites <kbd>Ctrl</kbd> + <kbd>A</kbd> puis{' '}
+                <kbd>Ctrl</kbd> + <kbd>C</kbd>.
+                <p className="faint small">
+                  Le rapport M3 est affiché dans un cadre servi par un autre
+                  domaine que le portail : le navigateur interdit au favori de le
+                  lire directement, quelle qu’en soit l’écriture. Il passe donc
+                  par le presse-papiers. Si le mashup est ouvert seul dans son
+                  onglet, cette étape saute d’elle-même.
+                </p>
               </li>
               <li>
-                Si le rapport tient sur plusieurs pages, passez à la suivante et
-                recliquez : elles s’ajoutent les unes aux autres.
+                Cliquez le favori et validez. Un message confirme le nombre de
+                lignes importées.
+              </li>
+              <li>
+                Si le rapport tient sur plusieurs pages, passez à la suivante,
+                recopiez et recliquez : elles s’ajoutent les unes aux autres.
               </li>
             </ol>
 

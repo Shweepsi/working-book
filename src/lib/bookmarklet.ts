@@ -34,35 +34,66 @@ export const INGEST_MODES: readonly { key: IngestMode; label: string; help: stri
 //
 // Backslashes are doubled: this is a TS template literal, so `\\d` here is the
 // `\d` the browser finally sees.
+//
+// Two ways in, tried in that order:
+//
+//  1. Scrape the page. Works when the mashup is the top document, or when it
+//     sits in a same-origin frame.
+//  2. Read the clipboard. On the real portal the M3 grid is served from a
+//     different host than mingle-portal, so the browser blocks the top frame
+//     from reading it — no bookmarklet can get around that, it is the
+//     same-origin policy doing its job. The operator copies the grid instead
+//     (Ctrl+A, Ctrl+C, which is where they already are) and the favourite
+//     takes it from there: still one click, still no tab switch, and the
+//     result goes through the exact same parse-and-store path.
+//
+// The clipboard route confirms before sending — unlike a scrape, its contents
+// may be an old copy the operator never meant to import.
 const SOURCE = `(function(){
 var API=__API__,TOKEN=__TOKEN__,MODE=__MODE__;
 var ANCHOR=/\\b22\\d{8}\\b/g;
+var seen=0,blocked=0;
 function collect(win,out,depth){
 if(depth>5)return;
-var doc;try{doc=win.document;}catch(e){return;}
-try{var t=(doc.body&&(doc.body.innerText||doc.body.textContent))||'';if(t)out.push(t);}catch(e){}
+seen++;
+var doc;try{doc=win.document;}catch(e){blocked++;return;}
+try{var t=(doc.body&&(doc.body.innerText||doc.body.textContent))||'';if(t)out.push(t);}catch(e){blocked++;}
 var fr;try{fr=win.frames;}catch(e){return;}
-for(var i=0;i<fr.length;i++){try{collect(fr[i],out,depth+1);}catch(e){}}
+for(var i=0;i<fr.length;i++){try{collect(fr[i],out,depth+1);}catch(e){blocked++;}}
 }
-var found=[];collect(window,found,0);
-var best='',n=0;
-for(var i=0;i<found.length;i++){var m=found[i].match(ANCHOR);var c=m?m.length:0;if(c>n){n=c;best=found[i];}}
-if(!n){alert('Working Book\\n\\nAucune ligne de planning trouvee sur cette page.\\n\\n- Lancez la recherche dans l Operator Mashup avant de cliquer.\\n- Si le rapport est dans un cadre : clic droit dessus, "Ce cadre" puis "Afficher uniquement ce cadre", et recliquez.');return;}
+function score(t){var m=t?t.match(ANCHOR):null;return m?m.length:0;}
+function help(){
+return 'Working Book\\n\\nAucune ligne de planning lisible sur cette page.\\n\\nLe rapport est affiche dans un cadre d un autre domaine (' + blocked + ' cadre(s) protege(s) sur ' + seen + ') : le navigateur interdit au favori de le lire directement.\\n\\nA faire : cliquez dans le rapport, Ctrl+A puis Ctrl+C, et recliquez ce favori. Il prendra le rapport dans le presse-papiers.';
+}
 function done(r){
-if(!r.ok){alert('Working Book\\n\\nEchec de l import (' + r.status + ' ' + (r.body.error||'') + ').' + (r.body.error==='no_records'?'\\n\\nLa page a bien ete lue mais aucune ligne n a pu etre decodee.':''));return;}
+if(!r.ok){alert('Working Book\\n\\nEchec de l import (' + r.status + ' ' + (r.body.error||'') + ').' + (r.body.error==='no_records'?'\\n\\nLe texte a bien ete lu mais aucune ligne n a pu etre decodee : verifiez que le rapport PMS230 est bien affiche.':''));return;}
 var b=r.body;
 var page=b.totalPages&&b.totalPages>1?'\\n\\nPage ' + b.currentPage + '/' + b.totalPages + ' : passez a la page suivante et recliquez pour completer.':'';
 alert('Working Book\\n\\n' + b.imported + ' lignes lues (' + (b.mode==='append'?'ajoutees au rapport':'rapport remplace') + ').\\nRapport : ' + b.records + ' lignes, ' + b.schedules + ' schedules.' + page);
 }
-function fallback(err){
-var msg='Working Book\\n\\nEnvoi impossible : ' + err + '.';
-try{navigator.clipboard.writeText(best).then(function(){alert(msg + '\\n\\nLe rapport a ete copie dans le presse-papiers : collez-le dans Working Book, onglet Planning, bouton Importer.');},function(){alert(msg);});}catch(e){alert(msg);}
+function failed(err){
+alert('Working Book\\n\\nEnvoi impossible : ' + err + '.\\n\\nLe rapport n a pas ete importe. Reessayez, ou collez-le dans Working Book, onglet Planning, bouton Importer.');
 }
+function send(text){
 var h={'Content-Type':'application/json'};
 if(TOKEN)h['X-WB-Token']=TOKEN;
-fetch(API + '/api/schedules/ingest',{method:'POST',headers:h,body:JSON.stringify({text:best,mode:MODE})}).then(function(res){
+fetch(API + '/api/schedules/ingest',{method:'POST',headers:h,body:JSON.stringify({text:text,mode:MODE})}).then(function(res){
 return res.text().then(function(raw){var body={};try{body=JSON.parse(raw);}catch(e){}return{ok:res.ok,status:res.status,body:body};});
-}).then(done).catch(fallback);
+}).then(done).catch(failed);
+}
+function fromClipboard(){
+if(!navigator.clipboard||!navigator.clipboard.readText){alert(help());return;}
+navigator.clipboard.readText().then(function(t){
+var c=score(t);
+if(!c){alert(help());return;}
+if(!confirm('Working Book\\n\\n' + c + ' lignes trouvees dans le presse-papiers.\\n\\nImporter ce contenu ?'))return;
+send(t);
+},function(){alert(help() + '\\n\\n(Lecture du presse-papiers refusee : autorisez-la dans la barre d adresse.)');});
+}
+var found=[];collect(window,found,0);
+var best='',n=0;
+for(var i=0;i<found.length;i++){var c=score(found[i]);if(c>n){n=c;best=found[i];}}
+if(n)send(best);else fromClipboard();
 })();`;
 
 export interface BookmarkletOptions {
