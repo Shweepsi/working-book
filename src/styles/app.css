@@ -4249,19 +4249,15 @@ button.as-row:focus-visible {
   cursor: default;
 }
 :root.is-print-preview .sch-body { display: block; }
+/* The header keeps the card it wears on screen — tinted band, rounded top,
+   side rails — and the meta line below continues it, so title, stats and
+   provenance read as one head closed by a single rule (.sch-print-meta).
+   Only the bottom leg stays open here, for the meta line to carry on from. */
 :root.is-print-preview .sch-detail-head {
   padding: 0 !important;
   /* Breathing room before the title, on top of the page margin. */
   margin-top: 2mm !important;
   margin-bottom: 0 !important;
-  /* Strip the on-screen card chrome — grey fill, rounded corners, side
-     borders. Keeping it while moving the closing rule under the meta line
-     left a box open at the bottom, its side borders dangling. On paper the
-     header is a document head: text on white, one strong rule below the
-     meta line (.sch-print-meta). */
-  background: none;
-  border: 0;
-  border-radius: 0;
 }
 :root.is-print-preview .sch-detail-head h3 { font-size: 17pt !important; }
 :root.is-print-preview .sch-stat-tile { padding: 0 6pt !important; }
@@ -4279,12 +4275,14 @@ button.as-row:focus-visible {
   display: flex !important;
   flex-wrap: wrap;
   gap: 4pt 12pt;
-  margin-top: 2pt;
-  padding: 0 0 4pt;
+  padding: 2pt 4pt 3pt;
   font-size: 8pt;
   color: var(--ink-soft);
-  /* Closes the header block — title, stats, meta — over the full width,
-     with the table starting directly beneath. */
+  /* Continues the header card: same band, same rails, and the rule that
+     closes it — the table starts directly under. */
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-top: 0;
   border-bottom: 1pt solid var(--line-soft);
 }
 /* Back to a real table box: <thead> then repeats on every printed page, and
@@ -4331,21 +4329,9 @@ button.as-row:focus-visible {
   border-right: 0.5pt solid var(--line-faint);
 }
 :root.is-print-preview .sch-cell:last-child { border-right: 0; }
-/* Hairline between data rows. On screen the bands and hover carry the eye;
-   on a 12-column sheet a ruler line is what lets it track across. */
-:root.is-print-preview .sch-table .sch-row-clickable .sch-cell {
-  border-bottom: 0.5pt solid var(--line-faint);
-}
-:root.is-print-preview .sch-table .sch-group-label {
-  border-bottom: 0.5pt solid var(--line-faint);
-}
-/* Accounting rule above the total. The 2px screen border was dropped wholesale
-   in print, which left the band floating on background contrast alone. 1.5pt,
-   not 1pt: at screen DPI 1pt snaps to the same 1px as the row hairlines and
-   the border-collapse tie-break then hands the edge to the hairline above. */
-:root.is-print-preview .sch-table .sch-row.sch-total .sch-cell {
-  border-top: 1.5pt solid var(--line-soft);
-}
+/* No horizontal rules in the body: the sheet separates rows with the tinted
+   group bands and the column rules alone. Adding hairlines between every row
+   was tried and rejected — it turned an airy table into a ledger. */
 /* Keep the pinned-column divider at the sheet's uniform hairline — parity
    with the @media print block below. */
 :root.is-print-preview .sch-table .sch-cell.is-pinned-last {
@@ -4357,13 +4343,6 @@ button.as-row:focus-visible {
      guarantee every label fits. */
   white-space: normal;
   overflow: visible;
-  /* Close the header band: without this line it sat flush on the first group
-     band in the same grey and the two merged into one block. */
-  border-bottom: 0.75pt solid var(--line-soft);
-  /* The screen's strong group separators (inset shadows before Qualité / PDP)
-     don't carry into the body rows on paper, where they read as printing
-     defects — the uniform cell borders do the separating. */
-  box-shadow: none;
 }
 :root.is-print-preview .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
 :root.is-print-preview .sch-total-label { padding: 3pt 4pt !important; }
@@ -4420,9 +4399,6 @@ button.as-row:focus-visible {
     padding: 0 !important;
     margin-top: 2mm !important;
     margin-bottom: 0 !important;
-    background: none;
-    border: 0;
-    border-radius: 0;
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
   .sch-stat-tile { padding: 0 6pt !important; }
@@ -4440,10 +4416,12 @@ button.as-row:focus-visible {
     display: flex !important;
     flex-wrap: wrap;
     gap: 4pt 12pt;
-    margin-top: 2pt;
-    padding: 0 0 4pt;
+    padding: 2pt 4pt 3pt;
     font-size: 8pt;
     color: var(--ink-soft);
+    background: var(--paper-2);
+    border: 1px solid var(--line-faint);
+    border-top: 0;
     border-bottom: 1pt solid var(--line-soft);
   }
   .sch-table {
@@ -4491,15 +4469,6 @@ button.as-row:focus-visible {
     border-right: 0.5pt solid var(--line-faint);
   }
   .sch-cell:last-child { border-right: 0; }
-  .sch-table .sch-row-clickable .sch-cell {
-    border-bottom: 0.5pt solid var(--line-faint);
-  }
-  .sch-table .sch-group-label {
-    border-bottom: 0.5pt solid var(--line-faint);
-  }
-  .sch-table .sch-row.sch-total .sch-cell {
-    border-top: 1.5pt solid var(--line-soft);
-  }
   /* The base .sch-cell.is-pinned-last (0,2,0) divider outranks the generic
      print hairline (0,1,0); restate it so a pinned layout doesn't print a
      heavier vertical rule than the aperçu shows. */
@@ -4510,10 +4479,6 @@ button.as-row:focus-visible {
     padding: 4pt !important;
     white-space: normal;
     overflow: visible;
-    border-bottom: 0.75pt solid var(--line-soft);
-    /* !important: the on-screen group separators (inset shadows keyed on
-       .col-name + .sch-cell etc.) are one class more specific than this. */
-    box-shadow: none !important;
   }
   .sch-row.sch-total .sch-cell { padding: 3pt 4pt !important; }
   .sch-total-label { padding: 3pt 4pt !important; }

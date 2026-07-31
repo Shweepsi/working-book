@@ -451,6 +451,34 @@ toutes corrigées :
   établie sur le texte positionné : 190 éléments, positions au dixième de point
   près, strictement égaux.
 
+**Retour direct de l'utilisateur** : il préférait la direction artistique
+d'origine de l'en-tête à celle de la passe de polish — carte grise à coins
+arrondis, sans filets horizontaux dans le corps du tableau ni au-dessus du
+Total. Restaurée :
+
+- L'en-tête (bandeau + titre + stats) garde son fond gris, ses coins arrondis
+  et ses bordures latérales sur le papier ; la ligne méta (nombre de lignes,
+  date d'import, tri) devient la **deuxième ligne de cette même carte**, avec
+  le même bandeau et les mêmes rails, fermée par le filet 1 pt qui la sépare du
+  tableau. C'est ce que montrait la capture d'origine, moins l'absence de la
+  ligne méta.
+- Suppression des filets horizontaux entre lignes de données, sous les
+  étiquettes de groupe et au-dessus du Total, ajoutés par la passe précédente.
+  La séparation redevient celle de la maquette d'origine : bandes teintées et
+  filets verticaux de colonnes uniquement.
+- Le filet fermant la bande d'en-tête de colonnes est retiré : les séparateurs
+  de groupe hérités de l'écran (ombres internes avant Qualité / PDP)
+  redeviennent visibles dans le corps, comme sur la capture d'origine.
+- Seul survit de la passe précédente ce qui ne touchait pas au style visuel :
+  marges `@page` 8 mm haut/bas, pondération papier de m² et retrait de la
+  lecture des largeurs glissées à l'écran, feuille d'aperçu à une page
+  physique exacte.
+
+Revérifié après restauration : 38 lignes → 2 pages avec en-tête sur chaque
+page aux trois densités, redimensionner Article sans effet sur le papier,
+impression depuis l'aperçu strictement identique à l'impression normale,
+aucune ligne parasite dans l'aperçu, et écran inchangé au pixel près.
+
 ## Limites connues
 
 - L'aperçu ne peut pas montrer l'en-tête revenir à chaque saut de page : c'est un
