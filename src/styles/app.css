@@ -2284,27 +2284,43 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 /* Summary bar — primary action stays prominent, everything else (stats,
    policy chip, importé) demoted so the schedule detail below feels like
    the page's main content, not just another card. */
+/* The import button used to sit alone on a full-width line with the readings
+   stacked underneath — 77 px of chrome above the table for one action and a
+   handful of counts. It is now a status strip: readings left, separated by
+   dots, import button right. It wraps back to two lines when the window can't
+   hold them side by side, and drops the pill radius when it does. */
 .sch-summary {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-6);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: 3px var(--space-4) 3px var(--space-5);
   border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-pill);
   background: var(--paper-2);
 }
 .sch-summary-actions {
+  order: 2;
   display: flex;
   gap: var(--space-4);
   flex-wrap: wrap;
+  margin-left: auto;
 }
 .sch-summary-stats {
+  order: 1;
   display: flex;
-  gap: var(--space-7);
+  gap: var(--space-4);
   flex-wrap: wrap;
   align-items: center;
   font-size: var(--fs-sm);
   color: var(--ink-soft);
+}
+/* Dots between the readings, so they read as one line rather than as columns
+   with nothing to hold them apart. */
+.sch-summary-stats > span + span::before {
+  content: '·';
+  margin-right: var(--space-4);
+  color: var(--ink-faint);
 }
 .sch-summary-stats strong {
   color: var(--ink);
@@ -2319,10 +2335,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 1px var(--space-4);
+  /* Paper, not paper-2: the chip sits on the summary strip, which is itself
+     paper-2, and would otherwise dissolve into it. */
+  padding: 0 var(--space-3);
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-pill);
-  background: var(--paper-2);
+  background: var(--paper);
   color: var(--ink-soft);
   font-size: var(--fs-sm);
 }
@@ -3182,8 +3200,8 @@ body.is-col-resizing * {
    so the table layout is predictable across densities. */
 
 :root[data-density='compact'] .sch { --sch-table-vert-offset: 190px; }
-:root[data-density='compact'] .sch-summary { padding: 8px 12px; gap: 6px; }
-:root[data-density='compact'] .sch-summary-stats { gap: 12px; font-size: var(--fs-sm); }
+:root[data-density='compact'] .sch-summary { padding: 1px 10px; gap: 4px var(--space-3); }
+:root[data-density='compact'] .sch-summary-stats { gap: var(--space-3); font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
 :root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-4); }
@@ -3209,8 +3227,8 @@ body.is-col-resizing * {
 /* Advanced loosens spacing on top of revealing the customer name (handled
    via .sch-customer rule above). */
 :root[data-density='advanced'] .sch { --sch-table-vert-offset: 290px; }
-:root[data-density='advanced'] .sch-summary { padding: 14px 16px; gap: 12px; }
-:root[data-density='advanced'] .sch-summary-stats { gap: 22px; font-size: var(--fs-base); }
+:root[data-density='advanced'] .sch-summary { padding: 6px 16px; gap: 8px var(--space-5); }
+:root[data-density='advanced'] .sch-summary-stats { gap: var(--space-5); font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; gap: var(--space-6); }
 :root[data-density='advanced'] .sch-detail-head h3 { font-size: var(--fs-xl); }
 :root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-6); }
@@ -3979,6 +3997,12 @@ body.is-col-resizing * {
   .sv-stages-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
+  /* Two lines can't sit inside a pill without the ends looking accidental. */
+  .sch-summary { border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
+  /* Once the readings wrap, a dot lands at the head of the second line where
+     it reads as a bullet. Spacing separates them well enough there. */
+  .sch-summary-stats { gap: var(--space-3) var(--space-5); }
+  .sch-summary-stats > span + span::before { content: none; }
   .sv-toolbar { padding: 10px 12px; gap: 8px; }
   .sv-title { font-size: var(--fs-base); }
   .sv-filter-row { margin-left: 0; order: 3; flex-basis: 100%; }

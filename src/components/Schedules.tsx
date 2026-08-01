@@ -1253,8 +1253,15 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
   return (
     <div className="sch-summary">
       <div className="sch-summary-actions">
-        <button className="btn primary" onClick={onImport}>
-          {data ? 'Réimporter rapport Operator Mashup' : 'Importer rapport Operator Mashup'}
+        {/* Short label on the strip, full one in the tooltip — "rapport
+            Operator Mashup" is the only report the page imports, so it says
+            nothing the button's position doesn't already say. */}
+        <button
+          className="btn primary mini"
+          onClick={onImport}
+          title={data ? 'Réimporter le rapport Operator Mashup' : 'Importer le rapport Operator Mashup'}
+        >
+          <span aria-hidden="true">↻</span> {data ? 'Réimporter' : 'Importer'}
         </button>
       </div>
       {/* The MTO/MTS chip is not gated on `data`: the policy syncs on its own
