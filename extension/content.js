@@ -20,6 +20,7 @@ const MIN_SEND_INTERVAL_MS = 5000;
 let lastHash = 0;
 let lastSentAt = 0;
 let settleTimer;
+let sweeping = false;
 
 // djb2 — only ever compared against itself, to tell "the grid actually changed"
 // from "the page repainted the same rows".
@@ -45,12 +46,70 @@ function readReport() {
 function send(report, trigger) {
   lastHash = hash(report.text);
   lastSentAt = Date.now();
-  chrome.runtime.sendMessage({
+  return chrome.runtime.sendMessage({
     type: 'wb-ingest',
     text: report.text,
     count: report.count,
     trigger,
   });
+}
+
+// Resolves once the page has stopped changing for `quiet` ms, or when the
+// ceiling is reached. Paging has to wait for the rows to actually arrive:
+// reading straight after the click would capture the page being replaced.
+function settled(quiet = SETTLE_MS, ceiling = 20000) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + ceiling;
+    let last = null;
+    let quietSince = Date.now();
+    const tick = () => {
+      const now = readReport()?.text ?? '';
+      const h = hash(now);
+      if (h !== last) {
+        last = h;
+        quietSince = Date.now();
+      }
+      if (Date.now() - quietSince >= quiet) return resolve(true);
+      if (Date.now() > deadline) return resolve(false);
+      setTimeout(tick, 250);
+    };
+    tick();
+  });
+}
+
+// Walks the grid page by page, sending each one. The page-size menu caps at
+// whatever Infor chose to list; paging has no such ceiling. Every import adds
+// to the report and a row seen twice is updated rather than duplicated, so an
+// overlapping or repeated page costs nothing.
+async function sweep(maxPages) {
+  const seen = new Set();
+  let pages = 0;
+  let rows = 0;
+
+  sweeping = true;
+  try {
+    for (let i = 0; i < maxPages; i++) {
+      await settled();
+      const report = readReport();
+      if (!report) break;
+
+      const h = hash(report.text);
+      // The same content twice means the click did not actually advance — the
+      // last page, or a "next" that is decorative. Either way, stop.
+      if (seen.has(h)) break;
+      seen.add(h);
+
+      await send(report, 'sweep');
+      pages++;
+      rows += report.count;
+
+      if (!globalThis.wbMashup?.nextPage()) break;
+    }
+  } finally {
+    sweeping = false;
+  }
+
+  return { pages, rows };
 }
 
 async function autoEnabled() {
@@ -63,6 +122,11 @@ async function autoEnabled() {
 }
 
 async function considerAutoSend() {
+  // A sweep already sends every page it visits, and it repaints the grid at
+  // each step. Left alone, the observer would post the same pages a second
+  // time — harmless, since a row seen twice is updated rather than duplicated,
+  // but a wasted round trip per page all the same.
+  if (sweeping) return;
   const report = readReport();
   if (!report) return;
   if (hash(report.text) === lastHash) return;
@@ -117,11 +181,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     // and a frame with no form must leave it to the one that has it.
     if (!mashup?.present(msg.selectors ?? {})) return false;
     const selectors = msg.selectors ?? {};
-    const run =
-      msg.type === 'wb-search'
-        ? mashup.runSearch(msg.criteria ?? {}, selectors)
-        : mashup.inspect(selectors);
-    Promise.resolve(run).then((result) => respond({ found: true, ...result }));
+    if (msg.type === 'wb-inspect') {
+      respond({ found: true, ...mashup.inspect(selectors) });
+      return true;
+    }
+
+    const criteria = msg.criteria ?? {};
+    mashup
+      .runSearch(criteria, selectors)
+      .then(async (result) => {
+        // Only sweep a search that actually went out; there is nothing to page
+        // through otherwise.
+        const maxPages = Number(criteria.maxPages) || 1;
+        const swept = result?.clicked && maxPages > 1 ? await sweep(maxPages) : null;
+        respond({ found: true, ...result, swept });
+      })
+      .catch((err) => respond({ found: true, error: String(err) }));
     return true;
   }
 

@@ -4,6 +4,8 @@ const DEFAULTS = {
   autoSearch: false,
   searchEveryMin: 15,
   maxRows: true,
+  rowsPerPage: 0,
+  maxPages: 20,
   facility: '221',
   workCenter: 'COATER',
   fromOffset: -14,
@@ -75,6 +77,8 @@ async function load() {
   $('auto').checked = cfg.auto !== false;
   $('autoSearch').checked = cfg.autoSearch === true;
   $('maxRows').checked = cfg.maxRows !== false;
+  $('rowsPerPage').value = cfg.rowsPerPage || '';
+  $('maxPages').value = cfg.maxPages;
   $('searchEveryMin').value = cfg.searchEveryMin;
   $('facility').value = cfg.facility;
   $('workCenter').value = cfg.workCenter;
@@ -89,6 +93,8 @@ function readForm() {
     auto: $('auto').checked,
     autoSearch: $('autoSearch').checked,
     maxRows: $('maxRows').checked,
+    rowsPerPage: Math.max(0, intOr($('rowsPerPage').value, 0)),
+    maxPages: Math.max(1, intOr($('maxPages').value, 20)),
     searchEveryMin: Math.max(1, intOr($('searchEveryMin').value, 15)),
     facility: $('facility').value.trim(),
     workCenter: $('workCenter').value.trim(),
@@ -209,13 +215,20 @@ async function searchNow() {
   if (res.clicked) {
     const written = res.filled.length ? `${named(res.filled)} rempli(s)` : 'aucun champ à changer';
     const rows = res.rows?.rows
-      ? `\nLignes par page : ${res.rows.rows}${res.rows.changed ? '' : ' (déjà réglé)'}.` +
-        // A maximum of 5 means the wrong control, or a list Soho fills only on
-        // open. Either way the contents settle it, so they are shown.
-        (res.rows.rows < 10
+      ? `\nLignes par page : ${res.rows.rows}` +
+        (res.rows.reason === 'already' ? ' (déjà réglé)' : '') +
+        (res.rows.injected && res.rows.changed ? ' — valeur forcée, acceptée' : '') +
+        '.' +
+        // A value the screen refused is worth saying out loud: the import is
+        // then silently capped at whatever the grid kept.
+        (res.rows.reason === 'rejected'
+          ? `\n⚠ ${res.rows.wanted} refusé par l’écran, resté à ${res.rows.rows}.` +
+            `\nValeurs proposées : ${res.rows.options.join(', ') || '(aucune)'}` +
+            '\nLe parcours des pages ci-dessous reste la voie sans plafond.'
+          : '') +
+        (res.rows.rows < 10 && res.rows.reason !== 'rejected'
           ? `\nSeules valeurs proposées : ${res.rows.options.join(', ') || '(aucune)'}` +
-            `\nContrôle : select${res.rows.id ? `#${res.rows.id}` : ''}${res.rows.cls ? `.${res.rows.cls.split(' ').join('.')}` : ''}` +
-            '\nCopiez ces deux lignes pour diagnostic.'
+            `\nContrôle : select${res.rows.id ? `#${res.rows.id}` : ''}${res.rows.cls ? `.${res.rows.cls.split(' ').join('.')}` : ''}`
           : '')
       : res.rows?.reason === 'no_pager'
         ? '\nPagination introuvable — la grille reste sur son réglage.' +
@@ -223,7 +236,10 @@ async function searchNow() {
             ? `\n\nBalisage de la pagination — copiez-le pour diagnostic :\n${res.rows.markup}`
             : '\nAucun « Records per page » à l’écran : la grille n’était peut-être pas encore chargée.')
         : '';
-    say(`Recherche lancée — ${written}.${rows}\nLe rapport part dès que la grille se stabilise.`, 'ok');
+    const swept = res.swept
+      ? `\n${res.swept.pages} page(s) parcourue(s), ${res.swept.rows} ligne(s) envoyée(s).`
+      : '\nLe rapport part dès que la grille se stabilise.';
+    say(`Recherche lancée — ${written}.${rows}${swept}`, 'ok');
     return;
   }
   // Deliberately not clicked: saying which criterion is blank is the whole

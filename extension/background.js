@@ -20,6 +20,14 @@ const DEFAULTS = {
   // grid rendered — so the pager decides how much gets imported, not just what
   // is comfortable to look at.
   maxRows: true,
+  // 0 = the largest value the menu offers. A number beyond that is injected
+  // into the select: the list is what Infor chose to show, not a limit the
+  // grid enforces.
+  rowsPerPage: 0,
+  // Pages walked after a search. The page-size menu tops out at whatever Infor
+  // listed; paging is what actually lifts the ceiling, and re-sending a row
+  // updates it rather than duplicating it.
+  maxPages: 20,
   // Escape hatch: a CSS selector per field, used instead of the label-based
   // resolver when a screen defeats it.
   selectors: {},
@@ -127,8 +135,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 });
 
 function criteriaOf(cfg) {
-  const { facility, workCenter, fromOffset, toOffset, maxRows } = cfg;
-  return { facility, workCenter, fromOffset, toOffset, maxRows };
+  const { facility, workCenter, fromOffset, toOffset, maxRows, maxPages, rowsPerPage } = cfg;
+  return { facility, workCenter, fromOffset, toOffset, maxRows, maxPages, rowsPerPage };
 }
 
 // Broadcast to every Infor tab: the operator may have the mashup in a

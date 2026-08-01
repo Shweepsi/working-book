@@ -87,6 +87,23 @@ l'intérieur. L'extension part donc de ce texte et remonte jusqu'au premier
 `<select>` entièrement numérique. Elle attend la pagination jusqu'à 20 s après
 le clic sur Search, puisqu'elle n'est dessinée qu'au retour des lignes.
 
+### Dépasser le maximum du menu
+
+Le menu s'arrête à 50, mais **c'est ce qu'Infor a choisi d'afficher, pas une
+limite que la grille impose**. Renseigner un nombre dans **Forcer un nombre de
+lignes par page** injecte cette valeur dans le contrôle — la grille la demande
+alors au serveur comme n'importe quelle autre.
+
+La valeur est **relue après coup**. Si l'écran la refuse et retombe sur 50, les
+options le disent : un plafond silencieux, c'est un import tronqué sans
+avertissement.
+
+Quand cette voie ne passe pas, le **parcours des pages** n'a lui aucun plafond :
+l'extension envoie une page, passe à la suivante, et s'arrête à la dernière —
+qu'elle reconnaît au fait que le contenu ne change plus. Chaque envoi s'ajoute
+et une ligne revue est mise à jour, jamais dupliquée, donc un recouvrement entre
+pages est sans conséquence. Réglé sur 20 pages, `1` pour désactiver.
+
 Les dates sont des **décalages**, pas des dates fixes : `-14` / `14` demandent
 en permanence les deux semaines écoulées et les deux à venir. Une date en dur
 serait juste le premier jour et fausse tous les suivants, sans que personne s'en

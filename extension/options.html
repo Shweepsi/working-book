@@ -108,6 +108,31 @@
       choisit la plus grande valeur proposée par l’écran.
     </div>
 
+    <label for="rowsPerPage">
+      Forcer un nombre de lignes par page
+      <div class="hint">
+        Vide, l’extension prend la plus grande valeur du menu (50). Un nombre
+        au-delà est <strong>injecté dans le contrôle</strong> : la liste est ce
+        qu’Infor a choisi d’afficher, pas une limite que la grille impose.
+        Essayez <code>500</code>. La valeur est relue après coup — si l’écran la
+        refuse, les options le disent au lieu de le taire.
+      </div>
+    </label>
+    <input id="rowsPerPage" type="text" inputmode="numeric" placeholder="50 (maximum du menu)" />
+
+    <label for="maxPages">
+      Pages à parcourir
+      <div class="hint">
+        Le menu de pagination plafonne à ce qu’Infor propose ; parcourir les
+        pages n’a pas de plafond. Après la recherche, l’extension envoie chaque
+        page puis passe à la suivante, et s’arrête d’elle-même à la dernière.
+        Chaque envoi <strong>s’ajoute</strong> et une ligne revue est mise à
+        jour, pas dupliquée — repasser sur une page est sans conséquence.
+        <code>1</code> désactive le parcours.
+      </div>
+    </label>
+    <input id="maxPages" type="text" inputmode="numeric" placeholder="20" />
+
     <label for="searchEveryMin">
       Toutes les
       <div class="hint">En minutes. Une minute au minimum.</div>

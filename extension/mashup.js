@@ -247,6 +247,8 @@
     );
   }
 
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   function waitFor(probe, timeout) {
     return new Promise((resolve) => {
       const deadline = Date.now() + timeout;
@@ -401,7 +403,10 @@
 
     // Only worth doing once a search is on its way: before that there is no
     // grid, hence no pager to widen.
-    const rows = clicked && criteria.maxRows !== false ? await maximiseRows() : null;
+    const rows =
+      clicked && criteria.maxRows !== false
+        ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
+        : null;
 
     return { ...describe(found), filled, kept, failed, empty, clicked, rows, url: location.href };
   }
@@ -465,7 +470,21 @@
   // when the rows come back from the server, well after the click.
   const PAGER_TIMEOUT_MS = 20000;
 
-  async function maximiseRows(timeout = PAGER_TIMEOUT_MS) {
+  // The menu only lists what Infor chose to list. Nothing stops a larger value
+  // being put in the select: the grid asks the server for that page size, and
+  // the list is a convenience, not a constraint. Soho may repaint over it, so
+  // the write is read back and reported honestly rather than assumed.
+  function forceOption(el, want) {
+    const existing = optionFor(el, String(want));
+    if (existing) return { option: existing, injected: false };
+    const option = document.createElement('option');
+    option.value = String(want);
+    option.textContent = String(want);
+    el.appendChild(option);
+    return { option, injected: true };
+  }
+
+  async function maximiseRows(timeout = PAGER_TIMEOUT_MS, target = 0) {
     const el = await waitFor(pagerSelect, timeout);
     if (!el) {
       // Hand back the pager's markup when the wording is on screen but no
@@ -487,12 +506,76 @@
     };
 
     const best = largestOption(el);
-    if (!best) return { changed: false, reason: 'no_option', ...seen };
-    if (holds(el, best.o.value || String(best.n))) {
-      return { changed: false, rows: best.n, reason: 'already', ...seen };
+    const wanted = Number(target) > 0 ? Number(target) : best?.n ?? 0;
+    if (!wanted) return { changed: false, reason: 'no_option', ...seen };
+
+    if (holds(el, String(wanted))) {
+      return { changed: false, rows: wanted, reason: 'already', ...seen };
     }
-    setValue(el, best.o.value);
-    return { changed: true, rows: best.n, ...seen };
+
+    const { option, injected } = forceOption(el, wanted);
+    setValue(el, option.value);
+
+    // Read back after a beat: an injected value is exactly the kind of thing a
+    // component library discards on its next render, and claiming success
+    // without checking would hide a silently truncated import.
+    await delay(800);
+    const now = pagerSelect() ?? el;
+    const applied = Number(norm(now.value)) || 0;
+
+    return {
+      changed: applied === wanted,
+      rows: applied,
+      wanted,
+      injected,
+      reason: applied === wanted ? undefined : 'rejected',
+      ...seen,
+    };
+  }
+
+  // Paging beats the page-size menu: the largest offering is whatever Infor
+  // chose to list, while walking the pages has no ceiling at all. The server
+  // side already expects this — every import adds to the report and a row seen
+  // twice is updated, not duplicated (key `schedule|MO`), so overlapping pages
+  // are harmless.
+  const NEXT_SEL = [
+    '[class*=pager] [class*=next i]',
+    '[class*=pager-next i]',
+    'button[aria-label*=next i]',
+    'a[aria-label*=next i]',
+    'button[title*=next i]',
+    'li[class*=next i] a',
+    'li[class*=next i] button',
+  ].join(', ');
+
+  function disabled(el) {
+    return (
+      el.disabled === true ||
+      el.getAttribute('aria-disabled') === 'true' ||
+      el.classList.contains('is-disabled') ||
+      el.classList.contains('disabled') ||
+      Boolean(el.closest('[disabled], [aria-disabled=true], .is-disabled, .disabled'))
+    );
+  }
+
+  function nextPageButton() {
+    for (const el of document.querySelectorAll(NEXT_SEL)) {
+      if (!visible(el) || disabled(el)) continue;
+      // "Records per page" also lives in the pager; a control that opens a
+      // list is not the one that advances.
+      if (el.matches('select, option')) continue;
+      return el;
+    }
+    return null;
+  }
+
+  // Returns false when there is no next page to go to — the caller uses that
+  // to stop, alongside its own check that the content actually changed.
+  function nextPage() {
+    const btn = nextPageButton();
+    if (!btn) return false;
+    click(btn);
+    return true;
   }
 
   // Dry run for the options page: reports what the resolver sees without
@@ -543,5 +626,5 @@
   const present = (selectors = {}) => locate(selectors) !== null;
 
 
-  globalThis.wbMashup = { runSearch, inspect, present, maximiseRows };
+  globalThis.wbMashup = { runSearch, inspect, present, maximiseRows, nextPage, nextPageButton };
 })();
