@@ -679,12 +679,19 @@ export default function Schedules({ density }: SchedulesProps) {
 
   // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
+  //
+  // Keyed by the row that opens the group, not by the dimension change that
+  // caused it. Under any sort other than Dimension the rows no longer arrive in
+  // dimension order, so the same change — 5850 → 5845, say — comes round more
+  // than once; keying on it gave two <tr> the same React key, and re-sorting
+  // then left stale headers stacked at the top of the table with no rows under
+  // them. Row ids are unique, so a break inherits that.
   const groupedRows: GroupedItem[] = useMemo(() => {
     const out: GroupedItem[] = [];
     let prevLongueur: number | null = null;
     for (const r of visibleRows) {
       if (r.longueur !== prevLongueur) {
-        out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}`, longueur: r.longueur });
+        out.push({ kind: 'break', id: `break-${r.id}`, longueur: r.longueur });
       }
       out.push({ kind: 'row', row: r });
       prevLongueur = r.longueur;
