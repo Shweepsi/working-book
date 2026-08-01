@@ -50,34 +50,78 @@
     return out.filter(visible);
   }
 
-  // The mashup lays each criterion out as label-then-input, so the first field
-  // *following* the label in document order is the right one. Climbing one
-  // ancestor at a time keeps the search local before it widens to the toolbar.
-  function fieldFor(labelEl) {
-    if (labelEl.htmlFor) {
-      const byFor = document.getElementById(labelEl.htmlFor);
-      if (visible(byFor)) return byFor;
+  // A control that is not a plain <input>/<select>. Work Center is one of
+  // these on the real screen, which is why "the next field after the label"
+  // walked straight past it and landed on From Start Date's input — two
+  // criteria pointing at one element, and Work Center never written.
+  const COMBO_SEL =
+    '[role=combobox], [role=listbox], [aria-haspopup=listbox], [aria-haspopup=true], [class*=combo i], [class*=dropdown i], [class*=lookup i], [class*=select i]';
+
+  // The grid carries a filter input per column, and the last criterion's search
+  // region would otherwise run right into them.
+  const GRID_SEL = 'table, [role=grid], [role=treegrid]';
+
+  const precedes = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  // Each criterion's control lives between its own label and the next one.
+  // Bounding the search that way is what keeps a missing control *missing*
+  // rather than silently borrowing its neighbour's.
+  function labelsInOrder() {
+    const found = [];
+    for (const name of Object.keys(LABELS)) {
+      const el = labelElements(LABELS[name])[0];
+      if (el) found.push({ name, el });
     }
-    for (let node = labelEl, depth = 0; node && depth < 5; node = node.parentElement, depth++) {
-      const candidates = Array.from(node.querySelectorAll(FIELD_SEL)).filter(visible);
-      const following = candidates.filter(
-        (el) => labelEl.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
-      );
-      if (following.length) return following[0];
-    }
-    return null;
+    return found.sort((a, b) => (precedes(a.el, b.el) ? -1 : 1));
   }
 
-  function findField(name, override) {
-    if (override) {
-      const el = document.querySelector(override);
-      return visible(el) ? el : null;
+  function inRegion(el, label, nextLabel) {
+    if (!precedes(label, el)) return false;
+    return nextLabel ? precedes(el, nextLabel) : true;
+  }
+
+  function overrideField(css) {
+    const el = css ? document.querySelector(css) : null;
+    return visible(el) ? el : null;
+  }
+
+  // Resolves all four criteria at once. One element can only ever be claimed by
+  // one criterion: the collision above was invisible precisely because each
+  // field was resolved on its own.
+  function resolveFields(selectors = {}) {
+    const found = { facility: null, workCenter: null, dateFrom: null, dateTo: null };
+    const regions = {};
+    const claimed = new Set();
+
+    const claim = (name, el) => {
+      found[name] = el;
+      if (el) claimed.add(el);
+    };
+
+    for (const name of Object.keys(found)) {
+      if (selectors[name]) claim(name, overrideField(selectors[name]));
     }
-    for (const labelEl of labelElements(LABELS[name])) {
-      const field = fieldFor(labelEl);
-      if (field) return field;
-    }
-    return null;
+
+    const ordered = labelsInOrder();
+    ordered.forEach(({ name, el: label }, i) => {
+      if (found[name]) return;
+      const next = ordered[i + 1]?.el ?? null;
+      regions[name] = label;
+
+      const usable = (el) => visible(el) && !claimed.has(el) && !el.closest(GRID_SEL);
+      const pick = (sel) =>
+        Array.from(document.querySelectorAll(sel)).find(
+          (el) => usable(el) && inRegion(el, label, next),
+        ) ?? null;
+
+      if (label.htmlFor) {
+        const byFor = document.getElementById(label.htmlFor);
+        if (byFor && usable(byFor)) return claim(name, byFor);
+      }
+      claim(name, pick(FIELD_SEL) ?? pick(COMBO_SEL));
+    });
+
+    return { found, regions };
   }
 
   function findSearchButton(override) {
@@ -205,23 +249,20 @@
 
   // Returns null when this frame holds no search form — the portal shell and
   // the nav chrome both run this file, and neither should answer.
+  const CRITERIA = ['facility', 'workCenter', 'dateFrom', 'dateTo'];
+  const PARTS = [...CRITERIA, 'search'];
+
   function locate(selectors = {}) {
-    const found = {
-      facility: findField('facility', selectors.facility),
-      workCenter: findField('workCenter', selectors.workCenter),
-      dateFrom: findField('dateFrom', selectors.dateFrom),
-      dateTo: findField('dateTo', selectors.dateTo),
-      search: findSearchButton(selectors.search),
-    };
-    const any = Object.values(found).some(Boolean);
-    return any ? found : null;
+    const { found, regions } = resolveFields(selectors);
+    found.search = findSearchButton(selectors.search);
+    if (!PARTS.some((name) => found[name])) return null;
+    return { found, regions };
   }
 
   function describe(found) {
-    const names = Object.keys(found);
     return {
-      resolved: names.filter((n) => found[n]),
-      missing: names.filter((n) => !found[n]),
+      resolved: PARTS.filter((n) => found[n]),
+      missing: PARTS.filter((n) => !found[n]),
     };
   }
 
@@ -235,8 +276,9 @@
   // which is the common case, and the cheapest way to not disturb a form that
   // was already correct.
   async function runSearch(criteria = {}, selectors = {}) {
-    const found = locate(selectors);
-    if (!found) return null;
+    const located = locate(selectors);
+    if (!located) return null;
+    const { found } = located;
 
     const filled = [];
     const kept = [];
@@ -257,9 +299,7 @@
 
     // Last look at the real form rather than at what we believe we wrote: a
     // cascade can still have blanked a field after the fact.
-    const empty = ['facility', 'workCenter', 'dateFrom', 'dateTo'].filter(
-      (name) => found[name] && isEmpty(found[name]),
-    );
+    const empty = CRITERIA.filter((name) => found[name] && isEmpty(found[name]));
 
     const clicked = Boolean(found.search) && empty.length === 0;
     if (clicked) click(found.search);
@@ -271,24 +311,40 @@
   // touching a single field, so a broken selector map is diagnosed before it
   // fires a search with wrong criteria.
   function inspect(selectors = {}) {
-    const found = locate(selectors);
-    if (!found) return null;
+    const located = locate(selectors);
+    if (!located) return null;
+    const { found, regions } = located;
+
     const preview = {};
-    for (const [name, el] of Object.entries(found)) {
+    for (const name of PARTS) {
+      const el = found[name];
       if (!el) continue;
       preview[name] = {
         tag: el.tagName.toLowerCase(),
         type: el.type || null,
+        role: el.getAttribute?.('role') || null,
         value: el.value ?? norm(el.textContent).slice(0, 40),
       };
     }
-    return { ...describe(found), preview, url: location.href };
+
+    // For a criterion whose control could not be identified, hand back the
+    // markup around its label. Reading it beats asking the operator to go
+    // hunting in the inspector, and it is the toolbar only — no grid rows.
+    const markup = {};
+    for (const name of CRITERIA) {
+      if (found[name] || !regions[name]) continue;
+      const around = regions[name].parentElement ?? regions[name];
+      markup[name] = around.outerHTML.slice(0, 1500);
+    }
+
+    return { ...describe(found), preview, markup, url: location.href };
   }
 
   // runSearch is async, but the "only the frame holding the form answers" rule
   // needs a synchronous verdict: a listener must decide whether to keep the
   // message channel open before it can await anything.
   const present = (selectors = {}) => locate(selectors) !== null;
+
 
   globalThis.wbMashup = { runSearch, inspect, present };
 })();

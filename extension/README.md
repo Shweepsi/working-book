@@ -117,6 +117,16 @@ Le message des options nomme le champ fautif. Le plus souvent c'est une valeur
 absente de la liste : la choisir **une fois à la main** dans Mingle suffit —
 l'extension la reconnaîtra ensuite comme déjà correcte et cessera d'y toucher.
 
+Chaque critère est cherché **entre son propre libellé et le suivant**, et un
+élément déjà attribué à un critère ne peut pas l'être à un second. Sans cette
+double borne, un contrôle non standard — Work Center en est un — était sauté et
+le critère héritait de l'input du voisin : deux critères sur un même champ,
+`5/5 reconnus` affiché, et rien d'écrit dans le bon.
+
+Un contrôle introuvable est donc rapporté **manquant**, avec le balisage qui
+l'entoure affiché tel quel dans les options : c'est ce qu'il faut copier pour
+faire corriger la reconnaissance.
+
 Si un champ manque, renseigner son sélecteur CSS dans **Sélecteurs manuels**,
 une ligne `champ = sélecteur` par champ (`facility`, `workCenter`, `dateFrom`,
 `dateTo`, `search`). Pour l'obtenir : clic droit sur le champ → Inspecter, puis

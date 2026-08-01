@@ -174,10 +174,21 @@ async function inspect() {
     );
     return;
   }
-  const lines = found.resolved.map(
-    (k) => `  ✓ ${FIELD_LABELS[k]} — ${found.preview[k].tag} = « ${found.preview[k].value} »`,
-  );
-  if (found.missing.length) lines.push(`  ✗ non trouvé : ${named(found.missing)}`);
+  const lines = found.resolved.map((k) => {
+    const p = found.preview[k];
+    const kind = p.role ? `${p.tag}[role=${p.role}]` : p.tag;
+    return `  ✓ ${FIELD_LABELS[k]} — ${kind} = « ${p.value} »`;
+  });
+  for (const k of found.missing) lines.push(`  ✗ ${FIELD_LABELS[k]} — non trouvé`);
+
+  // The markup around an unidentified control, shown verbatim so it can be
+  // copied straight out. Chasing it in the inspector is the step this replaces.
+  const markup = Object.entries(found.markup ?? {});
+  if (markup.length) {
+    lines.push('', 'Balisage autour du champ non trouvé — copiez-le pour diagnostic :');
+    for (const [k, html] of markup) lines.push(`--- ${FIELD_LABELS[k]} ---`, html);
+  }
+
   say(
     `${found.resolved.length}/5 éléments reconnus :\n${lines.join('\n')}`,
     found.missing.length ? 'err' : 'ok',
