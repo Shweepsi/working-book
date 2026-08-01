@@ -2526,7 +2526,13 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   padding-left: var(--space-6);
   border-left: 1px solid var(--line-faint);
 }
-.sch-detail .sch-controls + .sch-table { border-top: 0; border-radius: 0; }
+/* The controls bar sits flush on top of the table, so the table drops its top
+   corners — but only those two. Squaring all four flattened the bottom of the
+   table against the page. */
+.sch-detail .sch-controls + .sch-table {
+  border-top: 0;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
 .sch-detail .sch-controls { border-radius: 0; }
 .sch-filter-group {
   display: inline-flex;
@@ -2867,22 +2873,31 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   padding: 9px 5px;
 }
 .sch-row.sch-group-break {
-  min-height: 24px;
+  min-height: 27px;
   background: var(--paper-2);
   border-bottom: 1px solid var(--line-faint);
   pointer-events: none;
 }
-/* The dimension that opens the group. It used to whisper — 10 px of faint grey
-   in a table where every data cell is darker and larger — so the break was
-   easy to scroll straight past. Full ink at --fs-sm reads at a glance without
-   adding any new shape to an already dense table. */
+/* The dimension that opens the group used to whisper — 10 px of faint grey in
+   a table where every data cell is darker and larger — so the break was easy
+   to scroll straight past. The value now sits in a chip that lifts off the
+   band, which reads at a glance without borrowing the emphasis colours the
+   data cells already use. */
 .sch-group-label {
   grid-column: 1 / -1;
-  padding: 3px var(--space-5);
+  padding: 4px var(--space-5);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+}
+.sch-group-value {
+  display: inline-block;
+  padding: 2px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
   font-size: var(--fs-sm);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.07em;
   color: var(--ink);
 }
 
@@ -4451,6 +4466,11 @@ button.as-row:focus-visible {
 /* Keep a group label with the rows it introduces. */
 :root.is-print-preview .sch-row.sch-group-break { page-break-after: avoid; break-after: avoid; }
 :root.is-print-preview .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
+:root.is-print-preview .sch-group-value {
+  padding: 0 4pt;
+  font-size: 7.5pt;
+  border-color: var(--line-soft);
+}
 :root.is-print-preview .sch-cell {
   padding: 3pt 4pt !important;
   font-size: 8.5pt !important;
@@ -4595,6 +4615,11 @@ button.as-row:focus-visible {
     break-after: avoid;
   }
   .sch-group-label { padding: 2pt 4pt; font-size: 7.5pt; }
+  .sch-group-value {
+    padding: 0 4pt;
+    font-size: 7.5pt;
+    border-color: var(--line-soft);
+  }
   .sch-cell {
     padding: 3pt 4pt !important;
     font-size: 8.5pt !important;

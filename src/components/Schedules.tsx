@@ -1652,7 +1652,9 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
         it.kind === 'break'
           ? (
             <tr key={it.id} className="sch-row sch-group-break">
-              <td className="sch-group-label" colSpan={enrichedColumns.length}>{fmtNum(it.longueur, 0)} mm</td>
+              <td className="sch-group-label" colSpan={enrichedColumns.length}>
+                <span className="sch-group-value">{fmtNum(it.longueur, 0)} mm</span>
+              </td>
             </tr>
           )
           : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
