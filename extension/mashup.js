@@ -412,16 +412,35 @@
   // all. Raising it to the largest offering is the cheapest way to widen that.
   const PAGER_RE = /records?\s+per\s+page/i;
 
+  const numericOptions = (el) =>
+    el.options.length > 0 &&
+    Array.from(el.options).every((o) => /^\d+$/.test(norm(o.value || o.textContent)));
+
+  // The pager is Soho too: the native <select> is hidden and "5 Records per
+  // page" is painted in a sibling subtree, not inside the select's own
+  // container. Matching on the container's text therefore found nothing.
+  // Starting from the text and climbing to the nearest numeric select is what
+  // actually crosses that gap.
   function pagerSelect() {
-    for (const el of document.querySelectorAll('select')) {
-      if (!el.options.length) continue;
-      const near = el.closest('div, span, nav, footer') ?? el.parentElement;
-      const text = `${el.getAttribute('aria-label') ?? ''} ${near?.textContent ?? ''}`;
-      if (PAGER_RE.test(text) && Array.from(el.options).every((o) => /^\d+$/.test(norm(o.value || o.textContent)))) {
-        return el;
+    const anchors = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (PAGER_RE.test(node.nodeValue ?? '') && node.parentElement) anchors.push(node.parentElement);
+    }
+
+    for (const anchor of anchors) {
+      for (let node = anchor, depth = 0; node && depth < 6; node = node.parentElement, depth++) {
+        const hit = deepQueryAll(node, 'select').find(numericOptions);
+        if (hit) return hit;
       }
     }
-    return null;
+
+    // Some builds label the control only for screen readers.
+    return (
+      Array.from(document.querySelectorAll('select')).find(
+        (el) => PAGER_RE.test(el.getAttribute('aria-label') ?? '') && numericOptions(el),
+      ) ?? null
+    );
   }
 
   function largestOption(el) {
@@ -433,9 +452,22 @@
   }
 
   // Runs after the search, once the grid — and with it the pager — exists.
-  async function maximiseRows(timeout = OPTIONS_TIMEOUT_MS) {
+  // The wait is longer than the one on the criteria: the pager is only drawn
+  // when the rows come back from the server, well after the click.
+  const PAGER_TIMEOUT_MS = 20000;
+
+  async function maximiseRows(timeout = PAGER_TIMEOUT_MS) {
     const el = await waitFor(pagerSelect, timeout);
-    if (!el) return { changed: false, reason: 'no_pager' };
+    if (!el) {
+      // Hand back the pager's markup when the wording is on screen but no
+      // select answers to it: same trick that identified the Work Center
+      // control, rather than another round of guessing.
+      const anchor = Array.from(document.querySelectorAll('*')).find(
+        (node) => node.children.length === 0 && PAGER_RE.test(node.textContent ?? ''),
+      );
+      const around = anchor?.closest('div')?.parentElement ?? anchor?.parentElement;
+      return { changed: false, reason: 'no_pager', markup: around?.outerHTML.slice(0, 1500) ?? null };
+    }
     const best = largestOption(el);
     if (!best) return { changed: false, reason: 'no_option' };
     if (holds(el, best.o.value || String(best.n))) return { changed: false, rows: best.n, reason: 'already' };

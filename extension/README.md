@@ -81,6 +81,12 @@ qui est importé, pas seulement du confort de lecture. Après chaque recherche,
 l'extension pousse le sélecteur de pagination à la plus grande valeur proposée
 par l'écran — 50 dans la liste actuelle.
 
+Ce sélecteur est un contrôle Soho comme les autres : le `<select>` est masqué
+et le texte « 5 Records per page » est peint dans un bloc voisin, pas à
+l'intérieur. L'extension part donc de ce texte et remonte jusqu'au premier
+`<select>` entièrement numérique. Elle attend la pagination jusqu'à 20 s après
+le clic sur Search, puisqu'elle n'est dessinée qu'au retour des lignes.
+
 Les dates sont des **décalages**, pas des dates fixes : `-14` / `14` demandent
 en permanence les deux semaines écoulées et les deux à venir. Une date en dur
 serait juste le premier jour et fausse tous les suivants, sans que personne s'en

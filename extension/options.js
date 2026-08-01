@@ -211,7 +211,10 @@ async function searchNow() {
     const rows = res.rows?.rows
       ? `\nLignes par page : ${res.rows.rows}${res.rows.changed ? '' : ' (déjà réglé)'}.`
       : res.rows?.reason === 'no_pager'
-        ? '\nPagination introuvable — la grille reste sur son réglage.'
+        ? '\nPagination introuvable — la grille reste sur son réglage.' +
+          (res.rows.markup
+            ? `\n\nBalisage de la pagination — copiez-le pour diagnostic :\n${res.rows.markup}`
+            : '\nAucun « Records per page » à l’écran : la grille n’était peut-être pas encore chargée.')
         : '';
     say(`Recherche lancée — ${written}.${rows}\nLe rapport part dès que la grille se stabilise.`, 'ok');
     return;
