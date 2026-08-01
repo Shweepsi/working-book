@@ -1280,14 +1280,25 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
           )}
           {data && (
             <>
-              <span><strong className="mono">{schedules}</strong> schedules</span>
+              {/* Dropped on a phone: the rail heading right underneath already
+                  reads "PLANNING · 26". */}
+              <span className="sch-stat-sched"><strong className="mono">{schedules}</strong> schedules</span>
               <span><strong className="mono">{records}</strong> lignes</span>
               <span><strong className="mono">{m2}</strong> m²</span>
             </>
           )}
           {importedAt && (
             <span className="faint small">
-              importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+              {/* Two forms of the same stamp; the media query picks one. The
+                  year is what goes on a narrow screen — the question the stamp
+                  answers is "is this today's report". */}
+              <span className="sch-stamp-full">
+                importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+              <span className="sch-stamp-short">
+                importé {importedAt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                {' '}{importedAt.toLocaleString('fr-FR', { timeStyle: 'short' })}
+              </span>
             </span>
           )}
         </div>

@@ -2322,6 +2322,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   margin-right: var(--space-4);
   color: var(--ink-faint);
 }
+.sch-stamp-short { display: none; }
 .sch-summary-stats strong {
   color: var(--ink);
   font-family: 'Geist Mono', monospace;
@@ -3997,12 +3998,29 @@ body.is-col-resizing * {
   .sv-stages-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  /* Two lines can't sit inside a pill without the ends looking accidental. */
-  .sch-summary { border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
+  /* On a phone the readings can't fit beside the button on one line, so the
+     strip becomes two columns: readings wrap in the first, the button keeps
+     the second to itself instead of being pushed onto a line of its own with
+     an empty half-width beside it. */
+  .sch-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-4);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+  }
+  .sch-summary-stats { grid-column: 1; gap: 2px var(--space-4); }
+  .sch-summary-actions { grid-column: 2; margin-left: 0; }
+  /* A 24 px mini button is a desktop pointer target; give the thumb something
+     to land on without letting the strip grow back. */
+  .sch-summary-actions .btn { min-height: 34px; padding-inline: var(--space-4); }
   /* Once the readings wrap, a dot lands at the head of the second line where
      it reads as a bullet. Spacing separates them well enough there. */
-  .sch-summary-stats { gap: var(--space-3) var(--space-5); }
   .sch-summary-stats > span + span::before { content: none; }
+  .sch-stat-sched { display: none; }
+  .sch-stamp-full { display: none; }
+  .sch-stamp-short { display: inline; }
   .sv-toolbar { padding: 10px 12px; gap: 8px; }
   .sv-title { font-size: var(--fs-base); }
   .sv-filter-row { margin-left: 0; order: 3; flex-basis: 100%; }
