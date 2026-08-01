@@ -209,7 +209,14 @@ async function searchNow() {
   if (res.clicked) {
     const written = res.filled.length ? `${named(res.filled)} rempli(s)` : 'aucun champ à changer';
     const rows = res.rows?.rows
-      ? `\nLignes par page : ${res.rows.rows}${res.rows.changed ? '' : ' (déjà réglé)'}.`
+      ? `\nLignes par page : ${res.rows.rows}${res.rows.changed ? '' : ' (déjà réglé)'}.` +
+        // A maximum of 5 means the wrong control, or a list Soho fills only on
+        // open. Either way the contents settle it, so they are shown.
+        (res.rows.rows < 10
+          ? `\nSeules valeurs proposées : ${res.rows.options.join(', ') || '(aucune)'}` +
+            `\nContrôle : select${res.rows.id ? `#${res.rows.id}` : ''}${res.rows.cls ? `.${res.rows.cls.split(' ').join('.')}` : ''}` +
+            '\nCopiez ces deux lignes pour diagnostic.'
+          : '')
       : res.rows?.reason === 'no_pager'
         ? '\nPagination introuvable — la grille reste sur son réglage.' +
           (res.rows.markup

@@ -428,11 +428,20 @@
       if (PAGER_RE.test(node.nodeValue ?? '') && node.parentElement) anchors.push(node.parentElement);
     }
 
+    // Several numeric selects can sit around the pager — one of them holding
+    // nothing but the current value. The page-size list is the richest of
+    // them, so candidates are collected and compared rather than taking the
+    // first that matches.
+    const candidates = new Set();
     for (const anchor of anchors) {
       for (let node = anchor, depth = 0; node && depth < 6; node = node.parentElement, depth++) {
-        const hit = deepQueryAll(node, 'select').find(numericOptions);
-        if (hit) return hit;
+        for (const el of deepQueryAll(node, 'select')) {
+          if (numericOptions(el)) candidates.add(el);
+        }
       }
+    }
+    if (candidates.size) {
+      return Array.from(candidates).sort((a, b) => b.options.length - a.options.length)[0];
     }
 
     // Some builds label the control only for screen readers.
@@ -468,11 +477,22 @@
       const around = anchor?.closest('div')?.parentElement ?? anchor?.parentElement;
       return { changed: false, reason: 'no_pager', markup: around?.outerHTML.slice(0, 1500) ?? null };
     }
+    // Reported whatever happens: when the largest offering turns out to be the
+    // 5 the grid already showed, the only useful question is what the control
+    // actually contained.
+    const seen = {
+      id: el.id || null,
+      cls: norm(typeof el.className === 'string' ? el.className : '').slice(0, 60) || null,
+      options: Array.from(el.options).map((o) => norm(o.value || o.textContent)).slice(0, 20),
+    };
+
     const best = largestOption(el);
-    if (!best) return { changed: false, reason: 'no_option' };
-    if (holds(el, best.o.value || String(best.n))) return { changed: false, rows: best.n, reason: 'already' };
+    if (!best) return { changed: false, reason: 'no_option', ...seen };
+    if (holds(el, best.o.value || String(best.n))) {
+      return { changed: false, rows: best.n, reason: 'already', ...seen };
+    }
     setValue(el, best.o.value);
-    return { changed: true, rows: best.n };
+    return { changed: true, rows: best.n, ...seen };
   }
 
   // Dry run for the options page: reports what the resolver sees without
