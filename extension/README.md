@@ -51,11 +51,53 @@ La pastille sur l'icône indique le résultat :
 | orange `vide` | aucune grille trouvée dans l'onglet |
 | rouge `config` | adresse du serveur non renseignée |
 | rouge `rés.` | serveur injoignable |
+| orange `form` | recherche automatique : aucun écran PMS230 ouvert |
 
 Un clic sur l'icône force un envoi immédiat, même si rien n'a changé.
 
 L'envoi automatique se coupe dans les options ; l'icône reste alors le seul
 déclencheur.
+
+## Recherche automatique
+
+L'extension peut aussi **remplir les critères et appuyer sur Search** elle-même,
+pour que le rapport se rafraîchisse sans personne devant l'écran.
+
+Dans les options, cocher **Relancer la recherche périodiquement** et régler :
+
+| Réglage | Valeur d'usine | Sens |
+| --- | --- | --- |
+| Toutes les | `15` | minutes entre deux recherches |
+| Facility | `221` | installation |
+| Work Center | `COATER` | centre de charge |
+| From Start Date | `-14` | début de fenêtre, **en jours depuis aujourd'hui** |
+| To Start Date | `14` | fin de fenêtre, idem |
+
+Les dates sont des **décalages**, pas des dates fixes : `-14` / `14` demandent
+en permanence les deux semaines écoulées et les deux à venir. Une date en dur
+serait juste le premier jour et fausse tous les suivants, sans que personne s'en
+aperçoive. Un critère laissé vide n'est pas écrit : l'écran garde sa valeur.
+
+L'onglet Mingle doit rester ouvert et la session Infor valide — l'extension
+pilote la page de l'opérateur, elle ne se connecte pas à Infor.
+
+### Vérifier que les champs sont reconnus
+
+Les champs sont retrouvés par **le libellé affiché** (« Facility », « Work
+Center », « From Start Date », « To Start Date », « Search »), jamais par un
+identifiant : Infor les génère et les change d'une version à l'autre, les
+libellés non.
+
+Avant de compter dessus, ouvrir l'écran PMS230 dans Mingle puis, dans les
+options, cliquer **Vérifier les champs**. La réponse liste ce qui a été reconnu
+et avec quelle valeur actuelle — sans rien écrire. `5/5 éléments reconnus`
+confirme que le pilotage tiendra. **Lancer une recherche** fait ensuite un essai
+complet.
+
+Si un champ manque, renseigner son sélecteur CSS dans **Sélecteurs manuels**,
+une ligne `champ = sélecteur` par champ (`facility`, `workCenter`, `dateFrom`,
+`dateTo`, `search`). Pour l'obtenir : clic droit sur le champ → Inspecter, puis
+clic droit sur la ligne surlignée → Copy → Copy selector.
 
 ## Garde-fous
 

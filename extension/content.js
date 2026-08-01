@@ -97,13 +97,29 @@ function start() {
 //
 // A click sends even when the content is unchanged — dedup belongs to the
 // automatic path; an explicit click means "send it now".
+//
+// `wb-search` and `wb-inspect` follow the same rule for the same reason: only
+// the frame holding the search form answers. The result of a search is not
+// reported back — pressing Search repaints the grid, which the observer above
+// picks up and sends on its own.
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
-  if (msg?.type !== 'wb-scrape') return false;
-  const report = readReport();
-  if (!report) return false;
-  send(report, 'manual');
-  respond({ found: true, count: report.count });
-  return true;
+  if (msg?.type === 'wb-scrape') {
+    const report = readReport();
+    if (!report) return false;
+    send(report, 'manual');
+    respond({ found: true, count: report.count });
+    return true;
+  }
+
+  if (msg?.type === 'wb-search' || msg?.type === 'wb-inspect') {
+    const run = msg.type === 'wb-search' ? globalThis.wbMashup?.runSearch : globalThis.wbMashup?.inspect;
+    const result = run?.(msg.criteria ?? {}, msg.selectors ?? {});
+    if (!result) return false;
+    respond({ found: true, ...result });
+    return true;
+  }
+
+  return false;
 });
 
 start();

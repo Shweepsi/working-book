@@ -3,7 +3,7 @@
   "name": "Working Book — import Operator Mashup",
   "version": "1.0.0",
   "description": "Envoie le rapport PMS230 de l'Operator Mashup vers Working Book, sans copier-coller.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "alarms"],
   "host_permissions": ["https://*.inforcloudsuite.com/*"],
   "optional_host_permissions": ["https://*/*"],
   "background": {
@@ -14,7 +14,7 @@
       "matches": ["https://*.inforcloudsuite.com/*"],
       "all_frames": true,
       "run_at": "document_idle",
-      "js": ["content.js"]
+      "js": ["mashup.js", "content.js"]
     }
   ],
   "action": {
