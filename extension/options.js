@@ -229,6 +229,13 @@ async function searchNow() {
         (res.rows.rows < 10 && res.rows.reason !== 'rejected'
           ? `\nSeules valeurs proposées : ${res.rows.options.join(', ') || '(aucune)'}` +
             `\nContrôle : select${res.rows.id ? `#${res.rows.id}` : ''}${res.rows.cls ? `.${res.rows.cls.split(' ').join('.')}` : ''}`
+          : '') +
+        // An injected value means the menu did not offer it — on a screen that
+        // lists 5 to 50, that points at the wrong control rather than a win.
+        (res.rows.markup
+          ? '\n\n⚠ Valeur absente du menu : ce n’est probablement pas le bon' +
+            ' contrôle.\nBalisage de la pagination — copiez-le pour diagnostic :\n' +
+            res.rows.markup
           : '')
       : res.rows?.reason === 'no_pager'
         ? '\nPagination introuvable — la grille reste sur son réglage.' +

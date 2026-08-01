@@ -417,8 +417,12 @@
   // all. Raising it to the largest offering is the cheapest way to widen that.
   const PAGER_RE = /records?\s+per\s+page/i;
 
+  // At least two options: a page-size menu offers a choice by definition. The
+  // pager area also holds single-option selects — a page number, a bound value
+  // — and writing 50 into one of those reports success while the grid stays on
+  // 5 rows, which is exactly what happened.
   const numericOptions = (el) =>
-    el.options.length > 0 &&
+    el.options.length >= 2 &&
     Array.from(el.options).every((o) => /^\d+$/.test(norm(o.value || o.textContent)));
 
   // The pager is Soho too: the native <select> is hidden and "5 Records per
@@ -484,17 +488,32 @@
     return { option, injected: true };
   }
 
+  // The pager's own markup, for the cases where the right control could not be
+  // identified. Cheaper than another round of guessing.
+  function pagerMarkup() {
+    const anchor = Array.from(document.querySelectorAll('*')).find(
+      (node) => node.children.length === 0 && PAGER_RE.test(node.textContent ?? ''),
+    );
+    if (!anchor) return null;
+    // The pager's own container, not its parent: widening one level too far
+    // put the interesting part past the 2000-character cut.
+    let around = anchor.closest('div') ?? anchor.parentElement;
+    // Widen only when the label sits alone, never when a control is already in
+    // scope: going up from a container that holds one puts the pager past the
+    // 2000-character cut and hands back the top of the page instead.
+    if (around && !around.querySelector('select, button') && around.parentElement) {
+      around = around.parentElement;
+    }
+    return around?.outerHTML.slice(0, 2000) ?? null;
+  }
+
   async function maximiseRows(timeout = PAGER_TIMEOUT_MS, target = 0) {
     const el = await waitFor(pagerSelect, timeout);
     if (!el) {
       // Hand back the pager's markup when the wording is on screen but no
       // select answers to it: same trick that identified the Work Center
       // control, rather than another round of guessing.
-      const anchor = Array.from(document.querySelectorAll('*')).find(
-        (node) => node.children.length === 0 && PAGER_RE.test(node.textContent ?? ''),
-      );
-      const around = anchor?.closest('div')?.parentElement ?? anchor?.parentElement;
-      return { changed: false, reason: 'no_pager', markup: around?.outerHTML.slice(0, 1500) ?? null };
+      return { changed: false, reason: 'no_pager', markup: pagerMarkup() };
     }
     // Reported whatever happens: when the largest offering turns out to be the
     // 5 the grid already showed, the only useful question is what the control
@@ -529,6 +548,10 @@
       wanted,
       injected,
       reason: applied === wanted ? undefined : 'rejected',
+      // Having to inject a value the menu should already offer means this is
+      // probably not the page-size control at all — the screen lists 5 to 50.
+      // The markup settles it instead of another blind attempt.
+      markup: injected ? pagerMarkup() : null,
       ...seen,
     };
   }
