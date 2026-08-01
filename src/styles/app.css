@@ -1663,25 +1663,34 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      pages are marked by the rule, not padded out.) 2px short of exact, so the
      page-end rule isn't painted when the content is exactly one page. */
   min-height: calc(var(--preview-page-h) + 2 * var(--preview-pad-v) - 2px);
-  background: var(--print-bg);
   color: var(--print-ink-strong);
   border-radius: 2px;
   font-size: 10pt;
-  /* Rule where each sheet ends. Approximate by nature — a row that would
-     straddle the line is pushed whole onto the next page — but it answers
-     "how many sheets is this" at a glance. */
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent calc(var(--preview-page-h) - 1px),
-    var(--print-line) calc(var(--preview-page-h) - 1px),
-    var(--print-line) var(--preview-page-h)
-  );
-  background-origin: content-box;
-  /* Confine the marker to the content box: the repeat also runs backwards,
-     and unclipped its tail painted a stray full-width line in the top
-     padding, just above the title. */
-  background-clip: content-box;
+  /* Paper edge against the desk. The margins are white on a light backdrop, so
+     without this the sheet stops being readable as a sheet — which is what the
+     OS dialog gets for free from its dark surround. */
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.16), 0 6px 20px rgb(0 0 0 / 0.12);
+  /* Two layers, and the split matters:
+       1. the rule marking where each sheet ends — approximate by nature, since
+          a row that would straddle it is pushed whole onto the next page, but
+          it answers "how many sheets is this" at a glance. Confined to the
+          content box: the repeat also runs backwards, and unclipped its tail
+          painted a stray full-width line in the top padding.
+       2. the paper itself, which has to reach the sheet edge. Painting it with
+          `background-color` under a content-box clip left the padding
+          transparent, so the desk showed through exactly where the paper
+          margins belong and the content looked flush to the paper edge. */
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--preview-page-h) - 1px),
+      var(--print-line) calc(var(--preview-page-h) - 1px),
+      var(--print-line) var(--preview-page-h)
+    ),
+    linear-gradient(var(--print-bg), var(--print-bg));
+  background-origin: content-box, border-box;
+  background-clip: content-box, border-box;
 }
 /* Schedule view is laid out in landscape on paper (see PAGE_SIZE_STYLE_ID in
    App.tsx), so the preview swaps to a landscape sheet to match:
