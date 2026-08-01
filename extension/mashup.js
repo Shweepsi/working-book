@@ -117,17 +117,57 @@
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function setSelect(el, value) {
+  // Work Center is a dependent list: writing Facility makes the mashup refetch
+  // it, and it sits empty for as long as that round trip takes. Writing into
+  // the empty list is what cleared the field and made Search fail with
+  // "Facility, Work Center and Start Dates must be entered".
+  const OPTIONS_TIMEOUT_MS = 8000;
+
+  function optionFor(el, value) {
     const target = key(value);
-    const option = Array.from(el.options).find(
-      (o) => key(o.textContent) === target || key(o.value) === target,
+    return (
+      Array.from(el.options).find(
+        (o) => key(o.textContent) === target || key(o.value) === target,
+      ) ?? null
     );
+  }
+
+  function waitFor(probe, timeout) {
+    return new Promise((resolve) => {
+      const deadline = Date.now() + timeout;
+      const tick = () => {
+        const hit = probe();
+        if (hit) return resolve(hit);
+        if (Date.now() > deadline) return resolve(null);
+        setTimeout(tick, 150);
+      };
+      tick();
+    });
+  }
+
+  async function setSelect(el, value) {
+    const option = await waitFor(() => optionFor(el, value), OPTIONS_TIMEOUT_MS);
     if (!option) return false;
     setValue(el, option.value);
     return true;
   }
 
-  function setText(el, value) {
+  // True when the field already holds the wanted value. Writing it again would
+  // be a no-op at best and, for Facility, would needlessly reset every list
+  // that depends on it.
+  function holds(el, value) {
+    if (el instanceof HTMLSelectElement) {
+      const selected = el.selectedOptions[0];
+      return Boolean(selected) && (key(selected.textContent) === key(value) || key(selected.value) === key(value));
+    }
+    return key(el.value) === key(value);
+  }
+
+  function isEmpty(el) {
+    return !String(el.value ?? '').trim();
+  }
+
+  async function setText(el, value) {
     if (el instanceof HTMLSelectElement) return setSelect(el, value);
     setValue(el, value);
     // M3 inputs commit on blur or on Enter; a value left "being typed" is
@@ -185,32 +225,46 @@
     };
   }
 
-  // Fills what it can and presses Search. A missing criterion is reported but
-  // not fatal: the mashup keeps whatever was already in the field, which is
-  // usually the right value anyway.
-  function runSearch(criteria = {}, selectors = {}) {
+  // Fills what it can and presses Search — but only once every criterion the
+  // mashup requires actually holds a value. Clicking on a half-filled form was
+  // the visible failure: the screen answered "Facility, Work Center and Start
+  // Dates must be entered" and wiped the result grid.
+  //
+  // Order matters. Facility goes first because the lists below depend on it,
+  // and each write is skipped when the field already holds the wanted value —
+  // which is the common case, and the cheapest way to not disturb a form that
+  // was already correct.
+  async function runSearch(criteria = {}, selectors = {}) {
     const found = locate(selectors);
     if (!found) return null;
 
     const filled = [];
-    if (found.facility && criteria.facility) {
-      if (setText(found.facility, criteria.facility)) filled.push('facility');
-    }
-    if (found.workCenter && criteria.workCenter) {
-      if (setText(found.workCenter, criteria.workCenter)) filled.push('workCenter');
-    }
-    if (found.dateFrom) {
-      setText(found.dateFrom, formatDate(dateFromOffset(criteria.fromOffset), found.dateFrom));
-      filled.push('dateFrom');
-    }
-    if (found.dateTo) {
-      setText(found.dateTo, formatDate(dateFromOffset(criteria.toOffset), found.dateTo));
-      filled.push('dateTo');
-    }
+    const kept = [];
+    const failed = [];
 
-    if (found.search) click(found.search);
+    const apply = async (name, value) => {
+      const el = found[name];
+      if (!el || value === '' || value == null) return;
+      if (holds(el, value)) return kept.push(name);
+      if (await setText(el, value)) filled.push(name);
+      else failed.push(name);
+    };
 
-    return { ...describe(found), filled, clicked: Boolean(found.search), url: location.href };
+    await apply('facility', criteria.facility);
+    await apply('workCenter', criteria.workCenter);
+    await apply('dateFrom', found.dateFrom && formatDate(dateFromOffset(criteria.fromOffset), found.dateFrom));
+    await apply('dateTo', found.dateTo && formatDate(dateFromOffset(criteria.toOffset), found.dateTo));
+
+    // Last look at the real form rather than at what we believe we wrote: a
+    // cascade can still have blanked a field after the fact.
+    const empty = ['facility', 'workCenter', 'dateFrom', 'dateTo'].filter(
+      (name) => found[name] && isEmpty(found[name]),
+    );
+
+    const clicked = Boolean(found.search) && empty.length === 0;
+    if (clicked) click(found.search);
+
+    return { ...describe(found), filled, kept, failed, empty, clicked, url: location.href };
   }
 
   // Dry run for the options page: reports what the resolver sees without
@@ -231,5 +285,10 @@
     return { ...describe(found), preview, url: location.href };
   }
 
-  globalThis.wbMashup = { runSearch, inspect };
+  // runSearch is async, but the "only the frame holding the form answers" rule
+  // needs a synchronous verdict: a listener must decide whether to keep the
+  // message channel open before it can await anything.
+  const present = (selectors = {}) => locate(selectors) !== null;
+
+  globalThis.wbMashup = { runSearch, inspect, present };
 })();

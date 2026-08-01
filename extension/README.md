@@ -52,6 +52,7 @@ La pastille sur l'icône indique le résultat :
 | rouge `config` | adresse du serveur non renseignée |
 | rouge `rés.` | serveur injoignable |
 | orange `form` | recherche automatique : aucun écran PMS230 ouvert |
+| orange `crit.` | un critère est resté vide — rien n'a été lancé |
 
 Un clic sur l'icône force un envoi immédiat, même si rien n'a changé.
 
@@ -93,6 +94,28 @@ options, cliquer **Vérifier les champs**. La réponse liste ce qui a été reco
 et avec quelle valeur actuelle — sans rien écrire. `5/5 éléments reconnus`
 confirme que le pilotage tiendra. **Lancer une recherche** fait ensuite un essai
 complet.
+
+### Ce que l'extension ne réécrit pas
+
+Un champ qui affiche déjà la bonne valeur est **laissé tel quel**. Ce n'est pas
+une optimisation : écrire Facility fait recharger la liste des Work Centers, qui
+reste vide le temps de l'aller-retour. Ne pas toucher un champ déjà juste évite
+la cascade entière.
+
+Quand une écriture est nécessaire, l'ordre est Facility d'abord, puis Work
+Center — et l'extension **attend** que la liste se soit repeuplée avant d'y
+écrire, jusqu'à 8 secondes.
+
+Enfin, Search n'est cliqué que si les quatre critères sont effectivement
+renseignés au moment du clic. Un formulaire incomplet ferait répondre à l'écran
+*Facility, Work Center and Start Dates must be entered* et viderait la grille ;
+mieux vaut ne rien lancer et dire quel champ manque.
+
+### Si un critère reste vide
+
+Le message des options nomme le champ fautif. Le plus souvent c'est une valeur
+absente de la liste : la choisir **une fois à la main** dans Mingle suffit —
+l'extension la reconnaîtra ensuite comme déjà correcte et cessera d'y toucher.
 
 Si un champ manque, renseigner son sélecteur CSS dans **Sélecteurs manuels**,
 une ligne `champ = sélecteur` par champ (`facility`, `workCenter`, `dateFrom`,

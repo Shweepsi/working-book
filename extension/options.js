@@ -187,12 +187,26 @@ async function inspect() {
 async function searchNow() {
   if (!(await save())) return;
   say('Recherche en cours…');
-  const { answered } = await chrome.runtime.sendMessage({ type: 'wb-run-search' });
+  const res = await chrome.runtime.sendMessage({ type: 'wb-run-search' });
+  if (!res) {
+    say('Aucun formulaire de recherche trouvé — ouvrez l’écran PMS230 dans Mingle.', 'err');
+    return;
+  }
+  if (res.clicked) {
+    const written = res.filled.length ? `${named(res.filled)} rempli(s)` : 'aucun champ à changer';
+    say(`Recherche lancée — ${written}.\nLe rapport part dès que la grille se stabilise.`, 'ok');
+    return;
+  }
+  // Deliberately not clicked: saying which criterion is blank is the whole
+  // difference between "ça marche pas" and a fix that takes ten seconds.
+  const why = res.empty.length
+    ? `resté(s) vide(s) : ${named(res.empty)}`
+    : `non renseigné(s) : ${named(res.failed)}`;
   say(
-    answered
-      ? 'Recherche lancée. Le rapport part dès que la grille se stabilise.'
-      : 'Aucun formulaire de recherche trouvé — ouvrez l’écran PMS230 dans Mingle.',
-    answered ? 'ok' : 'err',
+    `Recherche non lancée — ${why}.\n` +
+      'Choisissez la valeur à la main dans Mingle une fois : si elle tient, ' +
+      'l’extension la gardera au lieu de la réécrire.',
+    'err',
   );
 }
 

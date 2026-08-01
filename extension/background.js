@@ -112,7 +112,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     return true; // keep the channel open for the async reply
   }
   if (msg?.type === 'wb-run-search') {
-    runSearch().then((answered) => respond({ answered }));
+    runSearch().then(respond);
     return true;
   }
   if (msg?.type === 'wb-inspect-form') {
@@ -133,7 +133,6 @@ function criteriaOf(cfg) {
 async function runSearch() {
   const cfg = await config();
   const tabs = await chrome.tabs.query(INFOR_TABS);
-  let answered = 0;
   for (const tab of tabs) {
     if (!tab.id) continue;
     try {
@@ -142,13 +141,17 @@ async function runSearch() {
         criteria: criteriaOf(cfg),
         selectors: cfg.selectors,
       });
-      if (reply?.found) answered++;
+      if (!reply?.found) continue;
+      // A form found but left incomplete is worse than none: the mashup would
+      // answer with its own error dialog and blank the grid.
+      if (!reply.clicked) badge('crit.', 'warn');
+      return reply;
     } catch {
       // No frame in this tab holds the search form. Expected, and not an error.
     }
   }
-  if (!answered) badge('form', 'warn');
-  return answered;
+  badge('form', 'warn');
+  return null;
 }
 
 // Chrome floors alarm periods at one minute; anything below is silently

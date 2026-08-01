@@ -112,10 +112,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   }
 
   if (msg?.type === 'wb-search' || msg?.type === 'wb-inspect') {
-    const run = msg.type === 'wb-search' ? globalThis.wbMashup?.runSearch : globalThis.wbMashup?.inspect;
-    const result = run?.(msg.criteria ?? {}, msg.selectors ?? {});
-    if (!result) return false;
-    respond({ found: true, ...result });
+    const mashup = globalThis.wbMashup;
+    // Checked synchronously: the channel has to be claimed before awaiting,
+    // and a frame with no form must leave it to the one that has it.
+    if (!mashup?.present(msg.selectors ?? {})) return false;
+    const selectors = msg.selectors ?? {};
+    const run =
+      msg.type === 'wb-search'
+        ? mashup.runSearch(msg.criteria ?? {}, selectors)
+        : mashup.inspect(selectors);
+    Promise.resolve(run).then((result) => respond({ found: true, ...result }));
     return true;
   }
 
