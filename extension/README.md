@@ -84,7 +84,15 @@ par l'écran — 50 dans la liste actuelle.
 Ce sélecteur est un contrôle Soho comme les autres : le `<select>` est masqué
 et le texte « 5 Records per page » est peint dans un bloc voisin, pas à
 l'intérieur. L'extension part donc de ce texte et remonte jusqu'au premier
-`<select>` entièrement numérique. Elle attend la pagination jusqu'à 20 s après
+`<select>` entièrement numérique.
+
+Deux garde-fous, appris à la dure. L'écran conserve **d'autres grilles
+masquées** — une recherche PMS060 entre autres — chacune avec son propre
+« Records per page » : seuls les pagers réellement affichés sont considérés.
+Et un menu de taille de page **offre un choix**, donc un `<select>` à option
+unique est écarté. Sans ces deux règles, `50` partait dans le pager d'une
+grille invisible et vide, était rapporté comme accepté, pendant que la grille
+visible restait à 5 lignes. Elle attend la pagination jusqu'à 20 s après
 le clic sur Search, puisqu'elle n'est dessinée qu'au retour des lignes.
 
 ### Dépasser le maximum du menu

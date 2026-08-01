@@ -82,6 +82,12 @@
   // region would otherwise run right into them.
   const GRID_SEL = 'table, [role=grid], [role=treegrid]';
 
+  // The screen keeps other datagrids around, hidden — a PMS060 lookup among
+  // them, complete with its own pager. Anything inside one of these is not the
+  // report on screen, whatever its markup says.
+  const HIDDEN_SEL = '.hidden, [hidden], [aria-hidden=true]';
+  const inHidden = (el) => Boolean(el?.closest?.(HIDDEN_SEL));
+
   const precedes = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
   // querySelectorAll stops at a shadow boundary, and Infor's controls are
@@ -431,10 +437,16 @@
   // Starting from the text and climbing to the nearest numeric select is what
   // actually crosses that gap.
   function pagerSelect() {
+    // Only pagers the operator can actually see. The hidden PMS060 lookup grid
+    // carries the same wording, and writing 50 into its page-size select was
+    // reported as a success while the visible grid stayed on 5 rows.
     const anchors = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (PAGER_RE.test(node.nodeValue ?? '') && node.parentElement) anchors.push(node.parentElement);
+      const el = node.parentElement;
+      if (!el || !PAGER_RE.test(node.nodeValue ?? '')) continue;
+      if (!visible(el) || inHidden(el)) continue;
+      anchors.push(el);
     }
 
     // Several numeric selects can sit around the pager — one of them holding
@@ -445,7 +457,7 @@
     for (const anchor of anchors) {
       for (let node = anchor, depth = 0; node && depth < 6; node = node.parentElement, depth++) {
         for (const el of deepQueryAll(node, 'select')) {
-          if (numericOptions(el)) candidates.add(el);
+          if (numericOptions(el) && !inHidden(el)) candidates.add(el);
         }
       }
     }
@@ -456,7 +468,8 @@
     // Some builds label the control only for screen readers.
     return (
       Array.from(document.querySelectorAll('select')).find(
-        (el) => PAGER_RE.test(el.getAttribute('aria-label') ?? '') && numericOptions(el),
+        (el) =>
+          PAGER_RE.test(el.getAttribute('aria-label') ?? '') && numericOptions(el) && !inHidden(el),
       ) ?? null
     );
   }
@@ -492,7 +505,11 @@
   // identified. Cheaper than another round of guessing.
   function pagerMarkup() {
     const anchor = Array.from(document.querySelectorAll('*')).find(
-      (node) => node.children.length === 0 && PAGER_RE.test(node.textContent ?? ''),
+      (node) =>
+        node.children.length === 0 &&
+        PAGER_RE.test(node.textContent ?? '') &&
+        visible(node) &&
+        !inHidden(node),
     );
     if (!anchor) return null;
     // The pager's own container, not its parent: widening one level too far
@@ -583,7 +600,7 @@
 
   function nextPageButton() {
     for (const el of document.querySelectorAll(NEXT_SEL)) {
-      if (!visible(el) || disabled(el)) continue;
+      if (!visible(el) || disabled(el) || inHidden(el)) continue;
       // "Records per page" also lives in the pager; a control that opens a
       // list is not the one that advances.
       if (el.matches('select, option')) continue;
