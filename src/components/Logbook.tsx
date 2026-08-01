@@ -104,6 +104,9 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
     cacheKey,
     poste ? { domain: 'logbook', params: { date, poste } } : null,
     init,
+    // The shift's log is written from whichever device is at hand — the office
+    // PC and the tablet on the line both open the same date and poste.
+    { live: true },
   );
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);

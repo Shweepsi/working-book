@@ -162,6 +162,8 @@ export default function Suivi() {
     STORAGE_KEY,
     { domain: 'suivi', params: {} },
     initialState,
+    // A single shared list, so anyone's entry has to show up on everyone's.
+    { live: true },
   );
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeTags, setActiveTags] = useState<Set<Tag>>(() => new Set());

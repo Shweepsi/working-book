@@ -26,12 +26,22 @@ export async function apiGet<T>(path: string): Promise<GetEnvelope<T> | null> {
   return (await res.json()) as GetEnvelope<T>;
 }
 
-export async function apiPut(path: string, body: unknown): Promise<void> {
-  if (!SYNC_ENABLED) return;
+// Resolves with the `updated_at` the Worker stamped on the row, when it says.
+// The live poller uses it to recognise its own write coming back and skip the
+// pointless re-fetch that would otherwise follow every save.
+export async function apiPut(path: string, body: unknown): Promise<number | null> {
+  if (!SYNC_ENABLED) return null;
   const res = await fetch(API_BASE + path, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new ApiError(res.status, `PUT ${path} failed (${res.status})`);
+  try {
+    const ack = (await res.json()) as { updated_at?: unknown };
+    return typeof ack?.updated_at === 'number' ? ack.updated_at : null;
+  } catch {
+    // A body we can't read doesn't make the write any less successful.
+    return null;
+  }
 }
