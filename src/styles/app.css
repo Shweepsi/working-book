@@ -3377,7 +3377,9 @@ body.is-col-resizing * {
   line-height: 1.25;
   letter-spacing: -0.01em;
   color: var(--ink);
-  word-break: break-all;
+  /* Item names are one long unspaced token; `anywhere` breaks them without
+     also chopping the short words around them the way `break-all` does. */
+  overflow-wrap: anywhere;
 }
 .sch-row-sheet-short {
   font-weight: 400;
@@ -3399,9 +3401,11 @@ body.is-col-resizing * {
 }
 .sch-row-sheet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-2) var(--space-6);
-  margin: 0 0 10px;
+  /* 128px keeps two columns inside a 360 px-wide phone once the sheet padding
+     is taken off, and still packs four across the 640 px desktop sheet. */
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: var(--space-3) var(--space-6);
+  margin: 0 0 var(--space-5);
 }
 .sch-row-sheet-field {
   display: flex;
@@ -3409,11 +3413,14 @@ body.is-col-resizing * {
   gap: 0;
   min-width: 0;
 }
+/* Field labels sit a step below the section headings they live under —
+   before, both were 10 px uppercase ink-soft and the card read as one flat
+   list of small caps with no hierarchy. */
 .sch-row-sheet-field dt {
   font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font-weight: 600;
 }
 .sch-row-sheet-field dd {
@@ -3424,33 +3431,57 @@ body.is-col-resizing * {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sch-row-sheet-section { margin-bottom: 10px; }
+/* The one field that reports a state rather than a value. */
+.sch-status-pill {
+  display: inline-block;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.sch-row-sheet-section { margin-bottom: var(--space-6); }
 .sch-row-sheet-section:last-child { margin-bottom: 0; }
 .sch-row-sheet-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-soft);
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+/* Rule running to the right edge — cheaper than a boxed section, and it makes
+   the two stat blocks read as blocks instead of as more small-caps labels. */
+.sch-row-sheet-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line-faint);
 }
 .sch-row-sheet-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .sch-row-sheet-stat {
   display: inline-flex;
   flex-direction: column;
-  gap: 0;
-  padding: var(--space-2) var(--space-4);
+  justify-content: center;
+  gap: 1px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-md);
   background: var(--paper-2);
-  min-width: 76px;
-  flex: 1 1 76px;
+  min-width: 88px;
+  flex: 1 1 88px;
 }
-.sch-row-sheet-stat.is-wide { flex-basis: 160px; }
+.sch-row-sheet-stat.is-wide { flex-basis: 168px; }
 .sch-row-sheet-stat.is-highlight {
   background: color-mix(in srgb, var(--hl-green) 38%, var(--paper-2));
   border-color: var(--flag-ok-bd);
@@ -3460,12 +3491,17 @@ body.is-col-resizing * {
   border-color: var(--flag-unsched-bd);
 }
 .sch-row-sheet-stat.is-danger strong { color: var(--flag-unsched-fg); }
+/* Never wrap: a two-line label ("CODE / FORMAT") made its chip taller than the
+   ones beside it and broke the row's baseline. */
 .sch-row-sheet-stat-label {
   font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-soft);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sch-row-sheet-stat strong {
   font-size: var(--fs-base);

@@ -2063,9 +2063,6 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
   const format = row.largeur && row.longueur
     ? `${fmtNum(row.largeur, 0)} × ${fmtNum(row.longueur, 0)} mm`
     : '—';
-  const formatInch = row.largeurInch && row.longueurInch
-    ? `${row.largeurInch} × ${row.longueurInch} in`
-    : '';
   const start = row.startDate || row.startTime
     ? `${fmtDateLong(row.startDate)} ${fmtTime(row.startTime)}`.trim()
     : '—';
@@ -2099,7 +2096,15 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
 
         <dl className="sch-row-sheet-grid">
           <DetailField label="Planning" value={<span className="mono">{row.schedule}{row.schedSuffix ? `-${row.schedSuffix}` : ''}</span>} />
-          <DetailField label="Étapes" value={<span className="mono">{row.opSteps || '—'}</span>} />
+          {/* The report carries three op-step columns; only the second one means
+              anything here — it's the step the whole page filters on (≠ 90). The
+              other two stay in the tooltip rather than in the reader's way. */}
+          <DetailField
+            label="Status"
+            value={row.opStepD
+              ? <span className="sch-status-pill mono" title={row.opSteps ? `Étapes ${row.opSteps}` : undefined}>{row.opStepD}</span>
+              : '—'}
+          />
           <DetailField label="Centre de travail" value={row.workCenter || '—'} />
           <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
           <DetailField label="Qualité" value={<span className="mono">{row.qualite || '—'}</span>} />
@@ -2112,7 +2117,6 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             <Stat label="Sched" value={row.schedLites} />
             <Stat label="Prod" value={row.prodLites ?? 0} />
             <Stat label="Req" value={row.reqLites} highlight />
-            <Stat label="Op Tm" value={row.opTm ? fmtNum(row.opTm, 2) : '—'} />
             <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
             <Stat
               label="P/REQ"
@@ -2129,14 +2133,16 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             <Stat label="Largeur × Longueur" value={format} wide />
             <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
             {row.thickness && <Stat label="Épaisseur" value={`${row.thickness} mm`} />}
-            {formatInch && <Stat label="Pouces" value={formatInch} wide />}
             {row.formatCode && <Stat label="Code format" value={<span className="mono">{row.formatCode}</span>} />}
           </div>
         </div>
 
         {(row.startDate || row.endDate) && (
           <div className="sch-row-sheet-section">
-            <div className="sch-row-sheet-section-title">Planning</div>
+            {/* "Créneau", not "Planning": the first field of the card already
+                carries the planning number, and two blocks under the same word
+                read as the same thing twice. */}
+            <div className="sch-row-sheet-section-title">Créneau</div>
             <dl className="sch-row-sheet-grid">
               <DetailField label="Début" value={<span className="mono">{start}</span>} />
               <DetailField label="Fin" value={<span className="mono">{end}</span>} />
