@@ -4193,6 +4193,292 @@ button.as-row:focus-visible {
   letter-spacing: 0;
 }
 
+/* ---------- Idées d’amélioration ----------
+   Header trigger + the board it opens. The bulb is CSS-drawn for the same
+   reason as .print-preview-icon: the emoji renders in colour and the rest of
+   the header chrome doesn't. */
+.ideas-trigger {
+  position: relative;
+}
+.ideas-trigger.is-on {
+  color: var(--accent);
+  background: var(--paper-2);
+  border-color: var(--line-soft);
+}
+.ideas-icon {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+}
+/* Glass */
+.ideas-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.5px;
+  right: 1.5px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 50% 50% 35% 35%;
+}
+/* Screw base — two strokes under the glass */
+.ideas-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 0.5px;
+  left: 4.5px;
+  right: 4.5px;
+  height: 3px;
+  border-top: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+}
+/* Something new from a colleague since this device last opened the board. */
+.ideas-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--paper-glass);
+}
+
+.ideas-sheet { width: min(620px, calc(100% - 40px)); }
+
+/* Compose form — name and idea on one line, detail underneath. */
+.ideas-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+  background: var(--paper-2);
+}
+.ideas-form-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 2.2fr);
+  gap: var(--space-5);
+}
+.ideas-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ideas-field input,
+.ideas-detail-input {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  padding: var(--space-4) var(--space-5);
+}
+.ideas-field input { min-height: var(--d-input-min); }
+.ideas-detail-input {
+  resize: vertical;
+  line-height: 1.45;
+}
+.ideas-field input:focus-visible,
+.ideas-detail-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.ideas-form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.ideas-form-hint {
+  flex: 1;
+  min-width: 160px;
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  line-height: 1.35;
+}
+/* .btn.mini carries margin-left:auto for its usual place at the end of a row;
+   here the hint already claims the free space. */
+.ideas-cancel { margin-left: 0; }
+.ideas-form .btn.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ideas-sort {
+  width: auto;
+  margin-top: var(--space-7);
+}
+.ideas-sort button { white-space: nowrap; }
+
+.ideas-list {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.idea {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+.idea.is-mine { border-color: var(--line-soft); }
+.idea.is-editing {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--paper));
+}
+
+/* The +1 itself: count on top, label underneath, filled once cast. */
+.idea-vote {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 48px;
+  min-height: 46px;
+  padding: var(--space-2) 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.idea-vote:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.idea-vote.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.idea-vote:disabled {
+  cursor: default;
+  border-style: dashed;
+  color: var(--ink-faint);
+  background: transparent;
+}
+.idea-vote-count {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1;
+}
+.idea-vote-label {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.idea-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.idea-title {
+  font-size: var(--fs-lg);
+  line-height: 1.3;
+  color: var(--ink);
+  user-select: text;
+  -webkit-user-select: text;
+  overflow-wrap: anywhere;
+}
+.idea-detail {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+  overflow-wrap: anywhere;
+}
+.idea-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.idea-author { font-weight: 600; color: var(--ink); }
+.idea-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+.idea-sep { color: var(--ink-faint); }
+/* Own-idea controls sit at the end of the meta line — present, not shouting. */
+.idea-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.idea-actions .btn.mini { margin-left: 0; }
+.idea-delete { color: var(--accent); }
+.idea-supporters {
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ideas-empty {
+  margin-top: var(--space-6);
+  padding: var(--space-9) var(--space-8);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+  background: var(--paper-2);
+  text-align: center;
+}
+.ideas-empty h4 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.ideas-empty p {
+  margin: 0 auto;
+  max-width: 42ch;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 600px) {
+  .ideas-form-grid { grid-template-columns: 1fr; gap: var(--space-4); }
+  /* Thumb-sized primary action across the sheet, hint underneath it. */
+  .ideas-form-hint { order: 3; flex-basis: 100%; }
+  .ideas-form-actions .btn.primary { flex: 1; min-height: 40px; }
+  .ideas-sort { width: 100%; }
+  .idea { padding: var(--space-5); gap: var(--space-4); }
+  .idea-vote { width: 44px; }
+  /* The row is a thumb target on a phone; hover-weight actions are not. */
+  .idea-actions { margin-left: 0; flex-basis: 100%; }
+}
+
 /* ---------- Mobile FAB ----------
    Floating "+" for the Logbook on phones. Hidden on desktop/tablet where the
    sticky type-strip already provides the same one-tap action within thumb

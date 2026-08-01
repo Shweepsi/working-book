@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Ideas from './components/Ideas';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
@@ -335,6 +336,9 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator />
+          {/* Shared idea board. Header-level on purpose: it belongs to no tab,
+              and an idea comes up while doing something else. */}
+          <Ideas />
           {/* Sits in the header rather than behind the settings cog: checking
               the paper layout is a recurring gesture, not a preference. */}
           <button
