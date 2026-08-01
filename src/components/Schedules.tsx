@@ -18,8 +18,14 @@ import { useToast } from '../lib/toast';
 
 const KEY_DATA   = 'wb.schedules.v1';
 const KEY_POLICY = 'wb.schedules.policy.v1';
-const KEY_SPEED  = 'wb.schedules.vitesse';
+const KEY_SPEEDS = 'wb.schedules.vitesses.v1';
 const KEY_TABLE  = 'wb.schedules.table.v1';
+
+// Coater speed of a schedule nobody has set one on yet. The tile reads as
+// invalid at 0 and the throughput tiles show an em dash, which is the honest
+// state: the planner has to say how fast the line runs before the times mean
+// anything.
+const DEFAULT_SPEED = 0;
 
 // Undo window on a schedule delete. Wider than the toast default because the
 // action is coarse and the operator may be away from the screen when it lands.
@@ -357,6 +363,23 @@ function fmtDate(yyyymmdd: string | null | undefined): string {
   return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
 }
 
+// Coater speed (m/min) per schedule number. Shared: the speed is a property of
+// the schedule, so whoever sets it sets it for everyone.
+type SpeedMap = Record<string, number>;
+
+// Keep only entries that can drive `minutesAt`. Anything else — a string left
+// by an older build, null, NaN, a negative — is dropped rather than carried,
+// so a bad value can't outlive the tab that wrote it.
+function sanitiseSpeeds(raw: unknown): SpeedMap {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: SpeedMap = {};
+  for (const [schedule, value] of Object.entries(raw as Record<string, unknown>)) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) out[schedule] = n;
+  }
+  return out;
+}
+
 function fmtNum(n: number | null | undefined, digits = 0): string {
   if (n == null || !Number.isFinite(n)) return '';
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -385,8 +408,21 @@ export default function Schedules({ density }: SchedulesProps) {
     { domain: 'policy', params: {} },
     policyInit,
   );
-  const [vitesse, setVitesse] = useState<number | string>(() => load<number | string>(KEY_SPEED, 0));
+  const speedsInit = useCallback(() => sanitiseSpeeds(load<unknown>(KEY_SPEEDS, {})), []);
+  const [speeds, setSpeeds] = useSyncedState<SpeedMap>(
+    KEY_SPEEDS,
+    { domain: 'speeds', params: {} },
+    speedsInit,
+    // Same reasoning as the report: the planning room and the line run this on
+    // two screens, and a speed set on one has to reach the other without a
+    // reload — that is the whole point of hanging it off the schedule.
+    { refreshOnFocus: true },
+  );
   const [selected, setSelected] = useState<string | null>(null);
+  // What the operator is currently typing in the Vitesse field, or null when it
+  // just mirrors the stored value. Without it, clearing the box would snap it
+  // back to "0" mid-edit and the next keystroke would land after that zero.
+  const [speedDraft, setSpeedDraft] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | 'portal' | null>(null);
   // Schedule number waiting on the delete confirmation, or null.
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -409,9 +445,27 @@ export default function Schedules({ density }: SchedulesProps) {
 
   const handleRowOpen = useCallback((row: DisplayRow) => setOpenRowId(row.id), []);
 
-  // Persist speed (data + policy go through useSyncedState which handles
-  // its own write-back to localStorage).
-  useEffect(() => { save(KEY_SPEED, vitesse); }, [vitesse]);
+  // Speed of the schedule on screen. A schedule nobody has set one on — a new
+  // one straight out of an import — starts at 0.
+  const vitesse = selected ? speeds[selected] ?? DEFAULT_SPEED : DEFAULT_SPEED;
+
+  function setVitesse(next: number) {
+    if (!selected) return;
+    setSpeeds((prev) => ({ ...prev, [selected]: next }));
+  }
+
+  // Drop the draft when the selection moves: it belongs to the field of the
+  // schedule that was on screen, not to the one that just replaced it.
+  useEffect(() => { setSpeedDraft(null); }, [selected]);
+
+  // What the field shows. A draft only stands while it still describes the
+  // stored speed — every keystroke commits, so the two agree until something
+  // else moves the value. When that happens (another poste setting the speed of
+  // this schedule) the half-typed text steps aside rather than hiding it.
+  const speedText =
+    speedDraft !== null && Number(speedDraft === '' ? 0 : speedDraft) === vitesse
+      ? speedDraft
+      : String(vitesse);
 
   const schedules = data?.schedules ?? [];
 
@@ -731,6 +785,17 @@ export default function Schedules({ density }: SchedulesProps) {
     // sits open. Nothing was removed here, so nothing is announced or undone.
     if (next === snapshot) return;
     setData(next);
+    // The speed goes with the schedule. Left behind it would silently reapply
+    // to a re-import of the same number, which is exactly the stale value the
+    // per-schedule speed exists to avoid.
+    const snapshotSpeed = speeds[schedule];
+    if (snapshotSpeed !== undefined) {
+      setSpeeds((prev) => {
+        const rest = { ...prev };
+        delete rest[schedule];
+        return rest;
+      });
+    }
     // `selected` deliberately stays on the deleted schedule: the auto-select
     // effect above re-picks the first survivor and resets the filters through
     // the same path a manual selection change takes.
@@ -741,6 +806,9 @@ export default function Schedules({ density }: SchedulesProps) {
         setData(snapshot);
         setSelected(snapshotSelected);
         setTableSettings((s) => ({ ...s, ...snapshotFilters }));
+        if (snapshotSpeed !== undefined) {
+          setSpeeds((prev) => ({ ...prev, [schedule]: snapshotSpeed }));
+        }
       },
     });
   }
@@ -843,7 +911,7 @@ export default function Schedules({ density }: SchedulesProps) {
           <section className="sch-detail">
             {selectedSchedule && (() => {
               const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, m2: 0, shortName: '' };
-              const validSpeed = Number.isFinite(Number(vitesse)) && Number(vitesse) > 0;
+              const validSpeed = vitesse > 0;
               return (
                 <header className="sch-detail-head">
                   <div className="sch-detail-head-id">
@@ -859,14 +927,27 @@ export default function Schedules({ density }: SchedulesProps) {
                       <span className="sch-stat-tile-value">
                         <input
                           type="number"
-                          min="0.1"
+                          // 0 is a real state here — "personne n'a encore réglé
+                          // la vitesse" — so the field has to accept it rather
+                          // than flag it as out of range.
+                          min="0"
                           step="0.1"
                           className="sch-vitesse-input mono"
-                          value={vitesse}
-                          onChange={(e) => setVitesse(e.target.value === '' ? '' : Number(e.target.value))}
-                          aria-label="Vitesse en m/min"
+                          value={speedText}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setSpeedDraft(raw);
+                            // An emptied field commits 0 — the same "not set"
+                            // the schedule started from — while the draft keeps
+                            // the box visually empty until focus leaves.
+                            const n = raw === '' ? 0 : Number(raw);
+                            if (Number.isFinite(n) && n >= 0) setVitesse(n);
+                          }}
+                          onBlur={() => setSpeedDraft(null)}
+                          aria-label={`Vitesse du schedule ${selectedSchedule.schedule} en m/min`}
+                          title="Vitesse du schedule — partagée avec les autres postes"
                         />
-                        <span className="sch-vitesse-print mono" aria-hidden="true">{vitesse === '' ? '—' : vitesse}</span>
+                        <span className="sch-vitesse-print mono" aria-hidden="true">{vitesse}</span>
                         <span className="sch-stat-tile-unit faint">m/min</span>
                       </span>
                     </label>

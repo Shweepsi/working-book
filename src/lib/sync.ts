@@ -6,7 +6,7 @@ import { save } from './storage';
 // Worker is hydrated in the background and mutations are queued for replay.
 // Conflict policy is last-write-wins per partition (whichever PUT lands last).
 
-export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedules';
+export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedules' | 'speeds';
 
 export interface SyncRemote {
   domain: SyncDomain;
@@ -27,6 +27,9 @@ const LEGACY_KEYS = [
   'wb.sync.mode', // the removed local-only sync toggle
   'wb.schedules.ingest.token',
   'wb.schedules.ingest.mode',
+  // The coater speed used to be one local number shared by every schedule.
+  // It now lives per schedule in the synced `speeds` partition.
+  'wb.schedules.vitesse',
 ];
 
 interface Mutation {
@@ -240,6 +243,14 @@ export function useSyncedState<T>(
   options: SyncedStateOptions = {},
 ): [T, (next: Updater<T>) => void] {
   const [value, setValueState] = useState<T>(init);
+  // Mirrors the rendered value so `setValue` can resolve a functional update
+  // without running it inside the state updater — React invokes those during
+  // the render phase, and ours has side effects (cache write, sync enqueue)
+  // that reach the sync indicator's store. Kept in step both here, for the
+  // fetch paths that assign directly, and eagerly in `setValue`, so two writes
+  // in one event still chain off each other.
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const dirtyRef = useRef(false);
   const initRef = useRef(init);
   initRef.current = init;
@@ -303,14 +314,13 @@ export function useSyncedState<T>(
 
   const setValue = useCallback(
     (next: Updater<T>) => {
-      setValueState((prev) => {
-        const v = typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-        dirtyRef.current = true;
-        save(cacheKey, v);
-        const r = remoteRef.current;
-        if (r) enqueueMutation(r, v);
-        return v;
-      });
+      const v = typeof next === 'function' ? (next as (p: T) => T)(valueRef.current) : next;
+      valueRef.current = v;
+      dirtyRef.current = true;
+      save(cacheKey, v);
+      const r = remoteRef.current;
+      if (r) enqueueMutation(r, v);
+      setValueState(v);
     },
     [cacheKey],
   );

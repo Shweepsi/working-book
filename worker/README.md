@@ -83,6 +83,8 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
 - `PUT  /api/schedules` body: `PMS230Result | null`
 - `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
+- `GET  /api/speeds` → `{ data: Record<schedule, number> | null, updated_at }` — coater speed (m/min) per schedule
+- `PUT  /api/speeds` body: `Record<schedule, number>`
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
