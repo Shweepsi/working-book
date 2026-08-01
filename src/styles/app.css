@@ -2867,19 +2867,23 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   padding: 9px 5px;
 }
 .sch-row.sch-group-break {
-  min-height: 22px;
+  min-height: 24px;
   background: var(--paper-2);
   border-bottom: 1px solid var(--line-faint);
   pointer-events: none;
 }
+/* The dimension that opens the group. It used to whisper — 10 px of faint grey
+   in a table where every data cell is darker and larger — so the break was
+   easy to scroll straight past. Full ink at --fs-sm reads at a glance without
+   adding any new shape to an already dense table. */
 .sch-group-label {
   grid-column: 1 / -1;
   padding: 3px var(--space-5);
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink);
 }
 
 .sch-row.is-qc {
