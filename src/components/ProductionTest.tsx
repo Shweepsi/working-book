@@ -150,6 +150,8 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
     cacheKey,
     { domain: 'prodtest', params: { date, shift: shiftKey } },
     init,
+    // One test sheet per shift, filled from wherever the measurements are taken.
+    { live: true },
   );
   const toast = useToast();
 

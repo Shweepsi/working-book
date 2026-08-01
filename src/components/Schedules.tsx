@@ -398,15 +398,18 @@ export default function Schedules({ density }: SchedulesProps) {
     { domain: 'schedules', params: {} },
     dataInit,
     // The bookmarklet writes this partition from the Infor portal, so the
-    // report can change while the app sits open on another screen. Pick it up
-    // when the operator comes back rather than only on a fresh mount.
-    { refreshOnFocus: true },
+    // report can change without anybody touching this screen. Follow it rather
+    // than sitting on whatever was there at mount.
+    { live: true },
   );
   const policyInit = useCallback(() => load<PolicyResult | null>(KEY_POLICY, null), []);
   const [policy, setPolicy] = useSyncedState<PolicyResult | null>(
     KEY_POLICY,
     { domain: 'policy', params: {} },
     policyInit,
+    // Rarely reimported, but when it is, every screen should start colouring
+    // MTO/MTS the new way at once.
+    { live: true },
   );
   const speedsInit = useCallback(() => sanitiseSpeeds(load<unknown>(KEY_SPEEDS, {})), []);
   const [speeds, setSpeeds] = useSyncedState<SpeedMap>(
@@ -416,7 +419,7 @@ export default function Schedules({ density }: SchedulesProps) {
     // Same reasoning as the report: the planning room and the line run this on
     // two screens, and a speed set on one has to reach the other without a
     // reload — that is the whole point of hanging it off the schedule.
-    { refreshOnFocus: true },
+    { live: true },
   );
   const [selected, setSelected] = useState<string | null>(null);
   // What the operator is currently typing in the Vitesse field, or null when it

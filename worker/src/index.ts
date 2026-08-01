@@ -61,6 +61,8 @@ export default {
           return await handleSchedules(request, env, cors);
         case '/api/speeds':
           return await handleSpeeds(request, env, cors);
+        case '/api/updates':
+          return await handleUpdates(request, url, env, cors);
         case INGEST_PATH:
           return await handleSchedulesIngest(request, env, cors);
         default:
@@ -310,6 +312,66 @@ async function handleSpeeds(
   }
 
   return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+// "Has anything changed?" probe for the clients' live poller. Answers with the
+// `updated_at` of every partition that can be on screen and nothing else — a
+// couple of hundred bytes, against a report blob that runs past a hundred
+// kilobytes. That ratio is the whole point: a tablet can ask every fifteen
+// seconds and only pay for a full GET of a partition whose stamp actually moved.
+async function handleUpdates(
+  request: Request,
+  url: URL,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, cors, 405);
+
+  // Keys match the front's `SyncDomain`, so a client can look its own partition
+  // up by name without a translation table.
+  const domains = ['suivi', 'policy', 'schedules', 'speeds'];
+  const statements = [
+    env.DB.prepare('SELECT updated_at FROM suivi WHERE id = 1'),
+    env.DB.prepare('SELECT updated_at FROM policy WHERE id = 1'),
+    env.DB.prepare('SELECT updated_at FROM schedules WHERE id = 1'),
+    env.DB.prepare('SELECT updated_at FROM schedule_speeds WHERE id = 1'),
+  ];
+
+  // The keyed partitions only answer when the caller says which shift it is
+  // looking at. Bad or missing params leave them out of the reply rather than
+  // failing the probe — the singletons are still worth returning.
+  const date = url.searchParams.get('date');
+  const poste = url.searchParams.get('poste');
+  const shift = url.searchParams.get('shift');
+  const dateOk = !!date && ISO_DATE_RE.test(date);
+  if (dateOk && poste && POSTE_RE.test(poste)) {
+    domains.push('logbook');
+    statements.push(
+      env.DB.prepare('SELECT updated_at FROM log_events WHERE date = ? AND poste = ?').bind(
+        date,
+        poste,
+      ),
+    );
+  }
+  if (dateOk && shift && SHIFT_RE.test(shift)) {
+    domains.push('prodtest');
+    statements.push(
+      env.DB.prepare(
+        'SELECT updated_at FROM production_tests WHERE date = ? AND shift_key = ?',
+      ).bind(date, shift),
+    );
+  }
+
+  const rows = await env.DB.batch<{ updated_at: number }>(statements);
+  const data: Record<string, number | null> = {};
+  domains.forEach((domain, i) => {
+    data[domain] = rows[i]?.results?.[0]?.updated_at ?? null;
+  });
+
+  // Explicitly uncacheable: without a freshness hint a browser may apply its
+  // own heuristic to a plain 200, and a cached probe would pin a tab on a
+  // stale timestamp — exactly the failure this endpoint exists to prevent.
+  return json({ data, updated_at: Date.now() }, { ...cors, 'Cache-Control': 'no-store' });
 }
 
 async function readSchedules(env: Env): Promise<PMS230Result | null> {

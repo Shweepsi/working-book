@@ -85,9 +85,23 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
 - `GET  /api/speeds` → `{ data: Record<schedule, number> | null, updated_at }` — coater speed (m/min) per schedule
 - `PUT  /api/speeds` body: `Record<schedule, number>`
+- `GET  /api/updates[?date=…&poste=…&shift=…]` → `{ data: Record<domain, number | null>, updated_at }` — change probe, see below
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
+
+## Change probe
+
+`GET /api/updates` answers with nothing but the `updated_at` of each partition,
+keyed by the domain names the front uses (`suivi`, `policy`, `schedules`,
+`speeds`, plus `logbook` / `prodtest` when the matching params are supplied).
+A couple of hundred bytes against a report blob past a hundred kilobytes: that
+ratio is what lets a client poll on a short interval and only fetch a partition
+whose stamp has actually moved. The reply is `Cache-Control: no-store` — a
+cached probe would pin a tab on a stale timestamp.
+
+Clients poll it while the tab is visible and stop entirely when it is hidden
+(`src/lib/sync.ts`); a partition opts in with `useSyncedState(..., { live: true })`.
 
 ## Direct import from the Infor portal
 
