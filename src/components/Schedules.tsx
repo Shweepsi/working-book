@@ -51,7 +51,7 @@ interface RailStat {
   shortName: string;
 }
 
-type SortKey = 'longueur' | 'dateDepart' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'opTm' | 'qualite' | 'pdp' | 'm2' | 'packsReq';
+type SortKey = 'longueur' | 'dateDepart' | 'mo' | 'product' | 'itemName' | 'schedLites' | 'prodLites' | 'reqLites' | 'opTm' | 'qualite' | 'pdp' | 'm2' | 'packsReq' | 'litesPerPack' | 'mtoMts';
 type SortDir = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -77,10 +77,13 @@ function pinnedAttrs(c: ColumnView): { className: string; style: CSSProperties |
   };
 }
 
+// Every column sorts. The three that didn't — MTO/MTS, MO, L/Pack — had no
+// reason not to beyond never having been wired up, and a header that ignores a
+// click reads as broken rather than as deliberate.
 const COLUMNS: ColumnDef[] = [
-  { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto'                                       },
+  { key: 'mtoMts',     label: 'MTO/MTS',  cls: 'col-mto',  sortKey: 'mtoMts'     },
   { key: 'dateDepart', label: 'Départ',   cls: 'col-date', sortKey: 'dateDepart' },
-  { key: 'mo',         label: 'MO',       cls: 'col-mo'                                         },
+  { key: 'mo',         label: 'MO',       cls: 'col-mo',   sortKey: 'mo'         },
   { key: 'product',    label: 'Produit',  cls: 'col-prod', sortKey: 'product'    },
   { key: 'itemName',   label: 'Article',  cls: 'col-name', sortKey: 'itemName'   },
   { key: 'schedLites', label: 'Sched',    cls: 'col-num',  sortKey: 'schedLites' },
@@ -89,7 +92,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'opTm',       label: 'Op Tm',    cls: 'col-num',  sortKey: 'opTm'       },
   { key: 'format',     label: 'Dimension', cls: 'col-fmt', sortKey: 'longueur'   },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
-  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num'                                         },
+  { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num', sortKey: 'litesPerPack' },
   { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',  sortKey: 'packsReq'   },
   { key: 'pdp',        label: 'PDP',      cls: 'col-pdp',                   sortKey: 'pdp'       },
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
@@ -158,6 +161,7 @@ const DEFAULT_SORT_DIR: SortDir = 'desc';
 // name the click that actually follows.
 const DESC_FIRST_SORT_KEYS: readonly SortKey[] = [
   'longueur', 'schedLites', 'prodLites', 'reqLites', 'opTm', 'm2', 'dateDepart',
+  'litesPerPack',
 ];
 const firstSortDir = (key: SortKey): SortDir =>
   DESC_FIRST_SORT_KEYS.includes(key) ? 'desc' : 'asc';
@@ -313,7 +317,15 @@ function compareRows(a: DisplayRow, b: DisplayRow, key: SortKey, dir: SortDir): 
     case 'opTm':       return sign * ((a.opTm ?? 0) - (b.opTm ?? 0));
     case 'm2':         return sign * (a.m2 - b.m2);
     case 'packsReq':   return sign * (packsReq(a) - packsReq(b));
+    // Absent on rows the portal didn't give a pack size for; 0 keeps them
+    // together at one end rather than scattering them through the order.
+    case 'litesPerPack': return sign * ((a.litesPerPack ?? 0) - (b.litesPerPack ?? 0));
     case 'dateDepart': return sign * String(a.dateDepart || '').localeCompare(String(b.dateDepart || ''));
+    case 'mo':         return sign * String(a.mo || '').localeCompare(String(b.mo || ''));
+    // 'MTO' / 'MTS', or '?' where the policy sheet has no line for the
+    // product — which sorts ahead of both, so ascending opens on exactly the
+    // rows whose policy nobody has filled in.
+    case 'mtoMts':     return sign * String(a.mtoMts || '').localeCompare(String(b.mtoMts || ''));
     case 'product':    return sign * String(a.product || '').localeCompare(String(b.product || ''));
     case 'itemName':   return sign * String(a.itemName || '').localeCompare(String(b.itemName || ''));
     case 'qualite':    return sign * String(a.qualite || '').localeCompare(String(b.qualite || ''));
@@ -679,12 +691,19 @@ export default function Schedules({ density }: SchedulesProps) {
 
   // Insert a break marker before each new longueur group (including the first).
   // Carries the longueur so the break row can render a section label.
+  //
+  // Keyed by the row that opens the group, not by the dimension change that
+  // caused it. Under any sort other than Dimension the rows no longer arrive in
+  // dimension order, so the same change — 5850 → 5845, say — comes round more
+  // than once; keying on it gave two <tr> the same React key, and re-sorting
+  // then left stale headers stacked at the top of the table with no rows under
+  // them. Row ids are unique, so a break inherits that.
   const groupedRows: GroupedItem[] = useMemo(() => {
     const out: GroupedItem[] = [];
     let prevLongueur: number | null = null;
     for (const r of visibleRows) {
       if (r.longueur !== prevLongueur) {
-        out.push({ kind: 'break', id: `break-${prevLongueur}->${r.longueur}`, longueur: r.longueur });
+        out.push({ kind: 'break', id: `break-${r.id}`, longueur: r.longueur });
       }
       out.push({ kind: 'row', row: r });
       prevLongueur = r.longueur;
