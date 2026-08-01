@@ -16,6 +16,10 @@ const DEFAULTS = {
   workCenter: 'COATER',
   fromOffset: -14,
   toOffset: 14,
+  // The grid's pager defaults to 5 rows, and the report is read from what the
+  // grid rendered — so the pager decides how much gets imported, not just what
+  // is comfortable to look at.
+  maxRows: true,
   // Escape hatch: a CSS selector per field, used instead of the label-based
   // resolver when a screen defeats it.
   selectors: {},
@@ -123,8 +127,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 });
 
 function criteriaOf(cfg) {
-  const { facility, workCenter, fromOffset, toOffset } = cfg;
-  return { facility, workCenter, fromOffset, toOffset };
+  const { facility, workCenter, fromOffset, toOffset, maxRows } = cfg;
+  return { facility, workCenter, fromOffset, toOffset, maxRows };
 }
 
 // Broadcast to every Infor tab: the operator may have the mashup in a

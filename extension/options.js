@@ -3,6 +3,7 @@ const DEFAULTS = {
   auto: true,
   autoSearch: false,
   searchEveryMin: 15,
+  maxRows: true,
   facility: '221',
   workCenter: 'COATER',
   fromOffset: -14,
@@ -73,6 +74,7 @@ async function load() {
   $('apiBase').value = cfg.apiBase;
   $('auto').checked = cfg.auto !== false;
   $('autoSearch').checked = cfg.autoSearch === true;
+  $('maxRows').checked = cfg.maxRows !== false;
   $('searchEveryMin').value = cfg.searchEveryMin;
   $('facility').value = cfg.facility;
   $('workCenter').value = cfg.workCenter;
@@ -86,6 +88,7 @@ function readForm() {
     apiBase: $('apiBase').value.trim().replace(/\/+$/, ''),
     auto: $('auto').checked,
     autoSearch: $('autoSearch').checked,
+    maxRows: $('maxRows').checked,
     searchEveryMin: Math.max(1, intOr($('searchEveryMin').value, 15)),
     facility: $('facility').value.trim(),
     workCenter: $('workCenter').value.trim(),
@@ -205,7 +208,12 @@ async function searchNow() {
   }
   if (res.clicked) {
     const written = res.filled.length ? `${named(res.filled)} rempli(s)` : 'aucun champ à changer';
-    say(`Recherche lancée — ${written}.\nLe rapport part dès que la grille se stabilise.`, 'ok');
+    const rows = res.rows?.rows
+      ? `\nLignes par page : ${res.rows.rows}${res.rows.changed ? '' : ' (déjà réglé)'}.`
+      : res.rows?.reason === 'no_pager'
+        ? '\nPagination introuvable — la grille reste sur son réglage.'
+        : '';
+    say(`Recherche lancée — ${written}.${rows}\nLe rapport part dès que la grille se stabilise.`, 'ok');
     return;
   }
   // Deliberately not clicked: saying which criterion is blank is the whole

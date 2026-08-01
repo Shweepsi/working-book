@@ -73,6 +73,13 @@ Dans les options, cocher **Relancer la recherche périodiquement** et régler :
 | Work Center | `COATER` | centre de charge |
 | From Start Date | `-14` | début de fenêtre, **en jours depuis aujourd'hui** |
 | To Start Date | `14` | fin de fenêtre, idem |
+| Maximum de lignes par page | coché | voir ci-dessous |
+
+La grille est réglée sur **5 lignes par page** par défaut, et le rapport est lu
+sur ce que la grille a réellement affiché. Cette pagination décide donc de ce
+qui est importé, pas seulement du confort de lecture. Après chaque recherche,
+l'extension pousse le sélecteur de pagination à la plus grande valeur proposée
+par l'écran — 50 dans la liste actuelle.
 
 Les dates sont des **décalages**, pas des dates fixes : `-14` / `14` demandent
 en permanence les deux semaines écoulées et les deux à venir. Une date en dur
@@ -105,6 +112,13 @@ la cascade entière.
 Quand une écriture est nécessaire, l'ordre est Facility d'abord, puis Work
 Center — et l'extension **attend** que la liste se soit repeuplée avant d'y
 écrire, jusqu'à 8 secondes.
+
+Les contrôles sont **re-résolus entre chaque écriture**. Angular reconstruit la
+liste des Work Centers quand Facility change : l'ancien élément est détaché du
+document, et une référence gardée du début de l'exécution ne pointe plus sur
+rien. C'est ce qui obligeait à lancer la recherche deux fois — le premier
+passage s'arrêtait après Facility, le second réussissait parce que Facility
+était déjà bon et que rien n'était reconstruit.
 
 Enfin, Search n'est cliqué que si les quatre critères sont effectivement
 renseignés au moment du clic. Un formulaire incomplet ferait répondre à l'écran

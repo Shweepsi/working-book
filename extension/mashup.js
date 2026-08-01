@@ -42,9 +42,19 @@
   // made Work Center resolve to the decorative div, which has no value at all.
   function reachable(el) {
     if (!el) return false;
-    if (el.tagName === 'SELECT') return el.options.length > 0;
+    // Any <select>, even one momentarily without options: Angular empties and
+    // refills the Work Center list as Facility changes, and rejecting it mid
+    // rebuild handed the criterion to the decorative div painted over it.
+    if (el.tagName === 'SELECT') return true;
     return visible(el);
   }
+
+  // Only these three can be written to. Anything else that reaches a write is
+  // a resolution mistake, and must be reported as one rather than throwing:
+  // the native value setter rejects a foreign element, and that exception took
+  // down the whole run right after Facility.
+  const writable = (el) =>
+    Boolean(el) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
 
   // Every element whose own text is exactly one of `names`. Exact match, not
   // "contains": "From Start Date" would otherwise also match a container that
@@ -203,11 +213,14 @@
   // and React both cache the last value they wrote and would discard ours on
   // the next render. Going through the prototype's native setter and then
   // firing the events they listen for is what makes the write stick.
+  const isSelect = (el) => Boolean(el) && el.tagName === 'SELECT';
+
   function setValue(el, value) {
+    if (!writable(el)) return false;
     const proto =
-      el instanceof HTMLTextAreaElement
+      el.tagName === 'TEXTAREA'
         ? HTMLTextAreaElement.prototype
-        : el instanceof HTMLSelectElement
+        : isSelect(el)
           ? HTMLSelectElement.prototype
           : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
@@ -216,6 +229,7 @@
     else el.value = value;
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
   }
 
   // Work Center is a dependent list: writing Facility makes the mashup refetch
@@ -246,10 +260,21 @@
     });
   }
 
-  async function setSelect(el, value) {
-    const option = await waitFor(() => optionFor(el, value), OPTIONS_TIMEOUT_MS);
-    if (!option) return false;
-    setValue(el, option.value);
+  // Takes a *getter*, not an element. Writing Facility makes Angular rebuild
+  // the Work Center list, and a reference captured beforehand then points at a
+  // detached node: the wait would sit out its full timeout watching an element
+  // no longer in the page, fail, and leave the criterion unset. That is why a
+  // first run stopped after Facility and a second one — with Facility already
+  // right, so nothing rebuilt — went through.
+  async function setSelect(getEl, value) {
+    const hit = await waitFor(() => {
+      const el = getEl();
+      if (!isSelect(el)) return null;
+      const option = optionFor(el, value);
+      return option ? { el, option } : null;
+    }, OPTIONS_TIMEOUT_MS);
+    if (!hit) return false;
+    setValue(hit.el, hit.option.value);
     return true;
   }
 
@@ -257,7 +282,7 @@
   // be a no-op at best and, for Facility, would needlessly reset every list
   // that depends on it.
   function holds(el, value) {
-    if (el instanceof HTMLSelectElement) {
+    if (isSelect(el)) {
       const selected = el.selectedOptions[0];
       return Boolean(selected) && (key(selected.textContent) === key(value) || key(selected.value) === key(value));
     }
@@ -268,9 +293,8 @@
     return !String(el.value ?? '').trim();
   }
 
-  async function setText(el, value) {
-    if (el instanceof HTMLSelectElement) return setSelect(el, value);
-    setValue(el, value);
+  function setText(el, value) {
+    if (!setValue(el, value)) return false;
     // M3 inputs commit on blur or on Enter; a value left "being typed" is
     // ignored by the search that follows.
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -333,35 +357,90 @@
   // which is the common case, and the cheapest way to not disturb a form that
   // was already correct.
   async function runSearch(criteria = {}, selectors = {}) {
-    const located = locate(selectors);
-    if (!located) return null;
-    const { found } = located;
+    if (!locate(selectors)) return null;
+
+    // Resolved afresh on every read. Angular rebuilds the dependent controls
+    // as Facility changes, so an element captured once goes stale mid-run.
+    const fieldOf = (name) => locate(selectors)?.found[name] ?? null;
 
     const filled = [];
     const kept = [];
     const failed = [];
 
     const apply = async (name, value) => {
-      const el = found[name];
-      if (!el || value === '' || value == null) return;
+      if (value === '' || value == null) return;
+      const el = fieldOf(name);
+      if (!el) return;
       if (holds(el, value)) return kept.push(name);
-      if (await setText(el, value)) filled.push(name);
+
+      if (!writable(el)) return failed.push(name);
+      const ok = isSelect(el)
+        ? await setSelect(() => fieldOf(name), value)
+        : setText(el, value);
+      if (ok) filled.push(name);
       else failed.push(name);
+    };
+
+    const dateFor = (name, offset) => {
+      const el = fieldOf(name);
+      return el ? formatDate(dateFromOffset(offset), el) : null;
     };
 
     await apply('facility', criteria.facility);
     await apply('workCenter', criteria.workCenter);
-    await apply('dateFrom', found.dateFrom && formatDate(dateFromOffset(criteria.fromOffset), found.dateFrom));
-    await apply('dateTo', found.dateTo && formatDate(dateFromOffset(criteria.toOffset), found.dateTo));
+    await apply('dateFrom', dateFor('dateFrom', criteria.fromOffset));
+    await apply('dateTo', dateFor('dateTo', criteria.toOffset));
 
     // Last look at the real form rather than at what we believe we wrote: a
     // cascade can still have blanked a field after the fact.
+    const found = locate(selectors)?.found ?? {};
     const empty = CRITERIA.filter((name) => found[name] && isEmpty(found[name]));
 
     const clicked = Boolean(found.search) && empty.length === 0;
     if (clicked) click(found.search);
 
-    return { ...describe(found), filled, kept, failed, empty, clicked, url: location.href };
+    // Only worth doing once a search is on its way: before that there is no
+    // grid, hence no pager to widen.
+    const rows = clicked && criteria.maxRows !== false ? await maximiseRows() : null;
+
+    return { ...describe(found), filled, kept, failed, empty, clicked, rows, url: location.href };
+  }
+
+  // The pager sits under the grid and defaults to 5 rows. Since the report is
+  // read from what the grid has actually rendered, that default is not a
+  // display preference — it decides how much of the report gets imported at
+  // all. Raising it to the largest offering is the cheapest way to widen that.
+  const PAGER_RE = /records?\s+per\s+page/i;
+
+  function pagerSelect() {
+    for (const el of document.querySelectorAll('select')) {
+      if (!el.options.length) continue;
+      const near = el.closest('div, span, nav, footer') ?? el.parentElement;
+      const text = `${el.getAttribute('aria-label') ?? ''} ${near?.textContent ?? ''}`;
+      if (PAGER_RE.test(text) && Array.from(el.options).every((o) => /^\d+$/.test(norm(o.value || o.textContent)))) {
+        return el;
+      }
+    }
+    return null;
+  }
+
+  function largestOption(el) {
+    const numeric = Array.from(el.options)
+      .map((o) => ({ o, n: Number(norm(o.value || o.textContent)) }))
+      .filter(({ n }) => Number.isFinite(n) && n > 0);
+    numeric.sort((a, b) => b.n - a.n);
+    return numeric[0] ?? null;
+  }
+
+  // Runs after the search, once the grid — and with it the pager — exists.
+  async function maximiseRows(timeout = OPTIONS_TIMEOUT_MS) {
+    const el = await waitFor(pagerSelect, timeout);
+    if (!el) return { changed: false, reason: 'no_pager' };
+    const best = largestOption(el);
+    if (!best) return { changed: false, reason: 'no_option' };
+    if (holds(el, best.o.value || String(best.n))) return { changed: false, rows: best.n, reason: 'already' };
+    setValue(el, best.o.value);
+    return { changed: true, rows: best.n };
   }
 
   // Dry run for the options page: reports what the resolver sees without
@@ -386,16 +465,17 @@
       };
     }
 
-    // Markup goes back for a criterion that is missing *or* resolved onto a
-    // control holding nothing while the screen plainly shows a value. The
-    // second case is the dangerous one: it reads as recognised and writes into
-    // the wrong node — a composite date widget whose inner input is not the one
-    // carrying the value, say. Only the "missing" case was reported before,
-    // which left exactly that failure invisible.
+    // Markup goes back for a criterion that is missing, or resolved onto
+    // something that is not a form control at all — the case that hid the Work
+    // Center failure, where a decorative div reported itself as recognised.
+    //
+    // An empty *control* is not suspicious: a Soho select starts with nothing
+    // selected and a datepicker starts blank. Flagging those too buried the
+    // real signal under the markup of three healthy fields.
     const markup = {};
     for (const name of CRITERIA) {
       const el = found[name];
-      if (el && !isEmpty(el)) continue;
+      if (el && el.matches(FIELD_SEL)) continue;
       const label = regions[name];
       if (!label) continue;
       const around = label.parentElement?.parentElement ?? label.parentElement ?? label;
@@ -411,5 +491,5 @@
   const present = (selectors = {}) => locate(selectors) !== null;
 
 
-  globalThis.wbMashup = { runSearch, inspect, present };
+  globalThis.wbMashup = { runSearch, inspect, present, maximiseRows };
 })();
