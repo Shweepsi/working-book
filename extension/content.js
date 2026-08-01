@@ -191,10 +191,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
       .runSearch(criteria, selectors)
       .then(async (result) => {
         // Only sweep a search that actually went out; there is nothing to page
-        // through otherwise.
+        // through otherwise. The ceiling is echoed back either way: "no sweep
+        // happened" and "the sweep found one page" look identical from the
+        // options page otherwise, and they call for opposite fixes.
         const maxPages = Number(criteria.maxPages) || 1;
-        const swept = result?.clicked && maxPages > 1 ? await sweep(maxPages) : null;
-        respond({ found: true, ...result, swept });
+        const willSweep = Boolean(result?.clicked) && maxPages > 1;
+        const swept = willSweep ? await sweep(maxPages) : null;
+        respond({ found: true, ...result, swept, maxPages });
       })
       .catch((err) => respond({ found: true, error: String(err) }));
     return true;

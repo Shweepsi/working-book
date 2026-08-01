@@ -217,8 +217,13 @@ async function searchNow() {
     const rows = res.rows?.rows
       ? `\nLignes par page : ${res.rows.rows}` +
         (res.rows.reason === 'already' ? ' (déjà réglé)' : '') +
+        (res.rows.via === 'menu' ? ' — choisi dans le menu' : '') +
         (res.rows.injected && res.rows.changed ? ' — valeur forcée, acceptée' : '') +
         '.' +
+        (res.rows.reason === 'capped'
+          ? `\n${res.rows.wanted} n’est pas au menu ; le maximum proposé est ${res.rows.rows}.` +
+            `\nValeurs du menu : ${res.rows.options.join(', ')}`
+          : '') +
         // A value the screen refused is worth saying out loud: the import is
         // then silently capped at whatever the grid kept.
         (res.rows.reason === 'rejected'
@@ -245,7 +250,13 @@ async function searchNow() {
         : '';
     const swept = res.swept
       ? `\n${res.swept.pages} page(s) parcourue(s), ${res.swept.rows} ligne(s) envoyée(s).`
-      : '\nLe rapport part dès que la grille se stabilise.';
+      : // Saying which of the two it is matters: a stale content.js and a
+        // ceiling of 1 produce the same silence and need opposite fixes.
+        `\nParcours des pages : désactivé (plafond ${res.maxPages ?? '?'}).` +
+        (res.maxPages === undefined
+          ? '\n⚠ content.js semble ne pas être à jour — remplacez tout le dossier.'
+          : '') +
+        '\nLe rapport part dès que la grille se stabilise.';
     say(`Recherche lancée — ${written}.${rows}${swept}`, 'ok');
     return;
   }

@@ -524,12 +524,74 @@
     return around?.outerHTML.slice(0, 2000) ?? null;
   }
 
+  // Soho's page-size control is not always a <select>. On the PMS230 grid it is
+  // a button that opens a popupmenu of <li> items — nothing to assign to, so it
+  // has to be driven the way an operator would: open it, click the entry.
+  const MENU_SEL = 'ul.popupmenu, [role=menu], [role=listbox]';
+
+  function pagerTrigger() {
+    return (
+      Array.from(document.querySelectorAll('button, a, [role=button], [class*=pagesize i]')).find(
+        (el) => visible(el) && !inHidden(el) && PAGER_RE.test(el.textContent ?? ''),
+      ) ?? null
+    );
+  }
+
+  // The innermost clickable only. Listing `li` alongside `li a` returns each
+  // entry twice, and clicking the outer `li` never reaches the handler bound to
+  // the anchor inside it — the menu closes with nothing chosen.
+  function menuItems(menu) {
+    const pick = (sel) =>
+      Array.from(menu.querySelectorAll(sel))
+        .map((el) => ({ el, n: Number(norm(el.textContent)) }))
+        .filter(({ el, n }) => Number.isFinite(n) && n > 0 && visible(el));
+
+    const inner = pick('li a, li button, [role=menuitem] a, [role=option] a');
+    return inner.length ? inner : pick('li, [role=menuitem], [role=option]');
+  }
+
+  async function setRowsViaMenu(target) {
+    const trigger = pagerTrigger();
+    if (!trigger) return null;
+
+    click(trigger);
+    const menu = await waitFor(
+      () =>
+        Array.from(document.querySelectorAll(MENU_SEL)).find(
+          (m) => visible(m) && !inHidden(m) && menuItems(m).length >= 2,
+        ),
+      4000,
+    );
+    if (!menu) return { changed: false, reason: 'no_menu' };
+
+    const items = menuItems(menu);
+    const options = items.map(({ n }) => String(n));
+    const wanted = Number(target) > 0 ? Number(target) : Math.max(...items.map(({ n }) => n));
+    // A value the menu does not list cannot be clicked into existence; the
+    // largest entry is the honest best effort, and the page walk covers the rest.
+    const pick =
+      items.find(({ n }) => n === wanted) ??
+      items.reduce((a, b) => (b.n > a.n ? b : a));
+
+    click(pick.el);
+    await delay(800);
+    return {
+      changed: true,
+      rows: pick.n,
+      wanted,
+      via: 'menu',
+      options,
+      reason: pick.n === wanted ? undefined : 'capped',
+    };
+  }
+
   async function maximiseRows(timeout = PAGER_TIMEOUT_MS, target = 0) {
     const el = await waitFor(pagerSelect, timeout);
     if (!el) {
-      // Hand back the pager's markup when the wording is on screen but no
-      // select answers to it: same trick that identified the Work Center
-      // control, rather than another round of guessing.
+      // No native select: try the popupmenu, which is what this grid actually
+      // uses. Only when that fails too is the markup worth handing back.
+      const viaMenu = await setRowsViaMenu(target);
+      if (viaMenu) return viaMenu;
       return { changed: false, reason: 'no_pager', markup: pagerMarkup() };
     }
     // Reported whatever happens: when the largest offering turns out to be the

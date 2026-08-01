@@ -86,6 +86,11 @@ et le texte « 5 Records per page » est peint dans un bloc voisin, pas à
 l'intérieur. L'extension part donc de ce texte et remonte jusqu'au premier
 `<select>` entièrement numérique.
 
+Sur la grille PMS230, ce contrôle n'est **pas un `<select>` du tout** : c'est un
+bouton qui ouvre un `ul.popupmenu`. Il n'y a donc rien où écrire — l'extension
+l'ouvre et clique l'entrée, comme le ferait un opérateur. Si la valeur demandée
+n'est pas au menu, elle prend la plus grande et le dit.
+
 Deux garde-fous, appris à la dure. L'écran conserve **d'autres grilles
 masquées** — une recherche PMS060 entre autres — chacune avec son propre
 « Records per page » : seuls les pagers réellement affichés sont considérés.
