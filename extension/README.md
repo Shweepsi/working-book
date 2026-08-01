@@ -125,9 +125,16 @@ le critère héritait de l'input du voisin : deux critères sur un même champ,
 
 Dans sa zone, l'extension prend le champ de formulaire s'il y en a un ; sinon
 elle **descend dans le conteneur** jusqu'au contrôle qu'il enveloppe, y compris
-à travers un shadow DOM. Sans cette descente, Work Center ressortait comme un
-`div` vide alors que sa liste — COATER, COMBINE, FLOAT… — était bien là, un cran
-plus bas.
+à travers un shadow DOM.
+
+L'écran est bâti sur l'Infor Design System (Soho), qui **masque le `<select>`
+natif** et dessine par-dessus un `div[role=combobox]`. Le select masqué reste le
+contrôle : c'est lui qui porte les options et la valeur lue au moment du Search.
+Un `<select>` pourvu d'options est donc retenu même invisible — l'exiger visible
+faisait retomber Work Center sur le `div` décoratif, qui n'a aucune valeur.
+
+Les libellés `for` ne sont suivis que s'ils pointent dans la zone du critère :
+sur cet écran les deux libellés de date portent le même `for="endDate"`.
 
 Un contrôle introuvable est rapporté **manquant**, et un contrôle reconnu mais
 **vide** l'est aussi : dans les deux cas le balisage qui l'entoure est affiché

@@ -35,6 +35,17 @@
     return r.width > 0 && r.height > 0;
   }
 
+  // Infor's design system (Soho) hides the native <select> and paints a
+  // div[role=combobox] on top of it. The hidden select is still the control —
+  // it holds the options and the value the mashup reads on Search — so
+  // measuring it on screen is the wrong test. Requiring visibility is what
+  // made Work Center resolve to the decorative div, which has no value at all.
+  function reachable(el) {
+    if (!el) return false;
+    if (el.tagName === 'SELECT') return el.options.length > 0;
+    return visible(el);
+  }
+
   // Every element whose own text is exactly one of `names`. Exact match, not
   // "contains": "From Start Date" would otherwise also match a container that
   // holds both date labels.
@@ -82,7 +93,7 @@
   // form control it wraps; given a control already, return it unchanged.
   function drill(el) {
     if (!el || el.matches(FIELD_SEL)) return el;
-    return deepQueryAll(el, FIELD_SEL).find(visible) ?? el;
+    return deepQueryAll(el, FIELD_SEL).find(reachable) ?? el;
   }
 
   // Each criterion's control lives between its own label and the next one.
@@ -110,7 +121,7 @@
 
   function overrideField(css) {
     const el = css ? document.querySelector(css) : null;
-    return visible(el) ? el : null;
+    return reachable(el) ? el : null;
   }
 
   // Resolves all four criteria at once. One element can only ever be claimed by
@@ -138,11 +149,16 @@
       if (found[name]) return;
       const next = ordered[i + 1]?.el ?? null;
 
-      const usable = (el) => visible(el) && !claimed.has(el) && !el.closest?.(GRID_SEL);
+      const usable = (el) => reachable(el) && !claimed.has(el) && !el.closest?.(GRID_SEL);
 
+      // `for` is trusted only when it points inside this criterion's own
+      // region: on this screen both date labels carry for="endDate", so an
+      // unchecked lookup would hand both dates the same element.
       if (label.htmlFor) {
         const byFor = document.getElementById(label.htmlFor);
-        if (byFor && usable(byFor)) return claim(name, drill(byFor));
+        if (byFor && usable(byFor) && inRegion(byFor, label, next)) {
+          return claim(name, drill(byFor));
+        }
       }
 
       // Everything sitting in this criterion's own region, in document order.
@@ -168,7 +184,7 @@
   function findSearchButton(override) {
     if (override) {
       const el = document.querySelector(override);
-      return visible(el) ? el : null;
+      return reachable(el) ? el : null;
     }
     const wanted = SEARCH_LABELS.map(key);
     const matches = Array.from(
