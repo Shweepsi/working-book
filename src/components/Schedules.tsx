@@ -1253,8 +1253,15 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
   return (
     <div className="sch-summary">
       <div className="sch-summary-actions">
-        <button className="btn primary" onClick={onImport}>
-          {data ? 'Réimporter rapport Operator Mashup' : 'Importer rapport Operator Mashup'}
+        {/* Short label on the strip, full one in the tooltip — "rapport
+            Operator Mashup" is the only report the page imports, so it says
+            nothing the button's position doesn't already say. */}
+        <button
+          className="btn primary mini"
+          onClick={onImport}
+          title={data ? 'Réimporter le rapport Operator Mashup' : 'Importer le rapport Operator Mashup'}
+        >
+          <span aria-hidden="true">↻</span> {data ? 'Réimporter' : 'Importer'}
         </button>
       </div>
       {/* The MTO/MTS chip is not gated on `data`: the policy syncs on its own
@@ -1273,14 +1280,25 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
           )}
           {data && (
             <>
-              <span><strong className="mono">{schedules}</strong> schedules</span>
+              {/* Dropped on a phone: the rail heading right underneath already
+                  reads "PLANNING · 26". */}
+              <span className="sch-stat-sched"><strong className="mono">{schedules}</strong> schedules</span>
               <span><strong className="mono">{records}</strong> lignes</span>
               <span><strong className="mono">{m2}</strong> m²</span>
             </>
           )}
           {importedAt && (
             <span className="faint small">
-              importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+              {/* Two forms of the same stamp; the media query picks one. The
+                  year is what goes on a narrow screen — the question the stamp
+                  answers is "is this today's report". */}
+              <span className="sch-stamp-full">
+                importé {importedAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+              <span className="sch-stamp-short">
+                importé {importedAt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                {' '}{importedAt.toLocaleString('fr-FR', { timeStyle: 'short' })}
+              </span>
             </span>
           )}
         </div>
@@ -1652,7 +1670,9 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
         it.kind === 'break'
           ? (
             <tr key={it.id} className="sch-row sch-group-break">
-              <td className="sch-group-label" colSpan={enrichedColumns.length}>{fmtNum(it.longueur, 0)} mm</td>
+              <td className="sch-group-label" colSpan={enrichedColumns.length}>
+                <span className="sch-group-value">{fmtNum(it.longueur, 0)} mm</span>
+              </td>
             </tr>
           )
           : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
