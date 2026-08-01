@@ -453,16 +453,14 @@
     // nothing but the current value. The page-size list is the richest of
     // them, so candidates are collected and compared rather than taking the
     // first that matches.
-    const candidates = new Set();
+    // Climb one level at a time and stop at the first that yields anything.
+    // Going all the way up reaches the datagrid container, whose column filters
+    // include numeric selects — 50 was landing in one of those.
     for (const anchor of anchors) {
       for (let node = anchor, depth = 0; node && depth < 6; node = node.parentElement, depth++) {
-        for (const el of deepQueryAll(node, 'select')) {
-          if (numericOptions(el) && !inHidden(el)) candidates.add(el);
-        }
+        const here = deepQueryAll(node, 'select').filter((el) => numericOptions(el) && !inHidden(el));
+        if (here.length) return here.sort((a, b) => b.options.length - a.options.length)[0];
       }
-    }
-    if (candidates.size) {
-      return Array.from(candidates).sort((a, b) => b.options.length - a.options.length)[0];
     }
 
     // Some builds label the control only for screen readers.
@@ -512,16 +510,19 @@
         !inHidden(node),
     );
     if (!anchor) return null;
-    // The pager's own container, not its parent: widening one level too far
-    // put the interesting part past the 2000-character cut.
     let around = anchor.closest('div') ?? anchor.parentElement;
-    // Widen only when the label sits alone, never when a control is already in
-    // scope: going up from a container that holds one puts the pager past the
-    // 2000-character cut and hands back the top of the page instead.
     if (around && !around.querySelector('select, button') && around.parentElement) {
       around = around.parentElement;
     }
-    return around?.outerHTML.slice(0, 2000) ?? null;
+    const html = around?.outerHTML ?? '';
+    if (html.length <= 2400) return html;
+
+    // A datagrid container runs to tens of thousands of characters and its
+    // pager sits at the very end, so slicing from the start returned the table
+    // header three times over. Cut a window around the wording instead.
+    const at = html.search(PAGER_RE);
+    if (at < 0) return html.slice(0, 2400);
+    return `…${html.slice(Math.max(0, at - 1200), at + 1200)}…`;
   }
 
   // Soho's page-size control is not always a <select>. On the PMS230 grid it is
@@ -562,7 +563,9 @@
         ),
       4000,
     );
-    if (!menu) return { changed: false, reason: 'no_menu' };
+    // Null, not a verdict: the caller must be free to fall through to a native
+    // select on screens that use one.
+    if (!menu) return null;
 
     const items = menuItems(menu);
     const options = items.map(({ n }) => String(n));
@@ -586,14 +589,16 @@
   }
 
   async function maximiseRows(timeout = PAGER_TIMEOUT_MS, target = 0) {
-    const el = await waitFor(pagerSelect, timeout);
-    if (!el) {
-      // No native select: try the popupmenu, which is what this grid actually
-      // uses. Only when that fails too is the markup worth handing back.
-      const viaMenu = await setRowsViaMenu(target);
-      if (viaMenu) return viaMenu;
-      return { changed: false, reason: 'no_pager', markup: pagerMarkup() };
-    }
+    // Wait for the pager to be drawn at all, then prefer the popupmenu: on this
+    // grid it *is* the page-size control, and going for a select first is how
+    // 50 kept landing in an unrelated one.
+    await waitFor(() => pagerTrigger() ?? pagerSelect(), timeout);
+
+    const viaMenu = await setRowsViaMenu(target);
+    if (viaMenu) return viaMenu;
+
+    const el = pagerSelect();
+    if (!el) return { changed: false, reason: 'no_pager', markup: pagerMarkup() };
     // Reported whatever happens: when the largest offering turns out to be the
     // 5 the grid already showed, the only useful question is what the control
     // actually contained.
@@ -640,15 +645,23 @@
   // side already expects this — every import adds to the report and a row seen
   // twice is updated, not duplicated (key `schedule|MO`), so overlapping pages
   // are harmless.
-  const NEXT_SEL = [
-    '[class*=pager] [class*=next i]',
-    '[class*=pager-next i]',
-    'button[aria-label*=next i]',
-    'a[aria-label*=next i]',
-    'button[title*=next i]',
-    'li[class*=next i] a',
-    'li[class*=next i] button',
-  ].join(', ');
+  // Soho draws the pager buttons as an icon plus a screen-reader label, so
+  // neither the class nor aria-label necessarily carries "next". The accessible
+  // name, the title, and the icon reference all have to be considered — and
+  // "last page" must not be mistaken for it.
+  const NEXT_RE = /\b(next|suivant|suivante)\b/i;
+  const LAST_RE = /\b(last|dernier|dernière|first|previous|précédent)\b/i;
+
+  function looksLikeNext(el) {
+    const label = `${el.getAttribute?.('aria-label') ?? ''} ${el.getAttribute?.('title') ?? ''} ${norm(el.textContent)}`;
+    if (LAST_RE.test(label)) return false;
+    if (NEXT_RE.test(label)) return true;
+    if (NEXT_RE.test(el.className ?? '') && !LAST_RE.test(el.className ?? '')) return true;
+    const icon = el.querySelector?.('use')?.getAttribute('href') ?? '';
+    return NEXT_RE.test(icon);
+  }
+
+  const NEXT_SEL = 'button, a, [role=button], li';
 
   function disabled(el) {
     return (
@@ -661,14 +674,18 @@
   }
 
   function nextPageButton() {
+    const hits = [];
     for (const el of document.querySelectorAll(NEXT_SEL)) {
       if (!visible(el) || disabled(el) || inHidden(el)) continue;
       // "Records per page" also lives in the pager; a control that opens a
       // list is not the one that advances.
-      if (el.matches('select, option')) continue;
-      return el;
+      if (PAGER_RE.test(el.textContent ?? '')) continue;
+      if (looksLikeNext(el)) hits.push(el);
     }
-    return null;
+    // Innermost wins: an <li> and the <a> inside it both match, and clicking
+    // the wrapper never reaches the handler bound to the anchor.
+    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
+    return hits[0] ?? null;
   }
 
   // Returns false when there is no next page to go to — the caller uses that
