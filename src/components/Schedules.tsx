@@ -2063,9 +2063,6 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
   const format = row.largeur && row.longueur
     ? `${fmtNum(row.largeur, 0)} × ${fmtNum(row.longueur, 0)} mm`
     : '—';
-  const formatInch = row.largeurInch && row.longueurInch
-    ? `${row.largeurInch} × ${row.longueurInch} in`
-    : '';
   const start = row.startDate || row.startTime
     ? `${fmtDateLong(row.startDate)} ${fmtTime(row.startTime)}`.trim()
     : '—';
@@ -2099,20 +2096,29 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
 
         <dl className="sch-row-sheet-grid">
           <DetailField label="Planning" value={<span className="mono">{row.schedule}{row.schedSuffix ? `-${row.schedSuffix}` : ''}</span>} />
-          <DetailField label="Étapes" value={<span className="mono">{row.opSteps || '—'}</span>} />
+          {/* The report carries three op-step columns; only the second one means
+              anything here — it's the step the whole page filters on (≠ 90). The
+              other two stay in the tooltip rather than in the reader's way. */}
+          <DetailField
+            label="Status"
+            value={row.opStepD
+              ? <span className="sch-status-pill mono" title={row.opSteps ? `Étapes ${row.opSteps}` : undefined}>{row.opStepD}</span>
+              : '—'}
+          />
           <DetailField label="Centre de travail" value={row.workCenter || '—'} />
           <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
           <DetailField label="Qualité" value={<span className="mono">{row.qualite || '—'}</span>} />
           <DetailField label="PDP" value={row.pdp || '—'} />
+          {/* Début / Fin sat in a section of their own at the very bottom; they
+              are two dates like the ones above them, so they belong in the same
+              grid — and the eight fields fill it exactly. */}
+          <DetailField label="Début" value={<span className="mono">{start}</span>} />
+          <DetailField label="Fin" value={<span className="mono">{end}</span>} />
         </dl>
 
         <div className="sch-row-sheet-section">
           <div className="sch-row-sheet-section-title">Quantités (lites)</div>
           <div className="sch-row-sheet-stats">
-            <Stat label="Sched" value={row.schedLites} />
-            <Stat label="Prod" value={row.prodLites ?? 0} />
-            <Stat label="Req" value={row.reqLites} highlight />
-            <Stat label="Op Tm" value={row.opTm ? fmtNum(row.opTm, 2) : '—'} />
             <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
             <Stat
               label="P/REQ"
@@ -2120,6 +2126,9 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
               danger={packsReqShort(row)}
               dangerTitle={packsReqShort(row) ? `${row.reqLites - packsReq(row) * (row.litesPerPack ?? 0)} lite(s) hors pack` : undefined}
             />
+            <Stat label="Req" value={row.reqLites} highlight />
+            <Stat label="Sched" value={row.schedLites} />
+            <Stat label="Prod" value={row.prodLites ?? 0} />
           </div>
         </div>
 
@@ -2127,22 +2136,11 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
           <div className="sch-row-sheet-section-title">Dimension</div>
           <div className="sch-row-sheet-stats">
             <Stat label="Largeur × Longueur" value={format} wide />
-            <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
             {row.thickness && <Stat label="Épaisseur" value={`${row.thickness} mm`} />}
-            {formatInch && <Stat label="Pouces" value={formatInch} wide />}
             {row.formatCode && <Stat label="Code format" value={<span className="mono">{row.formatCode}</span>} />}
+            <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
           </div>
         </div>
-
-        {(row.startDate || row.endDate) && (
-          <div className="sch-row-sheet-section">
-            <div className="sch-row-sheet-section-title">Planning</div>
-            <dl className="sch-row-sheet-grid">
-              <DetailField label="Début" value={<span className="mono">{start}</span>} />
-              <DetailField label="Fin" value={<span className="mono">{end}</span>} />
-            </dl>
-          </div>
-        )}
       </div>
     </>
   );
