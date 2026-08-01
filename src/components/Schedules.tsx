@@ -2109,14 +2109,16 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
           <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
           <DetailField label="Qualité" value={<span className="mono">{row.qualite || '—'}</span>} />
           <DetailField label="PDP" value={row.pdp || '—'} />
+          {/* Début / Fin sat in a section of their own at the very bottom; they
+              are two dates like the ones above them, so they belong in the same
+              grid — and the eight fields fill it exactly. */}
+          <DetailField label="Début" value={<span className="mono">{start}</span>} />
+          <DetailField label="Fin" value={<span className="mono">{end}</span>} />
         </dl>
 
         <div className="sch-row-sheet-section">
           <div className="sch-row-sheet-section-title">Quantités (lites)</div>
           <div className="sch-row-sheet-stats">
-            <Stat label="Sched" value={row.schedLites} />
-            <Stat label="Prod" value={row.prodLites ?? 0} />
-            <Stat label="Req" value={row.reqLites} highlight />
             <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
             <Stat
               label="P/REQ"
@@ -2124,6 +2126,9 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
               danger={packsReqShort(row)}
               dangerTitle={packsReqShort(row) ? `${row.reqLites - packsReq(row) * (row.litesPerPack ?? 0)} lite(s) hors pack` : undefined}
             />
+            <Stat label="Req" value={row.reqLites} highlight />
+            <Stat label="Sched" value={row.schedLites} />
+            <Stat label="Prod" value={row.prodLites ?? 0} />
           </div>
         </div>
 
@@ -2131,24 +2136,11 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
           <div className="sch-row-sheet-section-title">Dimension</div>
           <div className="sch-row-sheet-stats">
             <Stat label="Largeur × Longueur" value={format} wide />
-            <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
             {row.thickness && <Stat label="Épaisseur" value={`${row.thickness} mm`} />}
             {row.formatCode && <Stat label="Code format" value={<span className="mono">{row.formatCode}</span>} />}
+            <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
           </div>
         </div>
-
-        {(row.startDate || row.endDate) && (
-          <div className="sch-row-sheet-section">
-            {/* "Créneau", not "Planning": the first field of the card already
-                carries the planning number, and two blocks under the same word
-                read as the same thing twice. */}
-            <div className="sch-row-sheet-section-title">Créneau</div>
-            <dl className="sch-row-sheet-grid">
-              <DetailField label="Début" value={<span className="mono">{start}</span>} />
-              <DetailField label="Fin" value={<span className="mono">{end}</span>} />
-            </dl>
-          </div>
-        )}
       </div>
     </>
   );
