@@ -123,9 +123,16 @@ double borne, un contrôle non standard — Work Center en est un — était sau
 le critère héritait de l'input du voisin : deux critères sur un même champ,
 `5/5 reconnus` affiché, et rien d'écrit dans le bon.
 
-Un contrôle introuvable est donc rapporté **manquant**, avec le balisage qui
-l'entoure affiché tel quel dans les options : c'est ce qu'il faut copier pour
-faire corriger la reconnaissance.
+Dans sa zone, l'extension prend le champ de formulaire s'il y en a un ; sinon
+elle **descend dans le conteneur** jusqu'au contrôle qu'il enveloppe, y compris
+à travers un shadow DOM. Sans cette descente, Work Center ressortait comme un
+`div` vide alors que sa liste — COATER, COMBINE, FLOAT… — était bien là, un cran
+plus bas.
+
+Un contrôle introuvable est rapporté **manquant**, et un contrôle reconnu mais
+**vide** l'est aussi : dans les deux cas le balisage qui l'entoure est affiché
+tel quel dans les options, à copier pour faire corriger la reconnaissance. Le
+second cas est le plus traître — il s'annonce reconnu et écrit à côté.
 
 Si un champ manque, renseigner son sélecteur CSS dans **Sélecteurs manuels**,
 une ligne `champ = sélecteur` par champ (`facility`, `workCenter`, `dateFrom`,

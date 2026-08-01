@@ -63,6 +63,28 @@
 
   const precedes = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
+  // querySelectorAll stops at a shadow boundary, and Infor's controls are
+  // wrappers: the Work Center list came back as an empty <div> because the
+  // real <select> — the one holding COATER, COMBINE, FLOAT… — sits inside it.
+  function deepQueryAll(root, sel, depth = 0) {
+    const out = Array.from(root.querySelectorAll(sel));
+    if (depth > 4) return out;
+    // The root's own shadow root first: when drilling into a wrapper, that is
+    // exactly where the control hides, and querySelectorAll never reaches it.
+    if (root.shadowRoot) out.push(...deepQueryAll(root.shadowRoot, sel, depth + 1));
+    for (const node of root.querySelectorAll('*')) {
+      if (node.shadowRoot) out.push(...deepQueryAll(node.shadowRoot, sel, depth + 1));
+    }
+    return out;
+  }
+
+  // A container is never the thing to write into. Given one, return the actual
+  // form control it wraps; given a control already, return it unchanged.
+  function drill(el) {
+    if (!el || el.matches(FIELD_SEL)) return el;
+    return deepQueryAll(el, FIELD_SEL).find(visible) ?? el;
+  }
+
   // Each criterion's control lives between its own label and the next one.
   // Bounding the search that way is what keeps a missing control *missing*
   // rather than silently borrowing its neighbour's.
@@ -76,8 +98,14 @@
   }
 
   function inRegion(el, label, nextLabel) {
+    // An ancestor of a label technically starts before it, so a container
+    // wrapping the *next* criterion would otherwise count as inside this one —
+    // and drilling into it would hand back the neighbour's control.
+    if (el.contains(label)) return false;
     if (!precedes(label, el)) return false;
-    return nextLabel ? precedes(el, nextLabel) : true;
+    if (!nextLabel) return true;
+    if (el.contains(nextLabel)) return false;
+    return precedes(el, nextLabel);
   }
 
   function overrideField(css) {
@@ -104,21 +132,34 @@
 
     const ordered = labelsInOrder();
     ordered.forEach(({ name, el: label }, i) => {
+      // Recorded even when an override already claimed the field, so a bad
+      // manual selector can still be diagnosed against its own region.
+      regions[name] = label;
       if (found[name]) return;
       const next = ordered[i + 1]?.el ?? null;
-      regions[name] = label;
 
-      const usable = (el) => visible(el) && !claimed.has(el) && !el.closest(GRID_SEL);
-      const pick = (sel) =>
-        Array.from(document.querySelectorAll(sel)).find(
-          (el) => usable(el) && inRegion(el, label, next),
-        ) ?? null;
+      const usable = (el) => visible(el) && !claimed.has(el) && !el.closest?.(GRID_SEL);
 
       if (label.htmlFor) {
         const byFor = document.getElementById(label.htmlFor);
-        if (byFor && usable(byFor)) return claim(name, byFor);
+        if (byFor && usable(byFor)) return claim(name, drill(byFor));
       }
-      claim(name, pick(FIELD_SEL) ?? pick(COMBO_SEL));
+
+      // Everything sitting in this criterion's own region, in document order.
+      // Membership is tested on nodes of the main tree only: an element inside
+      // a shadow root has no comparable position, so it is reached by drilling
+      // into its host instead.
+      const local = [];
+      for (const el of document.querySelectorAll('*')) {
+        if (usable(el) && inRegion(el, label, next)) local.push(el);
+      }
+
+      // A real control if there is one; failing that, a wrapper drilled down to
+      // the control it hides; failing that, a combobox that genuinely is a div.
+      const direct = local.find((el) => el.matches(FIELD_SEL));
+      const wrapped = direct ? null : local.map(drill).find((el) => el?.matches(FIELD_SEL));
+      const combo = direct || wrapped ? null : local.find((el) => el.matches(COMBO_SEL));
+      claim(name, direct ?? wrapped ?? combo ?? null);
     });
 
     return { found, regions };
@@ -323,18 +364,26 @@
         tag: el.tagName.toLowerCase(),
         type: el.type || null,
         role: el.getAttribute?.('role') || null,
+        id: el.id || null,
+        cls: norm(typeof el.className === 'string' ? el.className : '').slice(0, 60) || null,
         value: el.value ?? norm(el.textContent).slice(0, 40),
       };
     }
 
-    // For a criterion whose control could not be identified, hand back the
-    // markup around its label. Reading it beats asking the operator to go
-    // hunting in the inspector, and it is the toolbar only — no grid rows.
+    // Markup goes back for a criterion that is missing *or* resolved onto a
+    // control holding nothing while the screen plainly shows a value. The
+    // second case is the dangerous one: it reads as recognised and writes into
+    // the wrong node — a composite date widget whose inner input is not the one
+    // carrying the value, say. Only the "missing" case was reported before,
+    // which left exactly that failure invisible.
     const markup = {};
     for (const name of CRITERIA) {
-      if (found[name] || !regions[name]) continue;
-      const around = regions[name].parentElement ?? regions[name];
-      markup[name] = around.outerHTML.slice(0, 1500);
+      const el = found[name];
+      if (el && !isEmpty(el)) continue;
+      const label = regions[name];
+      if (!label) continue;
+      const around = label.parentElement?.parentElement ?? label.parentElement ?? label;
+      markup[name] = around.outerHTML.slice(0, 2000);
     }
 
     return { ...describe(found), preview, markup, url: location.href };
