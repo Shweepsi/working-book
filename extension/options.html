@@ -54,6 +54,7 @@
         resize: vertical;
       }
       #status { margin-top: 16px; min-height: 20px; font-size: 13px; white-space: pre-wrap; }
+      #lastRun { white-space: pre-wrap; margin-top: 4px; }
       .ok { color: #2e7d32; }
       .err { color: #c62828; }
       code { font-size: 12px; }
@@ -117,7 +118,8 @@
         page puis passe à la suivante, et s’arrête d’elle-même à la dernière.
         Chaque envoi <strong>s’ajoute</strong> et une ligne revue est mise à
         jour, pas dupliquée — repasser sur une page est sans conséquence.
-        <code>1</code> désactive le parcours. Comptez une poignée de secondes
+        <code>1</code> s’en tient à la page affichée — elle est envoyée, mais
+        aucune page n’est tournée. Comptez une poignée de secondes
         par page : l’extension attend que la grille ait réellement changé avant
         de lire la suivante.
       </div>
@@ -174,6 +176,9 @@
       <button id="inspect" type="button">Vérifier les champs</button>
       <button id="search" type="button">Lancer une recherche</button>
     </div>
+
+    <h2>Dernière exécution</h2>
+    <div id="lastRun" class="hint">Aucune exécution enregistrée.</div>
 
     <h2>Diagnostic</h2>
     <p class="lede">

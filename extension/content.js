@@ -20,7 +20,11 @@ const MIN_SEND_INTERVAL_MS = 5000;
 let lastHash = 0;
 let lastSentAt = 0;
 let settleTimer;
-let sweeping = false;
+// True for the whole of a driven run — search, page walk, rewind. The
+// automatic path must stay out of the way throughout, not merely during the
+// walk: the observer would otherwise post the previous report while the search
+// is still resolving.
+let driving = false;
 
 // djb2 — only ever compared against itself, to tell "the grid actually changed"
 // from "the page repainted the same rows".
@@ -102,8 +106,14 @@ async function sweep(maxPages) {
   const seen = new Set();
   let pages = 0;
   let rows = 0;
+  let imported = 0;
+  const failures = [];
 
-  sweeping = true;
+  // Saved and restored rather than forced off: the caller may already own the
+  // flag for a longer run, and clearing it here would reopen the automatic
+  // path for the rewind that follows.
+  const wasDriving = driving;
+  driving = true;
   try {
     for (let i = 0; i < maxPages; i++) {
       await settled();
@@ -116,20 +126,47 @@ async function sweep(maxPages) {
       if (seen.has(h)) break;
       seen.add(h);
 
-      await send(report, 'sweep');
+      const result = await send(report, 'sweep');
       pages++;
       rows += report.count;
+      // What the server actually stored, not what the page appeared to hold:
+      // the two differ whenever a row fails to decode, and the summary would
+      // otherwise claim an import that never happened.
+      if (result?.ok) imported += Number(result.imported) || 0;
+      else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
 
+      // Two jobs: the toolbar counts pages while the walk runs, so a long
+      // report does not look like a frozen extension — and the traffic keeps
+      // the service worker awake, which a thirty-page walk otherwise outlives.
+      // Nobody answers it, hence the swallowed rejection: an unawaited one
+      // surfaces in the page console.
+      chrome.runtime.sendMessage({ type: 'wb-progress', page: pages, imported }).catch(() => {});
+
+      // Checked before advancing, not after: turning a page we have no budget
+      // to read leaves the grid parked somewhere nobody asked for.
+      if (pages >= maxPages) break;
       if (!globalThis.wbMashup?.nextPage()) break;
       // A click that changes nothing is the last page, or a control that only
-      // looks like "next". Either way there is nowhere left to go.
-      if (!(await changed(h))) break;
+      // looks like "next". Either way there is nowhere left to go. The real
+      // pager disables its button on the last page, so this wait is the
+      // fallback for screens that do not — no reason to make it long.
+      if (!(await changed(h, 8000))) break;
     }
   } finally {
-    sweeping = false;
+    driving = wasDriving;
   }
 
-  return { pages, rows };
+  return { pages, rows, imported, failures };
+}
+
+// Puts the grid back on page one and waits for it, so the screen is left as it
+// was found and the next run does not start midway through the report.
+async function backToFirstPage() {
+  const before = hash(readReport()?.text ?? '');
+  if (!globalThis.wbMashup?.firstPage()) return false;
+  await changed(before, 10000);
+  await settled();
+  return true;
 }
 
 async function autoEnabled() {
@@ -142,11 +179,11 @@ async function autoEnabled() {
 }
 
 async function considerAutoSend() {
-  // A sweep already sends every page it visits, and it repaints the grid at
-  // each step. Left alone, the observer would post the same pages a second
-  // time — harmless, since a row seen twice is updated rather than duplicated,
-  // but a wasted round trip per page all the same.
-  if (sweeping) return;
+  // A driven run already sends every page it visits, and repaints the grid at
+  // each step. Left alone, the observer would post those pages a second time —
+  // harmless, since a row seen twice is updated rather than duplicated, but a
+  // wasted round trip per page, and one stale post before the search resolves.
+  if (driving) return;
   const report = readReport();
   if (!report) return;
   if (hash(report.text) === lastHash) return;
@@ -222,19 +259,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     }
 
     const criteria = msg.criteria ?? {};
+    driving = true;
     mashup
       .runSearch(criteria, selectors)
       .then(async (result) => {
-        // Only sweep a search that actually went out; there is nothing to page
-        // through otherwise. The ceiling is echoed back either way: "no sweep
-        // happened" and "the sweep found one page" look identical from the
-        // options page otherwise, and they call for opposite fixes.
-        const maxPages = Number(criteria.maxPages) || 1;
-        const willSweep = Boolean(result?.clicked) && maxPages > 1;
-        const swept = willSweep ? await sweep(maxPages) : null;
-        respond({ found: true, ...result, swept, maxPages });
+        // Only a search that actually went out has anything to send. Beyond
+        // that, always at least one page: a ceiling of 1 means "do not turn
+        // pages", not "send nothing", and since the automatic path is held
+        // back for the whole run, skipping this would leave the report unsent.
+        const maxPages = Math.max(1, Number(criteria.maxPages) || 1);
+        const swept = result?.clicked ? await sweep(maxPages) : null;
+
+        // A single page never left page one, so there is nothing to undo.
+        const rewound = swept && swept.pages > 1 ? await backToFirstPage() : false;
+
+        respond({ found: true, ...result, swept, rewound, maxPages });
       })
-      .catch((err) => respond({ found: true, error: String(err) }));
+      .catch((err) => respond({ found: true, error: String(err) }))
+      .finally(() => {
+        driving = false;
+      });
     return true;
   }
 

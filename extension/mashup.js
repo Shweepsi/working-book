@@ -687,6 +687,33 @@
     );
   }
 
+  // "First page" is its own control, and the walk ends by pressing it: leaving
+  // the grid parked on the last page would puzzle whoever looks at the screen
+  // next, and the following run would start from there.
+  const FIRST_RE = /\b(first|première|premiere)\b/i;
+
+  function firstPageButton() {
+    const hits = [];
+    for (const el of document.querySelectorAll(NEXT_SEL)) {
+      if (!visible(el) || disabled(el) || inHidden(el)) continue;
+      if (PAGER_RE.test(el.textContent ?? '')) continue;
+      const label = `${el.getAttribute?.('aria-label') ?? ''} ${el.getAttribute?.('title') ?? ''} ${norm(el.textContent)}`;
+      const icon = el.querySelector?.('use')?.getAttribute('href') ?? '';
+      if (FIRST_RE.test(label) || FIRST_RE.test(icon)) hits.push(el);
+    }
+    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
+    return hits[0] ?? null;
+  }
+
+  // False when there is nothing to go back to — already on page one, and the
+  // control is disabled for that very reason.
+  function firstPage() {
+    const btn = firstPageButton();
+    if (!btn) return false;
+    click(btn);
+    return true;
+  }
+
   function nextPageButton() {
     const hits = [];
     for (const el of document.querySelectorAll(NEXT_SEL)) {
@@ -853,6 +880,8 @@
     maximiseRows,
     nextPage,
     nextPageButton,
+    firstPage,
+    firstPageButton,
     probe,
     snapshot,
   };

@@ -40,17 +40,19 @@ const BADGE = {
 };
 
 let badgeTimer;
+// The tooltip outlives the badge: the badge is a glance, the tooltip is where
+// the account of the last run stays readable long after the colour has faded.
+let idleTitle = 'Working Book — lancer la recherche et importer le rapport';
 
-function badge(text, kind) {
-  const { color, ttl } = BADGE[kind];
+function badge(text, kind, { ttl } = {}) {
+  const spec = BADGE[kind] ?? BADGE.warn;
   chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color });
-  chrome.action.setTitle({ title: `Working Book — ${text}` });
+  chrome.action.setBadgeBackgroundColor({ color: spec.color });
   clearTimeout(badgeTimer);
   badgeTimer = setTimeout(() => {
     chrome.action.setBadgeText({ text: '' });
-    chrome.action.setTitle({ title: 'Envoyer le rapport vers Working Book' });
-  }, ttl);
+    chrome.action.setTitle({ title: idleTitle });
+  }, ttl ?? spec.ttl);
 }
 
 async function config() {
@@ -133,6 +135,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     ask({ type: 'wb-snapshot' }).then(respond);
     return true;
   }
+  if (msg?.type === 'wb-progress') {
+    // Kept alive well past a normal badge: a thirty-page walk must not look
+    // like an extension that stopped responding.
+    badge(`${msg.page}`, 'ok', { ttl: 600000 });
+    return false;
+  }
   return false;
 });
 
@@ -144,28 +152,57 @@ function criteriaOf(cfg) {
 // Broadcast to every Infor tab: the operator may have the mashup in a
 // background tab, and driving it there is the entire point — the report
 // refreshes without anyone looking at it.
-async function runSearch() {
+//
+// One call covers the whole run: fill the criteria, press Search, widen the
+// page size, send every page, then put the grid back on page one.
+async function driveSearch() {
   const cfg = await config();
-  const tabs = await chrome.tabs.query(INFOR_TABS);
-  for (const tab of tabs) {
-    if (!tab.id) continue;
-    try {
-      const reply = await chrome.tabs.sendMessage(tab.id, {
-        type: 'wb-search',
-        criteria: criteriaOf(cfg),
-        selectors: cfg.selectors,
-      });
-      if (!reply?.found) continue;
-      // A form found but left incomplete is worse than none: the mashup would
-      // answer with its own error dialog and blank the grid.
-      if (!reply.clicked) badge('crit.', 'warn');
-      return reply;
-    } catch {
-      // No frame in this tab holds the search form. Expected, and not an error.
-    }
+  return ask({ type: 'wb-search', criteria: criteriaOf(cfg) });
+}
+
+// Human-readable account of a run, for the toolbar tooltip and the options
+// page. The counts that matter are what the server stored, not what the grid
+// appeared to show.
+function summarise(reply) {
+  if (!reply) return { badge: 'form', kind: 'warn', text: 'Aucun écran PMS230 ouvert.' };
+  if (reply.error) return { badge: '!', kind: 'err', text: `Interrompu : ${reply.error}` };
+  if (!reply.clicked) {
+    const missing = (reply.empty ?? []).concat(reply.failed ?? []).join(', ') || 'un critère';
+    return { badge: 'crit.', kind: 'warn', text: `Recherche non lancée — ${missing} vide.` };
   }
-  badge('form', 'warn');
-  return null;
+
+  const swept = reply.swept;
+  const lines = [];
+  lines.push(reply.filled?.length ? `Critères écrits : ${reply.filled.join(', ')}.` : 'Critères déjà à jour.');
+  if (reply.rows?.rows) lines.push(`Lignes par page : ${reply.rows.rows}.`);
+  if (swept) {
+    lines.push(`${swept.pages} page(s) parcourue(s), ${swept.imported} ligne(s) importée(s).`);
+    if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
+  }
+  if (reply.rewound) lines.push('Grille remise en page 1.');
+
+  const imported = swept?.imported ?? 0;
+  const failed = swept?.failures?.length ?? 0;
+  return {
+    badge: String(imported || '✓'),
+    kind: failed ? 'warn' : 'ok',
+    text: lines.join('\n'),
+  };
+}
+
+async function record(reply) {
+  const summary = summarise(reply);
+  idleTitle = `Working Book — dernière exécution\n${summary.text}`;
+  badge(summary.badge, summary.kind);
+  chrome.action.setTitle({ title: idleTitle });
+  await chrome.storage.local.set({ lastRun: { at: new Date().toISOString(), ...summary } });
+  return summary;
+}
+
+async function runSearch() {
+  const reply = await driveSearch();
+  await record(reply);
+  return reply;
 }
 
 // Chrome floors alarm periods at one minute; anything below is silently
@@ -189,14 +226,28 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if ('autoSearch' in changes || 'searchEveryMin' in changes) syncAlarm();
 });
 
+// One click runs the whole thing: search, widen the page size, send every
+// page, then put the grid back on page one — and leaves an account of it in
+// the badge and the tooltip. The operator clicks and walks away.
 chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab?.id) return;
+  badge('…', 'ok', { ttl: 600000 });
+  const reply = await driveSearch();
+  if (reply) return void record(reply);
+
+  // No search form anywhere: fall back to sending whatever grid is on screen,
+  // which is what this button used to do and still the right thing on a
+  // report that was brought up by hand.
+  if (!tab?.id) return void record(null);
   try {
-    // Broadcast to every frame — only the one holding the grid answers.
-    const replies = await chrome.tabs.sendMessage(tab.id, { type: 'wb-scrape' });
-    if (!replies?.found) badge('vide', 'warn');
+    const scraped = await chrome.tabs.sendMessage(tab.id, { type: 'wb-scrape' });
+    if (scraped?.found) {
+      idleTitle = `Working Book — ${scraped.count} ligne(s) envoyée(s) depuis l’écran affiché`;
+      badge(String(scraped.count), 'ok');
+      chrome.action.setTitle({ title: idleTitle });
+      return;
+    }
   } catch {
-    // No content script in this tab (not an Infor page), or no frame answered.
-    badge('vide', 'warn');
+    // Not an Infor page, or no frame holds a report.
   }
+  badge('vide', 'warn');
 });

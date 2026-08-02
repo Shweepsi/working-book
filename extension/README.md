@@ -19,7 +19,7 @@ lecture est légitime. D'où :
 | --- | --- | --- |
 | Lire un cadre d'un autre domaine | impossible | oui |
 | Copie manuelle du rapport | nécessaire | non |
-| Déclenchement | clic | automatique dès que le rapport change |
+| Déclenchement | clic, à chaque page | un clic, ou automatique |
 | Bloqué par la CSP du portail | possible | non (l'appel part du service worker) |
 
 Le favori reste utile là où les extensions sont interdites.
@@ -37,10 +37,41 @@ Le favori reste utile là où les extensions sont interdites.
 
 `Connexion correcte` confirme que tout est en place.
 
+## Un clic fait tout
+
+Cliquer l'icône de l'extension enchaîne, sans autre intervention :
+
+1. **la recherche** — les quatre critères sont remplis puis Search est pressé ;
+2. **l'agrandissement de la page** — la pagination est poussée à son maximum,
+   ce qui décide de ce qui sera lu ;
+3. **l'envoi** du rapport affiché ;
+4. **la boucle** — page suivante, envoi, jusqu'à la dernière page ;
+5. **le retour en page 1**, pour laisser l'écran comme il a été trouvé ;
+6. **le récapitulatif**.
+
+Pendant l'exécution, la pastille compte les pages. À la fin elle affiche le
+nombre de lignes importées, et le **survol de l'icône** donne le détail :
+critères écrits, lignes par page, pages parcourues, lignes importées, retour en
+page 1. Le même texte reste lisible dans les options, section **Dernière
+exécution**.
+
+Le décompte est celui que le **serveur** a effectivement enregistré, pas le
+nombre de lignes que la grille affichait : les deux diffèrent dès qu'une ligne
+ne se décode pas, et annoncer le second reviendrait à revendiquer un import qui
+n'a pas eu lieu.
+
+Pendant tout ce temps l'envoi automatique est suspendu — c'est l'exécution qui
+possède les envois, sans quoi l'observateur reposterait chaque page une seconde
+fois, et une fois le rapport précédent avant même que la recherche n'aboutisse.
+
+Sur une page sans formulaire de recherche, le clic retombe sur l'ancien
+comportement : envoyer la grille affichée, telle quelle.
+
 ## Utilisation
 
-Ouvrir l'Operator Mashup et lancer la recherche. C'est tout : l'extension
-détecte que la grille a changé, attend qu'elle se stabilise, et envoie.
+Ouvrir l'Operator Mashup et cliquer l'icône. Sans même cela, lancer la
+recherche à la main suffit : l'extension détecte que la grille a changé, attend
+qu'elle se stabilise, et envoie ce qui est affiché.
 
 La pastille sur l'icône indique le résultat :
 
@@ -51,13 +82,15 @@ La pastille sur l'icône indique le résultat :
 | orange `vide` | aucune grille trouvée dans l'onglet |
 | rouge `config` | adresse du serveur non renseignée |
 | rouge `rés.` | serveur injoignable |
-| orange `form` | recherche automatique : aucun écran PMS230 ouvert |
+| vert `…` puis un chiffre | exécution en cours, le chiffre est la page atteinte |
+| orange `form` | aucun écran PMS230 ouvert |
 | orange `crit.` | un critère est resté vide — rien n'a été lancé |
 
-Un clic sur l'icône force un envoi immédiat, même si rien n'a changé.
+Le survol de l'icône donne toujours le détail de la dernière exécution.
 
 L'envoi automatique se coupe dans les options ; l'icône reste alors le seul
-déclencheur.
+déclencheur — et elle relance de toute façon l'exécution complète décrite
+plus haut.
 
 ## Recherche automatique
 
@@ -74,7 +107,7 @@ Dans les options, cocher **Relancer la recherche périodiquement** et régler :
 | From Start Date | `-14` | début de fenêtre, **en jours depuis aujourd'hui** |
 | To Start Date | `14` | fin de fenêtre, idem |
 | Lignes par page | vide | le maximum du menu ; `0` ne touche à rien |
-| Pages à parcourir | `20` | `1` désactive le parcours |
+| Pages à parcourir | `20` | `1` s'en tient à la page affichée |
 
 La grille est réglée sur **5 lignes par page** par défaut, et le rapport est lu
 sur ce que la grille a réellement affiché. Cette pagination décide donc de ce

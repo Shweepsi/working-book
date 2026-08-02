@@ -247,14 +247,17 @@ async function searchNow() {
             : '\nAucun « Records per page » à l’écran : la grille n’était peut-être pas encore chargée.')
         : '';
     const swept = res.swept
-      ? `\n${res.swept.pages} page(s) parcourue(s), ${res.swept.rows} ligne(s) envoyée(s).`
-      : // Saying which of the two it is matters: a stale content.js and a
-        // ceiling of 1 produce the same silence and need opposite fixes.
-        `\nParcours des pages : désactivé (plafond ${res.maxPages ?? '?'}).` +
+      ? `\n${res.swept.pages} page(s) parcourue(s), ${res.swept.imported} ligne(s) importée(s).` +
+        (res.swept.failures?.length
+          ? `\n⚠ ${res.swept.failures.length} page(s) refusée(s) par le serveur.`
+          : '') +
+        (res.rewound ? '\nGrille remise en page 1.' : '')
+      : // The run reaches here only when Search was never pressed, or from a
+        // content.js too old to know how to walk the pages at all.
+        `\nAucune page envoyée (plafond ${res.maxPages ?? '?'}).` +
         (res.maxPages === undefined
           ? '\n⚠ content.js semble ne pas être à jour — remplacez tout le dossier.'
-          : '') +
-        '\nLe rapport part dès que la grille se stabilise.';
+          : '');
     say(`Recherche lancée — ${written}.${rows}${swept}`, 'ok');
     return;
   }
@@ -337,6 +340,19 @@ async function snapshot() {
   }
 }
 
+// The toolbar click runs everything and walks away; the account of it has to
+// survive somewhere readable, not only in a badge that fades.
+async function showLastRun() {
+  const { lastRun } = await chrome.storage.local.get({ lastRun: null });
+  if (!lastRun) return;
+  const when = new Date(lastRun.at).toLocaleString('fr-FR');
+  $('lastRun').textContent = `${when}\n${lastRun.text}`;
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && 'lastRun' in changes) showLastRun();
+});
+
 $('probeRun').addEventListener('click', probe);
 $('snapshot').addEventListener('click', snapshot);
 $('save').addEventListener('click', save);
@@ -344,3 +360,4 @@ $('test').addEventListener('click', test);
 $('inspect').addEventListener('click', inspect);
 $('search').addEventListener('click', searchNow);
 load();
+showLastRun();
