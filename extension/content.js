@@ -77,6 +77,23 @@ function settled(quiet = SETTLE_MS, ceiling = 20000) {
   });
 }
 
+// Resolves once the report's text differs from `before`, or gives up. Waiting
+// for the page to *settle* is not enough after clicking "next": the grid is
+// already still while the request is in flight, so the quiet window elapses,
+// the same page is read again, and the walk stops thinking it reached the end.
+// That is why it gave up after two pages on a thirty-page report.
+function changed(before, timeout = 15000) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeout;
+    const tick = () => {
+      if (hash(readReport()?.text ?? '') !== before) return resolve(true);
+      if (Date.now() > deadline) return resolve(false);
+      setTimeout(tick, 200);
+    };
+    tick();
+  });
+}
+
 // Walks the grid page by page, sending each one. The page-size menu caps at
 // whatever Infor chose to list; paging has no such ceiling. Every import adds
 // to the report and a row seen twice is updated rather than duplicated, so an
@@ -104,6 +121,9 @@ async function sweep(maxPages) {
       rows += report.count;
 
       if (!globalThis.wbMashup?.nextPage()) break;
+      // A click that changes nothing is the last page, or a control that only
+      // looks like "next". Either way there is nowhere left to go.
+      if (!(await changed(h))) break;
     }
   } finally {
     sweeping = false;
@@ -172,6 +192,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     if (!report) return false;
     send(report, 'manual');
     respond({ found: true, count: report.count });
+    return true;
+  }
+
+  // Diagnosis. Answered by the frame holding the form *or* the grid: a probe
+  // is often aimed precisely at something the resolver did not recognise, so
+  // requiring a recognised form would refuse exactly the interesting cases.
+  if (msg?.type === 'wb-probe' || msg?.type === 'wb-snapshot') {
+    const mashup = globalThis.wbMashup;
+    if (!mashup) return false;
+    if (!mashup.present(msg.selectors ?? {}) && !readReport()) return false;
+    respond(
+      msg.type === 'wb-probe'
+        ? { found: true, ...mashup.probe(msg.css ?? '*', msg.opts ?? {}) }
+        : { found: true, ...mashup.snapshot() },
+    );
     return true;
   }
 

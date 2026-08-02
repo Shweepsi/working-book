@@ -409,10 +409,11 @@
 
     // Only worth doing once a search is on its way: before that there is no
     // grid, hence no pager to widen.
-    const rows =
-      clicked && criteria.maxRows !== false
-        ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
-        : null;
+    // 0 means "leave the grid as it is"; anything else goes through the pager,
+    // with a negative value standing for "the largest the menu offers".
+    const rows = clicked && criteria.rowsPerPage !== 0
+      ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
+      : null;
 
     return { ...describe(found), filled, kept, failed, empty, clicked, rows, url: location.href };
   }
@@ -530,12 +531,16 @@
   // has to be driven the way an operator would: open it, click the entry.
   const MENU_SEL = 'ul.popupmenu, [role=menu], [role=listbox]';
 
+  // The innermost clickable, as everywhere else on this screen. The real
+  // markup is `<li class="pager-pagesize"><button class="btn-menu">5 Records
+  // per page</button></li>` — and the <li> comes first in document order, so
+  // taking the first match clicked the wrapper and the menu never opened.
   function pagerTrigger() {
-    return (
-      Array.from(document.querySelectorAll('button, a, [role=button], [class*=pagesize i]')).find(
-        (el) => visible(el) && !inHidden(el) && PAGER_RE.test(el.textContent ?? ''),
-      ) ?? null
+    const hits = Array.from(document.querySelectorAll('button, a, [role=button]')).filter(
+      (el) => visible(el) && !inHidden(el) && PAGER_RE.test(el.textContent ?? ''),
     );
+    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
+    return hits[0] ?? null;
   }
 
   // The innermost clickable only. Listing `li` alongside `li a` returns each
@@ -551,9 +556,18 @@
     return inner.length ? inner : pick('li, [role=menuitem], [role=option]');
   }
 
+  // Does this control open a menu at all? On a screen whose page size is a
+  // plain <select>, waiting on a menu that will never appear is dead time on
+  // every single search.
+  function opensMenu(el) {
+    if (el.getAttribute('aria-haspopup') || el.getAttribute('aria-controls')) return true;
+    const scope = el.closest('li, div') ?? el.parentElement;
+    return Boolean(scope?.querySelector(MENU_SEL));
+  }
+
   async function setRowsViaMenu(target) {
     const trigger = pagerTrigger();
-    if (!trigger) return null;
+    if (!trigger || !opensMenu(trigger)) return null;
 
     click(trigger);
     const menu = await waitFor(
@@ -561,7 +575,7 @@
         Array.from(document.querySelectorAll(MENU_SEL)).find(
           (m) => visible(m) && !inHidden(m) && menuItems(m).length >= 2,
         ),
-      4000,
+      2500,
     );
     // Null, not a verdict: the caller must be free to fall through to a native
     // select on screens that use one.
@@ -739,11 +753,107 @@
     return { ...describe(found), preview, markup, url: location.href };
   }
 
+  // ---------------------------------------------------------------------
+  // Diagnosis. Every unknown on this screen has cost a full round trip —
+  // repackage, reload, run, paste. These two read-only entry points collapse
+  // that into one: ask the frame directly, from the options page.
+  // ---------------------------------------------------------------------
+
+  // A short, readable path — enough to recognise an element and to write a
+  // manual selector from, without dumping the whole ancestor chain.
+  function pathOf(el, depth = 4) {
+    const parts = [];
+    for (let node = el, i = 0; node && node.tagName && i < depth; node = node.parentElement, i++) {
+      const tag = node.tagName.toLowerCase();
+      const id = node.id ? `#${node.id}` : '';
+      const cls = norm(typeof node.className === 'string' ? node.className : '')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((c) => `.${c}`)
+        .join('');
+      parts.unshift(`${tag}${id}${cls}`);
+      if (node.id) break;
+    }
+    return parts.join(' > ');
+  }
+
+  function describeNode(el, htmlChars) {
+    return {
+      tag: el.tagName?.toLowerCase() ?? null,
+      id: el.id || null,
+      cls: norm(typeof el.className === 'string' ? el.className : '').slice(0, 80) || null,
+      role: el.getAttribute?.('role') || null,
+      type: el.type || null,
+      value: el.value ?? null,
+      text: norm(el.textContent).slice(0, 80) || null,
+      visible: visible(el),
+      hidden: inHidden(el),
+      disabled: el.tagName ? disabled(el) : null,
+      path: pathOf(el),
+      html: htmlChars ? el.outerHTML.slice(0, htmlChars) : undefined,
+    };
+  }
+
+  // Runs a CSS selector in this frame and reports what it matched. Read-only
+  // on purpose: it exists to answer "what does this screen actually contain",
+  // not to change anything.
+  function probe(css, { limit = 8, html = 600 } = {}) {
+    let nodes;
+    try {
+      nodes = deepQueryAll(document, css);
+    } catch (err) {
+      return { error: `sélecteur invalide — ${err.message}` };
+    }
+    return {
+      url: location.href,
+      count: nodes.length,
+      matches: nodes.slice(0, limit).map((el) => describeNode(el, html)),
+    };
+  }
+
+  // One shot at everything worth knowing: the criteria, the pager, the grid.
+  // Whatever the next surprise is, it is probably already in here.
+  function snapshot() {
+    const located = locate({});
+    const pageInfo = Array.from(document.querySelectorAll('[class*=pager] label, [class*=pager-count]'))
+      .filter((el) => visible(el) && !inHidden(el))
+      .map((el) => norm(el.textContent))
+      .slice(0, 3);
+
+    const grids = Array.from(document.querySelectorAll('[class*=datagrid-container], [role=grid]')).map(
+      (el) => ({ ...describeNode(el, 0), rows: el.querySelectorAll('tbody tr').length }),
+    );
+
+    return {
+      url: location.href,
+      criteria: located ? inspect({}) : null,
+      pager: {
+        trigger: pagerTrigger() ? describeNode(pagerTrigger(), 300) : null,
+        select: pagerSelect() ? describeNode(pagerSelect(), 300) : null,
+        next: nextPageButton() ? describeNode(nextPageButton(), 300) : null,
+        pageInfo,
+        markup: pagerMarkup(),
+      },
+      grids,
+      report: { chars: (document.body?.innerText ?? '').length },
+    };
+  }
+
   // runSearch is async, but the "only the frame holding the form answers" rule
   // needs a synchronous verdict: a listener must decide whether to keep the
   // message channel open before it can await anything.
   const present = (selectors = {}) => locate(selectors) !== null;
 
 
-  globalThis.wbMashup = { runSearch, inspect, present, maximiseRows, nextPage, nextPageButton };
+  globalThis.wbMashup = {
+    runSearch,
+    inspect,
+    present,
+    maximiseRows,
+    nextPage,
+    nextPageButton,
+    probe,
+    snapshot,
+  };
 })();

@@ -18,12 +18,9 @@ const DEFAULTS = {
   toOffset: 14,
   // The grid's pager defaults to 5 rows, and the report is read from what the
   // grid rendered — so the pager decides how much gets imported, not just what
-  // is comfortable to look at.
-  maxRows: true,
-  // 0 = the largest value the menu offers. A number beyond that is injected
-  // into the select: the list is what Infor chose to show, not a limit the
-  // grid enforces.
-  rowsPerPage: 0,
+  // is comfortable to look at. -1 takes the menu's largest offering, 0 leaves
+  // the grid on whatever it shows.
+  rowsPerPage: -1,
   // Pages walked after a search. The page-size menu tops out at whatever Infor
   // listed; paging is what actually lifts the ceiling, and re-sending a row
   // updates it rather than duplicating it.
@@ -98,21 +95,18 @@ async function ingest(text) {
   return { ok: true, ...body };
 }
 
-// Dry run for the options page: asks every Infor tab what its resolver sees,
-// without writing to a single field.
-async function inspectForm() {
+// Asks every Infor tab, returns the first frame that answers. Used by all the
+// read-only queries the options page makes — nothing here writes.
+async function ask(message) {
   const cfg = await config();
   const tabs = await chrome.tabs.query(INFOR_TABS);
   for (const tab of tabs) {
     if (!tab.id) continue;
     try {
-      const reply = await chrome.tabs.sendMessage(tab.id, {
-        type: 'wb-inspect',
-        selectors: cfg.selectors,
-      });
+      const reply = await chrome.tabs.sendMessage(tab.id, { selectors: cfg.selectors, ...message });
       if (reply?.found) return reply;
     } catch {
-      /* no form in this tab */
+      /* no frame in this tab answers to it */
     }
   }
   return null;
@@ -128,15 +122,23 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     return true;
   }
   if (msg?.type === 'wb-inspect-form') {
-    inspectForm().then(respond);
+    ask({ type: 'wb-inspect' }).then(respond);
+    return true;
+  }
+  if (msg?.type === 'wb-probe-form') {
+    ask({ type: 'wb-probe', css: msg.css, opts: msg.opts }).then(respond);
+    return true;
+  }
+  if (msg?.type === 'wb-snapshot-form') {
+    ask({ type: 'wb-snapshot' }).then(respond);
     return true;
   }
   return false;
 });
 
 function criteriaOf(cfg) {
-  const { facility, workCenter, fromOffset, toOffset, maxRows, maxPages, rowsPerPage } = cfg;
-  return { facility, workCenter, fromOffset, toOffset, maxRows, maxPages, rowsPerPage };
+  const { facility, workCenter, fromOffset, toOffset, maxPages, rowsPerPage } = cfg;
+  return { facility, workCenter, fromOffset, toOffset, maxPages, rowsPerPage };
 }
 
 // Broadcast to every Infor tab: the operator may have the mashup in a

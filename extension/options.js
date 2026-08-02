@@ -3,8 +3,7 @@ const DEFAULTS = {
   auto: true,
   autoSearch: false,
   searchEveryMin: 15,
-  maxRows: true,
-  rowsPerPage: 0,
+  rowsPerPage: -1,
   maxPages: 20,
   facility: '221',
   workCenter: 'COATER',
@@ -76,8 +75,7 @@ async function load() {
   $('apiBase').value = cfg.apiBase;
   $('auto').checked = cfg.auto !== false;
   $('autoSearch').checked = cfg.autoSearch === true;
-  $('maxRows').checked = cfg.maxRows !== false;
-  $('rowsPerPage').value = cfg.rowsPerPage || '';
+  $('rowsPerPage').value = cfg.rowsPerPage < 0 ? '' : cfg.rowsPerPage;
   $('maxPages').value = cfg.maxPages;
   $('searchEveryMin').value = cfg.searchEveryMin;
   $('facility').value = cfg.facility;
@@ -92,8 +90,8 @@ function readForm() {
     apiBase: $('apiBase').value.trim().replace(/\/+$/, ''),
     auto: $('auto').checked,
     autoSearch: $('autoSearch').checked,
-    maxRows: $('maxRows').checked,
-    rowsPerPage: Math.max(0, intOr($('rowsPerPage').value, 0)),
+    // -1 means "unset": take the menu's largest. 0 means "leave the grid alone".
+    rowsPerPage: $('rowsPerPage').value.trim() === '' ? -1 : Math.max(0, intOr($('rowsPerPage').value, -1)),
     maxPages: Math.max(1, intOr($('maxPages').value, 20)),
     searchEveryMin: Math.max(1, intOr($('searchEveryMin').value, 15)),
     facility: $('facility').value.trim(),
@@ -218,7 +216,7 @@ async function searchNow() {
       ? `\nLignes par page : ${res.rows.rows}` +
         (res.rows.reason === 'already' ? ' (déjà réglé)' : '') +
         (res.rows.via === 'menu' ? ' — choisi dans le menu' : '') +
-        (res.rows.injected && res.rows.changed ? ' — valeur forcée, acceptée' : '') +
+        (res.rows.injected && res.rows.changed ? ' — valeur ajoutée au contrôle' : '') +
         '.' +
         (res.rows.reason === 'capped'
           ? `\n${res.rows.wanted} n’est pas au menu ; le maximum proposé est ${res.rows.rows}.` +
@@ -273,6 +271,74 @@ async function searchNow() {
   );
 }
 
+// Diagnosis. Both of these only read the page — the point is to answer "what
+// is actually on this screen" without another round of repackage-and-reload.
+function describeMatch(m, i) {
+  const bits = [
+    `${i + 1}. ${m.tag}${m.id ? `#${m.id}` : ''}${m.cls ? ` .${m.cls.split(' ').join('.')}` : ''}`,
+    m.role ? `role=${m.role}` : null,
+    m.type ? `type=${m.type}` : null,
+    m.value != null ? `valeur=« ${m.value} »` : null,
+    m.text ? `texte=« ${m.text} »` : null,
+    m.visible ? null : 'INVISIBLE',
+    m.hidden ? 'DANS UN BLOC MASQUÉ' : null,
+    m.disabled ? 'DÉSACTIVÉ' : null,
+  ].filter(Boolean);
+  return `${bits.join('  ')}\n   chemin : ${m.path}${m.html ? `\n   ${m.html}` : ''}`;
+}
+
+async function probe() {
+  const css = $('probe').value.trim();
+  if (!css) {
+    say('Renseignez un sélecteur CSS à sonder.', 'err');
+    return;
+  }
+  say('Interrogation de la page…');
+  const res = await chrome.runtime.sendMessage({ type: 'wb-probe-form', css });
+  if (!res) {
+    say('Aucune page Mingle ne répond — ouvrez l’écran PMS230.', 'err');
+    return;
+  }
+  if (res.error) {
+    say(res.error, 'err');
+    return;
+  }
+  if (!res.count) {
+    say(`Aucune correspondance pour « ${css} ».\nCadre : ${res.url}`, 'err');
+    return;
+  }
+  say(
+    `${res.count} correspondance(s) pour « ${css} » :\n\n` +
+      res.matches.map(describeMatch).join('\n\n'),
+    'ok',
+  );
+}
+
+async function snapshot() {
+  say('Relevé en cours…');
+  const s = await chrome.runtime.sendMessage({ type: 'wb-snapshot-form' });
+  if (!s) {
+    say('Aucune page Mingle ne répond — ouvrez l’écran PMS230.', 'err');
+    return;
+  }
+  const text = JSON.stringify(s, null, 1);
+  try {
+    await navigator.clipboard.writeText(text);
+    say(
+      `Relevé copié dans le presse-papiers (${text.length} caractères).\n` +
+        'Collez-le tel quel pour diagnostic.\n\n' +
+        text.slice(0, 1200) +
+        (text.length > 1200 ? '\n…' : ''),
+      'ok',
+    );
+  } catch {
+    // Clipboard permission can be refused; showing it still gets it out.
+    say(`Relevé (copiez-le à la main) :\n\n${text}`, 'ok');
+  }
+}
+
+$('probeRun').addEventListener('click', probe);
+$('snapshot').addEventListener('click', snapshot);
 $('save').addEventListener('click', save);
 $('test').addEventListener('click', test);
 $('inspect').addEventListener('click', inspect);

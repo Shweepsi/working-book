@@ -97,28 +97,17 @@
       <label for="autoSearch">Relancer la recherche périodiquement</label>
     </div>
 
-    <div class="row">
-      <input id="maxRows" type="checkbox" />
-      <label for="maxRows">Afficher le maximum de lignes par page</label>
-    </div>
-    <div class="hint">
-      La grille est réglée sur <strong>5 lignes par page</strong> par défaut, et
-      le rapport est lu sur ce que la grille a affiché. Ce réglage décide donc
-      de ce qui est importé, pas seulement du confort de lecture. L’extension
-      choisit la plus grande valeur proposée par l’écran.
-    </div>
-
     <label for="rowsPerPage">
-      Forcer un nombre de lignes par page
+      Lignes par page
       <div class="hint">
-        Vide, l’extension prend la plus grande valeur du menu (50). Un nombre
-        au-delà est <strong>injecté dans le contrôle</strong> : la liste est ce
-        qu’Infor a choisi d’afficher, pas une limite que la grille impose.
-        Essayez <code>500</code>. La valeur est relue après coup — si l’écran la
-        refuse, les options le disent au lieu de le taire.
+        La grille démarre à <strong>5 lignes par page</strong> et le rapport est
+        lu sur ce qu’elle a réellement affiché : ce réglage décide de ce qui est
+        importé, pas du confort de lecture. Laissé vide, l’extension prend la
+        plus grande valeur du menu — <code>50</code> sur cet écran.
+        <code>0</code> ne touche à rien.
       </div>
     </label>
-    <input id="rowsPerPage" type="text" inputmode="numeric" placeholder="50 (maximum du menu)" />
+    <input id="rowsPerPage" type="text" inputmode="numeric" placeholder="vide = maximum du menu" />
 
     <label for="maxPages">
       Pages à parcourir
@@ -128,7 +117,9 @@
         page puis passe à la suivante, et s’arrête d’elle-même à la dernière.
         Chaque envoi <strong>s’ajoute</strong> et une ligne revue est mise à
         jour, pas dupliquée — repasser sur une page est sans conséquence.
-        <code>1</code> désactive le parcours.
+        <code>1</code> désactive le parcours. Comptez une poignée de secondes
+        par page : l’extension attend que la grille ait réellement changé avant
+        de lire la suivante.
       </div>
     </label>
     <input id="maxPages" type="text" inputmode="numeric" placeholder="20" />
@@ -183,6 +174,27 @@
       <button id="inspect" type="button">Vérifier les champs</button>
       <button id="search" type="button">Lancer une recherche</button>
     </div>
+
+    <h2>Diagnostic</h2>
+    <p class="lede">
+      À utiliser quand un contrôle n’est pas reconnu. Tout est en lecture
+      seule : rien n’est écrit dans l’écran Infor.
+    </p>
+
+    <div class="actions">
+      <button id="snapshot" type="button">Copier un relevé complet</button>
+      <button id="probeRun" type="button">Sonder</button>
+    </div>
+
+    <label for="probe">
+      Sélecteur CSS à sonder
+      <div class="hint">
+        Interroge la page Mingle et rend ce qui correspond : balise, id,
+        classes, valeur, visibilité et balisage. Le shadow DOM est traversé.
+        Par ex. <code>.pager-pagesize button</code> ou <code>select</code>.
+      </div>
+    </label>
+    <input id="probe" type="text" spellcheck="false" placeholder=".pager-toolbar button" />
 
     <div id="status" aria-live="polite"></div>
 

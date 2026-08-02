@@ -73,7 +73,8 @@ Dans les options, cocher **Relancer la recherche périodiquement** et régler :
 | Work Center | `COATER` | centre de charge |
 | From Start Date | `-14` | début de fenêtre, **en jours depuis aujourd'hui** |
 | To Start Date | `14` | fin de fenêtre, idem |
-| Maximum de lignes par page | coché | voir ci-dessous |
+| Lignes par page | vide | le maximum du menu ; `0` ne touche à rien |
+| Pages à parcourir | `20` | `1` désactive le parcours |
 
 La grille est réglée sur **5 lignes par page** par défaut, et le rapport est lu
 sur ce que la grille a réellement affiché. Cette pagination décide donc de ce
@@ -102,20 +103,20 @@ le clic sur Search, puisqu'elle n'est dessinée qu'au retour des lignes.
 
 ### Dépasser le maximum du menu
 
-Le menu s'arrête à 50, mais **c'est ce qu'Infor a choisi d'afficher, pas une
-limite que la grille impose**. Renseigner un nombre dans **Forcer un nombre de
-lignes par page** injecte cette valeur dans le contrôle — la grille la demande
-alors au serveur comme n'importe quelle autre.
+Le menu s'arrête à 50. Sur un `<select>`, une valeur supérieure peut être
+ajoutée au contrôle et relue après coup — si l'écran la refuse, les options le
+disent, car un plafond silencieux est un import tronqué sans avertissement.
+Sur PMS230 le contrôle est un menu, où seule une entrée existante se clique :
+50 y est le maximum réel.
 
-La valeur est **relue après coup**. Si l'écran la refuse et retombe sur 50, les
-options le disent : un plafond silencieux, c'est un import tronqué sans
-avertissement.
-
-Quand cette voie ne passe pas, le **parcours des pages** n'a lui aucun plafond :
-l'extension envoie une page, passe à la suivante, et s'arrête à la dernière —
-qu'elle reconnaît au fait que le contenu ne change plus. Chaque envoi s'ajoute
-et une ligne revue est mise à jour, jamais dupliquée, donc un recouvrement entre
-pages est sans conséquence. Réglé sur 20 pages, `1` pour désactiver.
+Le **parcours des pages**, lui, n'a aucun plafond. L'extension envoie une page,
+demande la suivante, et **attend que la grille ait réellement changé** avant de
+lire — attendre qu'elle se stabilise ne suffit pas, puisqu'elle est déjà immobile
+pendant l'aller-retour serveur : le parcours s'arrêtait alors au bout de deux
+pages sur trente, croyant être arrivé au bout. Il s'arrête pour de bon quand un
+clic ne change plus rien. Chaque envoi s'ajoute et une ligne revue est mise à
+jour, jamais dupliquée, donc un recouvrement est sans conséquence. Réglé sur 20
+pages, `1` pour désactiver.
 
 Les dates sont des **décalages**, pas des dates fixes : `-14` / `14` demandent
 en permanence les deux semaines écoulées et les deux à venir. Une date en dur
@@ -190,6 +191,25 @@ Un contrôle introuvable est rapporté **manquant**, et un contrôle reconnu mai
 **vide** l'est aussi : dans les deux cas le balisage qui l'entoure est affiché
 tel quel dans les options, à copier pour faire corriger la reconnaissance. Le
 second cas est le plus traître — il s'annonce reconnu et écrit à côté.
+
+### Interroger l'écran directement
+
+Deux outils dans la section **Diagnostic** des options, tous deux en lecture
+seule — ils n'écrivent jamais dans l'écran Infor.
+
+**Sonder** prend un sélecteur CSS et rend ce qui correspond dans la page
+Mingle : balise, id, classes, rôle, valeur, visibilité, et le balisage. Le
+shadow DOM est traversé. C'est ce qu'il faut pour répondre à « qu'y a-t-il
+réellement à cet endroit » sans reconstruire l'extension.
+
+**Copier un relevé complet** met dans le presse-papiers, en un coup, l'état des
+quatre critères, du bouton Search, du sélecteur de taille de page, du bouton
+page suivante, du compteur de pages et des grilles présentes — visibles comme
+masquées.
+
+Ces deux outils existent parce que chaque inconnue rencontrée sur cet écran
+coûtait autrement un aller-retour complet : repackager, recharger, relancer,
+recopier.
 
 Si un champ manque, renseigner son sélecteur CSS dans **Sélecteurs manuels**,
 une ligne `champ = sélecteur` par champ (`facility`, `workCenter`, `dateFrom`,
