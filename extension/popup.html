@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Working Book</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        width: 320px;
+        margin: 0;
+        padding: 14px 16px 16px;
+        font: 13px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+      }
+      header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+      h1 { font-size: 14px; margin: 0; }
+      .version { font-size: 11px; opacity: 0.55; }
+      .criteria {
+        margin: 10px 0 12px;
+        padding: 8px 10px;
+        border: 1px solid rgba(128, 128, 128, 0.35);
+        border-radius: 6px;
+        font-size: 12px;
+        opacity: 0.85;
+        white-space: pre-wrap;
+      }
+      button {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid rgba(128, 128, 128, 0.5);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.primary { background: #2e7d32; border-color: #2e7d32; color: #fff; font-weight: 600; }
+      button[disabled] { opacity: 0.55; cursor: default; }
+      .links { display: flex; gap: 8px; margin-top: 8px; }
+      .links button { font-size: 12px; padding: 6px 10px; }
+      h2 { font-size: 12px; margin: 16px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+      #status, #last { white-space: pre-wrap; font-size: 12px; }
+      #status { min-height: 18px; margin-top: 10px; }
+      #last { opacity: 0.85; }
+      .when { font-size: 11px; opacity: 0.6; }
+      .ok { color: #2e7d32; }
+      .err { color: #c62828; }
+      .muted { opacity: 0.6; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Working Book</h1>
+      <span class="version" id="version"></span>
+    </header>
+
+    <div class="criteria" id="criteria">Chargement des réglages…</div>
+
+    <button id="run" class="primary" type="button">Lancer l’import</button>
+    <div class="links">
+      <button id="options" type="button">Réglages</button>
+      <button id="snapshot" type="button">Copier un relevé</button>
+    </div>
+
+    <div id="status" aria-live="polite"></div>
+
+    <h2>Dernière exécution</h2>
+    <div class="when" id="when"></div>
+    <div id="last" class="muted">Aucune exécution enregistrée.</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

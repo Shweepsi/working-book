@@ -135,10 +135,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     ask({ type: 'wb-snapshot' }).then(respond);
     return true;
   }
+  if (msg?.type === 'wb-run-all') {
+    runEverything().then(respond);
+    return true;
+  }
   if (msg?.type === 'wb-progress') {
     // Kept alive well past a normal badge: a thirty-page walk must not look
     // like an extension that stopped responding.
     badge(`${msg.page}`, 'ok', { ttl: 600000 });
+    // Recorded too, so a popup opened mid-run picks the progress back up
+    // instead of showing an idle panel over a walk still in flight.
+    chrome.storage.local.set({
+      runState: { running: true, page: msg.page, imported: msg.imported },
+    });
     return false;
   }
   return false;
@@ -190,13 +199,20 @@ function summarise(reply) {
   };
 }
 
-async function record(reply) {
-  const summary = summarise(reply);
+// The single place a run's outcome becomes visible: badge, tooltip, and the
+// stored account the popup and the options page both read. Clearing runState
+// here is what tells an open popup the walk is over.
+async function publish(summary) {
   idleTitle = `Working Book — dernière exécution\n${summary.text}`;
   badge(summary.badge, summary.kind);
   chrome.action.setTitle({ title: idleTitle });
+  await chrome.storage.local.remove('runState');
   await chrome.storage.local.set({ lastRun: { at: new Date().toISOString(), ...summary } });
   return summary;
+}
+
+async function record(reply) {
+  return publish(summarise(reply));
 }
 
 async function runSearch() {
@@ -226,28 +242,23 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if ('autoSearch' in changes || 'searchEveryMin' in changes) syncAlarm();
 });
 
-// One click runs the whole thing: search, widen the page size, send every
-// page, then put the grid back on page one — and leaves an account of it in
-// the badge and the tooltip. The operator clicks and walks away.
-chrome.action.onClicked.addListener(async (tab) => {
+// The whole run, from the popup's button. Declaring a popup means
+// chrome.action.onClicked never fires, so this is the only entry point left —
+// and the popup outlives nothing: closing it does not stop the walk.
+async function runEverything() {
   badge('…', 'ok', { ttl: 600000 });
   const reply = await driveSearch();
-  if (reply) return void record(reply);
+  if (reply) return record(reply);
 
-  // No search form anywhere: fall back to sending whatever grid is on screen,
-  // which is what this button used to do and still the right thing on a
-  // report that was brought up by hand.
-  if (!tab?.id) return void record(null);
-  try {
-    const scraped = await chrome.tabs.sendMessage(tab.id, { type: 'wb-scrape' });
-    if (scraped?.found) {
-      idleTitle = `Working Book — ${scraped.count} ligne(s) envoyée(s) depuis l’écran affiché`;
-      badge(String(scraped.count), 'ok');
-      chrome.action.setTitle({ title: idleTitle });
-      return;
-    }
-  } catch {
-    // Not an Infor page, or no frame holds a report.
+  // No search form anywhere: fall back to sending whatever grid is on screen.
+  // A report brought up by hand is still worth importing.
+  const scraped = await ask({ type: 'wb-scrape' });
+  if (scraped?.found) {
+    return publish({
+      badge: String(scraped.count),
+      kind: 'ok',
+      text: `${scraped.count} ligne(s) envoyée(s) depuis l’écran affiché.`,
+    });
   }
-  badge('vide', 'warn');
-});
+  return record(null);
+}

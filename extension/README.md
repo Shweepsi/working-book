@@ -37,9 +37,24 @@ Le favori reste utile là où les extensions sont interdites.
 
 `Connexion correcte` confirme que tout est en place.
 
-## Un clic fait tout
+## Le panneau
 
-Cliquer l'icône de l'extension enchaîne, sans autre intervention :
+Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
+être demandé** : installation, centre de charge, la fenêtre de dates calculée
+pour aujourd'hui, les lignes par page et le plafond de pages. Plus la version
+chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
+dernière build.
+
+Le bouton **Lancer l'import** enchaîne tout. Pendant l'exécution le bouton se
+verrouille et le panneau compte les pages ; à la fin il affiche le
+récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend la
+progression là où elle en est.
+
+Déclarer ce panneau a un prix, assumé : le navigateur cesse alors d'émettre
+l'événement de clic sur l'icône, donc le clic ouvre le panneau au lieu de
+lancer directement. Le lancement passe par le bouton.
+
+L'enchaînement, lui, est inchangé :
 
 1. **la recherche** — les quatre critères sont remplis puis Search est pressé ;
 2. **l'agrandissement de la page** — la pagination est poussée à son maximum,
@@ -49,10 +64,9 @@ Cliquer l'icône de l'extension enchaîne, sans autre intervention :
 5. **le retour en page 1**, pour laisser l'écran comme il a été trouvé ;
 6. **le récapitulatif**.
 
-Pendant l'exécution, la pastille compte les pages. À la fin elle affiche le
-nombre de lignes importées, et le **survol de l'icône** donne le détail :
-critères écrits, lignes par page, pages parcourues, lignes importées, retour en
-page 1. Le même texte reste lisible dans les options, section **Dernière
+La pastille sur l'icône suit la même exécution : elle compte les pages, puis
+affiche le nombre de lignes importées. Le récapitulatif se retrouve à trois
+endroits — le panneau, le survol de l'icône, et les options sous **Dernière
 exécution**.
 
 Le décompte est celui que le **serveur** a effectivement enregistré, pas le
@@ -64,14 +78,14 @@ Pendant tout ce temps l'envoi automatique est suspendu — c'est l'exécution qu
 possède les envois, sans quoi l'observateur reposterait chaque page une seconde
 fois, et une fois le rapport précédent avant même que la recherche n'aboutisse.
 
-Sur une page sans formulaire de recherche, le clic retombe sur l'ancien
+Sur une page sans formulaire de recherche, le lancement retombe sur l'ancien
 comportement : envoyer la grille affichée, telle quelle.
 
 ## Utilisation
 
-Ouvrir l'Operator Mashup et cliquer l'icône. Sans même cela, lancer la
-recherche à la main suffit : l'extension détecte que la grille a changé, attend
-qu'elle se stabilise, et envoie ce qui est affiché.
+Ouvrir l'Operator Mashup, cliquer l'icône, puis **Lancer l'import**. Sans même
+cela, lancer la recherche à la main suffit : l'extension détecte que la grille
+a changé, attend qu'elle se stabilise, et envoie ce qui est affiché.
 
 La pastille sur l'icône indique le résultat :
 
@@ -86,7 +100,8 @@ La pastille sur l'icône indique le résultat :
 | orange `form` | aucun écran PMS230 ouvert |
 | orange `crit.` | un critère est resté vide — rien n'a été lancé |
 
-Le survol de l'icône donne toujours le détail de la dernière exécution.
+Le panneau et le survol de l'icône donnent tous deux le détail de la dernière
+exécution.
 
 L'envoi automatique se coupe dans les options ; l'icône reste alors le seul
 déclencheur — et elle relance de toute façon l'exécution complète décrite
