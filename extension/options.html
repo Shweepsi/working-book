@@ -40,19 +40,6 @@
       button.primary { background: #2e7d32; border-color: #2e7d32; color: #fff; }
       h2 { font-size: 15px; margin: 32px 0 4px; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-      details { margin-top: 18px; }
-      summary { cursor: pointer; font-weight: 600; }
-      textarea {
-        width: 100%;
-        margin-top: 6px;
-        padding: 8px 10px;
-        border: 1px solid rgba(128, 128, 128, 0.5);
-        border-radius: 6px;
-        background: transparent;
-        color: inherit;
-        font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-        resize: vertical;
-      }
       #status { margin-top: 16px; min-height: 20px; font-size: 13px; white-space: pre-wrap; }
       #lastRun { white-space: pre-wrap; margin-top: 4px; }
       .ok { color: #2e7d32; }
@@ -76,55 +63,23 @@
     </label>
     <input id="apiBase" type="url" placeholder="https://…workers.dev" spellcheck="false" />
 
-    <div class="row">
-      <input id="auto" type="checkbox" />
-      <label for="auto">Envoyer automatiquement dès que le rapport change</label>
-    </div>
     <div class="hint">
-      Décoché, l’envoi ne part qu’au clic sur l’icône de l’extension.
       Chaque envoi <strong>s’ajoute</strong> au rapport ; réimporter une même
-      page met simplement ses lignes à jour.
+      page met simplement ses lignes à jour, elle n’est pas dupliquée.
     </div>
 
     <h2>Recherche automatique</h2>
     <p class="lede">
-      L’extension remplit elle-même les critères de l’écran PMS230 et appuie sur
-      <strong>Search</strong>. Le rapport qui en sort part ensuite tout seul.
-      L’onglet Mingle doit rester ouvert et la session Infor valide.
+      Sans cette option, l’import part uniquement du panneau de l’extension.
+      Cochée, l’extension relance seule la recherche et l’import à intervalle
+      régulier — l’onglet Mingle doit alors rester ouvert et la session Infor
+      valide.
     </p>
 
     <div class="row">
       <input id="autoSearch" type="checkbox" />
       <label for="autoSearch">Relancer la recherche périodiquement</label>
     </div>
-
-    <label for="rowsPerPage">
-      Lignes par page
-      <div class="hint">
-        La grille démarre à <strong>5 lignes par page</strong> et le rapport est
-        lu sur ce qu’elle a réellement affiché : ce réglage décide de ce qui est
-        importé, pas du confort de lecture. Laissé vide, l’extension prend la
-        plus grande valeur du menu — <code>50</code> sur cet écran.
-        <code>0</code> ne touche à rien.
-      </div>
-    </label>
-    <input id="rowsPerPage" type="text" inputmode="numeric" placeholder="vide = maximum du menu" />
-
-    <label for="maxPages">
-      Pages à parcourir
-      <div class="hint">
-        Le menu de pagination plafonne à ce qu’Infor propose ; parcourir les
-        pages n’a pas de plafond. Après la recherche, l’extension envoie chaque
-        page puis passe à la suivante, et s’arrête d’elle-même à la dernière.
-        Chaque envoi <strong>s’ajoute</strong> et une ligne revue est mise à
-        jour, pas dupliquée — repasser sur une page est sans conséquence.
-        <code>1</code> s’en tient à la page affichée — elle est envoyée, mais
-        aucune page n’est tournée. Comptez une poignée de secondes
-        par page : l’extension attend que la grille ait réellement changé avant
-        de lire la suivante.
-      </div>
-    </label>
-    <input id="maxPages" type="text" inputmode="numeric" placeholder="20" />
 
     <label for="searchEveryMin">
       Toutes les
@@ -156,50 +111,19 @@
       fenêtre allant de deux semaines en arrière à deux semaines en avant, et
       restent justes tous les jours. Laisser un critère vide, c’est garder ce
       que l’écran affiche déjà.
+      <br /><br />
+      La pagination n’est pas réglable : l’extension prend le maximum de lignes
+      par page qu’Infor propose, puis parcourt les pages suivantes jusqu’à la
+      dernière.
     </div>
-
-    <details>
-      <summary>Sélecteurs manuels (si un champ n’est pas reconnu)</summary>
-      <div class="hint">
-        Un sélecteur CSS par ligne, au format <code>champ = sélecteur</code>.
-        Champs acceptés : <code>facility</code>, <code>workCenter</code>,
-        <code>dateFrom</code>, <code>dateTo</code>, <code>search</code>.
-        Vide, l’extension retrouve les champs par leur libellé — c’est le cas
-        normal, ne remplir ceci qu’en cas d’échec du test ci-dessous.
-      </div>
-      <textarea id="selectors" rows="5" spellcheck="false" placeholder="dateFrom = #from-date"></textarea>
-    </details>
 
     <div class="actions">
       <button id="save" class="primary" type="button">Enregistrer</button>
       <button id="test" type="button">Tester la connexion</button>
-      <button id="inspect" type="button">Vérifier les champs</button>
-      <button id="search" type="button">Lancer une recherche</button>
     </div>
 
     <h2>Dernière exécution</h2>
     <div id="lastRun" class="hint">Aucune exécution enregistrée.</div>
-
-    <h2>Diagnostic</h2>
-    <p class="lede">
-      À utiliser quand un contrôle n’est pas reconnu. Tout est en lecture
-      seule : rien n’est écrit dans l’écran Infor.
-    </p>
-
-    <div class="actions">
-      <button id="snapshot" type="button">Copier un relevé complet</button>
-      <button id="probeRun" type="button">Sonder</button>
-    </div>
-
-    <label for="probe">
-      Sélecteur CSS à sonder
-      <div class="hint">
-        Interroge la page Mingle et rend ce qui correspond : balise, id,
-        classes, valeur, visibilité et balisage. Le shadow DOM est traversé.
-        Par ex. <code>.pager-pagesize button</code> ou <code>select</code>.
-      </div>
-    </label>
-    <input id="probe" type="text" spellcheck="false" placeholder=".pager-toolbar button" />
 
     <div id="status" aria-live="polite"></div>
 

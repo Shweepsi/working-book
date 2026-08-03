@@ -40,9 +40,8 @@ Le favori reste utile là où les extensions sont interdites.
 ## Le panneau
 
 Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
-être demandé** : installation, centre de charge, la fenêtre de dates calculée
-pour aujourd'hui, les lignes par page et le plafond de pages. Plus la version
-chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
+être demandé** : installation, centre de charge et la fenêtre de dates calculée
+pour aujourd'hui. Plus la version chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
 dernière build.
 
 Deux boutons, selon ce qu'on veut :
@@ -99,9 +98,11 @@ comportement : envoyer la grille affichée, telle quelle.
 
 ## Utilisation
 
-Ouvrir l'Operator Mashup, cliquer l'icône, puis **Rapport auto**. Sans même
-cela, lancer la recherche à la main suffit : l'extension détecte que la grille
-a changé, attend qu'elle se stabilise, et envoie ce qui est affiché.
+Ouvrir l'Operator Mashup, cliquer l'icône, puis **Rapport auto**. C'est tout.
+
+Rien ne part jamais tout seul d'une grille qu'on regarde : consulter le rapport
+dans Mingle n'envoie rien. L'import est toujours demandé — par le bouton, ou
+par la recherche automatique si elle est activée.
 
 La pastille sur l'icône indique le résultat :
 
@@ -119,10 +120,6 @@ La pastille sur l'icône indique le résultat :
 Le panneau et le survol de l'icône donnent tous deux le détail de la dernière
 exécution.
 
-L'envoi automatique se coupe dans les options ; l'icône reste alors le seul
-déclencheur — et elle relance de toute façon l'exécution complète décrite
-plus haut.
-
 ## Recherche automatique
 
 L'extension peut aussi **remplir les critères et appuyer sur Search** elle-même,
@@ -137,8 +134,9 @@ Dans les options, cocher **Relancer la recherche périodiquement** et régler :
 | Work Center | `COATER` | centre de charge |
 | From Start Date | `-14` | début de fenêtre, **en jours depuis aujourd'hui** |
 | To Start Date | `14` | fin de fenêtre, idem |
-| Lignes par page | vide | le maximum du menu ; `0` ne touche à rien |
-| Pages à parcourir | `20` | `1` s'en tient à la page affichée |
+La pagination n'est pas réglable, et c'est délibéré : il n'y avait qu'une seule
+bonne réponse — le maximum proposé, puis toutes les pages — et l'exposer n'a
+jamais produit qu'une valeur oubliée qui cassait un import plus tard.
 
 La grille est réglée sur **5 lignes par page** par défaut, et le rapport est lu
 sur ce que la grille a réellement affiché. Cette pagination décide donc de ce
@@ -190,18 +188,11 @@ aperçoive. Un critère laissé vide n'est pas écrit : l'écran garde sa valeur
 L'onglet Mingle doit rester ouvert et la session Infor valide — l'extension
 pilote la page de l'opérateur, elle ne se connecte pas à Infor.
 
-### Vérifier que les champs sont reconnus
+### Comment les champs sont retrouvés
 
-Les champs sont retrouvés par **le libellé affiché** (« Facility », « Work
-Center », « From Start Date », « To Start Date », « Search »), jamais par un
-identifiant : Infor les génère et les change d'une version à l'autre, les
-libellés non.
-
-Avant de compter dessus, ouvrir l'écran PMS230 dans Mingle puis, dans les
-options, cliquer **Vérifier les champs**. La réponse liste ce qui a été reconnu
-et avec quelle valeur actuelle — sans rien écrire. `5/5 éléments reconnus`
-confirme que le pilotage tiendra. **Lancer une recherche** fait ensuite un essai
-complet.
+Par **le libellé affiché** (« Facility », « Work Center », « From Start Date »,
+« To Start Date », « Search »), jamais par un identifiant : Infor les génère et
+les change d'une version à l'autre, les libellés non.
 
 ### Ce que l'extension ne réécrit pas
 
@@ -251,42 +242,19 @@ faisait retomber Work Center sur le `div` décoratif, qui n'a aucune valeur.
 Les libellés `for` ne sont suivis que s'ils pointent dans la zone du critère :
 sur cet écran les deux libellés de date portent le même `for="endDate"`.
 
-Un contrôle introuvable est rapporté **manquant**, et un contrôle reconnu mais
-**vide** l'est aussi : dans les deux cas le balisage qui l'entoure est affiché
-tel quel dans les options, à copier pour faire corriger la reconnaissance. Le
-second cas est le plus traître — il s'annonce reconnu et écrit à côté.
-
-### Interroger l'écran directement
-
-Deux outils dans la section **Diagnostic** des options, tous deux en lecture
-seule — ils n'écrivent jamais dans l'écran Infor.
-
-**Sonder** prend un sélecteur CSS et rend ce qui correspond dans la page
-Mingle : balise, id, classes, rôle, valeur, visibilité, et le balisage. Le
-shadow DOM est traversé. C'est ce qu'il faut pour répondre à « qu'y a-t-il
-réellement à cet endroit » sans reconstruire l'extension.
-
-**Copier un relevé complet** met dans le presse-papiers, en un coup, l'état des
-quatre critères, du bouton Search, du sélecteur de taille de page, du bouton
-page suivante, du compteur de pages et des grilles présentes — visibles comme
-masquées.
-
-Ces deux outils existent parce que chaque inconnue rencontrée sur cet écran
-coûtait autrement un aller-retour complet : repackager, recharger, relancer,
-recopier.
-
-Si un champ manque, renseigner son sélecteur CSS dans **Sélecteurs manuels**,
-une ligne `champ = sélecteur` par champ (`facility`, `workCenter`, `dateFrom`,
-`dateTo`, `search`). Pour l'obtenir : clic droit sur le champ → Inspecter, puis
-clic droit sur la ligne surlignée → Copy → Copy selector.
+Un contrôle introuvable est rapporté **manquant** plutôt que remplacé par son
+voisin, et le récapitulatif nomme le critère fautif : « Recherche non lancée —
+workCenter vide ». C'est le seul diagnostic qui reste, et le seul dont on ait
+besoin une fois l'écran compris.
 
 ## Garde-fous
 
-- **Attente de stabilisation** : rien ne part avant 2 s sans modification de la
-  page, sinon une grille à moitié dessinée serait envoyée pendant que la
+- **Attente de stabilisation** : une page n'est lue qu'après 2 s sans
+  modification, sinon une grille à moitié dessinée serait envoyée pendant que la
   recherche se résout.
-- **Anti-répétition** : un contenu identique au dernier envoyé est ignoré, et
-  deux envois automatiques sont séparés d'au moins 5 s.
+- **Anti-répétition** : au cours d'un parcours, une page dont le contenu répète
+  la précédente arrête la boucle — c'est ainsi que la dernière page est
+  reconnue.
 - Le serveur refuse (`422`) un contenu dont aucune ligne ne se décode, **sans
   toucher** au rapport déjà stocké.
 - **Tout envoi s'ajoute** au rapport, jamais ne le remplace. Réenvoyer une même

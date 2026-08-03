@@ -6,7 +6,6 @@
 
 const DEFAULTS = {
   apiBase: '',
-  auto: true,
   // Search criteria. The dates are offsets in days from today, not fixed
   // dates: a hard-coded 20260718 would silently go stale the next morning and
   // the operator would never know the window had drifted.
@@ -16,19 +15,15 @@ const DEFAULTS = {
   workCenter: 'COATER',
   fromOffset: -14,
   toOffset: 14,
-  // The grid's pager defaults to 5 rows, and the report is read from what the
-  // grid rendered — so the pager decides how much gets imported, not just what
-  // is comfortable to look at. -1 takes the menu's largest offering, 0 leaves
-  // the grid on whatever it shows.
-  rowsPerPage: -1,
-  // Pages walked after a search. The page-size menu tops out at whatever Infor
-  // listed; paging is what actually lifts the ceiling, and re-sending a row
-  // updates it rather than duplicating it.
-  maxPages: 20,
-  // Escape hatch: a CSS selector per field, used instead of the label-based
-  // resolver when a screen defeats it.
-  selectors: {},
 };
+
+// Not settings. The grid's pager defaults to 5 rows and the report is read
+// from what the grid rendered, so the page size decides how much gets
+// imported — there is one right answer, and it is "as many as Infor offers".
+// Paging then lifts that ceiling. Exposing either as a knob only ever produced
+// a stale value that broke an import.
+const ROWS_PER_PAGE = -1;
+const MAX_PAGES = 20;
 
 const SEARCH_ALARM = 'wb-search';
 const INFOR_TABS = { url: 'https://*.inforcloudsuite.com/*' };
@@ -97,15 +92,13 @@ async function ingest(text) {
   return { ok: true, ...body };
 }
 
-// Asks every Infor tab, returns the first frame that answers. Used by all the
-// read-only queries the options page makes — nothing here writes.
+// Asks every Infor tab, returns the first frame that answers.
 async function ask(message) {
-  const cfg = await config();
   const tabs = await chrome.tabs.query(INFOR_TABS);
   for (const tab of tabs) {
     if (!tab.id) continue;
     try {
-      const reply = await chrome.tabs.sendMessage(tab.id, { selectors: cfg.selectors, ...message });
+      const reply = await chrome.tabs.sendMessage(tab.id, message);
       if (reply?.found) return reply;
     } catch {
       /* no frame in this tab answers to it */
@@ -118,22 +111,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.type === 'wb-ingest') {
     ingest(msg.text).then(respond);
     return true; // keep the channel open for the async reply
-  }
-  if (msg?.type === 'wb-run-search') {
-    runSearch().then(respond);
-    return true;
-  }
-  if (msg?.type === 'wb-inspect-form') {
-    ask({ type: 'wb-inspect' }).then(respond);
-    return true;
-  }
-  if (msg?.type === 'wb-probe-form') {
-    ask({ type: 'wb-probe', css: msg.css, opts: msg.opts }).then(respond);
-    return true;
-  }
-  if (msg?.type === 'wb-snapshot-form') {
-    ask({ type: 'wb-snapshot' }).then(respond);
-    return true;
   }
   if (msg?.type === 'wb-run-all') {
     runEverything(msg.send !== false).then(respond);
@@ -154,8 +131,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 });
 
 function criteriaOf(cfg) {
-  const { facility, workCenter, fromOffset, toOffset, maxPages, rowsPerPage } = cfg;
-  return { facility, workCenter, fromOffset, toOffset, maxPages, rowsPerPage };
+  const { facility, workCenter, fromOffset, toOffset } = cfg;
+  return { facility, workCenter, fromOffset, toOffset, maxPages: MAX_PAGES, rowsPerPage: ROWS_PER_PAGE };
 }
 
 // Broadcast to every Infor tab: the operator may have the mashup in a

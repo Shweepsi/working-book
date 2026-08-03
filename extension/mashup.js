@@ -4,8 +4,7 @@
 // Fields are found by the *label the operator reads* — "Facility", "Work
 // Center", "From Start Date", "To Start Date" — never by id or class. Infor
 // generates those (`m3h5_38_88c6fb67…`) and they turn over between releases,
-// while the labels are part of the screen's published contract. An explicit
-// selector map in the options overrides the heuristic when a screen defeats it.
+// while the labels are part of the screen's published contract.
 //
 // Nothing here talks to the network. It runs in the M3 grid's own frame, next
 // to content.js, and the two share one isolated world — hence the single
@@ -135,17 +134,11 @@
     return precedes(el, nextLabel);
   }
 
-  function overrideField(css) {
-    const el = css ? document.querySelector(css) : null;
-    return reachable(el) ? el : null;
-  }
-
   // Resolves all four criteria at once. One element can only ever be claimed by
   // one criterion: the collision above was invisible precisely because each
   // field was resolved on its own.
-  function resolveFields(selectors = {}) {
+  function resolveFields() {
     const found = { facility: null, workCenter: null, dateFrom: null, dateTo: null };
-    const regions = {};
     const claimed = new Set();
 
     const claim = (name, el) => {
@@ -153,15 +146,8 @@
       if (el) claimed.add(el);
     };
 
-    for (const name of Object.keys(found)) {
-      if (selectors[name]) claim(name, overrideField(selectors[name]));
-    }
-
     const ordered = labelsInOrder();
     ordered.forEach(({ name, el: label }, i) => {
-      // Recorded even when an override already claimed the field, so a bad
-      // manual selector can still be diagnosed against its own region.
-      regions[name] = label;
       if (found[name]) return;
       const next = ordered[i + 1]?.el ?? null;
 
@@ -194,14 +180,10 @@
       claim(name, direct ?? wrapped ?? combo ?? null);
     });
 
-    return { found, regions };
+    return found;
   }
 
-  function findSearchButton(override) {
-    if (override) {
-      const el = document.querySelector(override);
-      return reachable(el) ? el : null;
-    }
+  function findSearchButton() {
     const wanted = SEARCH_LABELS.map(key);
     const matches = Array.from(
       document.querySelectorAll('button, input[type=button], input[type=submit], a, span, div'),
@@ -341,11 +323,11 @@
   const CRITERIA = ['facility', 'workCenter', 'dateFrom', 'dateTo'];
   const PARTS = [...CRITERIA, 'search'];
 
-  function locate(selectors = {}) {
-    const { found, regions } = resolveFields(selectors);
-    found.search = findSearchButton(selectors.search);
+  function locate() {
+    const found = resolveFields();
+    found.search = findSearchButton();
     if (!PARTS.some((name) => found[name])) return null;
-    return { found, regions };
+    return found;
   }
 
   function describe(found) {
@@ -364,12 +346,12 @@
   // and each write is skipped when the field already holds the wanted value —
   // which is the common case, and the cheapest way to not disturb a form that
   // was already correct.
-  async function runSearch(criteria = {}, selectors = {}) {
-    if (!locate(selectors)) return null;
+  async function runSearch(criteria = {}) {
+    if (!locate()) return null;
 
     // Resolved afresh on every read. Angular rebuilds the dependent controls
     // as Facility changes, so an element captured once goes stale mid-run.
-    const fieldOf = (name) => locate(selectors)?.found[name] ?? null;
+    const fieldOf = (name) => locate()?.[name] ?? null;
 
     const filled = [];
     const kept = [];
@@ -401,7 +383,7 @@
 
     // Last look at the real form rather than at what we believe we wrote: a
     // cascade can still have blanked a field after the fact.
-    const found = locate(selectors)?.found ?? {};
+    const found = locate() ?? {};
     const empty = CRITERIA.filter((name) => found[name] && isEmpty(found[name]));
 
     const clicked = Boolean(found.search) && empty.length === 0;
@@ -738,151 +720,18 @@
     return true;
   }
 
-  // Dry run for the options page: reports what the resolver sees without
-  // touching a single field, so a broken selector map is diagnosed before it
-  // fires a search with wrong criteria.
-  function inspect(selectors = {}) {
-    const located = locate(selectors);
-    if (!located) return null;
-    const { found, regions } = located;
-
-    const preview = {};
-    for (const name of PARTS) {
-      const el = found[name];
-      if (!el) continue;
-      preview[name] = {
-        tag: el.tagName.toLowerCase(),
-        type: el.type || null,
-        role: el.getAttribute?.('role') || null,
-        id: el.id || null,
-        cls: norm(typeof el.className === 'string' ? el.className : '').slice(0, 60) || null,
-        value: el.value ?? norm(el.textContent).slice(0, 40),
-      };
-    }
-
-    // Markup goes back for a criterion that is missing, or resolved onto
-    // something that is not a form control at all — the case that hid the Work
-    // Center failure, where a decorative div reported itself as recognised.
-    //
-    // An empty *control* is not suspicious: a Soho select starts with nothing
-    // selected and a datepicker starts blank. Flagging those too buried the
-    // real signal under the markup of three healthy fields.
-    const markup = {};
-    for (const name of CRITERIA) {
-      const el = found[name];
-      if (el && el.matches(FIELD_SEL)) continue;
-      const label = regions[name];
-      if (!label) continue;
-      const around = label.parentElement?.parentElement ?? label.parentElement ?? label;
-      markup[name] = around.outerHTML.slice(0, 2000);
-    }
-
-    return { ...describe(found), preview, markup, url: location.href };
-  }
-
-  // ---------------------------------------------------------------------
-  // Diagnosis. Every unknown on this screen has cost a full round trip —
-  // repackage, reload, run, paste. These two read-only entry points collapse
-  // that into one: ask the frame directly, from the options page.
-  // ---------------------------------------------------------------------
-
-  // A short, readable path — enough to recognise an element and to write a
-  // manual selector from, without dumping the whole ancestor chain.
-  function pathOf(el, depth = 4) {
-    const parts = [];
-    for (let node = el, i = 0; node && node.tagName && i < depth; node = node.parentElement, i++) {
-      const tag = node.tagName.toLowerCase();
-      const id = node.id ? `#${node.id}` : '';
-      const cls = norm(typeof node.className === 'string' ? node.className : '')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((c) => `.${c}`)
-        .join('');
-      parts.unshift(`${tag}${id}${cls}`);
-      if (node.id) break;
-    }
-    return parts.join(' > ');
-  }
-
-  function describeNode(el, htmlChars) {
-    return {
-      tag: el.tagName?.toLowerCase() ?? null,
-      id: el.id || null,
-      cls: norm(typeof el.className === 'string' ? el.className : '').slice(0, 80) || null,
-      role: el.getAttribute?.('role') || null,
-      type: el.type || null,
-      value: el.value ?? null,
-      text: norm(el.textContent).slice(0, 80) || null,
-      visible: visible(el),
-      hidden: inHidden(el),
-      disabled: el.tagName ? disabled(el) : null,
-      path: pathOf(el),
-      html: htmlChars ? el.outerHTML.slice(0, htmlChars) : undefined,
-    };
-  }
-
-  // Runs a CSS selector in this frame and reports what it matched. Read-only
-  // on purpose: it exists to answer "what does this screen actually contain",
-  // not to change anything.
-  function probe(css, { limit = 8, html = 600 } = {}) {
-    let nodes;
-    try {
-      nodes = deepQueryAll(document, css);
-    } catch (err) {
-      return { error: `sélecteur invalide — ${err.message}` };
-    }
-    return {
-      url: location.href,
-      count: nodes.length,
-      matches: nodes.slice(0, limit).map((el) => describeNode(el, html)),
-    };
-  }
-
-  // One shot at everything worth knowing: the criteria, the pager, the grid.
-  // Whatever the next surprise is, it is probably already in here.
-  function snapshot() {
-    const located = locate({});
-    const pageInfo = Array.from(document.querySelectorAll('[class*=pager] label, [class*=pager-count]'))
-      .filter((el) => visible(el) && !inHidden(el))
-      .map((el) => norm(el.textContent))
-      .slice(0, 3);
-
-    const grids = Array.from(document.querySelectorAll('[class*=datagrid-container], [role=grid]')).map(
-      (el) => ({ ...describeNode(el, 0), rows: el.querySelectorAll('tbody tr').length }),
-    );
-
-    return {
-      url: location.href,
-      criteria: located ? inspect({}) : null,
-      pager: {
-        trigger: pagerTrigger() ? describeNode(pagerTrigger(), 300) : null,
-        select: pagerSelect() ? describeNode(pagerSelect(), 300) : null,
-        next: nextPageButton() ? describeNode(nextPageButton(), 300) : null,
-        pageInfo,
-        markup: pagerMarkup(),
-      },
-      grids,
-      report: { chars: (document.body?.innerText ?? '').length },
-    };
-  }
-
-  // runSearch is async, but the "only the frame holding the form answers" rule
-  // needs a synchronous verdict: a listener must decide whether to keep the
-  // message channel open before it can await anything.
-  const present = (selectors = {}) => locate(selectors) !== null;
-
-
   globalThis.wbMashup = {
     runSearch,
-    inspect,
-    present,
+    // runSearch is async, but the "only the frame holding the form answers"
+    // rule needs a synchronous verdict: a listener must decide whether to keep
+    // the message channel open before it can await anything. locate() gives it
+    // that, and returns the resolved controls themselves — which is what the
+    // resolver's tests check against.
+    locate,
     maximiseRows,
     nextPage,
     nextPageButton,
     firstPage,
     firstPageButton,
-    probe,
-    snapshot,
   };
 })();

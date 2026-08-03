@@ -8,8 +8,6 @@ const DEFAULTS = {
   workCenter: 'COATER',
   fromOffset: -14,
   toOffset: 14,
-  rowsPerPage: -1,
-  maxPages: 20,
   apiBase: '',
 };
 
@@ -49,7 +47,6 @@ async function showCriteria() {
   $('criteria').textContent = [
     `${cfg.facility} · ${cfg.workCenter}`,
     `Fenêtre ${windowOf(cfg.fromOffset, cfg.toOffset)}`,
-    `${cfg.rowsPerPage < 0 ? 'Maximum' : cfg.rowsPerPage} ligne(s) par page · ${cfg.maxPages} page(s) au plus`,
   ].join('\n');
 }
 
@@ -114,26 +111,9 @@ async function launch(send) {
   }
 }
 
-async function snapshot() {
-  say('Relevé en cours…');
-  const s = await chrome.runtime.sendMessage({ type: 'wb-snapshot-form' });
-  if (!s) {
-    say('Aucune page Mingle ne répond — ouvrez l’écran PMS230.', 'err');
-    return;
-  }
-  const text = JSON.stringify(s, null, 1);
-  try {
-    await navigator.clipboard.writeText(text);
-    say(`Relevé copié (${text.length} caractères).`, 'ok');
-  } catch {
-    say('Copie refusée — utilisez le bouton des réglages.', 'err');
-  }
-}
-
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 $('run').addEventListener('click', () => launch(true));
 $('search').addEventListener('click', () => launch(false));
-$('snapshot').addEventListener('click', snapshot);
 $('options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
 showCriteria();

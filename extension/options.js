@@ -1,46 +1,17 @@
+// Settings, set once and forgotten. Everything that decides *how* the import
+// runs — page size, how many pages, how the fields are found — is fixed in the
+// code: there was one right answer to each, and exposing them only ever left a
+// stale value behind to break a later run.
+
 const DEFAULTS = {
   apiBase: '',
-  auto: true,
   autoSearch: false,
   searchEveryMin: 15,
-  rowsPerPage: -1,
-  maxPages: 20,
   facility: '221',
   workCenter: 'COATER',
   fromOffset: -14,
   toOffset: 14,
-  selectors: {},
 };
-
-const SELECTOR_FIELDS = ['facility', 'workCenter', 'dateFrom', 'dateTo', 'search'];
-
-// The selector map is edited as `field = css`, one per line: a JSON textarea
-// would put an operator one missing brace away from a config that silently
-// resets to nothing.
-function parseSelectors(raw) {
-  const out = {};
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const at = trimmed.indexOf('=');
-    if (at < 0) throw new Error(`ligne sans « = » : ${trimmed}`);
-    const field = trimmed.slice(0, at).trim();
-    const css = trimmed.slice(at + 1).trim();
-    if (!SELECTOR_FIELDS.includes(field)) throw new Error(`champ inconnu : ${field}`);
-    if (!css) continue;
-    // Fail here rather than in the frame, where a bad selector would look like
-    // a field that simply wasn't found.
-    document.querySelector(css);
-    out[field] = css;
-  }
-  return out;
-}
-
-function formatSelectors(map) {
-  return Object.entries(map ?? {})
-    .map(([field, css]) => `${field} = ${css}`)
-    .join('\n');
-}
 
 function intOr(value, fallback) {
   const n = Number(String(value).trim());
@@ -73,43 +44,28 @@ async function ensurePermission(apiBase) {
 async function load() {
   const cfg = await chrome.storage.sync.get(DEFAULTS);
   $('apiBase').value = cfg.apiBase;
-  $('auto').checked = cfg.auto !== false;
   $('autoSearch').checked = cfg.autoSearch === true;
-  $('rowsPerPage').value = cfg.rowsPerPage < 0 ? '' : cfg.rowsPerPage;
-  $('maxPages').value = cfg.maxPages;
   $('searchEveryMin').value = cfg.searchEveryMin;
   $('facility').value = cfg.facility;
   $('workCenter').value = cfg.workCenter;
   $('fromOffset').value = cfg.fromOffset;
   $('toOffset').value = cfg.toOffset;
-  $('selectors').value = formatSelectors(cfg.selectors);
 }
 
 function readForm() {
   return {
     apiBase: $('apiBase').value.trim().replace(/\/+$/, ''),
-    auto: $('auto').checked,
     autoSearch: $('autoSearch').checked,
-    // -1 means "unset": take the menu's largest. 0 means "leave the grid alone".
-    rowsPerPage: $('rowsPerPage').value.trim() === '' ? -1 : Math.max(0, intOr($('rowsPerPage').value, -1)),
-    maxPages: Math.max(1, intOr($('maxPages').value, 20)),
     searchEveryMin: Math.max(1, intOr($('searchEveryMin').value, 15)),
     facility: $('facility').value.trim(),
     workCenter: $('workCenter').value.trim(),
     fromOffset: intOr($('fromOffset').value, -14),
     toOffset: intOr($('toOffset').value, 14),
-    selectors: parseSelectors($('selectors').value),
   };
 }
 
 async function save() {
-  let cfg;
-  try {
-    cfg = readForm();
-  } catch (err) {
-    say(`Sélecteurs manuels — ${err.message}`, 'err');
-    return null;
-  }
+  const cfg = readForm();
   if (!cfg.apiBase) {
     say('Renseignez l’adresse du serveur.', 'err');
     return null;
@@ -157,191 +113,8 @@ async function test() {
   }
 }
 
-const FIELD_LABELS = {
-  facility: 'Facility',
-  workCenter: 'Work Center',
-  dateFrom: 'From Start Date',
-  dateTo: 'To Start Date',
-  search: 'bouton Search',
-};
-
-const named = (keys) => keys.map((k) => FIELD_LABELS[k] ?? k).join(', ');
-
-// The whole point of this button: it says which criteria the extension can
-// actually reach, on the real screen, before any of them is written to.
-async function inspect() {
-  if (!(await save())) return;
-  say('Lecture de l’écran…');
-  const found = await chrome.runtime.sendMessage({ type: 'wb-inspect-form' });
-  if (!found) {
-    say(
-      'Aucun formulaire de recherche trouvé.\n' +
-        'Ouvrez l’onglet Mingle sur l’écran PMS230 et réessayez.',
-      'err',
-    );
-    return;
-  }
-  const lines = found.resolved.map((k) => {
-    const p = found.preview[k];
-    const kind = p.role ? `${p.tag}[role=${p.role}]` : p.tag;
-    return `  ✓ ${FIELD_LABELS[k]} — ${kind} = « ${p.value} »`;
-  });
-  for (const k of found.missing) lines.push(`  ✗ ${FIELD_LABELS[k]} — non trouvé`);
-
-  // The markup around an unidentified control, shown verbatim so it can be
-  // copied straight out. Chasing it in the inspector is the step this replaces.
-  const markup = Object.entries(found.markup ?? {});
-  if (markup.length) {
-    lines.push('', 'Balisage autour du champ non trouvé — copiez-le pour diagnostic :');
-    for (const [k, html] of markup) lines.push(`--- ${FIELD_LABELS[k]} ---`, html);
-  }
-
-  say(
-    `${found.resolved.length}/5 éléments reconnus :\n${lines.join('\n')}`,
-    found.missing.length ? 'err' : 'ok',
-  );
-}
-
-async function searchNow() {
-  if (!(await save())) return;
-  say('Recherche en cours…');
-  const res = await chrome.runtime.sendMessage({ type: 'wb-run-search' });
-  if (!res) {
-    say('Aucun formulaire de recherche trouvé — ouvrez l’écran PMS230 dans Mingle.', 'err');
-    return;
-  }
-  if (res.clicked) {
-    const written = res.filled.length ? `${named(res.filled)} rempli(s)` : 'aucun champ à changer';
-    const rows = res.rows?.rows
-      ? `\nLignes par page : ${res.rows.rows}` +
-        (res.rows.reason === 'already' ? ' (déjà réglé)' : '') +
-        (res.rows.via === 'menu' ? ' — choisi dans le menu' : '') +
-        (res.rows.injected && res.rows.changed ? ' — valeur ajoutée au contrôle' : '') +
-        '.' +
-        (res.rows.reason === 'capped'
-          ? `\n${res.rows.wanted} n’est pas au menu ; le maximum proposé est ${res.rows.rows}.` +
-            `\nValeurs du menu : ${res.rows.options.join(', ')}`
-          : '') +
-        // A value the screen refused is worth saying out loud: the import is
-        // then silently capped at whatever the grid kept.
-        (res.rows.reason === 'rejected'
-          ? `\n⚠ ${res.rows.wanted} refusé par l’écran, resté à ${res.rows.rows}.` +
-            `\nValeurs proposées : ${res.rows.options.join(', ') || '(aucune)'}` +
-            '\nLe parcours des pages ci-dessous reste la voie sans plafond.'
-          : '') +
-        (res.rows.rows < 10 && res.rows.reason !== 'rejected'
-          ? `\nSeules valeurs proposées : ${res.rows.options.join(', ') || '(aucune)'}` +
-            `\nContrôle : select${res.rows.id ? `#${res.rows.id}` : ''}${res.rows.cls ? `.${res.rows.cls.split(' ').join('.')}` : ''}`
-          : '') +
-        // An injected value means the menu did not offer it — on a screen that
-        // lists 5 to 50, that points at the wrong control rather than a win.
-        (res.rows.markup
-          ? '\n\n⚠ Valeur absente du menu : ce n’est probablement pas le bon' +
-            ' contrôle.\nBalisage de la pagination — copiez-le pour diagnostic :\n' +
-            res.rows.markup
-          : '')
-      : res.rows?.reason === 'no_pager'
-        ? '\nPagination introuvable — la grille reste sur son réglage.' +
-          (res.rows.markup
-            ? `\n\nBalisage de la pagination — copiez-le pour diagnostic :\n${res.rows.markup}`
-            : '\nAucun « Records per page » à l’écran : la grille n’était peut-être pas encore chargée.')
-        : '';
-    const swept = res.swept
-      ? `\n${res.swept.pages} page(s) parcourue(s), ${res.swept.imported} ligne(s) importée(s).` +
-        (res.swept.failures?.length
-          ? `\n⚠ ${res.swept.failures.length} page(s) refusée(s) par le serveur.`
-          : '') +
-        (res.rewound ? '\nGrille remise en page 1.' : '')
-      : // The run reaches here only when Search was never pressed, or from a
-        // content.js too old to know how to walk the pages at all.
-        `\nAucune page envoyée (plafond ${res.maxPages ?? '?'}).` +
-        (res.maxPages === undefined
-          ? '\n⚠ content.js semble ne pas être à jour — remplacez tout le dossier.'
-          : '');
-    say(`Recherche lancée — ${written}.${rows}${swept}`, 'ok');
-    return;
-  }
-  // Deliberately not clicked: saying which criterion is blank is the whole
-  // difference between "ça marche pas" and a fix that takes ten seconds.
-  const why = res.empty.length
-    ? `resté(s) vide(s) : ${named(res.empty)}`
-    : `non renseigné(s) : ${named(res.failed)}`;
-  say(
-    `Recherche non lancée — ${why}.\n` +
-      'Choisissez la valeur à la main dans Mingle une fois : si elle tient, ' +
-      'l’extension la gardera au lieu de la réécrire.',
-    'err',
-  );
-}
-
-// Diagnosis. Both of these only read the page — the point is to answer "what
-// is actually on this screen" without another round of repackage-and-reload.
-function describeMatch(m, i) {
-  const bits = [
-    `${i + 1}. ${m.tag}${m.id ? `#${m.id}` : ''}${m.cls ? ` .${m.cls.split(' ').join('.')}` : ''}`,
-    m.role ? `role=${m.role}` : null,
-    m.type ? `type=${m.type}` : null,
-    m.value != null ? `valeur=« ${m.value} »` : null,
-    m.text ? `texte=« ${m.text} »` : null,
-    m.visible ? null : 'INVISIBLE',
-    m.hidden ? 'DANS UN BLOC MASQUÉ' : null,
-    m.disabled ? 'DÉSACTIVÉ' : null,
-  ].filter(Boolean);
-  return `${bits.join('  ')}\n   chemin : ${m.path}${m.html ? `\n   ${m.html}` : ''}`;
-}
-
-async function probe() {
-  const css = $('probe').value.trim();
-  if (!css) {
-    say('Renseignez un sélecteur CSS à sonder.', 'err');
-    return;
-  }
-  say('Interrogation de la page…');
-  const res = await chrome.runtime.sendMessage({ type: 'wb-probe-form', css });
-  if (!res) {
-    say('Aucune page Mingle ne répond — ouvrez l’écran PMS230.', 'err');
-    return;
-  }
-  if (res.error) {
-    say(res.error, 'err');
-    return;
-  }
-  if (!res.count) {
-    say(`Aucune correspondance pour « ${css} ».\nCadre : ${res.url}`, 'err');
-    return;
-  }
-  say(
-    `${res.count} correspondance(s) pour « ${css} » :\n\n` +
-      res.matches.map(describeMatch).join('\n\n'),
-    'ok',
-  );
-}
-
-async function snapshot() {
-  say('Relevé en cours…');
-  const s = await chrome.runtime.sendMessage({ type: 'wb-snapshot-form' });
-  if (!s) {
-    say('Aucune page Mingle ne répond — ouvrez l’écran PMS230.', 'err');
-    return;
-  }
-  const text = JSON.stringify(s, null, 1);
-  try {
-    await navigator.clipboard.writeText(text);
-    say(
-      `Relevé copié dans le presse-papiers (${text.length} caractères).\n` +
-        'Collez-le tel quel pour diagnostic.\n\n' +
-        text.slice(0, 1200) +
-        (text.length > 1200 ? '\n…' : ''),
-      'ok',
-    );
-  } catch {
-    // Clipboard permission can be refused; showing it still gets it out.
-    say(`Relevé (copiez-le à la main) :\n\n${text}`, 'ok');
-  }
-}
-
-// The toolbar click runs everything and walks away; the account of it has to
-// survive somewhere readable, not only in a badge that fades.
+// A run walks away and finishes on its own; the account of it has to survive
+// somewhere readable, not only in a badge that fades.
 async function showLastRun() {
   const { lastRun } = await chrome.storage.local.get({ lastRun: null });
   if (!lastRun) return;
@@ -353,11 +126,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && 'lastRun' in changes) showLastRun();
 });
 
-$('probeRun').addEventListener('click', probe);
-$('snapshot').addEventListener('click', snapshot);
 $('save').addEventListener('click', save);
 $('test').addEventListener('click', test);
-$('inspect').addEventListener('click', inspect);
-$('search').addEventListener('click', searchNow);
 load();
 showLastRun();
