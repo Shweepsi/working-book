@@ -112,10 +112,13 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
               </li>
             </ol>
 
-            <details className="sch-portal-fallback">
-              <summary>
-                Sans accès au partage : le favori (copier-coller)
-              </summary>
+            <hr className="sch-portal-rule" />
+
+            <h4 className="sch-portal-way">Le favori</h4>
+            <p className="sch-portal-lead">
+              Sans accès au partage. Il envoie le rapport affiché, mais la
+              sélection reste à faire à la main.
+            </p>
             <ol className="sch-portal-steps">
               <li>
                 Affichez la barre de favoris du navigateur
@@ -145,7 +148,6 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
                 <kbd>C</kbd>, puis cliquez le favori et validez.
               </li>
             </ol>
-            </details>
           </>
         )}
 
