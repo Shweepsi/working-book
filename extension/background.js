@@ -196,8 +196,14 @@ async function record(reply) {
   return publish(summarise(reply));
 }
 
+// The alarm's entry point. A periodic wake-up that finds no PMS230 open is the
+// normal case, not an incident — the operator simply has the screen closed.
+// Recording it would overwrite the account of the last successful import with
+// "Aucun écran PMS230 ouvert" within one period, so a silent wake-up leaves the
+// last real run standing. The button still says it: there, someone asked.
 async function runSearch() {
   const reply = await driveSearch();
+  if (!reply) return null;
   await record(reply);
   return reply;
 }
