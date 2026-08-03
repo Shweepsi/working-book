@@ -45,16 +45,32 @@ pour aujourd'hui, les lignes par page et le plafond de pages. Plus la version
 chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
 dernière build.
 
-Le bouton **Lancer l'import** enchaîne tout. Pendant l'exécution le bouton se
-verrouille et le panneau compte les pages ; à la fin il affiche le
-récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend la
-progression là où elle en est.
+Deux boutons, selon ce qu'on veut :
+
+- **Rapport auto** enchaîne tout, jusqu'à l'envoi ;
+- **Lancer la recherche** s'arrête après avoir préparé la grille — critères
+  remplis, Search pressé, pagination élargie — et **n'envoie rien**.
+
+Le second n'est pas une exécution amputée : le chemin est le même, seul l'envoi
+est retenu. C'est aussi le seul des deux qui reste disponible sans adresse de
+serveur configurée, puisqu'il ne touche que l'écran Mingle.
+
+Une précaution y est attachée : préparer une grille sans l'envoyer devrait être
+défait par l'envoi automatique, qui verrait la grille changer une seconde plus
+tard et posterait ce qu'on venait justement de retenir. L'exécution enregistre
+donc l'empreinte du rapport **sans l'envoyer**, ce qui le fait passer pour déjà
+vu.
+
+Pendant l'exécution les deux boutons se verrouillent, seul celui qui a été
+pressé change de libellé, et le panneau compte les pages ; à la fin il affiche
+le récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
+la progression là où elle en est.
 
 Déclarer ce panneau a un prix, assumé : le navigateur cesse alors d'émettre
 l'événement de clic sur l'icône, donc le clic ouvre le panneau au lieu de
 lancer directement. Le lancement passe par le bouton.
 
-L'enchaînement, lui, est inchangé :
+L'enchaînement complet, lui, est inchangé :
 
 1. **la recherche** — les quatre critères sont remplis puis Search est pressé ;
 2. **l'agrandissement de la page** — la pagination est poussée à son maximum,
@@ -83,7 +99,7 @@ comportement : envoyer la grille affichée, telle quelle.
 
 ## Utilisation
 
-Ouvrir l'Operator Mashup, cliquer l'icône, puis **Lancer l'import**. Sans même
+Ouvrir l'Operator Mashup, cliquer l'icône, puis **Rapport auto**. Sans même
 cela, lancer la recherche à la main suffit : l'extension détecte que la grille
 a changé, attend qu'elle se stabilise, et envoie ce qui est affiché.
 

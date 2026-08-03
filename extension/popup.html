@@ -34,6 +34,7 @@
         cursor: pointer;
       }
       button.primary { background: #2e7d32; border-color: #2e7d32; color: #fff; font-weight: 600; }
+      button.second { margin-top: 6px; }
       button[disabled] { opacity: 0.55; cursor: default; }
       .links { display: flex; gap: 8px; margin-top: 8px; }
       .links button { font-size: 12px; padding: 6px 10px; }
@@ -55,7 +56,8 @@
 
     <div class="criteria" id="criteria">Chargement des réglages…</div>
 
-    <button id="run" class="primary" type="button">Lancer l’import</button>
+    <button id="run" class="primary" type="button">Rapport auto</button>
+    <button id="search" class="second" type="button">Lancer la recherche</button>
     <div class="links">
       <button id="options" type="button">Réglages</button>
       <button id="snapshot" type="button">Copier un relevé</button>

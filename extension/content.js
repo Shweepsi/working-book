@@ -159,6 +159,16 @@ async function sweep(maxPages) {
   return { pages, rows, imported, failures };
 }
 
+// A search asked for on its own must not be posted by the automatic path a
+// moment later. Recording the hash without sending is what makes the observer
+// read the freshly drawn grid as already seen — the one place where "seen" and
+// "sent" deliberately come apart.
+async function hold() {
+  await settled();
+  const report = readReport();
+  if (report) lastHash = hash(report.text);
+}
+
 // Puts the grid back on page one and waits for it, so the screen is left as it
 // was found and the next run does not start midway through the report.
 async function backToFirstPage() {
@@ -259,6 +269,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     }
 
     const criteria = msg.criteria ?? {};
+    // Two ways to ask: prepare the grid and stop there, or prepare it and
+    // import what it holds. Everything up to the click is identical, which is
+    // why this is a flag rather than a second path.
+    const wantsSend = msg.send !== false;
     driving = true;
     mashup
       .runSearch(criteria, selectors)
@@ -268,12 +282,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
         // pages", not "send nothing", and since the automatic path is held
         // back for the whole run, skipping this would leave the report unsent.
         const maxPages = Math.max(1, Number(criteria.maxPages) || 1);
-        const swept = result?.clicked ? await sweep(maxPages) : null;
+        const swept = wantsSend && result?.clicked ? await sweep(maxPages) : null;
+        if (!wantsSend) await hold();
 
         // A single page never left page one, so there is nothing to undo.
         const rewound = swept && swept.pages > 1 ? await backToFirstPage() : false;
 
-        respond({ found: true, ...result, swept, rewound, maxPages });
+        respond({ found: true, ...result, swept, rewound, maxPages, sent: wantsSend });
       })
       .catch((err) => respond({ found: true, error: String(err) }))
       .finally(() => {

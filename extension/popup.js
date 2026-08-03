@@ -38,9 +38,12 @@ function windowOf(fromOffset, toOffset) {
 
 async function showCriteria() {
   const cfg = await chrome.storage.sync.get(DEFAULTS);
-  if (!cfg.apiBase) {
+  // A search touches nothing but the Mingle screen, so it stays available even
+  // with no server configured; only the import has anywhere to send to.
+  configured = Boolean(cfg.apiBase);
+  running(false);
+  if (!configured) {
     $('criteria').textContent = 'Adresse du serveur non renseignée — ouvrez les réglages.';
-    $('run').disabled = true;
     return;
   }
   $('criteria').textContent = [
@@ -58,9 +61,19 @@ async function showLastRun() {
   $('last').className = lastRun.kind === 'ok' ? 'ok' : lastRun.kind === 'err' ? 'err' : '';
 }
 
-function running(on) {
-  $('run').disabled = on;
-  $('run').textContent = on ? 'Import en cours…' : 'Lancer l’import';
+// Two ways to press: prepare the grid, or prepare it and import it. Both walk
+// the same path in the content script — the difference is only whether the
+// pages are sent — so the panel treats them as one button in two moods.
+const LABELS = { run: 'Rapport auto', search: 'Lancer la recherche' };
+const BUSY = { run: 'Import en cours…', search: 'Recherche en cours…' };
+
+let configured = true;
+
+function running(on, which) {
+  for (const id of Object.keys(LABELS)) {
+    $(id).disabled = on || (id === 'run' && !configured);
+    $(id).textContent = on && id === which ? BUSY[id] : LABELS[id];
+  }
 }
 
 // A run outlives the popup: closing it does not stop anything, and reopening
@@ -68,13 +81,13 @@ function running(on) {
 async function restoreProgress() {
   const { runState } = await chrome.storage.local.get({ runState: null });
   if (!runState?.running) return;
-  running(true);
+  running(true, 'run');
   say(`Page ${runState.page} — ${runState.imported} ligne(s) importée(s).`);
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type !== 'wb-progress') return false;
-  running(true);
+  running(true, 'run');
   say(`Page ${msg.page} — ${msg.imported} ligne(s) importée(s).`);
   return false;
 });
@@ -87,11 +100,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-async function run() {
-  running(true);
-  say('Recherche en cours…');
+async function launch(send) {
+  running(true, send ? 'run' : 'search');
+  say(send ? 'Recherche en cours…' : 'Remplissage des critères…');
   try {
-    const summary = await chrome.runtime.sendMessage({ type: 'wb-run-all' });
+    const summary = await chrome.runtime.sendMessage({ type: 'wb-run-all', send });
     say(summary?.text ?? 'Terminé.', summary?.kind === 'ok' ? 'ok' : 'err');
   } catch (err) {
     say(`Interrompu : ${err}`, 'err');
@@ -118,7 +131,8 @@ async function snapshot() {
 }
 
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
-$('run').addEventListener('click', run);
+$('run').addEventListener('click', () => launch(true));
+$('search').addEventListener('click', () => launch(false));
 $('snapshot').addEventListener('click', snapshot);
 $('options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 

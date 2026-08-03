@@ -136,7 +136,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     return true;
   }
   if (msg?.type === 'wb-run-all') {
-    runEverything().then(respond);
+    runEverything(msg.send !== false).then(respond);
     return true;
   }
   if (msg?.type === 'wb-progress') {
@@ -163,10 +163,11 @@ function criteriaOf(cfg) {
 // refreshes without anyone looking at it.
 //
 // One call covers the whole run: fill the criteria, press Search, widen the
-// page size, send every page, then put the grid back on page one.
-async function driveSearch() {
+// page size, send every page, then put the grid back on page one. With `send`
+// false it stops after widening — the grid is prepared and left alone.
+async function driveSearch(send = true) {
   const cfg = await config();
-  return ask({ type: 'wb-search', criteria: criteriaOf(cfg) });
+  return ask({ type: 'wb-search', criteria: criteriaOf(cfg), send });
 }
 
 // Human-readable account of a run, for the toolbar tooltip and the options
@@ -189,11 +190,14 @@ function summarise(reply) {
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
   }
   if (reply.rewound) lines.push('Grille remise en page 1.');
+  // Said outright rather than left to be inferred from a missing line: a
+  // prepared grid and an imported one look identical on screen.
+  if (reply.sent === false) lines.push('Grille prête — rien n’a été envoyé.');
 
   const imported = swept?.imported ?? 0;
   const failed = swept?.failures?.length ?? 0;
   return {
-    badge: String(imported || '✓'),
+    badge: reply.sent === false ? '✓' : String(imported || '✓'),
     kind: failed ? 'warn' : 'ok',
     text: lines.join('\n'),
   };
@@ -245,13 +249,16 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // The whole run, from the popup's button. Declaring a popup means
 // chrome.action.onClicked never fires, so this is the only entry point left —
 // and the popup outlives nothing: closing it does not stop the walk.
-async function runEverything() {
+async function runEverything(send = true) {
   badge('…', 'ok', { ttl: 600000 });
-  const reply = await driveSearch();
+  const reply = await driveSearch(send);
   if (reply) return record(reply);
 
   // No search form anywhere: fall back to sending whatever grid is on screen.
-  // A report brought up by hand is still worth importing.
+  // A report brought up by hand is still worth importing. Not offered when the
+  // ask was to prepare a search — there is no search to prepare, and sending
+  // would be the opposite of what was pressed.
+  if (!send) return record(null);
   const scraped = await ask({ type: 'wb-scrape' });
   if (scraped?.found) {
     return publish({
