@@ -6,9 +6,9 @@
 const DEFAULTS = {
   facility: '221',
   workCenter: 'COATER',
-  fromOffset: -14,
+  fromOffset: -7,
   toOffset: 14,
-  apiBase: '',
+  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -41,7 +41,9 @@ async function showCriteria() {
   configured = Boolean(cfg.apiBase);
   running(false);
   if (!configured) {
-    $('criteria').textContent = 'Adresse du serveur non renseignée — ouvrez les réglages.';
+    // No button leads here any more, so the way back has to be spelled out.
+    $('criteria').textContent =
+      'Adresse du serveur non renseignée.\nClic droit sur l’icône → Options.';
     return;
   }
   $('criteria').textContent = [
@@ -114,7 +116,6 @@ async function launch(send) {
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 $('run').addEventListener('click', () => launch(true));
 $('search').addEventListener('click', () => launch(false));
-$('options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
 showCriteria();
 showLastRun();

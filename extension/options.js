@@ -4,12 +4,12 @@
 // stale value behind to break a later run.
 
 const DEFAULTS = {
-  apiBase: '',
+  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
   autoSearch: false,
   searchEveryMin: 15,
   facility: '221',
   workCenter: 'COATER',
-  fromOffset: -14,
+  fromOffset: -7,
   toOffset: 14,
 };
 
@@ -30,11 +30,11 @@ function originPattern(apiBase) {
   return `${new URL(apiBase).origin}/*`;
 }
 
-// The Worker's address is chosen by the operator, so it can't be baked into
-// `host_permissions`. It is requested here instead, from a real click — which
-// is the only context Chrome accepts a permission request from. Without it the
-// background fetch is subject to CORS and the extension origin isn't on the
-// Worker's allow-list.
+// The default address ships granted in `host_permissions`, so the common case
+// needs nothing. Any *other* address the operator types does need asking, and
+// a real click is the only context Chrome accepts a permission request from.
+// Without it the background fetch is subject to CORS and the extension origin
+// isn't on the Worker's allow-list.
 async function ensurePermission(apiBase) {
   const origins = [originPattern(apiBase)];
   if (await chrome.permissions.contains({ origins })) return true;
@@ -59,7 +59,7 @@ function readForm() {
     searchEveryMin: Math.max(1, intOr($('searchEveryMin').value, 15)),
     facility: $('facility').value.trim(),
     workCenter: $('workCenter').value.trim(),
-    fromOffset: intOr($('fromOffset').value, -14),
+    fromOffset: intOr($('fromOffset').value, -7),
     toOffset: intOr($('toOffset').value, 14),
   };
 }

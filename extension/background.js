@@ -5,7 +5,7 @@
 // own Content-Security-Policy has no say over an extension background fetch.
 
 const DEFAULTS = {
-  apiBase: '',
+  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
   // Search criteria. The dates are offsets in days from today, not fixed
   // dates: a hard-coded 20260718 would silently go stale the next morning and
   // the operator would never know the window had drifted.
@@ -13,7 +13,7 @@ const DEFAULTS = {
   searchEveryMin: 15,
   facility: '221',
   workCenter: 'COATER',
-  fromOffset: -14,
+  fromOffset: -7,
   toOffset: 14,
 };
 

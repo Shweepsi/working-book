@@ -30,12 +30,13 @@ Le favori reste utile là où les extensions sont interdites.
 2. Dans Edge : `edge://extensions` — dans Chrome : `chrome://extensions`.
 3. Activer **Mode développeur**.
 4. **Charger l'extension non empaquetée**, puis désigner le dossier `extension/`.
-5. Ouvrir les **options** de l'extension et renseigner l'**adresse du serveur** :
-   l'URL du Worker, la même que `VITE_API_URL`.
-6. Cliquer **Enregistrer** — le navigateur demande l'autorisation d'accéder au
-   serveur, il faut l'accepter — puis **Tester la connexion**.
+5. C'est prêt : l'adresse du serveur, les critères et l'autorisation d'accès
+   sont livrés avec l'extension.
 
-`Connexion correcte` confirme que tout est en place.
+Pour les changer — ou simplement vérifier — clic droit sur l'icône →
+**Options**, puis **Tester la connexion**. `Connexion correcte` confirme que
+tout est en place. Une adresse *différente* de celle livrée demande une
+autorisation au navigateur, à accepter au moment d'enregistrer.
 
 ## Le panneau
 
@@ -118,7 +119,8 @@ La pastille sur l'icône indique le résultat :
 | orange `crit.` | un critère est resté vide — rien n'a été lancé |
 
 Le panneau et le survol de l'icône donnent tous deux le détail de la dernière
-exécution.
+exécution. Les réglages ne sont pas dans le panneau : clic droit sur l'icône →
+**Options**. On y va une fois, ou jamais.
 
 ## Recherche automatique
 
@@ -132,7 +134,7 @@ Dans les options, cocher **Relancer la recherche périodiquement** et régler :
 | Toutes les | `15` | minutes entre deux recherches |
 | Facility | `221` | installation |
 | Work Center | `COATER` | centre de charge |
-| From Start Date | `-14` | début de fenêtre, **en jours depuis aujourd'hui** |
+| From Start Date | `-7` | début de fenêtre, **en jours depuis aujourd'hui** |
 | To Start Date | `14` | fin de fenêtre, idem |
 La pagination n'est pas réglable, et c'est délibéré : il n'y avait qu'une seule
 bonne réponse — le maximum proposé, puis toutes les pages — et l'exposer n'a
@@ -180,8 +182,8 @@ clic ne change plus rien. Chaque envoi s'ajoute et une ligne revue est mise à
 jour, jamais dupliquée, donc un recouvrement est sans conséquence. Réglé sur 20
 pages, `1` pour désactiver.
 
-Les dates sont des **décalages**, pas des dates fixes : `-14` / `14` demandent
-en permanence les deux semaines écoulées et les deux à venir. Une date en dur
+Les dates sont des **décalages**, pas des dates fixes : `-7` / `14` demandent
+en permanence la semaine écoulée et les deux à venir. Une date en dur
 serait juste le premier jour et fausse tous les suivants, sans que personne s'en
 aperçoive. Un critère laissé vide n'est pas écrit : l'écran garde sa valeur.
 
