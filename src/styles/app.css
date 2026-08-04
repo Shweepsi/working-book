@@ -4790,5 +4790,14 @@ button.as-row:focus-visible {
     z-index: auto;
     box-shadow: none;
   }
+  /* .sch-cell.is-pinned above loses the specificity race to the on-screen
+     scroll-divider shadow (.sch-table.is-scrolled-x .sch-cell.is-pinned-last,
+     four classes vs two) whenever the table was scrolled horizontally before
+     printing, so it survives onto paper as a smear. Match its specificity to
+     actually win. */
+  .sch-table.is-scrolled-x .sch-cell.is-pinned-last {
+    box-shadow: none;
+    clip-path: none;
+  }
   .sch-packs-short { font-weight: 700; text-decoration: underline; }
 }
