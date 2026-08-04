@@ -4585,7 +4585,13 @@ button.as-row:focus-visible {
 :root.is-print-preview .sch-cell { vertical-align: middle; }
 :root.is-print-preview .sch-row.sch-head,
 :root.is-print-preview .sch-row.sch-total { position: static; box-shadow: none; }
-:root.is-print-preview .sch-row.sch-total { border-top: 0; }
+/* Hairlines closing the two bands that frame the data: under the column
+   header, above the total. --line-soft, not --line-faint — the faint tone is
+   the column hairline and would vanish against the (now heavier) band tint.
+   Both are stated explicitly because `.sch-row:last-child` zeroes the base
+   border, and the header row is the only child of its <thead>. */
+:root.is-print-preview .sch-row.sch-head { border-bottom: 0.5pt solid var(--line-soft); }
+:root.is-print-preview .sch-row.sch-total { border-top: 0.5pt solid var(--line-soft); }
 :root.is-print-preview .sch-row.sch-head { font-size: 7.5pt !important; }
 :root.is-print-preview .sch-row.sch-total { font-size: 9pt !important; }
 :root.is-print-preview .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
@@ -4736,7 +4742,13 @@ button.as-row:focus-visible {
   .sch-cell { vertical-align: middle; }
   .sch-row.sch-head,
   .sch-row.sch-total { position: static; box-shadow: none; }
-  .sch-row.sch-total { border-top: 0; }
+  /* Hairlines closing the two bands that frame the data: under the column
+     header, above the total. --line-soft, not --line-faint — the faint tone is
+     the column hairline and would vanish against the (now heavier) band tint.
+     Both are stated explicitly because `.sch-row:last-child` zeroes the base
+     border, and the header row is the only child of its <thead>. */
+  .sch-row.sch-head { border-bottom: 0.5pt solid var(--line-soft); }
+  .sch-row.sch-total { border-top: 0.5pt solid var(--line-soft); }
   .sch-row.sch-head { font-size: 7.5pt !important; }
   .sch-row.sch-total { font-size: 9pt !important; }
   .sch-row.sch-group-break {
