@@ -147,7 +147,7 @@ export default function Ideas() {
     setState((s) => ({ ...s, ideas: [...s.ideas, idea] }));
     // The board is shared, so the confirmation is worth showing: the operator
     // has no other cue that their idea left the device.
-    toast.show({ message: 'Idée proposée — vos collègues peuvent la soutenir' });
+    toast.show({ message: 'Idée proposée' });
   }
 
   function updateIdea(id: string, title: string, detail: string) {
@@ -261,6 +261,9 @@ function IdeasSheet({
   const [detail, setDetail] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>('top');
+  // Only on screen while there is a name to collect — or when the operator
+  // asks for it back.
+  const [nameOpen, setNameOpen] = useState(false);
   const authorRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -290,6 +293,13 @@ function IdeasSheet({
 
   const cleanTitle = title.trim();
   const canSubmit = cleanName(author).length > 0 && cleanTitle.length > 0;
+  const showName = nameOpen || cleanName(author).length === 0;
+
+  function openName() {
+    setNameOpen(true);
+    // The field appears on this render; the caret follows on the next frame.
+    requestAnimationFrame(() => authorRef.current?.select());
+  }
 
   function resetForm() {
     setTitle('');
@@ -304,6 +314,9 @@ function IdeasSheet({
     if (editingId) onUpdate(editingId, cleanTitle, body);
     else onAdd(cleanTitle, body);
     resetForm();
+    setNameOpen(false);
+    // Straight back to the idea line: one thought often brings the next.
+    titleRef.current?.focus();
   }
 
   function startEdit(idea: Idea) {
@@ -356,19 +369,21 @@ function IdeasSheet({
         </div>
 
         <form className="ideas-form" onSubmit={handleSubmit}>
-          <div className="ideas-form-grid">
-            <label className="ideas-field ideas-field-author">
-              <span className="field-label">Votre nom</span>
-              <input
-                ref={authorRef}
-                value={author}
-                onChange={(e) => onAuthorChange(e.target.value)}
-                placeholder="Prénom"
-                maxLength={MAX_AUTHOR}
-                autoComplete="name"
-                spellCheck={false}
-              />
-            </label>
+          <div className={`ideas-form-grid ${showName ? 'has-author' : ''}`}>
+            {showName && (
+              <label className="ideas-field ideas-field-author">
+                <span className="field-label">Votre nom</span>
+                <input
+                  ref={authorRef}
+                  value={author}
+                  onChange={(e) => onAuthorChange(e.target.value)}
+                  placeholder="Prénom"
+                  maxLength={MAX_AUTHOR}
+                  autoComplete="name"
+                  spellCheck={false}
+                />
+              </label>
+            )}
             <label className="ideas-field ideas-field-title">
               <span className="field-label">{editingId ? 'Modifier l’idée' : 'L’idée'}</span>
               <input
@@ -389,7 +404,19 @@ function IdeasSheet({
             rows={2}
           />
           <div className="ideas-form-actions">
-            <span className="ideas-form-hint">Les idées et les pouces sont signés.</span>
+            {/* The name is asked once. After that it steps back to a byline —
+                still the signature the board runs on, no longer a field to
+                walk past on every visit. */}
+            {showName ? (
+              <span className="ideas-form-hint">Les idées et les pouces sont signés.</span>
+            ) : (
+              <span className="ideas-form-hint">
+                Signé <strong>{cleanName(author)}</strong>
+                <button type="button" className="ideas-rename" onClick={openName}>
+                  changer
+                </button>
+              </span>
+            )}
             {editingId && (
               <button type="button" className="btn ghost mini ideas-cancel" onClick={resetForm}>
                 Annuler
@@ -503,8 +530,9 @@ function IdeaCard({ idea, meKey, isEditing, onVote, onEdit, onDelete }: CardProp
         <div className="idea-title">{idea.title}</div>
         {idea.detail && <p className="idea-detail">{idea.detail}</p>}
         <div className="idea-meta">
+          {/* No "vous" badge: Modifier / Supprimer only show on your own idea,
+              so the ownership is already stated once. */}
           <span className="idea-author">{idea.author || 'Anonyme'}</span>
-          {mine && <span className="idea-badge">vous</span>}
           <span className="idea-sep" aria-hidden="true">·</span>
           <span className="faint">{fmtWhen(idea.createdAt)}</span>
           {edited && <span className="faint idea-edited">· modifiée</span>}

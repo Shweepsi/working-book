@@ -4242,7 +4242,8 @@ button.as-row:focus-visible {
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  border: 1.5px solid var(--paper-glass);
+  /* Opaque ring: --paper-glass is translucent and let the bulb show through it. */
+  border: 1.5px solid var(--canvas);
 }
 
 .ideas-sheet { width: min(620px, calc(100% - 40px)); }
@@ -4257,11 +4258,13 @@ button.as-row:focus-visible {
   border-radius: var(--radius-lg);
   background: var(--paper-2);
 }
+/* One column once the name is known — which is every visit but the first. */
 .ideas-form-grid {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(0, 2.2fr);
+  grid-template-columns: 1fr;
   gap: var(--space-5);
 }
+.ideas-form-grid.has-author { grid-template-columns: minmax(120px, 1fr) minmax(0, 2.2fr); }
 .ideas-field {
   display: flex;
   flex-direction: column;
@@ -4302,6 +4305,22 @@ button.as-row:focus-visible {
   color: var(--ink-faint);
   line-height: 1.35;
 }
+.ideas-form-hint strong { color: var(--ink-soft); font-weight: 600; }
+/* Text-weight escape hatch out of the byline — a button that reads as a link,
+   since it undoes a decision rather than driving the form. */
+.ideas-rename {
+  margin-left: var(--space-3);
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--ink-faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ideas-rename:hover { color: var(--ink-soft); }
 /* .btn.mini carries margin-left:auto for its usual place at the end of a row;
    here the hint already claims the free space. */
 .ideas-cancel { margin-left: 0; }
@@ -4430,15 +4449,6 @@ button.as-row:focus-visible {
   color: var(--ink-soft);
 }
 .idea-author { font-weight: 600; color: var(--ink); }
-.idea-badge {
-  padding: 1px 6px;
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-faint);
-}
 .idea-sep { color: var(--ink-faint); }
 /* Own-idea controls sit at the end of the meta line — present, not shouting. */
 .idea-actions {
