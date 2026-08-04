@@ -57,6 +57,8 @@ export default {
           return await handleSuivi(request, env, cors);
         case '/api/policy':
           return await handlePolicy(request, env, cors);
+        case '/api/ideas':
+          return await handleIdeas(request, env, cors);
         case '/api/schedules':
           return await handleSchedules(request, env, cors);
         case '/api/speeds':
@@ -251,6 +253,48 @@ async function handleSuivi(
   return json({ error: 'method_not_allowed' }, cors, 405);
 }
 
+// Boîte à idées — singleton, same wire shape as suivi. Holds `{ ideas: Idea[] }`,
+// each idea carrying its author and the list of operators who backed it.
+async function handleIdeas(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare(
+      'SELECT state_json, updated_at FROM ideas WHERE id = 1',
+    ).first<{ state_json: string; updated_at: number }>();
+    if (!row) return json({ data: null, updated_at: null }, cors);
+    return json({ data: JSON.parse(row.state_json), updated_at: row.updated_at }, cors);
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
+    // Stricter than the sibling handlers on purpose. This partition is read by
+    // a header component that every tab renders, so a blob shaped like anything
+    // else — an array, `{}`, `{ ideas: null }` — would reach every device on the
+    // next probe. The route is unauthenticated; one stray PUT should not be able
+    // to do that.
+    if (!Array.isArray((body as { ideas?: unknown }).ideas)) {
+      return json({ error: 'expected_ideas_array' }, cors, 400);
+    }
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO ideas (id, state_json, updated_at)
+       VALUES (1, ?1, ?2)
+       ON CONFLICT(id) DO UPDATE SET
+         state_json = excluded.state_json,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(JSON.stringify(body), now)
+      .run();
+    return json({ ok: true, updated_at: now }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
 // PMS230 schedule report — singleton, gated by the user's local/sync mode.
 // Same wire shape as suivi.
 async function handleSchedules(
@@ -329,12 +373,13 @@ async function handleUpdates(
 
   // Keys match the front's `SyncDomain`, so a client can look its own partition
   // up by name without a translation table.
-  const domains = ['suivi', 'policy', 'schedules', 'speeds'];
+  const domains = ['suivi', 'policy', 'schedules', 'speeds', 'ideas'];
   const statements = [
     env.DB.prepare('SELECT updated_at FROM suivi WHERE id = 1'),
     env.DB.prepare('SELECT updated_at FROM policy WHERE id = 1'),
     env.DB.prepare('SELECT updated_at FROM schedules WHERE id = 1'),
     env.DB.prepare('SELECT updated_at FROM schedule_speeds WHERE id = 1'),
+    env.DB.prepare('SELECT updated_at FROM ideas WHERE id = 1'),
   ];
 
   // The keyed partitions only answer when the caller says which shift it is

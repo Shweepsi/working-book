@@ -80,6 +80,8 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `PUT  /api/suivi` body: `SuiviState`
 - `GET  /api/policy` → `{ data: PolicyResult | null, updated_at }` — MTO/MTS lookup, always synced
 - `PUT  /api/policy` body: `PolicyResult`
+- `GET  /api/ideas` → `{ data: IdeasState | null, updated_at }` — boîte à idées, see below
+- `PUT  /api/ideas` body: `IdeasState`
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
 - `PUT  /api/schedules` body: `PMS230Result | null`
 - `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
@@ -94,7 +96,8 @@ stored JSON wholesale on every `PUT`.
 
 `GET /api/updates` answers with nothing but the `updated_at` of each partition,
 keyed by the domain names the front uses (`suivi`, `policy`, `schedules`,
-`speeds`, plus `logbook` / `prodtest` when the matching params are supplied).
+`speeds`, `ideas`, plus `logbook` / `prodtest` when the matching params are
+supplied).
 A couple of hundred bytes against a report blob past a hundred kilobytes: that
 ratio is what lets a client poll on a short interval and only fetch a partition
 whose stamp has actually moved. The reply is `Cache-Control: no-store` — a
@@ -102,6 +105,43 @@ cached probe would pin a tab on a stale timestamp.
 
 Clients poll it while the tab is visible and stop entirely when it is hidden
 (`src/lib/sync.ts`); a partition opts in with `useSyncedState(..., { live: true })`.
+
+## Boîte à idées
+
+`/api/ideas` holds the shared improvement board the header opens on every tab
+(`src/components/Ideas.tsx`). One singleton row, same wire shape as `suivi`:
+
+```jsonc
+{
+  "ideas": [
+    {
+      "id": "id_m8x3k1_a7f2",
+      "title": "Repère peint sur le convoyeur d'entrée",
+      "detail": "",                       // optional, may be empty
+      "author": "Loïc",                   // idées nommées — never blank
+      "createdAt": 1785600000000,
+      "updatedAt": 1785600000000,
+      "votes": [{ "name": "Marc", "at": 1785600100000 }]   // one +1 per operator
+    }
+  ]
+}
+```
+
+Unlike the other singletons, `PUT` here checks the shape and answers
+`400 expected_ideas_array` to a body whose `ideas` is not an array. The board is
+rendered by a header component that every tab mounts, so a blob of the wrong
+shape would reach every device on the next probe — and on an unauthenticated
+route, one stray `PUT` should not be able to do that.
+
+Identity is the operator's name and nothing more — the whole API is
+unauthenticated, so there is no account to tie a +1 to. The front folds case
+and accents before comparing (`Loïc` = `LOIC`), keeps the board's author out of
+its own vote list, and remembers the name locally so it is typed once.
+
+Last-write-wins applies here like everywhere else: two +1s cast inside the same
+15-second poll window can cost one of them. The board sees a handful of writes a
+week, which is why it is a plain partition rather than a merge endpoint of its
+own like the schedule ingest.
 
 ## Direct import from the Infor portal
 
