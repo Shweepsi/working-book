@@ -4670,6 +4670,11 @@ button.as-row:focus-visible {
     padding: 0 !important;
     border-radius: 0 !important;
     background-image: none !important;
+    /* The aperçu's "paper edge against the desk" shadow only makes sense
+       against the on-screen backdrop. On paper there is no desk, and
+       print-color-adjust: exact above guarantees it gets inked — it came out
+       as a grey band under the last row. */
+    box-shadow: none !important;
   }
   :root.is-print-preview body { background: var(--print-bg) !important; }
 
@@ -4789,6 +4794,15 @@ button.as-row:focus-visible {
     background: inherit;
     z-index: auto;
     box-shadow: none;
+  }
+  /* .sch-cell.is-pinned above loses the specificity race to the on-screen
+     scroll-divider shadow (.sch-table.is-scrolled-x .sch-cell.is-pinned-last,
+     four classes vs two) whenever the table was scrolled horizontally before
+     printing, so it survives onto paper as a smear. Match its specificity to
+     actually win. */
+  .sch-table.is-scrolled-x .sch-cell.is-pinned-last {
+    box-shadow: none;
+    clip-path: none;
   }
   .sch-packs-short { font-weight: 700; text-decoration: underline; }
 }
