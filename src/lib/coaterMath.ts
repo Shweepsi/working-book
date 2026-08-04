@@ -42,12 +42,19 @@ export function minutesAt(rows: CoaterRow[], vitesse: number | string): number |
   return coaterMeters(rows) / v;
 }
 
+// Whether fmtHMmin will produce a duration rather than its em-dash fallback.
+// Exported so callers can style the "no value yet" case without re-deriving
+// the condition or, worse, string-matching the dash back out.
+export function hasHMmin(minutes: number | null | undefined): minutes is number {
+  return minutes != null && Number.isFinite(minutes) && minutes >= 0;
+}
+
 export function fmtHMmin(minutes: number | null | undefined): string {
   // Truncate to whole minutes to match the source spreadsheet's formatting
   // (`[h] h mm min`, where Excel floors the seconds). Negative inputs would
   // mean a "remaining time" already overshot (overproduction) and produce
   // misleading negative h/m via floor — bail to the same em dash as null.
-  if (minutes == null || !Number.isFinite(minutes) || minutes < 0) return '—';
+  if (!hasHMmin(minutes)) return '—';
   const total = Math.floor(minutes);
   const h = Math.floor(total / 60);
   const m = total % 60;

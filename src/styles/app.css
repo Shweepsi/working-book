@@ -2751,7 +2751,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-stat-tile {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* Not `center`: the vitesse tile is taller than its neighbours (its value
+     wears an input pill), and centring each column independently staggered
+     the labels by a couple of px. Anchoring them to the top lines the labels
+     up; the shared value min-height below does the same for the values. */
+  justify-content: flex-start;
   gap: 2px;
   padding: 2px var(--space-5);
   border-left: 1px solid var(--line-faint);
@@ -2774,6 +2778,22 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
+  /* Room for the input pill's border + padding, so every value box is the
+     same height whether or not it carries one — see the tile's flex-start. */
+  min-height: calc(1.15em + 4px);
+}
+/* Durations only appear once a vitesse is set. Reserve their width up front,
+   or the whole cluster (right-aligned via margin-left: auto) jumps sideways
+   the moment the operator types a speed. 11ch is `09 h 25 min` in the mono
+   face these values already use. */
+.sch-stat-tile:not(.sch-stat-tile-input) .sch-stat-tile-value {
+  min-width: 11ch;
+}
+/* An absent value should read as absent — at full ink and weight 600 the
+   em dash carried as much emphasis as a real duration. */
+.sch-stat-tile-value.is-empty {
+  color: var(--ink-faint);
+  font-weight: 500;
 }
 /* Vitesse tile — editable. Wrap the value in a paper-coloured pill with a
    visible border so it reads as "this is an input you can click in",
