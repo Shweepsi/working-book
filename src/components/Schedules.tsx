@@ -932,6 +932,23 @@ export default function Schedules({ density }: SchedulesProps) {
           </aside>
 
           <section className="sch-detail">
+            {/* Provenance + view state, paper only. The sheet leaves the
+                screen without any of the app chrome, so it has to say where
+                its rows came from and whether they are the whole picture.
+                Sits above the title as a discreet top-of-sheet line, not as a
+                band under the header — it is reference matter, not content.
+                Row count is left out — the Total row already carries it. */}
+            <div className="sch-print-meta print-only">
+              {data?.importedAt && (
+                <span>
+                  rapport importé le{' '}
+                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+              <span>tri : {sortSummary}</span>
+              {filterSummary && <strong>filtré : {filterSummary}</strong>}
+            </div>
+
             {selectedSchedule && (() => {
               const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, m2: 0, shortName: '' };
               const validSpeed = vitesse > 0;
@@ -992,21 +1009,6 @@ export default function Schedules({ density }: SchedulesProps) {
                 </header>
               );
             })()}
-
-            {/* Provenance + view state, paper only. The sheet leaves the
-                screen without any of the app chrome, so it has to say where
-                its rows came from and whether they are the whole picture.
-                Row count is left out — the Total row already carries it. */}
-            <div className="sch-print-meta print-only">
-              {data?.importedAt && (
-                <span>
-                  rapport importé le{' '}
-                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
-              )}
-              <span>tri : {sortSummary}</span>
-              {filterSummary && <strong>filtré : {filterSummary}</strong>}
-            </div>
 
             <TableControls
               settings={tableSettings}

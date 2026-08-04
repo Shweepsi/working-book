@@ -2757,13 +2757,23 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      up; the shared value min-height below does the same for the values. */
   justify-content: flex-start;
   gap: 2px;
-  /* No rule between tiles — each already carries its own uppercase label, and
-     whitespace separates them without drawing a bar through the tinted band.
-     The old 1px border ran the full tile height and read as a hard slice on
-     paper, where the band is solid grey. The padding buys back the separation
-     the rule was doing. */
-  padding: 2px var(--space-8);
+  padding: 2px var(--space-6);
   min-width: 0;
+  position: relative;
+}
+/* Divider as a short centred pseudo-element, not a border. A border spans the
+   tile edge to edge, which on the tinted band read as a bar slicing through
+   it — worst on paper, where the band is solid grey. Sized as a fraction of
+   the tile so it stays proportional across the densities and the sheet. */
+.sch-stat-tile + .sch-stat-tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 1px;
+  background: var(--line-faint);
 }
 .sch-stat-tile:first-child { padding-left: 0; }
 .sch-stat-tile:last-child { padding-right: 0; }
@@ -3230,7 +3240,7 @@ body.is-col-resizing * {
 :root[data-density='compact'] .sch-summary-stats { gap: var(--space-3); font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
-:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-6); }
+:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-5); }
 :root[data-density='compact'] .sch-stat-tile-label { font-size: 9px; }
 :root[data-density='compact'] .sch-stat-tile-value { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-stat-tile-input .sch-stat-tile-value { padding: 1px var(--space-2); }
@@ -3257,7 +3267,7 @@ body.is-col-resizing * {
 :root[data-density='advanced'] .sch-summary-stats { gap: var(--space-5); font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; gap: var(--space-6); }
 :root[data-density='advanced'] .sch-detail-head h3 { font-size: var(--fs-xl); }
-:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-8); }
+:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-7); }
 :root[data-density='advanced'] .sch-stat-tile-value { font-size: var(--fs-xl); }
 :root[data-density='advanced'] .sch-stat-tile-input .sch-vitesse-input { width: 40px; }
 :root[data-density='advanced'] .sch-rail-item { padding: 10px 12px; font-size: var(--fs-base); }
@@ -4544,21 +4554,19 @@ button.as-row:focus-visible {
 }
 :root.is-print-preview .sch-body { display: block; }
 /* The header keeps the card it wears on screen — tinted band, rounded top,
-   side rails — and the meta line below continues it, so title, stats and
-   provenance read as one head closed by a single rule (.sch-print-meta).
-   Only the bottom leg stays open here, for the meta line to carry on from. */
+   side rails. The provenance line no longer continues it: it has moved above
+   the title (see .sch-print-meta), so the card closes on its own and the
+   table starts directly under it.
+   No top margin: the meta line above now holds the title off the page margin,
+   and stacking both left a gap that read as a missing element. */
 :root.is-print-preview .sch-detail-head {
   padding: 0 !important;
-  /* Breathing room before the title, on top of the page margin — 2mm read as
-     flush against the header card's own bold 17pt title. */
-  margin-top: 6mm !important;
+  margin-top: 0 !important;
   margin-bottom: 0 !important;
+  border-bottom: 1pt solid var(--line-soft);
 }
 :root.is-print-preview .sch-detail-head h3 { font-size: 17pt !important; }
-/* Wider than the 6pt this used to carry: with no rule between tiles, the gap
-   is what separates them, and 6pt left them running together on the band.
-   The outer edges stay flush so the cluster still ends at the band's edge. */
-:root.is-print-preview .sch-stat-tile { padding: 0 12pt !important; }
+:root.is-print-preview .sch-stat-tile { padding: 0 8pt !important; }
 :root.is-print-preview .sch-stat-tile:first-child { padding-left: 0 !important; }
 :root.is-print-preview .sch-stat-tile:last-child { padding-right: 0 !important; }
 :root.is-print-preview .sch-stat-tile-label { font-size: 7pt !important; }
@@ -4571,20 +4579,23 @@ button.as-row:focus-visible {
   padding: 0 !important;
   box-shadow: none !important;
 }
+/* Reference matter, not content: a discreet line at the very top of the sheet,
+   above the title. It used to sit under the header wearing the header's own
+   band and rails, which gave it the weight of a second heading and stacked a
+   second grey slab before the table even started. No tint, no rails — just
+   small faint text under the top margin. */
 :root.is-print-preview .sch-print-meta {
   display: flex !important;
   flex-wrap: wrap;
-  gap: 4pt 12pt;
-  padding: 2pt 4pt 3pt;
-  font-size: 8pt;
-  color: var(--ink-soft);
-  /* Continues the header card: same band, same rails, and the rule that
-     closes it — the table starts directly under. */
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-  border-top: 0;
-  border-bottom: 1pt solid var(--line-soft);
+  gap: 2pt 10pt;
+  padding: 0;
+  margin: 0 0 2mm;
+  font-size: 7pt;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
 }
+:root.is-print-preview .sch-print-meta strong { font-weight: 600; }
 /* Back to a real table box: <thead> then repeats on every printed page, and
    the <colgroup> percentages take over from --sch-grid. The aperçu runs the
    same layout so it stays a faithful preview — it just can't show the header
@@ -4715,16 +4726,17 @@ button.as-row:focus-visible {
   :root.is-print-preview body { background: var(--print-bg) !important; }
 
   .sch-body { display: block; }
+  /* No top margin: the meta line above now holds the title off the page
+     margin. The card closes on its own bottom rule — the meta used to carry
+     it, and has moved above the title. */
   .sch-detail-head {
     padding: 0 !important;
-    margin-top: 6mm !important;
+    margin-top: 0 !important;
     margin-bottom: 0 !important;
+    border-bottom: 1pt solid var(--line-soft);
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
-  /* Wider than the 6pt this used to carry: with no rule between tiles, the gap
-     is what separates them, and 6pt left them running together on the band.
-     The outer edges stay flush so the cluster still ends at the band's edge. */
-  .sch-stat-tile { padding: 0 12pt !important; }
+  .sch-stat-tile { padding: 0 8pt !important; }
   .sch-stat-tile:first-child { padding-left: 0 !important; }
   .sch-stat-tile:last-child { padding-right: 0 !important; }
   .sch-stat-tile-label { font-size: 7pt !important; }
@@ -4737,18 +4749,23 @@ button.as-row:focus-visible {
     padding: 0 !important;
     box-shadow: none !important;
   }
+  /* Reference matter, not content: a discreet line at the very top of the
+     sheet, above the title. It used to sit under the header wearing the
+     header's own band and rails, which gave it the weight of a second heading
+     and stacked a second grey slab before the table even started. No tint, no
+     rails — just small faint text under the top margin. */
   .sch-print-meta {
     display: flex !important;
     flex-wrap: wrap;
-    gap: 4pt 12pt;
-    padding: 2pt 4pt 3pt;
-    font-size: 8pt;
-    color: var(--ink-soft);
-    background: var(--paper-2);
-    border: 1px solid var(--line-faint);
-    border-top: 0;
-    border-bottom: 1pt solid var(--line-soft);
+    gap: 2pt 10pt;
+    padding: 0;
+    margin: 0 0 2mm;
+    font-size: 7pt;
+    color: var(--ink-faint);
+    background: none;
+    border: 0;
   }
+  .sch-print-meta strong { font-weight: 600; }
   .sch-table {
     display: table;
     table-layout: fixed;
