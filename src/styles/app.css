@@ -2751,13 +2751,32 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-stat-tile {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* Not `center`: the vitesse tile is taller than its neighbours (its value
+     wears an input pill), and centring each column independently staggered
+     the labels by a couple of px. Anchoring them to the top lines the labels
+     up; the shared value min-height below does the same for the values. */
+  justify-content: flex-start;
   gap: 2px;
-  padding: 2px var(--space-5);
-  border-left: 1px solid var(--line-faint);
+  padding: 2px var(--space-6);
   min-width: 0;
+  position: relative;
 }
-.sch-stat-tile:first-child { border-left: 0; padding-left: 0; }
+/* Divider as a short centred pseudo-element, not a border. A border spans the
+   tile edge to edge, which on the tinted band read as a bar slicing through
+   it — worst on paper, where the band is solid grey. Sized as a fraction of
+   the tile so it stays proportional across the densities and the sheet. */
+.sch-stat-tile + .sch-stat-tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 1px;
+  background: var(--line-faint);
+}
+.sch-stat-tile:first-child { padding-left: 0; }
+.sch-stat-tile:last-child { padding-right: 0; }
 .sch-stat-tile-label {
   font-size: var(--fs-2xs);
   text-transform: uppercase;
@@ -2774,6 +2793,22 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
+  /* Room for the input pill's border + padding, so every value box is the
+     same height whether or not it carries one — see the tile's flex-start. */
+  min-height: calc(1.15em + 4px);
+}
+/* Durations only appear once a vitesse is set. Reserve their width up front,
+   or the whole cluster (right-aligned via margin-left: auto) jumps sideways
+   the moment the operator types a speed. 11ch is `09 h 25 min` in the mono
+   face these values already use. */
+.sch-stat-tile:not(.sch-stat-tile-input) .sch-stat-tile-value {
+  min-width: 11ch;
+}
+/* An absent value should read as absent — at full ink and weight 600 the
+   em dash carried as much emphasis as a real duration. */
+.sch-stat-tile-value.is-empty {
+  color: var(--ink-faint);
+  font-weight: 500;
 }
 /* Vitesse tile — editable. Wrap the value in a paper-coloured pill with a
    visible border so it reads as "this is an input you can click in",
@@ -3205,7 +3240,7 @@ body.is-col-resizing * {
 :root[data-density='compact'] .sch-summary-stats { gap: var(--space-3); font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
-:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-4); }
+:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-5); }
 :root[data-density='compact'] .sch-stat-tile-label { font-size: 9px; }
 :root[data-density='compact'] .sch-stat-tile-value { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-stat-tile-input .sch-stat-tile-value { padding: 1px var(--space-2); }
@@ -3232,7 +3267,7 @@ body.is-col-resizing * {
 :root[data-density='advanced'] .sch-summary-stats { gap: var(--space-5); font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; gap: var(--space-6); }
 :root[data-density='advanced'] .sch-detail-head h3 { font-size: var(--fs-xl); }
-:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-6); }
+:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-7); }
 :root[data-density='advanced'] .sch-stat-tile-value { font-size: var(--fs-xl); }
 :root[data-density='advanced'] .sch-stat-tile-input .sch-vitesse-input { width: 40px; }
 :root[data-density='advanced'] .sch-rail-item { padding: 10px 12px; font-size: var(--fs-base); }
@@ -4519,18 +4554,21 @@ button.as-row:focus-visible {
 }
 :root.is-print-preview .sch-body { display: block; }
 /* The header keeps the card it wears on screen — tinted band, rounded top,
-   side rails — and the meta line below continues it, so title, stats and
-   provenance read as one head closed by a single rule (.sch-print-meta).
-   Only the bottom leg stays open here, for the meta line to carry on from. */
+   side rails. The provenance line no longer continues it: it has moved above
+   the title (see .sch-print-meta), so the card closes on its own and the
+   table starts directly under it.
+   No top margin: the meta line above now holds the title off the page margin,
+   and stacking both left a gap that read as a missing element. */
 :root.is-print-preview .sch-detail-head {
   padding: 0 !important;
-  /* Breathing room before the title, on top of the page margin — 2mm read as
-     flush against the header card's own bold 17pt title. */
-  margin-top: 6mm !important;
+  margin-top: 0 !important;
   margin-bottom: 0 !important;
+  border-bottom: 1pt solid var(--line-soft);
 }
 :root.is-print-preview .sch-detail-head h3 { font-size: 17pt !important; }
-:root.is-print-preview .sch-stat-tile { padding: 0 6pt !important; }
+:root.is-print-preview .sch-stat-tile { padding: 0 8pt !important; }
+:root.is-print-preview .sch-stat-tile:first-child { padding-left: 0 !important; }
+:root.is-print-preview .sch-stat-tile:last-child { padding-right: 0 !important; }
 :root.is-print-preview .sch-stat-tile-label { font-size: 7pt !important; }
 :root.is-print-preview .sch-stat-tile-value { font-size: 12pt !important; }
 :root.is-print-preview .sch-vitesse-input { display: none !important; }
@@ -4541,20 +4579,26 @@ button.as-row:focus-visible {
   padding: 0 !important;
   box-shadow: none !important;
 }
+/* Reference matter, not content: a discreet line at the very top of the sheet,
+   above the title. It used to sit under the header wearing the header's own
+   band and rails, which gave it the weight of a second heading and stacked a
+   second grey slab before the table even started. No tint, no rails — just
+   small faint text under the top margin. */
 :root.is-print-preview .sch-print-meta {
   display: flex !important;
   flex-wrap: wrap;
-  gap: 4pt 12pt;
-  padding: 2pt 4pt 3pt;
-  font-size: 8pt;
-  color: var(--ink-soft);
-  /* Continues the header card: same band, same rails, and the rule that
-     closes it — the table starts directly under. */
-  background: var(--paper-2);
-  border: 1px solid var(--line-faint);
-  border-top: 0;
-  border-bottom: 1pt solid var(--line-soft);
+  gap: 2pt 10pt;
+  padding: 0;
+  margin: 0 0 2mm;
+  font-size: 7pt;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
 }
+/* "filtré : …" is the one item here that changes how the sheet must be read —
+   it says these are not all the rows. It keeps full ink while the rest of the
+   line stays faint. */
+:root.is-print-preview .sch-print-meta strong { font-weight: 600; color: var(--ink); }
 /* Back to a real table box: <thead> then repeats on every printed page, and
    the <colgroup> percentages take over from --sch-grid. The aperçu runs the
    same layout so it stays a faithful preview — it just can't show the header
@@ -4585,7 +4629,13 @@ button.as-row:focus-visible {
 :root.is-print-preview .sch-cell { vertical-align: middle; }
 :root.is-print-preview .sch-row.sch-head,
 :root.is-print-preview .sch-row.sch-total { position: static; box-shadow: none; }
-:root.is-print-preview .sch-row.sch-total { border-top: 0; }
+/* Hairlines closing the two bands that frame the data: under the column
+   header, above the total. --line-soft, not --line-faint — the faint tone is
+   the column hairline and would vanish against the (now heavier) band tint.
+   Both are stated explicitly because `.sch-row:last-child` zeroes the base
+   border, and the header row is the only child of its <thead>. */
+:root.is-print-preview .sch-row.sch-head { border-bottom: 0.5pt solid var(--line-soft); }
+:root.is-print-preview .sch-row.sch-total { border-top: 0.5pt solid var(--line-soft); }
 :root.is-print-preview .sch-row.sch-head { font-size: 7.5pt !important; }
 :root.is-print-preview .sch-row.sch-total { font-size: 9pt !important; }
 :root.is-print-preview .sch-row.sch-group-break { min-height: 10pt; border-bottom: 0; }
@@ -4679,13 +4729,19 @@ button.as-row:focus-visible {
   :root.is-print-preview body { background: var(--print-bg) !important; }
 
   .sch-body { display: block; }
+  /* No top margin: the meta line above now holds the title off the page
+     margin. The card closes on its own bottom rule — the meta used to carry
+     it, and has moved above the title. */
   .sch-detail-head {
     padding: 0 !important;
-    margin-top: 6mm !important;
+    margin-top: 0 !important;
     margin-bottom: 0 !important;
+    border-bottom: 1pt solid var(--line-soft);
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
-  .sch-stat-tile { padding: 0 6pt !important; }
+  .sch-stat-tile { padding: 0 8pt !important; }
+  .sch-stat-tile:first-child { padding-left: 0 !important; }
+  .sch-stat-tile:last-child { padding-right: 0 !important; }
   .sch-stat-tile-label { font-size: 7pt !important; }
   .sch-stat-tile-value { font-size: 12pt !important; }
   .sch-vitesse-input { display: none !important; }
@@ -4696,18 +4752,26 @@ button.as-row:focus-visible {
     padding: 0 !important;
     box-shadow: none !important;
   }
+  /* Reference matter, not content: a discreet line at the very top of the
+     sheet, above the title. It used to sit under the header wearing the
+     header's own band and rails, which gave it the weight of a second heading
+     and stacked a second grey slab before the table even started. No tint, no
+     rails — just small faint text under the top margin. */
   .sch-print-meta {
     display: flex !important;
     flex-wrap: wrap;
-    gap: 4pt 12pt;
-    padding: 2pt 4pt 3pt;
-    font-size: 8pt;
-    color: var(--ink-soft);
-    background: var(--paper-2);
-    border: 1px solid var(--line-faint);
-    border-top: 0;
-    border-bottom: 1pt solid var(--line-soft);
+    gap: 2pt 10pt;
+    padding: 0;
+    margin: 0 0 2mm;
+    font-size: 7pt;
+    color: var(--ink-faint);
+    background: none;
+    border: 0;
   }
+  /* "filtré : …" is the one item here that changes how the sheet must be read
+     — it says these are not all the rows. It keeps full ink while the rest of
+     the line stays faint. */
+  .sch-print-meta strong { font-weight: 600; color: var(--ink); }
   .sch-table {
     display: table;
     table-layout: fixed;
@@ -4736,7 +4800,13 @@ button.as-row:focus-visible {
   .sch-cell { vertical-align: middle; }
   .sch-row.sch-head,
   .sch-row.sch-total { position: static; box-shadow: none; }
-  .sch-row.sch-total { border-top: 0; }
+  /* Hairlines closing the two bands that frame the data: under the column
+     header, above the total. --line-soft, not --line-faint — the faint tone is
+     the column hairline and would vanish against the (now heavier) band tint.
+     Both are stated explicitly because `.sch-row:last-child` zeroes the base
+     border, and the header row is the only child of its <thead>. */
+  .sch-row.sch-head { border-bottom: 0.5pt solid var(--line-soft); }
+  .sch-row.sch-total { border-top: 0.5pt solid var(--line-soft); }
   .sch-row.sch-head { font-size: 7.5pt !important; }
   .sch-row.sch-total { font-size: 9pt !important; }
   .sch-row.sch-group-break {

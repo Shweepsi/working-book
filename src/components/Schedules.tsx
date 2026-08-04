@@ -6,6 +6,7 @@ import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser
 import {
   DOWNTIME_FACTOR,
   fmtHMmin,
+  hasHMmin,
   minutesAt,
   totalLites,
   totalM2,
@@ -931,6 +932,23 @@ export default function Schedules({ density }: SchedulesProps) {
           </aside>
 
           <section className="sch-detail">
+            {/* Provenance + view state, paper only. The sheet leaves the
+                screen without any of the app chrome, so it has to say where
+                its rows came from and whether they are the whole picture.
+                Sits above the title as a discreet top-of-sheet line, not as a
+                band under the header — it is reference matter, not content.
+                Row count is left out — the Total row already carries it. */}
+            <div className="sch-print-meta print-only">
+              {data?.importedAt && (
+                <span>
+                  rapport importé le{' '}
+                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+              <span>tri : {sortSummary}</span>
+              {filterSummary && <strong>filtré : {filterSummary}</strong>}
+            </div>
+
             {selectedSchedule && (() => {
               const stat = railStats.get(selectedSchedule.schedule) ?? { count: 0, m2: 0, shortName: '' };
               const validSpeed = vitesse > 0;
@@ -975,31 +993,22 @@ export default function Schedules({ density }: SchedulesProps) {
                     </label>
                     <div className="sch-stat-tile" title={`${coaterRows.length} lignes Coater`}>
                       <span className="sch-stat-tile-label">Production</span>
-                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMin)}</strong>
+                      {/* is-empty dims the em-dash fallback: with no vitesse set
+                          these read as loud as a real duration otherwise. */}
+                      <strong className={`sch-stat-tile-value mono ${hasHMmin(coaterMin) ? '' : 'is-empty'}`}>
+                        {fmtHMmin(coaterMin)}
+                      </strong>
                     </div>
                     <div className="sch-stat-tile" title="Temps théorique majoré du facteur d'arrêts (DT, downtime) de 9 %">
                       <span className="sch-stat-tile-label">+ DT 9 %</span>
-                      <strong className="sch-stat-tile-value mono">{fmtHMmin(coaterMinDt)}</strong>
+                      <strong className={`sch-stat-tile-value mono ${hasHMmin(coaterMinDt) ? '' : 'is-empty'}`}>
+                        {fmtHMmin(coaterMinDt)}
+                      </strong>
                     </div>
                   </div>
                 </header>
               );
             })()}
-
-            {/* Provenance + view state, paper only. The sheet leaves the
-                screen without any of the app chrome, so it has to say where
-                its rows came from and whether they are the whole picture.
-                Row count is left out — the Total row already carries it. */}
-            <div className="sch-print-meta print-only">
-              {data?.importedAt && (
-                <span>
-                  rapport importé le{' '}
-                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
-              )}
-              <span>tri : {sortSummary}</span>
-              {filterSummary && <strong>filtré : {filterSummary}</strong>}
-            </div>
 
             <TableControls
               settings={tableSettings}
