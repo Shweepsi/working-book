@@ -3353,6 +3353,54 @@ body.is-col-resizing * {
   user-select: none;
 }
 .sch-portal-bookmarklet:active { cursor: grabbing; }
+.sch-portal-way {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0 0 2px;
+  font-size: var(--fs-lg);
+}
+.sch-portal-badge {
+  padding: 1px 7px;
+  border: 1px solid var(--flag-ok-bd);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hl-green) 50%, var(--paper));
+  color: var(--flag-ok-fg);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-transform: lowercase;
+}
+.sch-portal-lead {
+  margin: 0 0 10px;
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+}
+.sch-portal-steps code {
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 0.92em;
+  color: var(--ink);
+}
+/* The share path, shown in full rather than only living in the clipboard: the
+   copy button fails silently in some locked-down browsers, and a path nobody
+   can read back is a dead end.
+   Qualified past the inline-code rule above, which is more specific than a lone
+   class and was flattening this one back to inline-code padding. */
+.sch-portal-steps code.sch-portal-path {
+  padding: 4px 9px;
+  border: 1px solid var(--line-soft);
+  font-size: var(--fs-sm);
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+/* The two ways in are laid out alike, so the separator is what says they are
+   alternatives rather than successive steps. */
+.sch-portal-rule {
+  margin: 18px 0 16px;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+}
 
 /* Row-detail sheet — opened on row click. */
 .sch-row-sheet { width: min(640px, calc(100% - 40px)); }

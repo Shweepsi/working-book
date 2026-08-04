@@ -1,4 +1,22 @@
-const DEFAULTS = { apiBase: '', auto: true };
+// Settings, set once and forgotten. Everything that decides *how* the import
+// runs — page size, how many pages, how the fields are found — is fixed in the
+// code: there was one right answer to each, and exposing them only ever left a
+// stale value behind to break a later run.
+
+const DEFAULTS = {
+  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
+  autoSearch: false,
+  searchEveryMin: 15,
+  facility: '221',
+  workCenter: 'COATER',
+  fromOffset: -7,
+  toOffset: 14,
+};
+
+function intOr(value, fallback) {
+  const n = Number(String(value).trim());
+  return Number.isFinite(n) ? n : fallback;
+}
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -12,11 +30,11 @@ function originPattern(apiBase) {
   return `${new URL(apiBase).origin}/*`;
 }
 
-// The Worker's address is chosen by the operator, so it can't be baked into
-// `host_permissions`. It is requested here instead, from a real click — which
-// is the only context Chrome accepts a permission request from. Without it the
-// background fetch is subject to CORS and the extension origin isn't on the
-// Worker's allow-list.
+// The default address ships granted in `host_permissions`, so the common case
+// needs nothing. Any *other* address the operator types does need asking, and
+// a real click is the only context Chrome accepts a permission request from.
+// Without it the background fetch is subject to CORS and the extension origin
+// isn't on the Worker's allow-list.
 async function ensurePermission(apiBase) {
   const origins = [originPattern(apiBase)];
   if (await chrome.permissions.contains({ origins })) return true;
@@ -26,13 +44,23 @@ async function ensurePermission(apiBase) {
 async function load() {
   const cfg = await chrome.storage.sync.get(DEFAULTS);
   $('apiBase').value = cfg.apiBase;
-  $('auto').checked = cfg.auto !== false;
+  $('autoSearch').checked = cfg.autoSearch === true;
+  $('searchEveryMin').value = cfg.searchEveryMin;
+  $('facility').value = cfg.facility;
+  $('workCenter').value = cfg.workCenter;
+  $('fromOffset').value = cfg.fromOffset;
+  $('toOffset').value = cfg.toOffset;
 }
 
 function readForm() {
   return {
     apiBase: $('apiBase').value.trim().replace(/\/+$/, ''),
-    auto: $('auto').checked,
+    autoSearch: $('autoSearch').checked,
+    searchEveryMin: Math.max(1, intOr($('searchEveryMin').value, 15)),
+    facility: $('facility').value.trim(),
+    workCenter: $('workCenter').value.trim(),
+    fromOffset: intOr($('fromOffset').value, -7),
+    toOffset: intOr($('toOffset').value, 14),
   };
 }
 
@@ -85,6 +113,20 @@ async function test() {
   }
 }
 
+// A run walks away and finishes on its own; the account of it has to survive
+// somewhere readable, not only in a badge that fades.
+async function showLastRun() {
+  const { lastRun } = await chrome.storage.local.get({ lastRun: null });
+  if (!lastRun) return;
+  const when = new Date(lastRun.at).toLocaleString('fr-FR');
+  $('lastRun').textContent = `${when}\n${lastRun.text}`;
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && 'lastRun' in changes) showLastRun();
+});
+
 $('save').addEventListener('click', save);
 $('test').addEventListener('click', test);
 load();
+showLastRun();

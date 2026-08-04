@@ -4,7 +4,29 @@
 // bookmarklet could never have: host permissions bypass CORS, and the portal's
 // own Content-Security-Policy has no say over an extension background fetch.
 
-const DEFAULTS = { apiBase: '', auto: true };
+const DEFAULTS = {
+  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
+  // Search criteria. The dates are offsets in days from today, not fixed
+  // dates: a hard-coded 20260718 would silently go stale the next morning and
+  // the operator would never know the window had drifted.
+  autoSearch: false,
+  searchEveryMin: 15,
+  facility: '221',
+  workCenter: 'COATER',
+  fromOffset: -7,
+  toOffset: 14,
+};
+
+// Not settings. The grid's pager defaults to 5 rows and the report is read
+// from what the grid rendered, so the page size decides how much gets
+// imported — there is one right answer, and it is "as many as Infor offers".
+// Paging then lifts that ceiling. Exposing either as a knob only ever produced
+// a stale value that broke an import.
+const ROWS_PER_PAGE = -1;
+const MAX_PAGES = 20;
+
+const SEARCH_ALARM = 'wb-search';
+const INFOR_TABS = { url: 'https://*.inforcloudsuite.com/*' };
 
 const BADGE = {
   ok: { color: '#2e7d32', ttl: 4000 },
@@ -13,17 +35,19 @@ const BADGE = {
 };
 
 let badgeTimer;
+// The tooltip outlives the badge: the badge is a glance, the tooltip is where
+// the account of the last run stays readable long after the colour has faded.
+let idleTitle = 'Working Book — lancer la recherche et importer le rapport';
 
-function badge(text, kind) {
-  const { color, ttl } = BADGE[kind];
+function badge(text, kind, { ttl } = {}) {
+  const spec = BADGE[kind] ?? BADGE.warn;
   chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color });
-  chrome.action.setTitle({ title: `Working Book — ${text}` });
+  chrome.action.setBadgeBackgroundColor({ color: spec.color });
   clearTimeout(badgeTimer);
   badgeTimer = setTimeout(() => {
     chrome.action.setBadgeText({ text: '' });
-    chrome.action.setTitle({ title: 'Envoyer le rapport vers Working Book' });
-  }, ttl);
+    chrome.action.setTitle({ title: idleTitle });
+  }, ttl ?? spec.ttl);
 }
 
 async function config() {
@@ -68,20 +92,182 @@ async function ingest(text) {
   return { ok: true, ...body };
 }
 
+// Asks every Infor tab, returns the first frame that answers.
+async function ask(message) {
+  const tabs = await chrome.tabs.query(INFOR_TABS);
+  for (const tab of tabs) {
+    if (!tab.id) continue;
+    try {
+      const reply = await chrome.tabs.sendMessage(tab.id, message);
+      if (reply?.found) return reply;
+    } catch {
+      /* no frame in this tab answers to it */
+    }
+  }
+  return null;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
-  if (msg?.type !== 'wb-ingest') return false;
-  ingest(msg.text).then(respond);
-  return true; // keep the channel open for the async reply
+  if (msg?.type === 'wb-ingest') {
+    ingest(msg.text).then(respond);
+    return true; // keep the channel open for the async reply
+  }
+  if (msg?.type === 'wb-run-all') {
+    runEverything(msg.send !== false).then(respond);
+    return true;
+  }
+  if (msg?.type === 'wb-progress') {
+    // Kept alive well past a normal badge: a thirty-page walk must not look
+    // like an extension that stopped responding.
+    badge(`${msg.page}`, 'ok', { ttl: 600000 });
+    // Recorded too, so a popup opened mid-run picks the progress back up
+    // instead of showing an idle panel over a walk still in flight.
+    chrome.storage.local.set({
+      runState: { running: true, page: msg.page, imported: msg.imported },
+    });
+    return false;
+  }
+  return false;
 });
 
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab?.id) return;
-  try {
-    // Broadcast to every frame — only the one holding the grid answers.
-    const replies = await chrome.tabs.sendMessage(tab.id, { type: 'wb-scrape' });
-    if (!replies?.found) badge('vide', 'warn');
-  } catch {
-    // No content script in this tab (not an Infor page), or no frame answered.
-    badge('vide', 'warn');
+function criteriaOf(cfg) {
+  const { facility, workCenter, fromOffset, toOffset } = cfg;
+  return { facility, workCenter, fromOffset, toOffset, maxPages: MAX_PAGES, rowsPerPage: ROWS_PER_PAGE };
+}
+
+// Broadcast to every Infor tab: the operator may have the mashup in a
+// background tab, and driving it there is the entire point — the report
+// refreshes without anyone looking at it.
+//
+// One call covers the whole run: fill the criteria, press Search, widen the
+// page size, send every page, then put the grid back on page one. With `send`
+// false it stops after widening — the grid is prepared and left alone.
+async function driveSearch(send = true) {
+  const cfg = await config();
+  return ask({ type: 'wb-search', criteria: criteriaOf(cfg), send });
+}
+
+// Human-readable account of a run, for the toolbar tooltip and the options
+// page. The counts that matter are what the server stored, not what the grid
+// appeared to show.
+function summarise(reply) {
+  if (!reply) return { badge: 'form', kind: 'warn', text: 'Aucun écran PMS230 ouvert.' };
+  if (reply.error) return { badge: '!', kind: 'err', text: `Interrompu : ${reply.error}` };
+  if (!reply.clicked) {
+    const missing = (reply.empty ?? []).concat(reply.failed ?? []).join(', ') || 'un critère';
+    return { badge: 'crit.', kind: 'warn', text: `Recherche non lancée — ${missing} vide.` };
   }
+
+  const swept = reply.swept;
+  const lines = [];
+  lines.push(reply.filled?.length ? `Critères écrits : ${reply.filled.join(', ')}.` : 'Critères déjà à jour.');
+  if (reply.rows?.rows) lines.push(`Lignes par page : ${reply.rows.rows}.`);
+  if (swept) {
+    lines.push(`${swept.pages} page(s) parcourue(s), ${swept.imported} ligne(s) importée(s).`);
+    if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
+  }
+  if (reply.rewound) lines.push('Grille remise en page 1.');
+  // Said outright rather than left to be inferred from a missing line: a
+  // prepared grid and an imported one look identical on screen.
+  if (reply.sent === false) lines.push('Grille prête — rien n’a été envoyé.');
+
+  const imported = swept?.imported ?? 0;
+  const failed = swept?.failures?.length ?? 0;
+  return {
+    badge: reply.sent === false ? '✓' : String(imported || '✓'),
+    kind: failed ? 'warn' : 'ok',
+    text: lines.join('\n'),
+  };
+}
+
+// The single place a run's outcome becomes visible: badge, tooltip, and the
+// stored account the popup and the options page both read. Clearing runState
+// here is what tells an open popup the walk is over.
+async function publish(summary) {
+  idleTitle = `Working Book — dernière exécution\n${summary.text}`;
+  badge(summary.badge, summary.kind);
+  chrome.action.setTitle({ title: idleTitle });
+  await chrome.storage.local.remove('runState');
+  await chrome.storage.local.set({ lastRun: { at: new Date().toISOString(), ...summary } });
+  return summary;
+}
+
+async function record(reply) {
+  return publish(summarise(reply));
+}
+
+// The alarm's entry point. A periodic wake-up that finds no PMS230 open is the
+// normal case, not an incident — the operator simply has the screen closed.
+// Recording it would overwrite the account of the last successful import with
+// "Aucun écran PMS230 ouvert" within one period, so a silent wake-up leaves the
+// last real run standing. The button still says it: there, someone asked.
+async function runSearch() {
+  let reply;
+  try {
+    reply = await driveSearch();
+  } catch (err) {
+    // A sweep that got far enough to report progress has already set runState;
+    // leaving it behind would strand the popup on a walk that is over.
+    return publish({ badge: '!', kind: 'err', text: `Interrompu : ${err}` });
+  }
+  if (!reply) return null;
+  await record(reply);
+  return reply;
+}
+
+// Chrome floors alarm periods at one minute; anything below is silently
+// rounded up, so clamping here keeps the stored value honest.
+async function syncAlarm() {
+  const cfg = await config();
+  await chrome.alarms.clear(SEARCH_ALARM);
+  if (!cfg.autoSearch) return;
+  const minutes = Math.max(1, Number(cfg.searchEveryMin) || 15);
+  chrome.alarms.create(SEARCH_ALARM, { periodInMinutes: minutes, delayInMinutes: minutes });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === SEARCH_ALARM) runSearch();
 });
+
+chrome.runtime.onInstalled.addListener(syncAlarm);
+chrome.runtime.onStartup.addListener(syncAlarm);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') return;
+  if ('autoSearch' in changes || 'searchEveryMin' in changes) syncAlarm();
+});
+
+// The whole run, from the popup's button. Declaring a popup means
+// chrome.action.onClicked never fires, so this is the only entry point left —
+// and the popup outlives nothing: closing it does not stop the walk.
+async function runEverything(send = true) {
+  badge('…', 'ok', { ttl: 600000 });
+  try {
+    return await walk(send);
+  } catch (err) {
+    // publish() is the only thing that clears runState, so a throw on the way
+    // there left the popup showing a walk in progress for good — reopening it
+    // never cleared, and no button could end it. An interrupted run has to be
+    // reported as one.
+    return publish({ badge: '!', kind: 'err', text: `Interrompu : ${err}` });
+  }
+}
+
+async function walk(send) {
+  const reply = await driveSearch(send);
+  if (reply) return record(reply);
+
+  // No search form anywhere: fall back to sending whatever grid is on screen.
+  // A report brought up by hand is still worth importing. Not offered when the
+  // ask was to prepare a search — there is no search to prepare, and sending
+  // would be the opposite of what was pressed.
+  if (!send) return record(null);
+  const scraped = await ask({ type: 'wb-scrape' });
+  if (scraped?.found) {
+    return publish({
+      badge: String(scraped.count),
+      kind: 'ok',
+      text: `${scraped.count} ligne(s) envoyée(s) depuis l’écran affiché.`,
+    });
+  }
+  return record(null);
+}

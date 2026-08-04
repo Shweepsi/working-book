@@ -3,9 +3,15 @@ import { API_BASE, SYNC_ENABLED } from '../lib/api';
 import { bookmarkletHref } from '../lib/bookmarklet';
 import { useEscapeToClose } from '../lib/hooks';
 
-// Set-up sheet for the direct import. Nothing here talks to Infor — it builds
-// the bookmarklet the operator installs once, then uses from the Operator
-// Mashup itself, where their session already is.
+// Set-up sheet for the direct import. Nothing here talks to Infor — it hands
+// over the two ways in: the extension, which drives the search itself, and the
+// bookmarklet, which still needs a copy-paste but installs from this page.
+
+// Where the unpacked extension lives on the site's share. A browser cannot be
+// made to install it from a web page — Chrome blocks navigation to file:// and
+// to chrome:// from web content, and there is no install API outside the Web
+// Store. So the honest button is one that hands over the path.
+const EXTENSION_PATH = 'P:\\Bascharage\\Shared\\All\\extension';
 
 interface PortalImportProps {
   onClose: () => void;
@@ -13,7 +19,7 @@ interface PortalImportProps {
 }
 
 export default function PortalImport({ onClose, onBack }: PortalImportProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'link' | 'path' | null>(null);
   const linkRef = useRef<HTMLAnchorElement>(null);
 
   useEscapeToClose(onClose);
@@ -31,16 +37,17 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
 
   useEffect(() => {
     if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2500);
+    const t = setTimeout(() => setCopied(null), 2500);
     return () => clearTimeout(t);
   }, [copied]);
 
-  async function copySource() {
+  async function copy(what: 'link' | 'path', text: string) {
     try {
-      await navigator.clipboard.writeText(href);
-      setCopied(true);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
     } catch {
-      // Clipboard blocked — the operator can still drag the link itself.
+      // Clipboard blocked — the link can still be dragged, and the path is
+      // written out in full on screen rather than hidden behind the button.
     }
   }
 
@@ -58,9 +65,8 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
         </div>
 
         <p className="faint small sch-import-hint">
-          À installer une fois. Ensuite, depuis l’Operator Mashup :{' '}
-          <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>Ctrl</kbd> + <kbd>C</kbd>, un clic
-          sur le favori. Plus de changement d’onglet ni de collage.
+          Deux façons d’importer sans changer d’onglet. L’extension fait tout
+          elle-même ; le favori demande un copier-coller. À installer une fois.
         </p>
 
         {!SYNC_ENABLED ? (
@@ -71,6 +77,48 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
           </div>
         ) : (
           <>
+            <h4 className="sch-portal-way">
+              L’extension <span className="sch-portal-badge">recommandé</span>
+            </h4>
+            <p className="sch-portal-lead">
+              Elle lance la recherche, élargit la grille et envoie le rapport
+              toute seule. Aucun copier-coller.
+            </p>
+            <ol className="sch-portal-steps">
+              <li>
+                Ouvrez <code>chrome://extensions</code> (ou{' '}
+                <code>edge://extensions</code>) et activez le{' '}
+                <strong>mode développeur</strong>, en haut à droite.
+              </li>
+              <li>
+                Cliquez <strong>« Charger l’extension non empaquetée »</strong>,
+                puis collez ce chemin dans la barre d’adresse du sélecteur de
+                dossier :
+                <div className="sch-portal-drag">
+                  <code className="sch-portal-path">{EXTENSION_PATH}</code>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={() => copy('path', EXTENSION_PATH)}
+                  >
+                    {copied === 'path' ? '✓ Copié' : 'Copier le chemin'}
+                  </button>
+                </div>
+              </li>
+              <li>
+                L’icône apparaît dans la barre d’outils. Depuis l’Operator
+                Mashup — ou n’importe quel onglet — cliquez-la puis{' '}
+                <strong>« Rapport auto »</strong>.
+              </li>
+            </ol>
+
+            <hr className="sch-portal-rule" />
+
+            <h4 className="sch-portal-way">Le favori</h4>
+            <p className="sch-portal-lead">
+              Sans accès au partage. Il envoie le rapport affiché, mais la
+              sélection reste à faire à la main.
+            </p>
             <ol className="sch-portal-steps">
               <li>
                 Affichez la barre de favoris du navigateur
@@ -89,8 +137,8 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
                   >
                     ⇱ Working Book — importer
                   </a>
-                  <button type="button" className="btn" onClick={copySource}>
-                    {copied ? '✓ Copié' : 'Copier le lien'}
+                  <button type="button" className="btn" onClick={() => copy('link', href)}>
+                    {copied === 'link' ? '✓ Copié' : 'Copier le lien'}
                   </button>
                 </div>
               </li>

@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Working Book — import Operator Mashup",
-  "version": "1.0.0",
+  "version": "2.1.1",
   "description": "Envoie le rapport PMS230 de l'Operator Mashup vers Working Book, sans copier-coller.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://*.inforcloudsuite.com/*"],
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://*.inforcloudsuite.com/*", "https://working-book-api.loic-cancelotti.workers.dev/*"],
   "optional_host_permissions": ["https://*/*"],
   "background": {
     "service_worker": "background.js"
@@ -14,11 +14,12 @@
       "matches": ["https://*.inforcloudsuite.com/*"],
       "all_frames": true,
       "run_at": "document_idle",
-      "js": ["content.js"]
+      "js": ["mashup.js", "content.js"]
     }
   ],
   "action": {
-    "default_title": "Envoyer le rapport vers Working Book"
+    "default_title": "Working Book — lancer la recherche et importer le rapport",
+    "default_popup": "popup.html"
   },
   "options_page": "options.html"
 }
