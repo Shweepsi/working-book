@@ -1,0 +1,26 @@
+# Procès-verbal de scellé — working-book — 2026-08-02
+#
+# Archive scellée : working-book-preuve-2026-08-02.bundle
+#   (git bundle --all : tout l'historique + code, livrée hors dépôt)
+# HEAD au moment du scellé : 1fc4df0d20445130aa8f9cad70494923e44ade77
+#
+# Empreinte SHA-256 de l'archive :
+ca2bacce0304c200381c565e5af914513b121f80961b8130d0c16b655d36ebb9  working-book-preuve-2026-08-02.bundle
+#
+# Vérification : sha256sum -c ce-fichier (dans le dossier contenant le .bundle)
+# Cette empreinte est l'élément à horodater (e-Soleau INPI / dépôt APP /
+# horodatage qualifié). Toute modification du code postérieure change le HEAD
+# mais NON cette archive, qui reste la photo datée du 2026-08-02.
+#
+# --- Horodatage OpenTimestamps (preuve blockchain, indépendante) ---
+#
+# Fichier : preuve-2026-08-02.bundle.ots (dans ce même dossier docs/)
+# Prouve cryptographiquement, via la blockchain Bitcoin, que l'archive
+# ci-dessus (empreinte ca2bacc...) existait au plus tard aux dates suivantes.
+# Double confirmation, deux blocs Bitcoin distincts :
+#   - Bloc Bitcoin n° 960720
+#   - Bloc Bitcoin n° 960723
+# Vérification indépendante : ots verify docs/preuve-2026-08-02.bundle.ots
+# (nécessite un nœud Bitcoin local, ou https://opentimestamps.org — glisser
+# le .ots). Cette preuve ne dépend d'aucun tiers de confiance : elle est
+# vérifiable par quiconque, indéfiniment, sans OpenTimestamps ni Anthropic.
