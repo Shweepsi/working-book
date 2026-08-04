@@ -2757,11 +2757,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      up; the shared value min-height below does the same for the values. */
   justify-content: flex-start;
   gap: 2px;
-  padding: 2px var(--space-5);
-  border-left: 1px solid var(--line-faint);
+  /* No rule between tiles — each already carries its own uppercase label, and
+     whitespace separates them without drawing a bar through the tinted band.
+     The old 1px border ran the full tile height and read as a hard slice on
+     paper, where the band is solid grey. The padding buys back the separation
+     the rule was doing. */
+  padding: 2px var(--space-8);
   min-width: 0;
 }
-.sch-stat-tile:first-child { border-left: 0; padding-left: 0; }
+.sch-stat-tile:first-child { padding-left: 0; }
+.sch-stat-tile:last-child { padding-right: 0; }
 .sch-stat-tile-label {
   font-size: var(--fs-2xs);
   text-transform: uppercase;
@@ -3225,7 +3230,7 @@ body.is-col-resizing * {
 :root[data-density='compact'] .sch-summary-stats { gap: var(--space-3); font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
-:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-4); }
+:root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-6); }
 :root[data-density='compact'] .sch-stat-tile-label { font-size: 9px; }
 :root[data-density='compact'] .sch-stat-tile-value { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-stat-tile-input .sch-stat-tile-value { padding: 1px var(--space-2); }
@@ -3252,7 +3257,7 @@ body.is-col-resizing * {
 :root[data-density='advanced'] .sch-summary-stats { gap: var(--space-5); font-size: var(--fs-base); }
 :root[data-density='advanced'] .sch-detail-head { padding: 12px 16px; gap: var(--space-6); }
 :root[data-density='advanced'] .sch-detail-head h3 { font-size: var(--fs-xl); }
-:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-6); }
+:root[data-density='advanced'] .sch-stat-tile { padding: 2px var(--space-8); }
 :root[data-density='advanced'] .sch-stat-tile-value { font-size: var(--fs-xl); }
 :root[data-density='advanced'] .sch-stat-tile-input .sch-vitesse-input { width: 40px; }
 :root[data-density='advanced'] .sch-rail-item { padding: 10px 12px; font-size: var(--fs-base); }
@@ -4550,7 +4555,12 @@ button.as-row:focus-visible {
   margin-bottom: 0 !important;
 }
 :root.is-print-preview .sch-detail-head h3 { font-size: 17pt !important; }
-:root.is-print-preview .sch-stat-tile { padding: 0 6pt !important; }
+/* Wider than the 6pt this used to carry: with no rule between tiles, the gap
+   is what separates them, and 6pt left them running together on the band.
+   The outer edges stay flush so the cluster still ends at the band's edge. */
+:root.is-print-preview .sch-stat-tile { padding: 0 12pt !important; }
+:root.is-print-preview .sch-stat-tile:first-child { padding-left: 0 !important; }
+:root.is-print-preview .sch-stat-tile:last-child { padding-right: 0 !important; }
 :root.is-print-preview .sch-stat-tile-label { font-size: 7pt !important; }
 :root.is-print-preview .sch-stat-tile-value { font-size: 12pt !important; }
 :root.is-print-preview .sch-vitesse-input { display: none !important; }
@@ -4711,7 +4721,12 @@ button.as-row:focus-visible {
     margin-bottom: 0 !important;
   }
   .sch-detail-head h3 { font-size: 17pt !important; }
-  .sch-stat-tile { padding: 0 6pt !important; }
+  /* Wider than the 6pt this used to carry: with no rule between tiles, the gap
+     is what separates them, and 6pt left them running together on the band.
+     The outer edges stay flush so the cluster still ends at the band's edge. */
+  .sch-stat-tile { padding: 0 12pt !important; }
+  .sch-stat-tile:first-child { padding-left: 0 !important; }
+  .sch-stat-tile:last-child { padding-right: 0 !important; }
   .sch-stat-tile-label { font-size: 7pt !important; }
   .sch-stat-tile-value { font-size: 12pt !important; }
   .sch-vitesse-input { display: none !important; }
