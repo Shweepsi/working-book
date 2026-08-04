@@ -202,7 +202,14 @@ async function record(reply) {
 // "Aucun écran PMS230 ouvert" within one period, so a silent wake-up leaves the
 // last real run standing. The button still says it: there, someone asked.
 async function runSearch() {
-  const reply = await driveSearch();
+  let reply;
+  try {
+    reply = await driveSearch();
+  } catch (err) {
+    // A sweep that got far enough to report progress has already set runState;
+    // leaving it behind would strand the popup on a walk that is over.
+    return publish({ badge: '!', kind: 'err', text: `Interrompu : ${err}` });
+  }
   if (!reply) return null;
   await record(reply);
   return reply;
@@ -234,6 +241,18 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // and the popup outlives nothing: closing it does not stop the walk.
 async function runEverything(send = true) {
   badge('…', 'ok', { ttl: 600000 });
+  try {
+    return await walk(send);
+  } catch (err) {
+    // publish() is the only thing that clears runState, so a throw on the way
+    // there left the popup showing a walk in progress for good — reopening it
+    // never cleared, and no button could end it. An interrupted run has to be
+    // reported as one.
+    return publish({ badge: '!', kind: 'err', text: `Interrompu : ${err}` });
+  }
+}
+
+async function walk(send) {
   const reply = await driveSearch(send);
   if (reply) return record(reply);
 

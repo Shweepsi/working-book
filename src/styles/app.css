@@ -3375,25 +3375,24 @@ body.is-col-resizing * {
   font-size: var(--fs-md);
   color: var(--ink-soft);
 }
-/* The share path, shown in full rather than only living in the clipboard: the
-   copy button fails silently in some locked-down browsers, and a path nobody
-   can read back is a dead end. */
-.sch-portal-path {
-  padding: 4px 9px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-sm);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: var(--fs-sm);
-  user-select: all;
-  overflow-wrap: anywhere;
-}
 .sch-portal-steps code {
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: var(--paper);
   font-size: 0.92em;
   color: var(--ink);
+}
+/* The share path, shown in full rather than only living in the clipboard: the
+   copy button fails silently in some locked-down browsers, and a path nobody
+   can read back is a dead end.
+   Qualified past the inline-code rule above, which is more specific than a lone
+   class and was flattening this one back to inline-code padding. */
+.sch-portal-steps code.sch-portal-path {
+  padding: 4px 9px;
+  border: 1px solid var(--line-soft);
+  font-size: var(--fs-sm);
+  user-select: all;
+  overflow-wrap: anywhere;
 }
 /* The two ways in are laid out alike, so the separator is what says they are
    alternatives rather than successive steps. */

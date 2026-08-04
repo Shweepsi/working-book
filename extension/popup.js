@@ -117,6 +117,14 @@ $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 $('run').addEventListener('click', () => launch(true));
 $('search').addEventListener('click', () => launch(false));
 
-showCriteria();
-showLastRun();
-restoreProgress();
+// Awaited in order, not fired together. showCriteria() ends on running(false)
+// and restoreProgress() may follow with running(true) — started in parallel,
+// whichever storage area answered last had the final say, and chrome.storage
+// .sync is routinely the slower of the two. The panel then showed "Page 4 —
+// 120 lignes importées" above an enabled button, inviting a second walk over
+// the grid the first one was still driving.
+(async () => {
+  await showCriteria();
+  await showLastRun();
+  await restoreProgress();
+})();
