@@ -127,6 +127,12 @@ Clients poll it while the tab is visible and stop entirely when it is hidden
 }
 ```
 
+Unlike the other singletons, `PUT` here checks the shape and answers
+`400 expected_ideas_array` to a body whose `ideas` is not an array. The board is
+rendered by a header component that every tab mounts, so a blob of the wrong
+shape would reach every device on the next probe — and on an unauthenticated
+route, one stray `PUT` should not be able to do that.
+
 Identity is the operator's name and nothing more — the whole API is
 unauthenticated, so there is no account to tie a +1 to. The front folds case
 and accents before comparing (`Loïc` = `LOIC`), keeps the board's author out of

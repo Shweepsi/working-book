@@ -79,6 +79,14 @@ function votesOf(idea: Idea): IdeaVote[] {
   return Array.isArray(idea.votes) ? idea.votes : [];
 }
 
+// Same guard one level up, and it earns its keep: the sync layer adopts
+// whatever the Worker answers with, and this component sits in the header on
+// every tab. A blob that isn't `{ ideas: [...] }` would otherwise throw on the
+// first render and take the whole app down with it — not just this board.
+function ideasOf(state: IdeasState): Idea[] {
+  return Array.isArray(state.ideas) ? state.ideas : [];
+}
+
 function hasVoted(idea: Idea, key: string): boolean {
   return key !== '' && votesOf(idea).some((v) => nameKey(v.name) === key);
 }
@@ -114,7 +122,7 @@ export default function Ideas() {
   useEffect(() => { save(SEEN_KEY, seenAt); }, [seenAt]);
 
   const meKey = nameKey(author);
-  const ideas = state.ideas;
+  const ideas = ideasOf(state);
 
   // Everything on screen counts as seen — including whatever lands while the
   // sheet is open. The mark is the newest `createdAt` we can actually see
@@ -144,7 +152,7 @@ export default function Ideas() {
       updatedAt: now,
       votes: [],
     };
-    setState((s) => ({ ...s, ideas: [...s.ideas, idea] }));
+    setState((s) => ({ ...s, ideas: [...ideasOf(s), idea] }));
     // The board is shared, so the confirmation is worth showing: the operator
     // has no other cue that their idea left the device.
     toast.show({ message: 'Idée proposée' });
@@ -154,7 +162,9 @@ export default function Ideas() {
     if (!title) return;
     setState((s) => ({
       ...s,
-      ideas: s.ideas.map((i) => (i.id === id ? { ...i, title, detail, updatedAt: Date.now() } : i)),
+      ideas: ideasOf(s).map((i) =>
+        i.id === id ? { ...i, title, detail, updatedAt: Date.now() } : i,
+      ),
     }));
   }
 
@@ -162,10 +172,11 @@ export default function Ideas() {
     let removed: Idea | undefined;
     let removedIndex = -1;
     setState((s) => {
-      removedIndex = s.ideas.findIndex((i) => i.id === id);
+      const list = ideasOf(s);
+      removedIndex = list.findIndex((i) => i.id === id);
       if (removedIndex < 0) return s;
-      removed = s.ideas[removedIndex];
-      return { ...s, ideas: s.ideas.filter((i) => i.id !== id) };
+      removed = list[removedIndex];
+      return { ...s, ideas: list.filter((i) => i.id !== id) };
     });
     if (!removed) return;
     const restored = removed;
@@ -174,8 +185,9 @@ export default function Ideas() {
       message: 'Idée supprimée',
       undo: () => {
         setState((s) => {
-          if (s.ideas.some((i) => i.id === restored.id)) return s;
-          const next = [...s.ideas];
+          const list = ideasOf(s);
+          if (list.some((i) => i.id === restored.id)) return s;
+          const next = [...list];
           next.splice(Math.min(insertAt, next.length), 0, restored);
           return { ...s, ideas: next };
         });
@@ -190,7 +202,7 @@ export default function Ideas() {
     const now = Date.now();
     setState((s) => ({
       ...s,
-      ideas: s.ideas.map((i) => {
+      ideas: ideasOf(s).map((i) => {
         if (i.id !== id) return i;
         const votes = votesOf(i);
         return {
@@ -395,11 +407,14 @@ function IdeasSheet({
               />
             </label>
           </div>
+          {/* Labelled like its two siblings — the placeholder alone leaves the
+              field nameless to a screen reader, and it vanishes on first keystroke. */}
           <textarea
             className="ideas-detail-input"
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             placeholder="Détail (facultatif)"
+            aria-label="Détail de l’idée (facultatif)"
             maxLength={MAX_DETAIL}
             rows={2}
           />

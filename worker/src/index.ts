@@ -271,6 +271,14 @@ async function handleIdeas(
   if (request.method === 'PUT') {
     const body = await readJsonBody(request);
     if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
+    // Stricter than the sibling handlers on purpose. This partition is read by
+    // a header component that every tab renders, so a blob shaped like anything
+    // else — an array, `{}`, `{ ideas: null }` — would reach every device on the
+    // next probe. The route is unauthenticated; one stray PUT should not be able
+    // to do that.
+    if (!Array.isArray((body as { ideas?: unknown }).ideas)) {
+      return json({ error: 'expected_ideas_array' }, cors, 400);
+    }
     const now = Date.now();
     await env.DB.prepare(
       `INSERT INTO ideas (id, state_json, updated_at)
