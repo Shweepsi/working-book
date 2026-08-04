@@ -10,9 +10,9 @@ import { useToast } from '../lib/toast';
 //   · nommées — an idea carries the name of whoever proposed it, and so does
 //     every +1. Nothing authenticates here (the whole API is open), so the
 //     typed name is the identity: it is remembered locally and reused.
-//   · +1 — support is a single toggle per operator per idea. The count is what
-//     ranks the board, so it has to mean "how many colleagues back this",
-//     which is why an author cannot +1 their own idea.
+//   · le pouce — support is a single toggle per operator per idea. The count is
+//     what ranks the board, so it has to mean "how many colleagues back this",
+//     which is why an author cannot thumb their own idea.
 // The board is one JSON blob in the `ideas` partition, last-write-wins like
 // every other partition. Two +1s cast inside the same poll window can cost one
 // of them; the board is low-traffic enough that the alternative — a merge
@@ -211,7 +211,7 @@ export default function Ideas() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={unseen > 0 ? `Idées d’amélioration — ${unseen} nouvelle${unseen > 1 ? 's' : ''}` : 'Idées d’amélioration'}
-        title="Idées d’amélioration — proposer, soutenir (+1)"
+        title="Idées d’amélioration — proposer, soutenir"
       >
         <span className="ideas-icon" aria-hidden="true" />
         {unseen > 0 && <span className="ideas-dot" aria-hidden="true" />}
@@ -346,8 +346,8 @@ function IdeasSheet({
             <h3>Idées d’amélioration</h3>
             <span className="sheet-head-sub">
               {ideas.length === 0
-                ? 'Le tableau est vide — lancez-le'
-                : `${ideas.length} idée${ideas.length > 1 ? 's' : ''} · ${totalVotes} +1`}
+                ? 'Tableau vide'
+                : `${ideas.length} idée${ideas.length > 1 ? 's' : ''} · ${totalVotes} soutien${totalVotes > 1 ? 's' : ''}`}
             </span>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">
@@ -384,14 +384,12 @@ function IdeasSheet({
             className="ideas-detail-input"
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
-            placeholder="Détail, contexte, gain attendu… (facultatif)"
+            placeholder="Détail (facultatif)"
             maxLength={MAX_DETAIL}
             rows={2}
           />
           <div className="ideas-form-actions">
-            <span className="ideas-form-hint">
-              Les idées sont signées : votre nom apparaît sur le tableau et sur vos +1.
-            </span>
+            <span className="ideas-form-hint">Les idées et les pouces sont signés.</span>
             {editingId && (
               <button type="button" className="btn ghost mini ideas-cancel" onClick={resetForm}>
                 Annuler
@@ -427,10 +425,7 @@ function IdeasSheet({
         {ideas.length === 0 ? (
           <div className="ideas-empty">
             <h4>Aucune idée pour l’instant</h4>
-            <p>
-              Une manip qui fait perdre du temps, un réglage à revoir, un outil qui manque —
-              proposez-la ci-dessus. Les collègues la soutiennent d’un +1.
-            </p>
+            <p>Proposez la première — les collègues la soutiennent d’un pouce.</p>
           </div>
         ) : (
           <ul className="ideas-list">
@@ -462,6 +457,19 @@ interface CardProps {
   onDelete: () => void;
 }
 
+// Thumb drawn as a path rather than in CSS boxes: the shape has curves the
+// header's bulb doesn't, and `currentColor` still lets the button drive it.
+function ThumbIcon() {
+  return (
+    <svg className="idea-thumb" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M7 10.5v9H4.5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1H7Zm2.6-.7 3.6-6.1a.9.9 0 0 1 1.6.1c.4.9.5 1.9.3 2.9L14.6 9h4.2a1.9 1.9 0 0 1 1.9 2.3l-1.1 5.9a2.6 2.6 0 0 1-2.6 2.1H9.6a.6.6 0 0 1-.6-.6v-8.3c0-.2 0-.4.2-.6Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function IdeaCard({ idea, meKey, isEditing, onVote, onEdit, onDelete }: CardProps) {
   const votes = votesOf(idea);
   const mine = meKey !== '' && nameKey(idea.author) === meKey;
@@ -472,8 +480,8 @@ function IdeaCard({ idea, meKey, isEditing, onVote, onEdit, onDelete }: CardProp
   const edited = !!idea.updatedAt && idea.updatedAt - (idea.createdAt ?? 0) > 60_000;
 
   let voteTitle: string;
-  if (mine) voteTitle = 'Votre idée — les +1 viennent de vos collègues';
-  else if (voted) voteTitle = 'Retirer votre +1';
+  if (mine) voteTitle = 'Votre idée — le pouce revient à vos collègues';
+  else if (voted) voteTitle = 'Retirer votre pouce';
   else voteTitle = 'Soutenir cette idée';
 
   return (
@@ -484,11 +492,11 @@ function IdeaCard({ idea, meKey, isEditing, onVote, onEdit, onDelete }: CardProp
         onClick={onVote}
         disabled={mine}
         aria-pressed={voted}
-        aria-label={`${voteTitle} · ${votes.length} +1`}
+        aria-label={`${voteTitle} · ${votes.length} soutien${votes.length > 1 ? 's' : ''}`}
         title={voteTitle}
       >
+        <ThumbIcon />
         <span className="idea-vote-count mono">{votes.length}</span>
-        <span className="idea-vote-label">+1</span>
       </button>
 
       <div className="idea-body">

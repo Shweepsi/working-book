@@ -4340,49 +4340,58 @@ button.as-row:focus-visible {
   background: color-mix(in srgb, var(--accent) 5%, var(--paper));
 }
 
-/* The +1 itself: count on top, label underneath, filled once cast. */
+/* The support control: a thumb over its count, turning blue once given. The
+   blue comes from the `note` flag tokens rather than a literal hex, so it
+   follows the theme and softens on paper like every other tinted control. */
 .idea-vote {
   flex: 0 0 auto;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   width: 48px;
   min-height: 46px;
   padding: var(--space-2) 0;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   background: var(--paper);
-  color: var(--ink);
+  color: var(--ink-soft);
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .idea-vote:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--flag-note-bd);
+  color: var(--flag-note-fg);
+  background: color-mix(in srgb, var(--hl-blue) 35%, var(--paper));
 }
 .idea-vote.is-on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--hl-blue) 80%, var(--paper));
+  border-color: var(--flag-note-bd);
+  color: var(--flag-note-fg);
 }
+.idea-vote:focus-visible {
+  outline: 2px solid var(--flag-note-bd);
+  outline-offset: 2px;
+}
+/* Author's own idea: the thumb is theirs to receive, not to give. */
 .idea-vote:disabled {
   cursor: default;
   border-style: dashed;
   color: var(--ink-faint);
   background: transparent;
 }
+.idea-thumb {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+/* A given thumb sits a touch prouder than an open one. */
+.idea-vote.is-on .idea-thumb { transform: translateY(-1px); }
 .idea-vote-count {
-  font-size: var(--fs-xl);
+  font-size: var(--fs-md);
   font-weight: 600;
   line-height: 1;
-}
-.idea-vote-label {
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.75;
 }
 
 .idea-body {
@@ -4400,11 +4409,13 @@ button.as-row:focus-visible {
   -webkit-user-select: text;
   overflow-wrap: anywhere;
 }
+/* The description whispers: it is context for a title that already carries the
+   idea. Small and faint, no chrome of its own. */
 .idea-detail {
   margin: 0;
-  font-size: var(--fs-md);
-  line-height: 1.45;
-  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--ink-faint);
   white-space: pre-wrap;
   user-select: text;
   -webkit-user-select: text;
