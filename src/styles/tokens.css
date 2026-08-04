@@ -190,10 +190,15 @@
   --ink-faint: #777;
   --line: #000;
   --line-soft: #888;
-  --line-faint: #ccc;
+  /* Column hairlines, kept in step with the band tint below. */
+  --line-faint: #bbb;
 
   --paper: #fff;
-  --paper-2: #f4f4f4;
+  /* Every grey band on the sheet — group bands, header row, total row, the
+     meta line, the MTO/MTS chip — comes from this one token. Screen-weight
+     tints wash out on paper: at #f4f4f4 the bands were barely off-white and
+     the groups stopped reading as blocks. */
+  --paper-2: #e4e4e4;
   --canvas: #fff;
   --paper-glass: #fff;
   --paper-glass-2: #fff;
@@ -245,10 +250,15 @@
     --ink-faint: #777;
     --line: #000;
     --line-soft: #888;
-    --line-faint: #ccc;
+    /* Column hairlines, kept in step with the band tint below. */
+    --line-faint: #bbb;
 
     --paper: #fff;
-    --paper-2: #f4f4f4;
+    /* Every grey band on the sheet — group bands, header row, total row, the
+       meta line, the MTO/MTS chip — comes from this one token. Screen-weight
+       tints wash out on paper: at #f4f4f4 the bands were barely off-white and
+       the groups stopped reading as blocks. */
+    --paper-2: #e4e4e4;
     --canvas: #fff;
     --paper-glass: #fff;
     --paper-glass-2: #fff;
