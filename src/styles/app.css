@@ -4670,6 +4670,11 @@ button.as-row:focus-visible {
     padding: 0 !important;
     border-radius: 0 !important;
     background-image: none !important;
+    /* The aperçu's "paper edge against the desk" shadow only makes sense
+       against the on-screen backdrop. On paper there is no desk, and
+       print-color-adjust: exact above guarantees it gets inked — it came out
+       as a grey band under the last row. */
+    box-shadow: none !important;
   }
   :root.is-print-preview body { background: var(--print-bg) !important; }
 
