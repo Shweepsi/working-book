@@ -1169,6 +1169,7 @@ export default function Schedules({ density }: SchedulesProps) {
             <ScheduleTable
               items={groupedRows}
               totals={visibleRows}
+              hiddenFinished={tableSettings.showFinished ? 0 : finishedRows.length}
               onRowOpen={handleRowOpen}
               columns={visibleColumns}
               pinned={layout.pinned}
@@ -1530,6 +1531,9 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
 interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
+  // Finished lines the œillet is currently holding back — 0 when it is open,
+  // so the empty state only blames the œillet when the œillet is to blame.
+  hiddenFinished: number;
   onRowOpen: (row: DisplayRow) => void;
   columns: ColumnDef[];
   pinned: string[];
@@ -1693,7 +1697,7 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
   );
 }
 
-function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -1786,10 +1790,18 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
   // than on the totals: a filter can clear the planning while finished rows
   // still pass it, and swapping the table for "aucune ligne" would deny rows
   // that are right there.
+  //
+  // And when the œillet is what is holding them back, say so. On a schedule
+  // whose every line is produced — the case the terminés sheet opens — the
+  // plain "aucune ligne" is simply false, and it appears directly under a
+  // control offering the rows it denies.
   if (items.length === 0) {
     return (
       <div className="sch-empty-rows faint">
-        Aucune ligne pour ce schedule.
+        {hiddenFinished > 0
+          ? `Rien à produire sur ce schedule — ${hiddenFinished} ligne${hiddenFinished > 1 ? 's' : ''} `
+            + `terminée${hiddenFinished > 1 ? 's' : ''}, à afficher avec l’œillet.`
+          : 'Aucune ligne pour ce schedule.'}
       </div>
     );
   }
@@ -2197,7 +2209,9 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns, muted }: S
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
       }}
-      aria-label={`Détails ${row.product} ${row.itemName}`}
+      // The grey is the only thing marking a finished line, and colour alone
+      // reaches neither a screen reader nor a monochrome display.
+      aria-label={`Détails ${row.product} ${row.itemName}${muted ? ' — terminée' : ''}`}
     >
       {columns.map((c) => {
         const monoExtra =
