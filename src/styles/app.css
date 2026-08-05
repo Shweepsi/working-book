@@ -2595,9 +2595,73 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-color: var(--ink);
 }
 
+/* The two view controls — œillet and Colonnes — sit together at the far right,
+   away from the filter chips: they act on the shape of the table, not on which
+   rows it holds. The group carries the auto margin so the œillet appearing or
+   disappearing doesn't move Colonnes. */
+.sch-controls-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
 .sch-cols-wrap {
   position: relative;
   display: inline-flex;
+}
+
+/* Œillet — reveals the rows the planner's formula sets aside (terminées, hors
+   coater, échantillons QC) as a block under the total. */
+.sch-eye-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sch-eye-btn.is-on {
+  background: var(--paper-2);
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+/* CSS-drawn like .sch-cols-icon. The lens is a square with two opposite
+   corners rounded, turned 45° so the points land left and right; the pupil is
+   the dot at its centre. */
+.sch-eye {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  display: inline-block;
+  opacity: 0.75;
+}
+.sch-eye::before {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border: 1.25px solid currentColor;
+  border-radius: 100% 0;
+  transform: rotate(45deg);
+}
+.sch-eye::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3.5px;
+  height: 3.5px;
+  margin: -1.75px 0 0 -1.75px;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* Struck through while the block is folded away — the button then reads as
+   "these rows are hidden", which is what its count is counting. */
+.sch-eye.is-off {
+  background: linear-gradient(
+    45deg,
+    transparent calc(50% - 0.7px),
+    currentColor calc(50% - 0.7px),
+    currentColor calc(50% + 0.7px),
+    transparent calc(50% + 0.7px)
+  );
 }
 /* Colonnes button — CSS-drawn column icon + chevron that rotates open.
    Active state (menu visible) flips the chevron and pins the background
@@ -2953,6 +3017,61 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-weight: 700;
   letter-spacing: 0.07em;
   color: var(--ink);
+}
+
+/* --- Masqués block ------------------------------------------------------- */
+
+/* The total is sticky to the bottom of the table's scroll box, and on screen
+   <tbody> is display:contents — so it has no box of its own to confine that
+   stickiness to the planning rows. With the block unfolded the total would
+   float over the masqués rows all the way down instead of closing the planning
+   above them. It gives up its perch for as long as the block is open; folding
+   the œillet back gets it straight back. */
+.sch-table.has-hidden .sch-row.sch-total {
+  position: static;
+}
+
+/* Everything under the total is reference material: the operator opened it to
+   check what became of a line, not to plan with it. The whole section steps
+   back a tone so the eye keeps reading the planning above as the document. */
+.sch-hidden-body .sch-row.is-muted .sch-cell { color: var(--ink-soft); }
+/* The green wash marks the surface still to coat. None of it is, here — and on
+   a terminée the m² column still shows the row's full surface, which under that
+   highlight would read as work outstanding. The column keeps its place and
+   loses its claim. */
+.sch-hidden-body .sch-row.is-muted .sch-cell.col-m2 {
+  background: color-mix(in srgb, var(--hl-green) 18%, var(--paper));
+}
+/* Same for the yellow QC wash: inside this block every row is set aside, so
+   flagging the samples again says nothing their own band doesn't. */
+.sch-hidden-body .sch-row.is-qc,
+.sch-hidden-body .sch-row.is-qc:hover { background: none; }
+.sch-hidden-body .sch-row.is-qc .sch-cell.is-pinned { background: var(--paper); }
+
+/* The total is a tinted band and so is the first reason band right under it;
+   without a rule between them they merge into one thick slab and the boundary
+   the section depends on disappears. */
+.sch-hidden-body .sch-row.sch-hidden-break:first-child {
+  border-top: 1px solid var(--line-soft);
+}
+/* The reason band. Same chip as a dimension break so the two read as siblings,
+   in the softer ink of the section. Unlike a dimension break it takes the
+   pointer, to carry the tooltip spelling out what put these rows aside — which
+   costs it the row-hover tint the other breaks avoid by being inert. */
+.sch-row.sch-hidden-break { pointer-events: auto; }
+.sch-row.sch-hidden-break:hover { background: var(--paper-2); }
+.sch-hidden-value {
+  color: var(--ink-soft);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: help;
+}
+.sch-hidden-count,
+.sch-hidden-note {
+  margin-left: var(--space-4);
+  font-size: var(--fs-2xs);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .sch-row.is-qc {
@@ -4647,6 +4766,14 @@ button.as-row:focus-visible {
   font-size: 7.5pt;
   border-color: var(--line-soft);
 }
+/* Masqués block — it prints whenever the operator left the œillet open. Only
+   the two screen-sized values are restated here; the softer ink of its rows
+   carries over from the base rules unchanged. */
+:root.is-print-preview .sch-hidden-body .sch-row.sch-hidden-break:first-child {
+  border-top: 0.75pt solid var(--line-soft);
+}
+:root.is-print-preview .sch-hidden-count,
+:root.is-print-preview .sch-hidden-note { font-size: 7pt; }
 :root.is-print-preview .sch-cell {
   padding: 3pt 4pt !important;
   font-size: 8.5pt !important;
@@ -4821,6 +4948,14 @@ button.as-row:focus-visible {
     font-size: 7.5pt;
     border-color: var(--line-soft);
   }
+  /* Masqués block — it prints whenever the operator left the œillet open. Only
+     the two screen-sized values are restated here; the softer ink of its rows
+     carries over from the base rules unchanged. */
+  .sch-hidden-body .sch-row.sch-hidden-break:first-child {
+    border-top: 0.75pt solid var(--line-soft);
+  }
+  .sch-hidden-count,
+  .sch-hidden-note { font-size: 7pt; }
   .sch-cell {
     padding: 3pt 4pt !important;
     font-size: 8.5pt !important;
