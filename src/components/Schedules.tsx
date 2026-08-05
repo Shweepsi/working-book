@@ -47,26 +47,26 @@ type GroupedItem =
   | { kind: 'row'; row: DisplayRow };
 
 // Why a row sits outside the planning table. Mirrors the planner's Excel
-// formula, which drops these three families before anything else is computed —
-// they are not work the coater still has to do, so they take no part in the
-// totals, the throughput tiles or the rail counts.
-type HiddenReason = 'echantillon' | 'horsCoater' | 'termine';
+// formula, which drops these families before anything else is computed — they
+// are not work the coater still has to do, so they take no part in the totals,
+// the throughput tiles or the rail counts.
+type HiddenReason = 'echantillon' | 'termine';
 
 // Reasons in the order they are tested and displayed. A row can qualify under
-// more than one — a finished QC sample is both — and the first match wins, so
-// what a row *is* takes precedence over how far along it is: "échantillon QC"
-// explains its absence better than "terminé" would.
+// both — a finished QC sample does — and the first match wins, so what a row
+// *is* takes precedence over how far along it is: "échantillon QC" explains
+// its absence better than "terminé" would.
 const HIDDEN_REASONS: { key: HiddenReason; label: string; hint: string }[] = [
   { key: 'echantillon', label: 'Échantillons QC', hint: 'Prélèvements Vacuum — hors production' },
-  { key: 'horsCoater',  label: 'Hors coater',     hint: 'Opération 90 — étape réalisée hors ligne de dépôt' },
-  { key: 'termine',     label: 'Terminés',        hint: 'Plus rien à produire (req = 0)' },
+  { key: 'termine',     label: 'Terminés',        hint: 'Plus rien à produire : opération 90, ou req = 0' },
 ];
 
 // The reason a row is kept out, or null when it belongs to the planning.
+// Op-step 90 marks a line as finished — same family as a row whose remaining
+// requirement has fallen to zero, and shown under the same heading.
 function hiddenReason(r: PMS230Record): HiddenReason | null {
   if (/^Vacuum/i.test(r.itemName)) return 'echantillon';
-  if (r.opStepD === 90) return 'horsCoater';
-  if ((r.reqLites ?? 0) <= 0) return 'termine';
+  if (r.opStepD === 90 || (r.reqLites ?? 0) <= 0) return 'termine';
   return null;
 }
 
@@ -76,6 +76,16 @@ interface HiddenGroup {
   label: string;
   hint: string;
   rows: DisplayRow[];
+}
+
+// A schedule with nothing left to produce, as the "terminés" sheet reads it.
+interface FinishedSchedule {
+  schedule: string;
+  name: string;
+  rows: PMS230Record[];
+  // Lites actually produced, and the surface they represent.
+  lites: number;
+  m2: number;
 }
 
 interface RailStat {
@@ -483,6 +493,7 @@ export default function Schedules({ density }: SchedulesProps) {
   // Schedule number waiting on the delete confirmation, or null.
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const [finishedOpen, setFinishedOpen] = useState(false);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
     () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
   );
@@ -824,31 +835,42 @@ export default function Schedules({ density }: SchedulesProps) {
     return stats;
   }, [data]);
 
-  // How many rows each schedule has set aside. Only the rail reads this — the
-  // selected schedule's own count comes from hiddenGroups.
-  const hiddenPerSchedule = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const r of data?.records ?? []) {
-      if (!hiddenReason(r)) continue;
-      counts.set(r.schedule, (counts.get(r.schedule) ?? 0) + 1);
-    }
-    return counts;
-  }, [data]);
-
   // Hide schedules with no remaining surface to coat — covers the case where
   // every surviving row has largeur=longueur=0 (QC-style samples).
-  //
-  // Except when the œillet is open. A schedule whose last line has been
-  // produced has no remaining surface at all, so it drops out of the rail
-  // entirely — precisely the schedule an operator opens the œillet to look
-  // back at. Holding it there is what makes the control reach past the
-  // schedule in front of you.
   const visibleSchedules = useMemo(
-    () => schedules.filter((s) =>
-      (railStats.get(s.schedule)?.m2 ?? 0) > 0 ||
-      (tableSettings.showHidden && (hiddenPerSchedule.get(s.schedule) ?? 0) > 0)),
-    [schedules, railStats, hiddenPerSchedule, tableSettings.showHidden],
+    () => schedules.filter((s) => (railStats.get(s.schedule)?.m2 ?? 0) > 0),
+    [schedules, railStats],
   );
+
+  // The other side of that filter: schedules with nothing left to produce.
+  // They belong nowhere in the planning rail — selecting one would put an
+  // empty table on screen — but they are the record of what the line has
+  // already made, so they get their own read-only sheet. Rows are carried
+  // along: the sheet is the only place they can still be read.
+  const finishedSchedules: FinishedSchedule[] = useMemo(() => {
+    const visible = new Set(visibleSchedules.map((s) => s.schedule));
+    const rows = new Map<string, PMS230Record[]>();
+    for (const r of data?.records ?? []) {
+      if (visible.has(r.schedule)) continue;
+      const list = rows.get(r.schedule);
+      if (list) list.push(r); else rows.set(r.schedule, [r]);
+    }
+    return schedules
+      .filter((s) => !visible.has(s.schedule) && (rows.get(s.schedule)?.length ?? 0) > 0)
+      .map((s) => {
+        const list = rows.get(s.schedule)!;
+        // Sorted the way the planning table sorts by default, so a schedule
+        // reads the same here as it did while it was still being produced.
+        list.sort((a, b) => b.longueur - a.longueur || (a.itemName || '').localeCompare(b.itemName || ''));
+        return {
+          schedule: s.schedule,
+          name: shortItemName(s.itemRoot) || s.itemRoot || '—',
+          rows: list,
+          lites: list.reduce((n, r) => n + (r.prodLites ?? 0), 0),
+          m2: list.reduce((n, r) => n + r.m2, 0),
+        };
+      });
+  }, [schedules, visibleSchedules, data]);
 
   // Auto-select the first visible schedule once data loads, and re-pick if the
   // current selection has been hidden (e.g. after a re-import or a delete).
@@ -977,12 +999,23 @@ export default function Schedules({ density }: SchedulesProps) {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Planning <span className="faint">· {visibleSchedules.length}</span>
+              <span>Planning <span className="faint">· {visibleSchedules.length}</span></span>
+              {/* Way back to the schedules that have left the rail. Only shown
+                  when there are any — on a fresh import there never are. */}
+              {finishedSchedules.length > 0 && (
+                <button
+                  type="button"
+                  className="sch-rail-done-btn"
+                  onClick={() => setFinishedOpen(true)}
+                  title="Consulter les schedules dont il ne reste rien à produire"
+                >
+                  {finishedSchedules.length} terminé{finishedSchedules.length > 1 ? 's' : ''}
+                </button>
+              )}
             </h4>
             <ul className="sch-rail-list">
               {visibleSchedules.map((s) => {
                 const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0, shortName: '' };
-                const setAside = hiddenPerSchedule.get(s.schedule) ?? 0;
                 return (
                   <li key={s.schedule}>
                     <SwipeToDelete onDelete={() => setPendingDelete(s.schedule)}>
@@ -1004,13 +1037,7 @@ export default function Schedules({ density }: SchedulesProps) {
                           <span className="sch-rail-root">{stat.shortName || shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
                         </div>
                         <div className="sch-rail-meta faint small mono">
-                          {/* A schedule only reaches the rail with nothing to
-                              produce when the œillet is holding it there.
-                              "0 lignes · 0 m²" would read as a broken import
-                              rather than as a finished job. */}
-                          {stat.count === 0
-                            ? `rien à produire · ${setAside} masquée${setAside > 1 ? 's' : ''}`
-                            : `${stat.count} ligne${stat.count > 1 ? 's' : ''} · ${fmtNum(stat.m2, 0)} m²`}
+                          {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
                         </div>
                       </button>
                     </SwipeToDelete>
@@ -1205,7 +1232,93 @@ export default function Schedules({ density }: SchedulesProps) {
           onClose={() => setOpenRowId(null)}
         />
       )}
+
+      {finishedOpen && (
+        <FinishedSheet
+          schedules={finishedSchedules}
+          onClose={() => setFinishedOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+// The schedules that have dropped out of the rail with nothing left to
+// produce. Read-only by design: there is no planning left to do on them, and
+// selecting one would only put an empty table on screen.
+function FinishedSheet({ schedules, onClose }: { schedules: FinishedSchedule[]; onClose: () => void }) {
+  useEscapeToClose(onClose);
+  // One open at a time. Several schedules unfolded at once turn the sheet into
+  // a scroll of undifferentiated rows, which is the state it exists to avoid.
+  const [open, setOpen] = useState<string | null>(schedules.length === 1 ? schedules[0]!.schedule : null);
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sch-done-sheet" role="dialog" aria-modal="true" aria-label="Schedules terminés">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <div className="sheet-head-titles">
+            <h3>Schedules terminés</h3>
+            <div className="sheet-head-sub">
+              {schedules.length} schedule{schedules.length > 1 ? 's' : ''} sans reste à produire
+            </div>
+          </div>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+
+        <ul className="sch-done-list">
+          {schedules.map((s) => {
+            const isOpen = open === s.schedule;
+            return (
+              <li key={s.schedule} className={`sch-done-item ${isOpen ? 'is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="sch-done-head"
+                  onClick={() => setOpen(isOpen ? null : s.schedule)}
+                  aria-expanded={isOpen}
+                >
+                  <span className="sch-done-chevron" aria-hidden="true" />
+                  <span className="mono sch-done-num">{s.schedule}</span>
+                  <span className="sch-done-name">{s.name}</span>
+                  <span className="sch-done-meta faint small mono">
+                    {s.rows.length} ligne{s.rows.length > 1 ? 's' : ''} · {fmtNum(s.lites, 0)} lites · {fmtNum(s.m2, 0)} m²
+                  </span>
+                </button>
+                {isOpen && (
+                  <table className="sch-done-rows">
+                    <thead>
+                      <tr>
+                        <th scope="col">Article</th>
+                        <th scope="col">Qualité</th>
+                        <th scope="col">Dimension</th>
+                        <th scope="col" className="col-num">Prod</th>
+                        <th scope="col" className="col-num">m²</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.rows.map((r) => (
+                        <tr key={r.id}>
+                          <td title={r.itemName}>{r.itemName || '—'}</td>
+                          <td className="mono">{r.qualite || '—'}</td>
+                          <td className="mono">
+                            {r.largeur && r.longueur
+                              ? `${fmtNum(r.largeur, 0)} × ${fmtNum(r.longueur, 0)}`
+                              : '—'}
+                          </td>
+                          <td className="mono col-num">{fmtNum(r.prodLites ?? 0, 0)}</td>
+                          <td className="mono col-num">{fmtNum(r.m2, 0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </>
   );
 }
 
@@ -1667,10 +1780,10 @@ function ScheduleTable({ items, totals, hiddenGroups, onRowOpen, columns, pinned
     };
   }, [columns, widths, autoWidths]);
 
-  // Nothing to plan and nothing set aside — the schedule really is empty. With
-  // a masqués block to show the table stays: a finished schedule reached
-  // through the œillet has no planning rows by definition, and swapping the
-  // whole table for "aucune ligne" would deny the very rows it was opened for.
+  // Nothing to plan and nothing set aside — the schedule really is empty. A
+  // filter that clears the planning without clearing the masqués keeps the
+  // table: swapping it for "aucune ligne" would deny rows that are right there
+  // and pass the filter.
   if (totals.length === 0 && hiddenGroups.length === 0) {
     return (
       <div className="sch-empty-rows faint">
