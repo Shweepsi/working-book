@@ -3042,61 +3042,30 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--ink);
 }
 
-/* --- Masqués block ------------------------------------------------------- */
+/* --- Lignes terminées ----------------------------------------------------- */
 
-/* The total is sticky to the bottom of the table's scroll box, and on screen
-   <tbody> is display:contents — so it has no box of its own to confine that
-   stickiness to the planning rows. With the block unfolded the total would
-   float over the masqués rows all the way down instead of closing the planning
-   above them. It gives up its perch for as long as the block is open; folding
-   the œillet back gets it straight back. */
-.sch-table.has-hidden .sch-row.sch-total {
-  position: static;
-}
-
-/* Everything under the total is reference material: the operator opened it to
-   check what became of a line, not to plan with it. The whole section steps
-   back a tone so the eye keeps reading the planning above as the document. */
-.sch-hidden-body .sch-row.is-muted .sch-cell { color: var(--ink-soft); }
-/* The green wash marks the surface still to coat. None of it is, here — and on
-   a terminée the m² column still shows the row's full surface, which under that
-   highlight would read as work outstanding. The column keeps its place and
-   loses its claim. */
-.sch-hidden-body .sch-row.is-muted .sch-cell.col-m2 {
+/* A line the œillet has brought back sits in its dimension group like any
+   other, and greys out where it stands. Nothing else marks it: no band, no
+   rule, no separate section — the tone is the whole signal, which is what
+   lets the planning above it stay the document. */
+.sch-row.is-muted .sch-cell { color: var(--ink-faint); }
+/* The green wash marks the surface still to coat. None of a finished row is —
+   and its m² cell still shows the row's full surface, the field being computed
+   on the scheduled lites. At full strength, in the middle of the table, that
+   cell would be the one thing on the row still claiming to be work. */
+.sch-row.is-muted .sch-cell.col-m2 {
   background: color-mix(in srgb, var(--hl-green) 18%, var(--paper));
 }
-/* Same for the yellow zero-dimension wash. It flags a row the planning has to
-   look twice at; under the Terminés band there is no planning left to warn, and
-   the tint would be the loudest thing in a block meant to stay quiet. */
-.sch-hidden-body .sch-row.is-qc,
-.sch-hidden-body .sch-row.is-qc:hover { background: none; }
-.sch-hidden-body .sch-row.is-qc .sch-cell.is-pinned { background: var(--paper); }
-
-/* The total is a tinted band and so is the Terminés band right under it;
-   without a rule between them they merge into one thick slab and the boundary
-   the section depends on disappears. */
-.sch-hidden-body .sch-row.sch-hidden-break:first-child {
-  border-top: 1px solid var(--line-soft);
-}
-/* The Terminés band. Same chip as a dimension break so the two read as
-   siblings, in the softer ink of the section. Unlike a dimension break it takes
-   the pointer, to carry the tooltip spelling out what put these rows aside —
-   which costs it the row-hover tint the other breaks avoid by being inert. */
-.sch-row.sch-hidden-break { pointer-events: auto; }
-.sch-row.sch-hidden-break:hover { background: var(--paper-2); }
-.sch-hidden-value {
-  color: var(--ink-soft);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  cursor: help;
-}
-.sch-hidden-count,
-.sch-hidden-note {
-  margin-left: var(--space-4);
-  font-size: var(--fs-2xs);
-  text-transform: none;
-  letter-spacing: 0;
-}
+/* Same for the yellow zero-dimension wash, which exists to make the planning
+   look twice at a row. There is no planning left to warn on a finished line,
+   and the tint would shout over the grey that says so. */
+.sch-row.is-muted.is-qc,
+.sch-row.is-muted.is-qc:hover { background: none; }
+.sch-row.is-muted.is-qc .sch-cell.is-pinned { background: var(--paper); }
+/* And the "lites left over outside a pack" flag. It is a warning about packing
+   work to come; on a produced line it is history, and it was reading as the
+   one live thing left on an otherwise grey row. */
+.sch-row.is-muted .sch-packs-short { color: inherit; font-weight: inherit; }
 
 .sch-row.is-qc {
   background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper));
@@ -4872,14 +4841,6 @@ button.as-row:focus-visible {
   font-size: 7.5pt;
   border-color: var(--line-soft);
 }
-/* Masqués block — it prints whenever the operator left the œillet open. Only
-   the two screen-sized values are restated here; the softer ink of its rows
-   carries over from the base rules unchanged. */
-:root.is-print-preview .sch-hidden-body .sch-row.sch-hidden-break:first-child {
-  border-top: 0.75pt solid var(--line-soft);
-}
-:root.is-print-preview .sch-hidden-count,
-:root.is-print-preview .sch-hidden-note { font-size: 7pt; }
 :root.is-print-preview .sch-cell {
   padding: 3pt 4pt !important;
   font-size: 8.5pt !important;
@@ -4937,6 +4898,12 @@ button.as-row:focus-visible {
   box-shadow: none;
 }
 :root.is-print-preview .sch-packs-short { font-weight: 700; text-decoration: underline; }
+/* Underline is this flag's print voice, and a finished line has no packing
+   work left to flag — same reasoning as the colour it drops on screen. */
+:root.is-print-preview .sch-row.is-muted .sch-packs-short {
+  font-weight: inherit;
+  text-decoration: none;
+}
 
 /* --- papier ------------------------------------------------------------- */
 
@@ -5054,14 +5021,6 @@ button.as-row:focus-visible {
     font-size: 7.5pt;
     border-color: var(--line-soft);
   }
-  /* Masqués block — it prints whenever the operator left the œillet open. Only
-     the two screen-sized values are restated here; the softer ink of its rows
-     carries over from the base rules unchanged. */
-  .sch-hidden-body .sch-row.sch-hidden-break:first-child {
-    border-top: 0.75pt solid var(--line-soft);
-  }
-  .sch-hidden-count,
-  .sch-hidden-note { font-size: 7pt; }
   .sch-cell {
     padding: 3pt 4pt !important;
     font-size: 8.5pt !important;
@@ -5116,4 +5075,7 @@ button.as-row:focus-visible {
     clip-path: none;
   }
   .sch-packs-short { font-weight: 700; text-decoration: underline; }
+  /* Underline is this flag's print voice, and a finished line has no packing
+     work left to flag — same reasoning as the colour it drops on screen. */
+  .sch-row.is-muted .sch-packs-short { font-weight: inherit; text-decoration: none; }
 }

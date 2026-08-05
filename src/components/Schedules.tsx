@@ -568,11 +568,22 @@ export default function Schedules({ density }: SchedulesProps) {
     [planningRecords, prepareRows],
   );
 
-  // The masqués block, in the same order as the table above it. Built whatever
-  // the œillet's state — its count is what the œillet offers.
-  const hiddenRows: DisplayRow[] = useMemo(
+  // Built whatever the œillet's state — its count is what the œillet offers.
+  const finishedRows: DisplayRow[] = useMemo(
     () => prepareRows(finishedRecords),
     [finishedRecords, prepareRows],
+  );
+
+  // What the table paints. With the œillet open the finished lines are sorted
+  // in among the planning rather than stacked under the total: a line that has
+  // been produced belongs where it sat while it was being produced — in its
+  // dimension group, between the same neighbours — and the grey is what says
+  // it is done. The totals never see this list; they stay on visibleRows.
+  const tableRows: DisplayRow[] = useMemo(
+    () => (tableSettings.showHidden && finishedRecords.length > 0
+      ? prepareRows([...planningRecords, ...finishedRecords])
+      : visibleRows),
+    [tableSettings.showHidden, planningRecords, finishedRecords, prepareRows, visibleRows],
   );
 
   // Available filter values come from the unfiltered, schedule-scoped pool so
@@ -755,7 +766,7 @@ export default function Schedules({ density }: SchedulesProps) {
   const groupedRows: GroupedItem[] = useMemo(() => {
     const out: GroupedItem[] = [];
     let prevLongueur: number | null = null;
-    for (const r of visibleRows) {
+    for (const r of tableRows) {
       if (r.longueur !== prevLongueur) {
         out.push({ kind: 'break', id: `break-${r.id}`, longueur: r.longueur });
       }
@@ -763,7 +774,7 @@ export default function Schedules({ density }: SchedulesProps) {
       prevLongueur = r.longueur;
     }
     return out;
-  }, [visibleRows]);
+  }, [tableRows]);
 
   const coaterRows = useMemo(
     () => visibleRows.filter((r) => r.workCenter === 'Coater'),
@@ -1045,6 +1056,16 @@ export default function Schedules({ density }: SchedulesProps) {
                 </span>
               )}
               <span>tri : {sortSummary}</span>
+              {/* On paper the grey has to be named. A reader who was not the
+                  one to open the œillet sees rows the total does not count and
+                  nothing to tell them why — the tone alone won't say it, and a
+                  photocopy may not keep it at all. */}
+              {tableSettings.showHidden && finishedRows.length > 0 && (
+                <span>
+                  {finishedRows.length} ligne{finishedRows.length > 1 ? 's' : ''} terminée
+                  {finishedRows.length > 1 ? 's' : ''} en grisé, hors total
+                </span>
+              )}
               {filterSummary && <strong>filtré : {filterSummary}</strong>}
             </div>
 
@@ -1118,7 +1139,7 @@ export default function Schedules({ density }: SchedulesProps) {
               colsMenuOpen={colsMenuOpen}
               onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
               onColsMenuClose={() => setColsMenuOpen(false)}
-              hiddenCount={hiddenRows.length}
+              hiddenCount={finishedRows.length}
               showHidden={tableSettings.showHidden}
               onToggleHidden={toggleShowHidden}
               onToggleFilterValue={toggleFilterValue}
@@ -1132,7 +1153,6 @@ export default function Schedules({ density }: SchedulesProps) {
             <ScheduleTable
               items={groupedRows}
               totals={visibleRows}
-              hiddenRows={tableSettings.showHidden ? hiddenRows : []}
               onRowOpen={handleRowOpen}
               columns={visibleColumns}
               pinned={layout.pinned}
@@ -1508,9 +1528,6 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
 interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
-  // Finished lines, unfolded under the total when the œillet is on. Empty when
-  // it is off — the table then renders no masqués section at all.
-  hiddenRows: DisplayRow[];
   onRowOpen: (row: DisplayRow) => void;
   columns: ColumnDef[];
   pinned: string[];
@@ -1674,7 +1691,7 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
   );
 }
 
-function ScheduleTable({ items, totals, hiddenRows, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -1763,11 +1780,11 @@ function ScheduleTable({ items, totals, hiddenRows, onRowOpen, columns, pinned, 
     };
   }, [columns, widths, autoWidths]);
 
-  // Nothing to plan and nothing set aside — the schedule really is empty. A
-  // filter that clears the planning without clearing the masqués keeps the
-  // table: swapping it for "aucune ligne" would deny rows that are right there
-  // and pass the filter.
-  if (totals.length === 0 && hiddenRows.length === 0) {
+  // Nothing at all to paint — not even a greyed line. Tested on `items` rather
+  // than on the totals: a filter can clear the planning while finished rows
+  // still pass it, and swapping the table for "aucune ligne" would deny rows
+  // that are right there.
+  if (items.length === 0) {
     return (
       <div className="sch-empty-rows faint">
         Aucune ligne pour ce schedule.
@@ -1783,7 +1800,7 @@ function ScheduleTable({ items, totals, hiddenRows, onRowOpen, columns, pinned, 
     // the table box only comes back for the aperçu and the paper.
     <table
       ref={tableRef}
-      className={`sch-table ${hiddenRows.length > 0 ? 'has-hidden' : ''}`}
+      className="sch-table"
       style={{
         ['--sch-grid' as string]: gridTemplate,
         ['--sch-min' as string]: `${minPx}px`,
@@ -1880,37 +1897,20 @@ function ScheduleTable({ items, totals, hiddenRows, onRowOpen, columns, pinned, 
               </td>
             </tr>
           )
-          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
+          // A finished line greys out where it stands. It is in the table but
+          // not in the total, and the tone is what carries that — see .is-muted.
+          : (
+            <ScheduleRow
+              key={it.row.id}
+              row={it.row}
+              onOpen={onRowOpen}
+              columns={enrichedColumns}
+              muted={isFinished(it.row)}
+            />
+          )
       )}
       <TotalRow rows={totals} columns={enrichedColumns} />
       </tbody>
-      {/* The masqués rows live in their own <tbody>, after the total. Two
-          reasons, and both matter: the total is sticky to the bottom of its
-          own section, so a single body would leave it floating over these rows
-          instead of closing the planning above them; and a reader — on screen
-          or on paper — has to be able to tell at a glance that what follows the
-          total is not part of it. */}
-      {hiddenRows.length > 0 && (
-        <tbody className="sch-hidden-body">
-          <tr className="sch-row sch-group-break sch-hidden-break">
-            <td className="sch-group-label" colSpan={enrichedColumns.length}>
-              <span
-                className="sch-group-value sch-hidden-value"
-                title="Plus rien à produire : opération 90, ou req = 0"
-              >
-                Terminés
-              </span>
-              <span className="sch-hidden-count faint">
-                {hiddenRows.length} ligne{hiddenRows.length > 1 ? 's' : ''}
-              </span>
-              <span className="sch-hidden-note faint">hors planning, non comptées dans le total</span>
-            </td>
-          </tr>
-          {hiddenRows.map((r) => (
-            <ScheduleRow key={r.id} row={r} onOpen={onRowOpen} columns={enrichedColumns} muted />
-          ))}
-        </tbody>
-      )}
     </table>
   );
 }
@@ -2128,8 +2128,8 @@ interface ScheduleRowProps {
   row: DisplayRow;
   onOpen: (row: DisplayRow) => void;
   columns: ColumnView[];
-  // Row of the masqués block: same cells, lighter ink. It stays clickable —
-  // the detail sheet is the whole point of consulting a finished line.
+  // A finished line: same cells, greyed out. It stays clickable — the detail
+  // sheet is the whole point of leaving it in the table.
   muted?: boolean;
 }
 
