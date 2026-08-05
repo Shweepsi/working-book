@@ -3065,22 +3065,23 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-hidden-body .sch-row.is-muted .sch-cell.col-m2 {
   background: color-mix(in srgb, var(--hl-green) 18%, var(--paper));
 }
-/* Same for the yellow QC wash: inside this block every row is set aside, so
-   flagging the samples again says nothing their own band doesn't. */
+/* Same for the yellow zero-dimension wash. It flags a row the planning has to
+   look twice at; under the Terminés band there is no planning left to warn, and
+   the tint would be the loudest thing in a block meant to stay quiet. */
 .sch-hidden-body .sch-row.is-qc,
 .sch-hidden-body .sch-row.is-qc:hover { background: none; }
 .sch-hidden-body .sch-row.is-qc .sch-cell.is-pinned { background: var(--paper); }
 
-/* The total is a tinted band and so is the first reason band right under it;
+/* The total is a tinted band and so is the Terminés band right under it;
    without a rule between them they merge into one thick slab and the boundary
    the section depends on disappears. */
 .sch-hidden-body .sch-row.sch-hidden-break:first-child {
   border-top: 1px solid var(--line-soft);
 }
-/* The reason band. Same chip as a dimension break so the two read as siblings,
-   in the softer ink of the section. Unlike a dimension break it takes the
-   pointer, to carry the tooltip spelling out what put these rows aside — which
-   costs it the row-hover tint the other breaks avoid by being inert. */
+/* The Terminés band. Same chip as a dimension break so the two read as
+   siblings, in the softer ink of the section. Unlike a dimension break it takes
+   the pointer, to carry the tooltip spelling out what put these rows aside —
+   which costs it the row-hover tint the other breaks avoid by being inert. */
 .sch-row.sch-hidden-break { pointer-events: auto; }
 .sch-row.sch-hidden-break:hover { background: var(--paper-2); }
 .sch-hidden-value {

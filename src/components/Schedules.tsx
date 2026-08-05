@@ -1,4 +1,4 @@
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
 import { mergePMS230, parsePMS230, removeSchedule, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
@@ -46,37 +46,22 @@ type GroupedItem =
   | { kind: 'break'; id: string; longueur: number }
   | { kind: 'row'; row: DisplayRow };
 
-// Why a row sits outside the planning table. Mirrors the planner's Excel
-// formula, which drops these families before anything else is computed — they
-// are not work the coater still has to do, so they take no part in the totals,
-// the throughput tiles or the rail counts.
-type HiddenReason = 'echantillon' | 'termine';
+// Both halves of the planner's Excel formula, which sets these rows aside
+// before anything else is computed. Neither family is work the coater still
+// has to do, so neither takes part in the totals, the throughput tiles or the
+// rail counts.
+//
+// They part company after that. A QC sample is a prélèvement, not production:
+// it never appears anywhere in this view, and the œillet does not offer it.
+// A finished line is production — the œillet exists to let it be read back.
+const isQcSample = (r: PMS230Record): boolean => /^Vacuum/i.test(r.itemName);
 
-// Reasons in the order they are tested and displayed. A row can qualify under
-// both — a finished QC sample does — and the first match wins, so what a row
-// *is* takes precedence over how far along it is: "échantillon QC" explains
-// its absence better than "terminé" would.
-const HIDDEN_REASONS: { key: HiddenReason; label: string; hint: string }[] = [
-  { key: 'echantillon', label: 'Échantillons QC', hint: 'Prélèvements Vacuum — hors production' },
-  { key: 'termine',     label: 'Terminés',        hint: 'Plus rien à produire : opération 90, ou req = 0' },
-];
+// Op-step 90 marks a line finished, as does a remaining requirement fallen to
+// zero. The two say the same thing by different routes.
+const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites ?? 0) <= 0;
 
-// The reason a row is kept out, or null when it belongs to the planning.
-// Op-step 90 marks a line as finished — same family as a row whose remaining
-// requirement has fallen to zero, and shown under the same heading.
-function hiddenReason(r: PMS230Record): HiddenReason | null {
-  if (/^Vacuum/i.test(r.itemName)) return 'echantillon';
-  if (r.opStepD === 90 || (r.reqLites ?? 0) <= 0) return 'termine';
-  return null;
-}
-
-// One block of the masqués section: the rows sharing a reason, in table order.
-interface HiddenGroup {
-  key: HiddenReason;
-  label: string;
-  hint: string;
-  rows: DisplayRow[];
-}
+// Still work to do — what the planning table, the totals and the rail count.
+const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
 
 // A schedule with nothing left to produce, as the "terminés" sheet reads it.
 interface FinishedSchedule {
@@ -565,16 +550,17 @@ export default function Schedules({ density }: SchedulesProps) {
     return rows;
   }, [policy, tableSettings]);
 
-  // The rows of the selected schedule, split into the planning proper and the
-  // three families the planner's formula sets aside (see hiddenReason).
-  const [planningRecords, hiddenRecords] = useMemo(() => {
+  // The rows of the selected schedule worth putting on screen, split into the
+  // planning proper and the finished lines the œillet unfolds. QC samples are
+  // in neither list — they leave the view here and never come back.
+  const [planningRecords, finishedRecords] = useMemo(() => {
     const planning: PMS230Record[] = [];
-    const hidden: PMS230Record[] = [];
+    const finished: PMS230Record[] = [];
     for (const r of data?.records ?? []) {
-      if (r.schedule !== selected) continue;
-      (hiddenReason(r) ? hidden : planning).push(r);
+      if (r.schedule !== selected || isQcSample(r)) continue;
+      (isFinished(r) ? finished : planning).push(r);
     }
-    return [planning, hidden];
+    return [planning, finished];
   }, [data, selected]);
 
   const visibleRows: DisplayRow[] = useMemo(
@@ -582,18 +568,11 @@ export default function Schedules({ density }: SchedulesProps) {
     [planningRecords, prepareRows],
   );
 
-  // The masqués block, grouped by reason and in the same order as the table.
-  // Built whatever the œillet's state — the count is what the œillet offers.
-  const hiddenGroups: HiddenGroup[] = useMemo(() => {
-    const rows = prepareRows(hiddenRecords);
-    return HIDDEN_REASONS
-      .map(({ key, label, hint }) => ({ key, label, hint, rows: rows.filter((r) => hiddenReason(r) === key) }))
-      .filter((g) => g.rows.length > 0);
-  }, [hiddenRecords, prepareRows]);
-
-  const hiddenCount = useMemo(
-    () => hiddenGroups.reduce((n, g) => n + g.rows.length, 0),
-    [hiddenGroups],
+  // The masqués block, in the same order as the table above it. Built whatever
+  // the œillet's state — its count is what the œillet offers.
+  const hiddenRows: DisplayRow[] = useMemo(
+    () => prepareRows(finishedRecords),
+    [finishedRecords, prepareRows],
   );
 
   // Available filter values come from the unfiltered, schedule-scoped pool so
@@ -805,9 +784,9 @@ export default function Schedules({ density }: SchedulesProps) {
     // below, they're not part of the RailStat shape the UI consumes.
     const nameTally = new Map<string, Map<string, number>>();
     for (const r of data?.records ?? []) {
-      // Planning rows only — the rail counts work left to do, so the masqués
+      // Planning rows only — the rail counts work left to do, so the set-aside
       // families take no part in it whatever the œillet is showing.
-      if (hiddenReason(r)) continue;
+      if (!isPlanningRow(r)) continue;
       let cur = stats.get(r.schedule);
       if (!cur) {
         cur = { count: 0, m2: 0, shortName: '' };
@@ -847,11 +826,15 @@ export default function Schedules({ density }: SchedulesProps) {
   // empty table on screen — but they are the record of what the line has
   // already made, so they get their own read-only sheet. Rows are carried
   // along: the sheet is the only place they can still be read.
+  //
+  // QC samples are left out here as everywhere else, which also settles what a
+  // sample-only schedule is doing in a list headed "terminés": nothing — it
+  // ends up with no rows and drops out.
   const finishedSchedules: FinishedSchedule[] = useMemo(() => {
     const visible = new Set(visibleSchedules.map((s) => s.schedule));
     const rows = new Map<string, PMS230Record[]>();
     for (const r of data?.records ?? []) {
-      if (visible.has(r.schedule)) continue;
+      if (visible.has(r.schedule) || isQcSample(r)) continue;
       const list = rows.get(r.schedule);
       if (list) list.push(r); else rows.set(r.schedule, [r]);
     }
@@ -1135,7 +1118,7 @@ export default function Schedules({ density }: SchedulesProps) {
               colsMenuOpen={colsMenuOpen}
               onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
               onColsMenuClose={() => setColsMenuOpen(false)}
-              hiddenCount={hiddenCount}
+              hiddenCount={hiddenRows.length}
               showHidden={tableSettings.showHidden}
               onToggleHidden={toggleShowHidden}
               onToggleFilterValue={toggleFilterValue}
@@ -1149,7 +1132,7 @@ export default function Schedules({ density }: SchedulesProps) {
             <ScheduleTable
               items={groupedRows}
               totals={visibleRows}
-              hiddenGroups={tableSettings.showHidden ? hiddenGroups : []}
+              hiddenRows={tableSettings.showHidden ? hiddenRows : []}
               onRowOpen={handleRowOpen}
               columns={visibleColumns}
               pinned={layout.pinned}
@@ -1525,9 +1508,9 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
 interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
-  // Rows set aside by the planner's formula, unfolded under the total when the
-  // œillet is on. Empty when it is off — the table renders no masqués section.
-  hiddenGroups: HiddenGroup[];
+  // Finished lines, unfolded under the total when the œillet is on. Empty when
+  // it is off — the table then renders no masqués section at all.
+  hiddenRows: DisplayRow[];
   onRowOpen: (row: DisplayRow) => void;
   columns: ColumnDef[];
   pinned: string[];
@@ -1691,7 +1674,7 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
   );
 }
 
-function ScheduleTable({ items, totals, hiddenGroups, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, hiddenRows, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -1784,7 +1767,7 @@ function ScheduleTable({ items, totals, hiddenGroups, onRowOpen, columns, pinned
   // filter that clears the planning without clearing the masqués keeps the
   // table: swapping it for "aucune ligne" would deny rows that are right there
   // and pass the filter.
-  if (totals.length === 0 && hiddenGroups.length === 0) {
+  if (totals.length === 0 && hiddenRows.length === 0) {
     return (
       <div className="sch-empty-rows faint">
         Aucune ligne pour ce schedule.
@@ -1800,7 +1783,7 @@ function ScheduleTable({ items, totals, hiddenGroups, onRowOpen, columns, pinned
     // the table box only comes back for the aperçu and the paper.
     <table
       ref={tableRef}
-      className={`sch-table ${hiddenGroups.length > 0 ? 'has-hidden' : ''}`}
+      className={`sch-table ${hiddenRows.length > 0 ? 'has-hidden' : ''}`}
       style={{
         ['--sch-grid' as string]: gridTemplate,
         ['--sch-min' as string]: `${minPx}px`,
@@ -1907,26 +1890,24 @@ function ScheduleTable({ items, totals, hiddenGroups, onRowOpen, columns, pinned
           instead of closing the planning above them; and a reader — on screen
           or on paper — has to be able to tell at a glance that what follows the
           total is not part of it. */}
-      {hiddenGroups.length > 0 && (
+      {hiddenRows.length > 0 && (
         <tbody className="sch-hidden-body">
-          {hiddenGroups.map((g, i) => (
-            <Fragment key={g.key}>
-              <tr className="sch-row sch-group-break sch-hidden-break">
-                <td className="sch-group-label" colSpan={enrichedColumns.length}>
-                  <span className="sch-group-value sch-hidden-value" title={g.hint}>{g.label}</span>
-                  <span className="sch-hidden-count faint">
-                    {g.rows.length} ligne{g.rows.length > 1 ? 's' : ''}
-                  </span>
-                  {/* Said once, on the first band: the block below the total is
-                      not in it. Repeating it on every band would turn a caveat
-                      into wallpaper. */}
-                  {i === 0 && <span className="sch-hidden-note faint">hors planning, non comptées dans le total</span>}
-                </td>
-              </tr>
-              {g.rows.map((r) => (
-                <ScheduleRow key={r.id} row={r} onOpen={onRowOpen} columns={enrichedColumns} muted />
-              ))}
-            </Fragment>
+          <tr className="sch-row sch-group-break sch-hidden-break">
+            <td className="sch-group-label" colSpan={enrichedColumns.length}>
+              <span
+                className="sch-group-value sch-hidden-value"
+                title="Plus rien à produire : opération 90, ou req = 0"
+              >
+                Terminés
+              </span>
+              <span className="sch-hidden-count faint">
+                {hiddenRows.length} ligne{hiddenRows.length > 1 ? 's' : ''}
+              </span>
+              <span className="sch-hidden-note faint">hors planning, non comptées dans le total</span>
+            </td>
+          </tr>
+          {hiddenRows.map((r) => (
+            <ScheduleRow key={r.id} row={r} onOpen={onRowOpen} columns={enrichedColumns} muted />
           ))}
         </tbody>
       )}
@@ -2019,7 +2000,7 @@ function TableControls({
         {hiddenCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control
-          // reading "0 masqués" would be an invitation to an empty block.
+          // reading "0 terminées" would be an invitation to an empty block.
           <button
             type="button"
             className={`btn ghost mini sch-eye-btn ${showHidden ? 'is-on' : ''}`}
@@ -2027,12 +2008,12 @@ function TableControls({
             aria-pressed={showHidden}
             title={
               showHidden
-                ? 'Replier les lignes hors planning'
-                : 'Afficher les lignes hors planning : terminées, hors coater, échantillons QC'
+                ? 'Replier les lignes terminées'
+                : 'Afficher les lignes de ce schedule qui n’ont plus rien à produire'
             }
           >
             <span className={`sch-eye ${showHidden ? '' : 'is-off'}`} aria-hidden="true" />
-            {hiddenCount} masqué{hiddenCount > 1 ? 's' : ''}
+            {hiddenCount} terminée{hiddenCount > 1 ? 's' : ''}
           </button>
         )}
         <div className="sch-cols-wrap" ref={colsBtnRef}>
