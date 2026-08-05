@@ -63,11 +63,11 @@ const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites
 // Still work to do — what the planning table, the totals and the rail count.
 const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
 
-// A schedule with nothing left to produce, as the "terminés" sheet reads it.
+// A schedule with nothing left to produce, as the "terminés" sheet lists it.
 interface FinishedSchedule {
   schedule: string;
   name: string;
-  rows: PMS230Record[];
+  count: number;
   // Lites actually produced, and the surface they represent.
   lites: number;
   m2: number;
@@ -833,44 +833,43 @@ export default function Schedules({ density }: SchedulesProps) {
   );
 
   // The other side of that filter: schedules with nothing left to produce.
-  // They belong nowhere in the planning rail — selecting one would put an
-  // empty table on screen — but they are the record of what the line has
-  // already made, so they get their own read-only sheet. Rows are carried
-  // along: the sheet is the only place they can still be read.
+  // They have no place in a rail that lists work to do, but they are the record
+  // of what the line has already made — so they get a sheet of their own, from
+  // which any of them can be opened in the table.
   //
   // QC samples are left out here as everywhere else, which also settles what a
   // sample-only schedule is doing in a list headed "terminés": nothing — it
   // ends up with no rows and drops out.
   const finishedSchedules: FinishedSchedule[] = useMemo(() => {
     const visible = new Set(visibleSchedules.map((s) => s.schedule));
-    const rows = new Map<string, PMS230Record[]>();
+    const tally = new Map<string, { count: number; lites: number; m2: number }>();
     for (const r of data?.records ?? []) {
       if (visible.has(r.schedule) || isQcSample(r)) continue;
-      const list = rows.get(r.schedule);
-      if (list) list.push(r); else rows.set(r.schedule, [r]);
+      const cur = tally.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      cur.count += 1;
+      cur.lites += r.prodLites ?? 0;
+      cur.m2 += r.m2;
+      tally.set(r.schedule, cur);
     }
     return schedules
-      .filter((s) => !visible.has(s.schedule) && (rows.get(s.schedule)?.length ?? 0) > 0)
-      .map((s) => {
-        const list = rows.get(s.schedule)!;
-        // Sorted the way the planning table sorts by default, so a schedule
-        // reads the same here as it did while it was still being produced.
-        list.sort((a, b) => b.longueur - a.longueur || (a.itemName || '').localeCompare(b.itemName || ''));
-        return {
-          schedule: s.schedule,
-          name: shortItemName(s.itemRoot) || s.itemRoot || '—',
-          rows: list,
-          lites: list.reduce((n, r) => n + (r.prodLites ?? 0), 0),
-          m2: list.reduce((n, r) => n + r.m2, 0),
-        };
-      });
+      .filter((s) => tally.has(s.schedule))
+      .map((s) => ({
+        schedule: s.schedule,
+        name: shortItemName(s.itemRoot) || s.itemRoot || '—',
+        ...tally.get(s.schedule)!,
+      }));
   }, [schedules, visibleSchedules, data]);
 
-  // Auto-select the first visible schedule once data loads, and re-pick if the
-  // current selection has been hidden (e.g. after a re-import or a delete).
+  // Auto-select once data loads, and re-pick when the selection is gone from
+  // the report entirely — a delete, or a re-import that dropped it.
+  //
+  // Absent from the *rail* is not gone: a finished schedule opened from the
+  // terminés sheet is legitimately selected while having no place in a list of
+  // work to do, and re-picking around it would bounce the operator straight
+  // back out of what they just opened.
   useEffect(() => {
     if (!data) return;
-    if (selected && visibleSchedules.some((s) => s.schedule === selected)) return;
+    if (selected && schedules.some((s) => s.schedule === selected)) return;
     const next = visibleSchedules[0]?.schedule ?? null;
     setSelected(next);
     // A forced re-pick is a selection change like any other, so the filters go
@@ -878,7 +877,16 @@ export default function Schedules({ density }: SchedulesProps) {
     // nothing was selected to move away from, and the operator's stored filters
     // survive a reload.
     if (selected && next !== selected) clearFilters();
-  }, [data, selected, visibleSchedules]);
+  }, [data, selected, schedules, visibleSchedules]);
+
+  // Open a finished schedule in the table. The œillet goes with it: its rows
+  // are all finished by definition, so leaving it shut would answer the click
+  // with an empty table.
+  function openFinished(schedule: string) {
+    setFinishedOpen(false);
+    setTableSettings((s) => ({ ...s, showHidden: true }));
+    selectSchedule(schedule);
+  }
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
@@ -1239,6 +1247,7 @@ export default function Schedules({ density }: SchedulesProps) {
       {finishedOpen && (
         <FinishedSheet
           schedules={finishedSchedules}
+          onOpen={openFinished}
           onClose={() => setFinishedOpen(false)}
         />
       )}
@@ -1247,13 +1256,18 @@ export default function Schedules({ density }: SchedulesProps) {
 }
 
 // The schedules that have dropped out of the rail with nothing left to
-// produce. Read-only by design: there is no planning left to do on them, and
-// selecting one would only put an empty table on screen.
-function FinishedSheet({ schedules, onClose }: { schedules: FinishedSchedule[]; onClose: () => void }) {
+// produce. The sheet is a way back in: picking one opens it in the table like
+// any rail card, which is where a schedule is meant to be read.
+function FinishedSheet({
+  schedules,
+  onOpen,
+  onClose,
+}: {
+  schedules: FinishedSchedule[];
+  onOpen: (schedule: string) => void;
+  onClose: () => void;
+}) {
   useEscapeToClose(onClose);
-  // One open at a time. Several schedules unfolded at once turn the sheet into
-  // a scroll of undifferentiated rows, which is the state it exists to avoid.
-  const [open, setOpen] = useState<string | null>(schedules.length === 1 ? schedules[0]!.schedule : null);
 
   return (
     <>
@@ -1271,54 +1285,23 @@ function FinishedSheet({ schedules, onClose }: { schedules: FinishedSchedule[]; 
         </div>
 
         <ul className="sch-done-list">
-          {schedules.map((s) => {
-            const isOpen = open === s.schedule;
-            return (
-              <li key={s.schedule} className={`sch-done-item ${isOpen ? 'is-open' : ''}`}>
-                <button
-                  type="button"
-                  className="sch-done-head"
-                  onClick={() => setOpen(isOpen ? null : s.schedule)}
-                  aria-expanded={isOpen}
-                >
-                  <span className="sch-done-chevron" aria-hidden="true" />
-                  <span className="mono sch-done-num">{s.schedule}</span>
-                  <span className="sch-done-name">{s.name}</span>
-                  <span className="sch-done-meta faint small mono">
-                    {s.rows.length} ligne{s.rows.length > 1 ? 's' : ''} · {fmtNum(s.lites, 0)} lites · {fmtNum(s.m2, 0)} m²
-                  </span>
-                </button>
-                {isOpen && (
-                  <table className="sch-done-rows">
-                    <thead>
-                      <tr>
-                        <th scope="col">Article</th>
-                        <th scope="col">Qualité</th>
-                        <th scope="col">Dimension</th>
-                        <th scope="col" className="col-num">Prod</th>
-                        <th scope="col" className="col-num">m²</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {s.rows.map((r) => (
-                        <tr key={r.id}>
-                          <td title={r.itemName}>{r.itemName || '—'}</td>
-                          <td className="mono">{r.qualite || '—'}</td>
-                          <td className="mono">
-                            {r.largeur && r.longueur
-                              ? `${fmtNum(r.largeur, 0)} × ${fmtNum(r.longueur, 0)}`
-                              : '—'}
-                          </td>
-                          <td className="mono col-num">{fmtNum(r.prodLites ?? 0, 0)}</td>
-                          <td className="mono col-num">{fmtNum(r.m2, 0)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </li>
-            );
-          })}
+          {schedules.map((s) => (
+            <li key={s.schedule}>
+              <button
+                type="button"
+                className="sch-done-item"
+                onClick={() => onOpen(s.schedule)}
+                title={`Ouvrir le schedule ${s.schedule} dans le tableau`}
+              >
+                <span className="mono sch-done-num">{s.schedule}</span>
+                <span className="sch-done-name">{s.name}</span>
+                <span className="sch-done-meta faint small mono">
+                  {s.count} ligne{s.count > 1 ? 's' : ''} · {fmtNum(s.lites, 0)} lites · {fmtNum(s.m2, 0)} m²
+                </span>
+                <span className="sch-done-go" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
         </ul>
       </div>
     </>

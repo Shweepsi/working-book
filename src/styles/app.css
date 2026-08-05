@@ -3707,8 +3707,9 @@ body.is-col-resizing * {
 
 /* --- Sheet: schedules terminés -------------------------------------------- */
 
-/* Wider than the row sheet: this one carries a table, not a set of chips. */
-.sch-done-sheet { width: min(720px, calc(100% - 40px)); }
+/* Wider than the row sheet: each line carries a schedule number, a name and
+   three counts on one row. */
+.sch-done-sheet { width: min(660px, calc(100% - 40px)); }
 .sch-done-list {
   list-style: none;
   margin: 0;
@@ -3717,37 +3718,25 @@ body.is-col-resizing * {
   flex-direction: column;
   gap: var(--space-2);
 }
+/* Same shape as a rail card, and the same job: pick a schedule to read. */
 .sch-done-item {
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.sch-done-item.is-open { border-color: var(--line-soft); }
-.sch-done-head {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
   width: 100%;
   padding: var(--space-4) var(--space-5);
-  border: 0;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
   background: none;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
 }
-.sch-done-head:hover { background: var(--paper-2); }
-.sch-done-item.is-open .sch-done-head { background: var(--paper-2); }
-.sch-done-chevron {
-  flex: none;
-  align-self: center;
-  width: 6px;
-  height: 6px;
-  border: solid var(--ink-faint);
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(-45deg);
-  transition: transform 150ms ease;
+.sch-done-item:hover {
+  background: var(--paper-2);
+  border-color: var(--line-soft);
 }
-.sch-done-item.is-open .sch-done-chevron { transform: rotate(45deg); }
 .sch-done-num { font-weight: 600; }
 .sch-done-name {
   min-width: 0;
@@ -3759,33 +3748,20 @@ body.is-col-resizing * {
 /* Pushed right and kept off the name's line-length: the counts are what the
    eye scans down the list. */
 .sch-done-meta { margin-left: auto; flex: none; }
-
-.sch-done-rows {
-  width: 100%;
-  border-collapse: collapse;
-  border-top: 1px solid var(--line-faint);
-  font-size: var(--fs-md);
+/* The "goes somewhere" mark. It only firms up under the pointer — at rest the
+   row is already a button, and a column of dark arrows would out-shout the
+   numbers beside them. */
+.sch-done-go {
+  flex: none;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border: solid var(--line-soft);
+  border-width: 1.5px 1.5px 0 0;
+  transform: rotate(45deg);
+  transition: border-color 120ms ease;
 }
-.sch-done-rows th,
-.sch-done-rows td {
-  padding: var(--space-3) var(--space-5);
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-.sch-done-rows th {
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  color: var(--ink-faint);
-}
-.sch-done-rows .col-num { text-align: right; }
-.sch-done-rows td { color: var(--ink-soft); }
-/* The article names the line; everything else on the row qualifies it. */
-.sch-done-rows td:first-child { color: var(--ink); max-width: 260px; }
+.sch-done-item:hover .sch-done-go { border-color: var(--ink-soft); }
 
 /* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),
