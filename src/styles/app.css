@@ -2403,6 +2403,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .sch-rail-title {
   margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
   padding: var(--space-5) var(--space-6);
   font-size: var(--fs-sm);
   letter-spacing: 0.08em;
@@ -2414,6 +2418,25 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   top: 0;
   z-index: 1;
 }
+/* Link, not button: it opens a reference sheet rather than acting on the
+   planning, and a second bordered control in a 24px-tall band would compete
+   with the rail cards under it. */
+.sch-rail-done-btn {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-soft);
+  cursor: pointer;
+}
+.sch-rail-done-btn:hover { color: var(--ink); text-decoration-color: currentColor; }
+
 .sch-rail-list {
   list-style: none;
   margin: 0;
@@ -2595,9 +2618,73 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-color: var(--ink);
 }
 
+/* The two view controls — œillet and Colonnes — sit together at the far right,
+   away from the filter chips: they act on the shape of the table, not on which
+   rows it holds. The group carries the auto margin so the œillet appearing or
+   disappearing doesn't move Colonnes. */
+.sch-controls-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
 .sch-cols-wrap {
   position: relative;
   display: inline-flex;
+}
+
+/* Œillet — greys the schedule's finished lines back into the table, where the
+   planner's formula had dropped them. */
+.sch-eye-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sch-eye-btn.is-on {
+  background: var(--paper-2);
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+/* CSS-drawn like .sch-cols-icon. The lens is a square with two opposite
+   corners rounded, turned 45° so the points land left and right; the pupil is
+   the dot at its centre. */
+.sch-eye {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  display: inline-block;
+  opacity: 0.75;
+}
+.sch-eye::before {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border: 1.25px solid currentColor;
+  border-radius: 100% 0;
+  transform: rotate(45deg);
+}
+.sch-eye::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3.5px;
+  height: 3.5px;
+  margin: -1.75px 0 0 -1.75px;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* Struck through while the lines are away — the button then reads as "these
+   rows are not on screen", which is what its count is counting. */
+.sch-eye.is-off {
+  background: linear-gradient(
+    45deg,
+    transparent calc(50% - 0.7px),
+    currentColor calc(50% - 0.7px),
+    currentColor calc(50% + 0.7px),
+    transparent calc(50% + 0.7px)
+  );
 }
 /* Colonnes button — CSS-drawn column icon + chevron that rotates open.
    Active state (menu visible) flips the chevron and pins the background
@@ -2954,6 +3041,31 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   letter-spacing: 0.07em;
   color: var(--ink);
 }
+
+/* --- Lignes terminées ----------------------------------------------------- */
+
+/* A line the œillet has brought back sits in its dimension group like any
+   other, and greys out where it stands. Nothing else marks it: no band, no
+   rule, no separate section — the tone is the whole signal, which is what
+   lets the planning above it stay the document. */
+.sch-row.is-muted .sch-cell { color: var(--ink-faint); }
+/* The green wash marks the surface still to coat. None of a finished row is —
+   and its m² cell still shows the row's full surface, the field being computed
+   on the scheduled lites. At full strength, in the middle of the table, that
+   cell would be the one thing on the row still claiming to be work. */
+.sch-row.is-muted .sch-cell.col-m2 {
+  background: color-mix(in srgb, var(--hl-green) 18%, var(--paper));
+}
+/* Same for the yellow zero-dimension wash, which exists to make the planning
+   look twice at a row. There is no planning left to warn on a finished line,
+   and the tint would shout over the grey that says so. */
+.sch-row.is-muted.is-qc,
+.sch-row.is-muted.is-qc:hover { background: none; }
+.sch-row.is-muted.is-qc .sch-cell.is-pinned { background: var(--paper); }
+/* And the "lites left over outside a pack" flag. It is a warning about packing
+   work to come; on a produced line it is history, and it was reading as the
+   one live thing left on an otherwise grey row. */
+.sch-row.is-muted .sch-packs-short { color: inherit; font-weight: inherit; }
 
 .sch-row.is-qc {
   background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper));
@@ -3592,6 +3704,71 @@ body.is-col-resizing * {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
+
+/* --- Sheet: schedules terminés -------------------------------------------- */
+
+/* Wider than the row sheet: each line carries a schedule number, a name and
+   three counts on one row. */
+.sch-done-sheet { width: min(660px, calc(100% - 40px)); }
+.sch-done-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Same shape as a rail card, and the same job: pick a schedule to read. */
+.sch-done-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.sch-done-item:hover {
+  background: var(--paper-2);
+  border-color: var(--line-soft);
+}
+/* The one already on screen. It stays a button — clicking it just closes the
+   sheet — but it has to look like where you are, not like somewhere to go. */
+.sch-done-item.is-current {
+  border-color: var(--ink-faint);
+  background: var(--paper-2);
+}
+.sch-done-item.is-current .sch-done-go { visibility: hidden; }
+.sch-done-num { font-weight: 600; }
+.sch-done-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+/* Pushed right and kept off the name's line-length: the counts are what the
+   eye scans down the list. */
+.sch-done-meta { margin-left: auto; flex: none; }
+/* The "goes somewhere" mark. It only firms up under the pointer — at rest the
+   row is already a button, and a column of dark arrows would out-shout the
+   numbers beside them. */
+.sch-done-go {
+  flex: none;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border: solid var(--line-soft);
+  border-width: 1.5px 1.5px 0 0;
+  transform: rotate(45deg);
+  transition: border-color 120ms ease;
+}
+.sch-done-item:hover .sch-done-go { border-color: var(--ink-soft); }
 
 /* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),
@@ -4704,6 +4881,12 @@ button.as-row:focus-visible {
   box-shadow: none;
 }
 :root.is-print-preview .sch-packs-short { font-weight: 700; text-decoration: underline; }
+/* Underline is this flag's print voice, and a finished line has no packing
+   work left to flag — same reasoning as the colour it drops on screen. */
+:root.is-print-preview .sch-row.is-muted .sch-packs-short {
+  font-weight: inherit;
+  text-decoration: none;
+}
 
 /* --- papier ------------------------------------------------------------- */
 
@@ -4875,4 +5058,7 @@ button.as-row:focus-visible {
     clip-path: none;
   }
   .sch-packs-short { font-weight: 700; text-decoration: underline; }
+  /* Underline is this flag's print voice, and a finished line has no packing
+     work left to flag — same reasoning as the colour it drops on screen. */
+  .sch-row.is-muted .sch-packs-short { font-weight: inherit; text-decoration: none; }
 }

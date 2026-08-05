@@ -46,6 +46,33 @@ type GroupedItem =
   | { kind: 'break'; id: string; longueur: number }
   | { kind: 'row'; row: DisplayRow };
 
+// Both halves of the planner's Excel formula, which sets these rows aside
+// before anything else is computed. Neither family is work the coater still
+// has to do, so neither takes part in the totals, the throughput tiles or the
+// rail counts.
+//
+// They part company after that. A QC sample is a prélèvement, not production:
+// it never appears anywhere in this view, and the œillet does not offer it.
+// A finished line is production — the œillet exists to let it be read back.
+const isQcSample = (r: PMS230Record): boolean => /^Vacuum/i.test(r.itemName);
+
+// Op-step 90 marks a line finished, as does a remaining requirement fallen to
+// zero. The two say the same thing by different routes.
+const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites ?? 0) <= 0;
+
+// Still work to do — what the planning table, the totals and the rail count.
+const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
+
+// A schedule with nothing left to produce, as the "terminés" sheet lists it.
+interface FinishedSchedule {
+  schedule: string;
+  name: string;
+  count: number;
+  // Lites actually produced, and the surface they represent.
+  lites: number;
+  m2: number;
+}
+
 interface RailStat {
   count: number;
   m2: number;
@@ -142,6 +169,12 @@ interface TableSettings {
   qualite: string[];
   pdp: string[];
   mtoMts: MtoFilter[];
+  // Whether the œillet is open, greying finished lines back into the table.
+  // Unlike the filters it survives a schedule change: an operator who wants to
+  // see what is already done wants it on every schedule, and — showing rows
+  // rather than hiding them — it can never be mistaken for "this schedule has
+  // no work left".
+  showFinished: boolean;
 }
 
 // Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
@@ -281,6 +314,9 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     qualite: arr(raw.qualite),
     pdp: arr(raw.pdp),
     mtoMts: arr(raw.mtoMts) as MtoFilter[],
+    // Absent from every layout stored before the œillet existed, and `false` is
+    // exactly what those installs were doing — so no version bump is owed here.
+    showFinished: raw.showFinished === true,
   };
 }
 
@@ -443,6 +479,7 @@ export default function Schedules({ density }: SchedulesProps) {
   // Schedule number waiting on the delete confirmation, or null.
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const [finishedOpen, setFinishedOpen] = useState(false);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
     () => sanitiseTableSettings(load<Record<string, unknown>>(KEY_TABLE, {})),
   );
@@ -485,55 +522,85 @@ export default function Schedules({ density }: SchedulesProps) {
 
   const schedules = data?.schedules ?? [];
 
-  // Filtered rows for the selected schedule. Mirrors the planner's Excel formula:
-  //   - drop QC samples (item name starting with "Vacuum")
-  //   - drop "off-coater" operations (second op-step = 90)
-  //   - drop rows with no remaining requirement (reqLites = 0)
-  // Then layer the user-driven filters (qualité / pdp / mtoMts) and the
-  // active sort. Default sort matches the planner's Excel formula
+  // Decorate with the planning policy, apply the user-driven filters
+  // (qualité / pdp / mtoMts) and sort. Shared by the planning rows and by the
+  // finished ones, so the two are narrowed and ordered the same way — finished
+  // lines that ignored the active filters would contradict the rows they sit
+  // between. Default sort matches the planner's Excel formula
   // (longueur DESC, PDP DESC, name ASC).
-  const visibleRows: DisplayRow[] = useMemo(() => {
+  //
+  // Pinned to the five settings it actually reads rather than to
+  // `tableSettings` as a whole: dragging a column width or opening the œillet
+  // would otherwise rebuild every row for a change no row depends on.
+  const { qualite, pdp, mtoMts, sortKey, sortDir } = tableSettings;
+  const prepareRows = useCallback((records: PMS230Record[]): DisplayRow[] => {
     const policyMap = policy?.map ?? {};
-    const baseFiltered = (data?.records ?? [])
-      .filter((r) => r.schedule === selected)
-      .filter((r) => !/^Vacuum/i.test(r.itemName))
-      .filter((r) => r.opStepD !== 90)
-      .filter((r) => (r.reqLites ?? 0) > 0);
+    const rows: DisplayRow[] = records
+      .map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }))
+      .filter((r) => {
+        if (qualite.length > 0 && !qualite.includes(r.qualite)) return false;
+        if (pdp.length > 0 && !pdp.includes(r.pdp)) return false;
+        if (mtoMts.length > 0 && !mtoMts.includes(r.mtoMts as MtoFilter)) return false;
+        return true;
+      });
 
-    const decorated: DisplayRow[] = baseFiltered.map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }));
-
-    const userFiltered = decorated.filter((r) => {
-      if (tableSettings.qualite.length > 0 && !tableSettings.qualite.includes(r.qualite)) return false;
-      if (tableSettings.pdp.length > 0 && !tableSettings.pdp.includes(r.pdp)) return false;
-      if (tableSettings.mtoMts.length > 0 && !tableSettings.mtoMts.includes(r.mtoMts as MtoFilter)) return false;
-      return true;
-    });
-
-    userFiltered.sort((a, b) => {
-      const primary = compareRows(a, b, tableSettings.sortKey, tableSettings.sortDir);
+    rows.sort((a, b) => {
+      const primary = compareRows(a, b, sortKey, sortDir);
       if (primary !== 0) return primary;
       // Stable secondary tiebreakers preserving the planner's intent.
-      if (tableSettings.sortKey !== DEFAULT_SORT_KEY && b.longueur !== a.longueur) return b.longueur - a.longueur;
+      if (sortKey !== DEFAULT_SORT_KEY && b.longueur !== a.longueur) return b.longueur - a.longueur;
       if ((b.pdp || '') !== (a.pdp || '')) return (b.pdp || '').localeCompare(a.pdp || '');
       return (a.itemName || '').localeCompare(b.itemName || '');
     });
 
-    return userFiltered;
-  }, [data, selected, policy, tableSettings]);
+    return rows;
+  }, [policy, qualite, pdp, mtoMts, sortKey, sortDir]);
+
+  // The rows of the selected schedule worth putting on screen, split into the
+  // planning proper and the finished lines the œillet brings back. QC samples
+  // are in neither list — they leave the view here and never come back.
+  const [planningRecords, finishedRecords] = useMemo(() => {
+    const planning: PMS230Record[] = [];
+    const finished: PMS230Record[] = [];
+    for (const r of data?.records ?? []) {
+      if (r.schedule !== selected || isQcSample(r)) continue;
+      (isFinished(r) ? finished : planning).push(r);
+    }
+    return [planning, finished];
+  }, [data, selected]);
+
+  const visibleRows: DisplayRow[] = useMemo(
+    () => prepareRows(planningRecords),
+    [planningRecords, prepareRows],
+  );
+
+  // Built whatever the œillet's state: closed, its count is what the œillet
+  // offers; open, these are the rows that grey into the table.
+  const finishedRows: DisplayRow[] = useMemo(
+    () => prepareRows(finishedRecords),
+    [finishedRecords, prepareRows],
+  );
+
+  // What the table paints. With the œillet open the finished lines are sorted
+  // in among the planning rather than stacked under the total: a line that has
+  // been produced belongs where it sat while it was being produced — in its
+  // dimension group, between the same neighbours — and the grey is what says
+  // it is done. The totals never see this list; they stay on visibleRows.
+  const tableRows: DisplayRow[] = useMemo(
+    () => (tableSettings.showFinished && finishedRecords.length > 0
+      ? prepareRows([...planningRecords, ...finishedRecords])
+      : visibleRows),
+    [tableSettings.showFinished, planningRecords, finishedRecords, prepareRows, visibleRows],
+  );
 
   // Available filter values come from the unfiltered, schedule-scoped pool so
   // the menu doesn't shrink as the user picks options.
   const availableFilters = useMemo(() => {
     const policyMap = policy?.map ?? {};
-    const pool = (data?.records ?? [])
-      .filter((r) => r.schedule === selected)
-      .filter((r) => !/^Vacuum/i.test(r.itemName))
-      .filter((r) => r.opStepD !== 90)
-      .filter((r) => (r.reqLites ?? 0) > 0);
     const qualites = new Set<string>();
     const pdps = new Set<string>();
     const mtos = new Set<string>();
-    for (const r of pool) {
+    for (const r of planningRecords) {
       if (r.qualite) qualites.add(r.qualite);
       if (r.pdp) pdps.add(r.pdp);
       mtos.add(policyMap[r.product] ?? '?');
@@ -543,7 +610,7 @@ export default function Schedules({ density }: SchedulesProps) {
       pdps: [...pdps].sort(),
       mtos: [...mtos].sort(),
     };
-  }, [data, selected, policy]);
+  }, [planningRecords, policy]);
 
   const filteringActive =
     tableSettings.qualite.length > 0 ||
@@ -565,6 +632,16 @@ export default function Schedules({ density }: SchedulesProps) {
     const col = COLUMNS.find((c) => c.sortKey === tableSettings.sortKey);
     return `${col?.label ?? tableSettings.sortKey} ${tableSettings.sortDir === 'asc' ? '↑' : '↓'}`;
   }, [tableSettings.sortKey, tableSettings.sortDir]);
+
+  // Same job as filterSummary, for the œillet: on paper the grey has to be
+  // named. A reader who was not the one to open it sees rows the total does not
+  // count and nothing to tell them why — the tone alone won't say it, and a
+  // photocopy may not keep it at all. Empty when the œillet is shut.
+  const finishedSummary =
+    tableSettings.showFinished && finishedRows.length > 0
+      ? `${finishedRows.length} ligne${finishedRows.length > 1 ? 's' : ''} `
+        + `terminée${finishedRows.length > 1 ? 's' : ''} en grisé, hors total`
+      : '';
 
   function toggleSort(key: SortKey) {
     setTableSettings((s) => {
@@ -590,6 +667,10 @@ export default function Schedules({ density }: SchedulesProps) {
 
   function clearFilters() {
     setTableSettings((s) => ({ ...s, qualite: [], pdp: [], mtoMts: [] }));
+  }
+
+  function toggleShowFinished() {
+    setTableSettings((s) => ({ ...s, showFinished: !s.showFinished }));
   }
 
   // Apply a change to the active density's column layout, leaving the other
@@ -702,7 +783,7 @@ export default function Schedules({ density }: SchedulesProps) {
   const groupedRows: GroupedItem[] = useMemo(() => {
     const out: GroupedItem[] = [];
     let prevLongueur: number | null = null;
-    for (const r of visibleRows) {
+    for (const r of tableRows) {
       if (r.longueur !== prevLongueur) {
         out.push({ kind: 'break', id: `break-${r.id}`, longueur: r.longueur });
       }
@@ -710,7 +791,7 @@ export default function Schedules({ density }: SchedulesProps) {
       prevLongueur = r.longueur;
     }
     return out;
-  }, [visibleRows]);
+  }, [tableRows]);
 
   const coaterRows = useMemo(
     () => visibleRows.filter((r) => r.workCenter === 'Coater'),
@@ -731,9 +812,9 @@ export default function Schedules({ density }: SchedulesProps) {
     // below, they're not part of the RailStat shape the UI consumes.
     const nameTally = new Map<string, Map<string, number>>();
     for (const r of data?.records ?? []) {
-      if (/^Vacuum/i.test(r.itemName)) continue;
-      if (r.opStepD === 90) continue;
-      if ((r.reqLites ?? 0) <= 0) continue;
+      // Planning rows only — the rail counts work left to do, so the set-aside
+      // families take no part in it whatever the œillet is showing.
+      if (!isPlanningRow(r)) continue;
       let cur = stats.get(r.schedule);
       if (!cur) {
         cur = { count: 0, m2: 0, shortName: '' };
@@ -768,11 +849,44 @@ export default function Schedules({ density }: SchedulesProps) {
     [schedules, railStats],
   );
 
-  // Auto-select the first visible schedule once data loads, and re-pick if the
-  // current selection has been hidden (e.g. after a re-import or a delete).
+  // The other side of that filter: schedules with nothing left to produce.
+  // They have no place in a rail that lists work to do, but they are the record
+  // of what the line has already made — so they get a sheet of their own, from
+  // which any of them can be opened in the table.
+  //
+  // QC samples are left out here as everywhere else, which also settles what a
+  // sample-only schedule is doing in a list headed "terminés": nothing — it
+  // ends up with no rows and drops out.
+  const finishedSchedules: FinishedSchedule[] = useMemo(() => {
+    const visible = new Set(visibleSchedules.map((s) => s.schedule));
+    const tally = new Map<string, { count: number; lites: number; m2: number }>();
+    for (const r of data?.records ?? []) {
+      if (visible.has(r.schedule) || isQcSample(r)) continue;
+      const cur = tally.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      cur.count += 1;
+      cur.lites += r.prodLites ?? 0;
+      cur.m2 += r.m2;
+      tally.set(r.schedule, cur);
+    }
+    return schedules
+      .filter((s) => tally.has(s.schedule))
+      .map((s) => ({
+        schedule: s.schedule,
+        name: shortItemName(s.itemRoot) || s.itemRoot || '—',
+        ...tally.get(s.schedule)!,
+      }));
+  }, [schedules, visibleSchedules, data]);
+
+  // Auto-select once data loads, and re-pick when the selection is gone from
+  // the report entirely — a delete, or a re-import that dropped it.
+  //
+  // Absent from the *rail* is not gone: a finished schedule opened from the
+  // terminés sheet is legitimately selected while having no place in a list of
+  // work to do, and re-picking around it would bounce the operator straight
+  // back out of what they just opened.
   useEffect(() => {
     if (!data) return;
-    if (selected && visibleSchedules.some((s) => s.schedule === selected)) return;
+    if (selected && schedules.some((s) => s.schedule === selected)) return;
     const next = visibleSchedules[0]?.schedule ?? null;
     setSelected(next);
     // A forced re-pick is a selection change like any other, so the filters go
@@ -780,7 +894,16 @@ export default function Schedules({ density }: SchedulesProps) {
     // nothing was selected to move away from, and the operator's stored filters
     // survive a reload.
     if (selected && next !== selected) clearFilters();
-  }, [data, selected, visibleSchedules]);
+  }, [data, selected, schedules, visibleSchedules]);
+
+  // Open a finished schedule in the table. The œillet goes with it: its rows
+  // are all finished by definition, so leaving it shut would answer the click
+  // with an empty table.
+  function openFinished(schedule: string) {
+    setFinishedOpen(false);
+    setTableSettings((s) => ({ ...s, showFinished: true }));
+    selectSchedule(schedule);
+  }
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
@@ -895,7 +1018,19 @@ export default function Schedules({ density }: SchedulesProps) {
         <div className="sch-body">
           <aside className="sch-rail">
             <h4 className="sch-rail-title">
-              Planning <span className="faint">· {visibleSchedules.length}</span>
+              <span>Planning <span className="faint">· {visibleSchedules.length}</span></span>
+              {/* Way back to the schedules that have left the rail. Only shown
+                  when there are any — on a fresh import there never are. */}
+              {finishedSchedules.length > 0 && (
+                <button
+                  type="button"
+                  className="sch-rail-done-btn"
+                  onClick={() => setFinishedOpen(true)}
+                  title="Consulter les schedules dont il ne reste rien à produire"
+                >
+                  {finishedSchedules.length} terminé{finishedSchedules.length > 1 ? 's' : ''}
+                </button>
+              )}
             </h4>
             <ul className="sch-rail-list">
               {visibleSchedules.map((s) => {
@@ -946,6 +1081,7 @@ export default function Schedules({ density }: SchedulesProps) {
                 </span>
               )}
               <span>tri : {sortSummary}</span>
+              {finishedSummary && <span>{finishedSummary}</span>}
               {filterSummary && <strong>filtré : {filterSummary}</strong>}
             </div>
 
@@ -1019,6 +1155,9 @@ export default function Schedules({ density }: SchedulesProps) {
               colsMenuOpen={colsMenuOpen}
               onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
               onColsMenuClose={() => setColsMenuOpen(false)}
+              finishedCount={finishedRows.length}
+              showFinished={tableSettings.showFinished}
+              onToggleFinished={toggleShowFinished}
               onToggleFilterValue={toggleFilterValue}
               onClearFilters={clearFilters}
               onToggleColumn={toggleColumnVisibility}
@@ -1030,6 +1169,7 @@ export default function Schedules({ density }: SchedulesProps) {
             <ScheduleTable
               items={groupedRows}
               totals={visibleRows}
+              hiddenFinished={tableSettings.showFinished ? 0 : finishedRows.length}
               onRowOpen={handleRowOpen}
               columns={visibleColumns}
               pinned={layout.pinned}
@@ -1112,7 +1252,79 @@ export default function Schedules({ density }: SchedulesProps) {
           onClose={() => setOpenRowId(null)}
         />
       )}
+
+      {finishedOpen && (
+        <FinishedSheet
+          schedules={finishedSchedules}
+          current={selected}
+          onOpen={openFinished}
+          onClose={() => setFinishedOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+// The schedules that have dropped out of the rail with nothing left to
+// produce. The sheet is a way back in: picking one opens it in the table like
+// any rail card, which is where a schedule is meant to be read.
+function FinishedSheet({
+  schedules,
+  current,
+  onOpen,
+  onClose,
+}: {
+  schedules: FinishedSchedule[];
+  // The one already on screen, if the operator is looking at a finished
+  // schedule. No rail card can carry the selection in that case, so the sheet
+  // is the only place left to say where they are.
+  current: string | null;
+  onOpen: (schedule: string) => void;
+  onClose: () => void;
+}) {
+  useEscapeToClose(onClose);
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet sch-done-sheet" role="dialog" aria-modal="true" aria-label="Schedules terminés">
+        <div className="grabber" />
+        <div className="sheet-head">
+          <div className="sheet-head-titles">
+            <h3>Schedules terminés</h3>
+            <div className="sheet-head-sub">
+              {schedules.length} schedule{schedules.length > 1 ? 's' : ''} sans reste à produire
+            </div>
+          </div>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+
+        <ul className="sch-done-list">
+          {schedules.map((s) => (
+            <li key={s.schedule}>
+              <button
+                type="button"
+                className={`sch-done-item ${s.schedule === current ? 'is-current' : ''}`}
+                onClick={() => onOpen(s.schedule)}
+                aria-current={s.schedule === current ? 'true' : undefined}
+                title={
+                  s.schedule === current
+                    ? `Schedule ${s.schedule} — déjà ouvert dans le tableau`
+                    : `Ouvrir le schedule ${s.schedule} dans le tableau`
+                }
+              >
+                <span className="mono sch-done-num">{s.schedule}</span>
+                <span className="sch-done-name">{s.name}</span>
+                <span className="sch-done-meta faint small mono">
+                  {s.count} ligne{s.count > 1 ? 's' : ''} · {fmtNum(s.lites, 0)} lites · {fmtNum(s.m2, 0)} m²
+                </span>
+                <span className="sch-done-go" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 }
 
@@ -1319,6 +1531,9 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
 interface ScheduleTableProps {
   items: GroupedItem[];
   totals: DisplayRow[];
+  // Finished lines the œillet is currently holding back — 0 when it is open,
+  // so the empty state only blames the œillet when the œillet is to blame.
+  hiddenFinished: number;
   onRowOpen: (row: DisplayRow) => void;
   columns: ColumnDef[];
   pinned: string[];
@@ -1482,7 +1697,7 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
   );
 }
 
-function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -1571,10 +1786,22 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
     };
   }, [columns, widths, autoWidths]);
 
-  if (totals.length === 0) {
+  // Nothing at all to paint — not even a greyed line. Tested on `items` rather
+  // than on the totals: a filter can clear the planning while finished rows
+  // still pass it, and swapping the table for "aucune ligne" would deny rows
+  // that are right there.
+  //
+  // And when the œillet is what is holding them back, say so. On a schedule
+  // whose every line is produced — the case the terminés sheet opens — the
+  // plain "aucune ligne" is simply false, and it appears directly under a
+  // control offering the rows it denies.
+  if (items.length === 0) {
     return (
       <div className="sch-empty-rows faint">
-        Aucune ligne pour ce schedule.
+        {hiddenFinished > 0
+          ? `Rien à produire sur ce schedule — ${hiddenFinished} ligne${hiddenFinished > 1 ? 's' : ''} `
+            + `terminée${hiddenFinished > 1 ? 's' : ''}, à afficher avec l’œillet.`
+          : 'Aucune ligne pour ce schedule.'}
       </div>
     );
   }
@@ -1684,7 +1911,17 @@ function ScheduleTable({ items, totals, onRowOpen, columns, pinned, widths, auto
               </td>
             </tr>
           )
-          : <ScheduleRow key={it.row.id} row={it.row} onOpen={onRowOpen} columns={enrichedColumns} />
+          // A finished line greys out where it stands. It is in the table but
+          // not in the total, and the tone is what carries that — see .is-muted.
+          : (
+            <ScheduleRow
+              key={it.row.id}
+              row={it.row}
+              onOpen={onRowOpen}
+              columns={enrichedColumns}
+              muted={isFinished(it.row)}
+            />
+          )
       )}
       <TotalRow rows={totals} columns={enrichedColumns} />
       </tbody>
@@ -1701,6 +1938,9 @@ interface TableControlsProps {
   colsMenuOpen: boolean;
   onColsMenuToggle: () => void;
   onColsMenuClose: () => void;
+  finishedCount: number;
+  showFinished: boolean;
+  onToggleFinished: () => void;
   onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
   onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
@@ -1718,6 +1958,9 @@ function TableControls({
   colsMenuOpen,
   onColsMenuToggle,
   onColsMenuClose,
+  finishedCount,
+  showFinished,
+  onToggleFinished,
   onToggleFilterValue,
   onClearFilters,
   onToggleColumn,
@@ -1767,77 +2010,98 @@ function TableControls({
           Effacer filtres
         </button>
       )}
-      <div className="sch-cols-wrap" ref={colsBtnRef} style={{ marginLeft: 'auto' }}>
-        <button
-          type="button"
-          className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
-          onClick={onColsMenuToggle}
-          aria-expanded={colsMenuOpen}
-          aria-label="Configurer les colonnes"
-        >
-          <span className="sch-cols-icon" aria-hidden="true" />
-          Colonnes
-          <span className="sch-cols-chevron" aria-hidden="true" />
-        </button>
-        {colsMenuOpen && (
-          <div className="popover sch-cols-menu" role="menu">
-            <div className="sch-cols-menu-head">
-              <h4>Colonnes</h4>
-              <button type="button" className="btn ghost mini" onClick={onResetLayout}>Réinitialiser</button>
-            </div>
-            <ul className="sch-cols-list">
-              {orderedAllColumns(layout).map((col, i, arr) => {
-                const visible = !layout.hidden.includes(col.key);
-                const pinned = layout.pinned.includes(col.key);
-                const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
-                const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
-                return (
-                  <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
-                    <label className="sch-cols-opt">
-                      <input
-                        type="checkbox"
-                        checked={visible}
-                        onChange={() => onToggleColumn(col.key)}
-                      />
-                      <span>{col.label}</span>
-                    </label>
-                    <div className="sch-cols-actions">
-                      <button
-                        type="button"
-                        className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
-                        onClick={() => onTogglePinned(col.key)}
-                        title={pinned ? 'Désépingler' : 'Épingler à gauche'}
-                        aria-pressed={pinned}
-                        aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
-                      >
-                        <span aria-hidden="true" className="sch-pin-glyph" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn ghost icon mini"
-                        onClick={() => onMoveColumn(col.key, -1)}
-                        disabled={!sameGroupPrev}
-                        title="Monter"
-                        aria-label="Monter la colonne"
-                      >↑</button>
-                      <button
-                        type="button"
-                        className="btn ghost icon mini"
-                        onClick={() => onMoveColumn(col.key, 1)}
-                        disabled={!sameGroupNext}
-                        title="Descendre"
-                        aria-label="Descendre la colonne"
-                      >↓</button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="sch-cols-menu-foot faint small">
-              {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
-            </div>
-          </div>
+      <div className="sch-controls-end">
+        {finishedCount > 0 && (
+          // The œillet. Only offered when there is something behind it — on a
+          // freshly imported schedule nothing is finished yet, and a control
+          // reading "0 terminées" would promise rows it cannot show.
+          <button
+            type="button"
+            className={`btn ghost mini sch-eye-btn ${showFinished ? 'is-on' : ''}`}
+            onClick={onToggleFinished}
+            aria-pressed={showFinished}
+            title={
+              showFinished
+                ? 'Replier les lignes terminées'
+                : 'Afficher les lignes de ce schedule qui n’ont plus rien à produire'
+            }
+          >
+            <span className={`sch-eye ${showFinished ? '' : 'is-off'}`} aria-hidden="true" />
+            {finishedCount} terminée{finishedCount > 1 ? 's' : ''}
+          </button>
         )}
+        <div className="sch-cols-wrap" ref={colsBtnRef}>
+          <button
+            type="button"
+            className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
+            onClick={onColsMenuToggle}
+            aria-expanded={colsMenuOpen}
+            aria-label="Configurer les colonnes"
+          >
+            <span className="sch-cols-icon" aria-hidden="true" />
+            Colonnes
+            <span className="sch-cols-chevron" aria-hidden="true" />
+          </button>
+          {colsMenuOpen && (
+            <div className="popover sch-cols-menu" role="menu">
+              <div className="sch-cols-menu-head">
+                <h4>Colonnes</h4>
+                <button type="button" className="btn ghost mini" onClick={onResetLayout}>Réinitialiser</button>
+              </div>
+              <ul className="sch-cols-list">
+                {orderedAllColumns(layout).map((col, i, arr) => {
+                  const visible = !layout.hidden.includes(col.key);
+                  const pinned = layout.pinned.includes(col.key);
+                  const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
+                  const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
+                  return (
+                    <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
+                      <label className="sch-cols-opt">
+                        <input
+                          type="checkbox"
+                          checked={visible}
+                          onChange={() => onToggleColumn(col.key)}
+                        />
+                        <span>{col.label}</span>
+                      </label>
+                      <div className="sch-cols-actions">
+                        <button
+                          type="button"
+                          className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
+                          onClick={() => onTogglePinned(col.key)}
+                          title={pinned ? 'Désépingler' : 'Épingler à gauche'}
+                          aria-pressed={pinned}
+                          aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
+                        >
+                          <span aria-hidden="true" className="sch-pin-glyph" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost icon mini"
+                          onClick={() => onMoveColumn(col.key, -1)}
+                          disabled={!sameGroupPrev}
+                          title="Monter"
+                          aria-label="Monter la colonne"
+                        >↑</button>
+                        <button
+                          type="button"
+                          className="btn ghost icon mini"
+                          onClick={() => onMoveColumn(col.key, 1)}
+                          disabled={!sameGroupNext}
+                          title="Descendre"
+                          aria-label="Descendre la colonne"
+                        >↓</button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="sch-cols-menu-foot faint small">
+                {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1878,6 +2142,9 @@ interface ScheduleRowProps {
   row: DisplayRow;
   onOpen: (row: DisplayRow) => void;
   columns: ColumnView[];
+  // A finished line: same cells, greyed out. It stays clickable — the detail
+  // sheet is the whole point of leaving it in the table.
+  muted?: boolean;
 }
 
 function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
@@ -1928,7 +2195,7 @@ function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
   }
 }
 
-const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: ScheduleRowProps) {
+const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns, muted }: ScheduleRowProps) {
   const isQc = row.largeur === 0 && row.longueur === 0;
   const open = () => onOpen(row);
   return (
@@ -1936,13 +2203,15 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns }: Schedule
     // printed header to repeat. It keeps the keyboard affordance a button
     // gave it — focusable, Enter/Espace activates.
     <tr
-      className={`sch-row sch-row-clickable ${isQc ? 'is-qc' : ''}`}
+      className={`sch-row sch-row-clickable ${isQc ? 'is-qc' : ''} ${muted ? 'is-muted' : ''}`}
       tabIndex={0}
       onClick={open}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
       }}
-      aria-label={`Détails ${row.product} ${row.itemName}`}
+      // The grey is the only thing marking a finished line, and colour alone
+      // reaches neither a screen reader nor a monochrome display.
+      aria-label={`Détails ${row.product} ${row.itemName}${muted ? ' — terminée' : ''}`}
     >
       {columns.map((c) => {
         const monoExtra =
