@@ -169,11 +169,12 @@ interface TableSettings {
   qualite: string[];
   pdp: string[];
   mtoMts: MtoFilter[];
-  // Whether the masqués block is unfolded under the total. Unlike the filters
-  // it survives a schedule change: an operator who wants to see what is already
-  // finished wants it on every schedule, and — showing rows rather than hiding
-  // them — it can never be mistaken for "this schedule has no work left".
-  showHidden: boolean;
+  // Whether the œillet is open, greying finished lines back into the table.
+  // Unlike the filters it survives a schedule change: an operator who wants to
+  // see what is already done wants it on every schedule, and — showing rows
+  // rather than hiding them — it can never be mistaken for "this schedule has
+  // no work left".
+  showFinished: boolean;
 }
 
 // Current settings schema version. v2 un-hid Article, v3 un-hid MTO/MTS, v4
@@ -315,7 +316,7 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     mtoMts: arr(raw.mtoMts) as MtoFilter[],
     // Absent from every layout stored before the œillet existed, and `false` is
     // exactly what those installs were doing — so no version bump is owed here.
-    showHidden: raw.showHidden === true,
+    showFinished: raw.showFinished === true,
   };
 }
 
@@ -523,36 +524,41 @@ export default function Schedules({ density }: SchedulesProps) {
 
   // Decorate with the planning policy, apply the user-driven filters
   // (qualité / pdp / mtoMts) and sort. Shared by the planning rows and by the
-  // masqués block so the two are narrowed and ordered the same way — a masqués
-  // list that ignored the active filters would contradict the table above it.
-  // Default sort matches the planner's Excel formula
+  // finished ones, so the two are narrowed and ordered the same way — finished
+  // lines that ignored the active filters would contradict the rows they sit
+  // between. Default sort matches the planner's Excel formula
   // (longueur DESC, PDP DESC, name ASC).
+  //
+  // Pinned to the five settings it actually reads rather than to
+  // `tableSettings` as a whole: dragging a column width or opening the œillet
+  // would otherwise rebuild every row for a change no row depends on.
+  const { qualite, pdp, mtoMts, sortKey, sortDir } = tableSettings;
   const prepareRows = useCallback((records: PMS230Record[]): DisplayRow[] => {
     const policyMap = policy?.map ?? {};
     const rows: DisplayRow[] = records
       .map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }))
       .filter((r) => {
-        if (tableSettings.qualite.length > 0 && !tableSettings.qualite.includes(r.qualite)) return false;
-        if (tableSettings.pdp.length > 0 && !tableSettings.pdp.includes(r.pdp)) return false;
-        if (tableSettings.mtoMts.length > 0 && !tableSettings.mtoMts.includes(r.mtoMts as MtoFilter)) return false;
+        if (qualite.length > 0 && !qualite.includes(r.qualite)) return false;
+        if (pdp.length > 0 && !pdp.includes(r.pdp)) return false;
+        if (mtoMts.length > 0 && !mtoMts.includes(r.mtoMts as MtoFilter)) return false;
         return true;
       });
 
     rows.sort((a, b) => {
-      const primary = compareRows(a, b, tableSettings.sortKey, tableSettings.sortDir);
+      const primary = compareRows(a, b, sortKey, sortDir);
       if (primary !== 0) return primary;
       // Stable secondary tiebreakers preserving the planner's intent.
-      if (tableSettings.sortKey !== DEFAULT_SORT_KEY && b.longueur !== a.longueur) return b.longueur - a.longueur;
+      if (sortKey !== DEFAULT_SORT_KEY && b.longueur !== a.longueur) return b.longueur - a.longueur;
       if ((b.pdp || '') !== (a.pdp || '')) return (b.pdp || '').localeCompare(a.pdp || '');
       return (a.itemName || '').localeCompare(b.itemName || '');
     });
 
     return rows;
-  }, [policy, tableSettings]);
+  }, [policy, qualite, pdp, mtoMts, sortKey, sortDir]);
 
   // The rows of the selected schedule worth putting on screen, split into the
-  // planning proper and the finished lines the œillet unfolds. QC samples are
-  // in neither list — they leave the view here and never come back.
+  // planning proper and the finished lines the œillet brings back. QC samples
+  // are in neither list — they leave the view here and never come back.
   const [planningRecords, finishedRecords] = useMemo(() => {
     const planning: PMS230Record[] = [];
     const finished: PMS230Record[] = [];
@@ -568,7 +574,8 @@ export default function Schedules({ density }: SchedulesProps) {
     [planningRecords, prepareRows],
   );
 
-  // Built whatever the œillet's state — its count is what the œillet offers.
+  // Built whatever the œillet's state: closed, its count is what the œillet
+  // offers; open, these are the rows that grey into the table.
   const finishedRows: DisplayRow[] = useMemo(
     () => prepareRows(finishedRecords),
     [finishedRecords, prepareRows],
@@ -580,10 +587,10 @@ export default function Schedules({ density }: SchedulesProps) {
   // dimension group, between the same neighbours — and the grey is what says
   // it is done. The totals never see this list; they stay on visibleRows.
   const tableRows: DisplayRow[] = useMemo(
-    () => (tableSettings.showHidden && finishedRecords.length > 0
+    () => (tableSettings.showFinished && finishedRecords.length > 0
       ? prepareRows([...planningRecords, ...finishedRecords])
       : visibleRows),
-    [tableSettings.showHidden, planningRecords, finishedRecords, prepareRows, visibleRows],
+    [tableSettings.showFinished, planningRecords, finishedRecords, prepareRows, visibleRows],
   );
 
   // Available filter values come from the unfiltered, schedule-scoped pool so
@@ -626,6 +633,16 @@ export default function Schedules({ density }: SchedulesProps) {
     return `${col?.label ?? tableSettings.sortKey} ${tableSettings.sortDir === 'asc' ? '↑' : '↓'}`;
   }, [tableSettings.sortKey, tableSettings.sortDir]);
 
+  // Same job as filterSummary, for the œillet: on paper the grey has to be
+  // named. A reader who was not the one to open it sees rows the total does not
+  // count and nothing to tell them why — the tone alone won't say it, and a
+  // photocopy may not keep it at all. Empty when the œillet is shut.
+  const finishedSummary =
+    tableSettings.showFinished && finishedRows.length > 0
+      ? `${finishedRows.length} ligne${finishedRows.length > 1 ? 's' : ''} `
+        + `terminée${finishedRows.length > 1 ? 's' : ''} en grisé, hors total`
+      : '';
+
   function toggleSort(key: SortKey) {
     setTableSettings((s) => {
       const firstDir = firstSortDir(key);
@@ -652,8 +669,8 @@ export default function Schedules({ density }: SchedulesProps) {
     setTableSettings((s) => ({ ...s, qualite: [], pdp: [], mtoMts: [] }));
   }
 
-  function toggleShowHidden() {
-    setTableSettings((s) => ({ ...s, showHidden: !s.showHidden }));
+  function toggleShowFinished() {
+    setTableSettings((s) => ({ ...s, showFinished: !s.showFinished }));
   }
 
   // Apply a change to the active density's column layout, leaving the other
@@ -884,7 +901,7 @@ export default function Schedules({ density }: SchedulesProps) {
   // with an empty table.
   function openFinished(schedule: string) {
     setFinishedOpen(false);
-    setTableSettings((s) => ({ ...s, showHidden: true }));
+    setTableSettings((s) => ({ ...s, showFinished: true }));
     selectSchedule(schedule);
   }
 
@@ -1064,16 +1081,7 @@ export default function Schedules({ density }: SchedulesProps) {
                 </span>
               )}
               <span>tri : {sortSummary}</span>
-              {/* On paper the grey has to be named. A reader who was not the
-                  one to open the œillet sees rows the total does not count and
-                  nothing to tell them why — the tone alone won't say it, and a
-                  photocopy may not keep it at all. */}
-              {tableSettings.showHidden && finishedRows.length > 0 && (
-                <span>
-                  {finishedRows.length} ligne{finishedRows.length > 1 ? 's' : ''} terminée
-                  {finishedRows.length > 1 ? 's' : ''} en grisé, hors total
-                </span>
-              )}
+              {finishedSummary && <span>{finishedSummary}</span>}
               {filterSummary && <strong>filtré : {filterSummary}</strong>}
             </div>
 
@@ -1147,9 +1155,9 @@ export default function Schedules({ density }: SchedulesProps) {
               colsMenuOpen={colsMenuOpen}
               onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
               onColsMenuClose={() => setColsMenuOpen(false)}
-              hiddenCount={finishedRows.length}
-              showHidden={tableSettings.showHidden}
-              onToggleHidden={toggleShowHidden}
+              finishedCount={finishedRows.length}
+              showFinished={tableSettings.showFinished}
+              onToggleFinished={toggleShowFinished}
               onToggleFilterValue={toggleFilterValue}
               onClearFilters={clearFilters}
               onToggleColumn={toggleColumnVisibility}
@@ -1247,6 +1255,7 @@ export default function Schedules({ density }: SchedulesProps) {
       {finishedOpen && (
         <FinishedSheet
           schedules={finishedSchedules}
+          current={selected}
           onOpen={openFinished}
           onClose={() => setFinishedOpen(false)}
         />
@@ -1260,10 +1269,15 @@ export default function Schedules({ density }: SchedulesProps) {
 // any rail card, which is where a schedule is meant to be read.
 function FinishedSheet({
   schedules,
+  current,
   onOpen,
   onClose,
 }: {
   schedules: FinishedSchedule[];
+  // The one already on screen, if the operator is looking at a finished
+  // schedule. No rail card can carry the selection in that case, so the sheet
+  // is the only place left to say where they are.
+  current: string | null;
   onOpen: (schedule: string) => void;
   onClose: () => void;
 }) {
@@ -1289,9 +1303,14 @@ function FinishedSheet({
             <li key={s.schedule}>
               <button
                 type="button"
-                className="sch-done-item"
+                className={`sch-done-item ${s.schedule === current ? 'is-current' : ''}`}
                 onClick={() => onOpen(s.schedule)}
-                title={`Ouvrir le schedule ${s.schedule} dans le tableau`}
+                aria-current={s.schedule === current ? 'true' : undefined}
+                title={
+                  s.schedule === current
+                    ? `Schedule ${s.schedule} — déjà ouvert dans le tableau`
+                    : `Ouvrir le schedule ${s.schedule} dans le tableau`
+                }
               >
                 <span className="mono sch-done-num">{s.schedule}</span>
                 <span className="sch-done-name">{s.name}</span>
@@ -1907,9 +1926,9 @@ interface TableControlsProps {
   colsMenuOpen: boolean;
   onColsMenuToggle: () => void;
   onColsMenuClose: () => void;
-  hiddenCount: number;
-  showHidden: boolean;
-  onToggleHidden: () => void;
+  finishedCount: number;
+  showFinished: boolean;
+  onToggleFinished: () => void;
   onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
   onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
@@ -1927,9 +1946,9 @@ function TableControls({
   colsMenuOpen,
   onColsMenuToggle,
   onColsMenuClose,
-  hiddenCount,
-  showHidden,
-  onToggleHidden,
+  finishedCount,
+  showFinished,
+  onToggleFinished,
   onToggleFilterValue,
   onClearFilters,
   onToggleColumn,
@@ -1980,23 +1999,23 @@ function TableControls({
         </button>
       )}
       <div className="sch-controls-end">
-        {hiddenCount > 0 && (
+        {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control
-          // reading "0 terminées" would be an invitation to an empty block.
+          // reading "0 terminées" would promise rows it cannot show.
           <button
             type="button"
-            className={`btn ghost mini sch-eye-btn ${showHidden ? 'is-on' : ''}`}
-            onClick={onToggleHidden}
-            aria-pressed={showHidden}
+            className={`btn ghost mini sch-eye-btn ${showFinished ? 'is-on' : ''}`}
+            onClick={onToggleFinished}
+            aria-pressed={showFinished}
             title={
-              showHidden
+              showFinished
                 ? 'Replier les lignes terminées'
                 : 'Afficher les lignes de ce schedule qui n’ont plus rien à produire'
             }
           >
-            <span className={`sch-eye ${showHidden ? '' : 'is-off'}`} aria-hidden="true" />
-            {hiddenCount} terminée{hiddenCount > 1 ? 's' : ''}
+            <span className={`sch-eye ${showFinished ? '' : 'is-off'}`} aria-hidden="true" />
+            {finishedCount} terminée{finishedCount > 1 ? 's' : ''}
           </button>
         )}
         <div className="sch-cols-wrap" ref={colsBtnRef}>

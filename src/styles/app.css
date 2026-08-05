@@ -2634,8 +2634,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   display: inline-flex;
 }
 
-/* Œillet — reveals the rows the planner's formula sets aside (terminées, hors
-   coater, échantillons QC) as a block under the total. */
+/* Œillet — greys the schedule's finished lines back into the table, where the
+   planner's formula had dropped them. */
 .sch-eye-btn {
   display: inline-flex;
   align-items: center;
@@ -2675,8 +2675,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: 50%;
   background: currentColor;
 }
-/* Struck through while the block is folded away — the button then reads as
-   "these rows are hidden", which is what its count is counting. */
+/* Struck through while the lines are away — the button then reads as "these
+   rows are not on screen", which is what its count is counting. */
 .sch-eye.is-off {
   background: linear-gradient(
     45deg,
@@ -3737,6 +3737,13 @@ body.is-col-resizing * {
   background: var(--paper-2);
   border-color: var(--line-soft);
 }
+/* The one already on screen. It stays a button — clicking it just closes the
+   sheet — but it has to look like where you are, not like somewhere to go. */
+.sch-done-item.is-current {
+  border-color: var(--ink-faint);
+  background: var(--paper-2);
+}
+.sch-done-item.is-current .sch-done-go { visibility: hidden; }
 .sch-done-num { font-weight: 600; }
 .sch-done-name {
   min-width: 0;
