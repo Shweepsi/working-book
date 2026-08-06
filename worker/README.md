@@ -81,7 +81,7 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `GET  /api/policy` → `{ data: PolicyResult | null, updated_at }` — MTO/MTS lookup, always synced
 - `PUT  /api/policy` body: `PolicyResult`
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
-- `PUT  /api/schedules` body: `PMS230Result | null`
+- `PUT  /api/schedules` body: `PMS230Result | null` — accepts up to 2 MB, where the other routes stop at 512 KB (see below)
 - `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
 - `GET  /api/speeds` → `{ data: Record<schedule, number> | null, updated_at }` — coater speed (m/min) per schedule
 - `PUT  /api/speeds` body: `Record<schedule, number>`
@@ -98,8 +98,8 @@ stored JSON wholesale on every `PUT`.
 keyed by the domain names the front uses (`suivi`, `policy`, `schedules`,
 `speeds`, `archives`, plus `logbook` / `prodtest` when the matching params are
 supplied). A couple of hundred bytes against a report blob past a hundred
-kilobytes: that
-ratio is what lets a client poll on a short interval and only fetch a partition
+kilobytes: that ratio is what lets a client poll on a short interval and only
+fetch a partition
 whose stamp has actually moved. The reply is `Cache-Control: no-store` — a
 cached probe would pin a tab on a stale timestamp.
 
@@ -128,6 +128,32 @@ same number stays out of the rail until somebody puts it back.
 
 A dump that yields no decodable row answers `422 no_records` and leaves the
 stored report alone, so a mis-click on the wrong screen can't damage it.
+
+The reply carries `purged`: how many finished schedules the trim below dropped
+to fit the incoming rows in. The bookmarklet is the one import route with no
+screen of its own, so this is the only place it can be said.
+
+## What keeps the report from growing forever
+
+Nothing removes a schedule from the report by hand — the coarsest gesture in the
+Schedule tab only retires one from the planning. But the report only grows, and
+three ceilings sit above it: D1 refuses a value past **2 000 000 bytes**, this
+API caps a `PUT /api/schedules` body at **2 MB**, and a browser holds two copies
+of the report — the localStorage cache and the queued mutation — inside a ~5 MB
+quota.
+
+So `mergePMS230` ends every merge in `trimReport` (`src/lib/pms230Parser.ts`),
+which holds the stored JSON under **1 MB** — about 1 700 lines at the ~590 bytes
+one costs today, several months of planning. Over budget, it drops whole
+schedules **with nothing left to produce**, oldest first (by the last `startDate`
+in the schedule), until it fits. A schedule carrying a single unfinished line is
+never dropped, however old: losing planning to make room for planning would be
+worse than the overflow. If trimming every eligible schedule still isn't enough,
+the report is written over budget and fails loudly at the ceiling rather than
+silently shedding work the line still has to do.
+
+Both write paths go through `mergePMS230`, so both trim: the ingest above, and
+the front's paste import, whose merge result is what it then `PUT`s.
 
 There is no auth on it, deliberately: the whole API is unauthenticated, so a
 token on this one endpoint would have locked one door of an open house while

@@ -14,6 +14,11 @@ export interface Env {
 }
 
 const MAX_BODY_BYTES = 512 * 1024;
+// The report is the one partition that can legitimately run to a megabyte, and
+// `trimReport` holds it there. 512 KB would have refused a write the storage
+// itself accepts — D1 takes a value up to 2 000 000 bytes — so this route gets
+// the ceiling that actually matters rather than one four times lower.
+const SCHEDULES_MAX_BODY_BYTES = 2 * 1024 * 1024;
 // A full Ctrl+A of an Operator Mashup page runs well past the 512 KB the JSON
 // blobs are held to — the dump carries the whole page's chrome, not just the
 // grid rows the parser keeps.
@@ -269,7 +274,7 @@ async function handleSchedules(
   }
 
   if (request.method === 'PUT') {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, SCHEDULES_MAX_BODY_BYTES);
     if (body !== null && typeof body !== 'object') return json({ error: 'expected_object_or_null' }, cors, 400);
     const now = await writeSchedules(env, body);
     return json({ ok: true, updated_at: now }, cors);
@@ -476,7 +481,7 @@ async function handleSchedulesIngest(
     return json({ error: 'no_records', warnings: parsed.warnings.slice(0, 10) }, cors, 422);
   }
 
-  const merged = mergePMS230(await readSchedules(env), parsed);
+  const { result: merged, purged } = mergePMS230(await readSchedules(env), parsed);
   const updatedAt = await writeSchedules(env, merged);
 
   return json(
@@ -485,6 +490,10 @@ async function handleSchedulesIngest(
       imported: parsed.records.length,
       records: merged.records.length,
       schedules: merged.schedules.length,
+      // Finished schedules the trim dropped to keep the report under budget.
+      // Reported rather than silent: the bookmarklet is the one import route
+      // with no screen of its own, and this is the only place it can be said.
+      purged: purged.length,
       warnings: parsed.warnings.length,
       updated_at: updatedAt,
     },

@@ -301,6 +301,20 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   return r;
 }
 
+// What a row *is*, as opposed to how a screen chooses to draw it — hence here
+// rather than in the Schedule tab, which is no longer the only reader: the trim
+// below has to know which rows are still work before it may drop anything.
+
+// A QC sample is a prélèvement, not production.
+export const isQcSample = (r: PMS230Record): boolean => /^Vacuum/i.test(r.itemName);
+
+// Op-step 90 marks a line finished, as does a remaining requirement fallen to
+// zero. The two say the same thing by different routes.
+export const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites ?? 0) <= 0;
+
+// Still work to do — what the planning table, the totals and the rail count.
+export const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
+
 function rowM2(r: DecodedRecord): number {
   // "m² restants" — the area still to produce. reqLites is sched minus what's
   // already produced, so multiplying by it (not schedLites) matches Excel and
@@ -413,10 +427,84 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
   };
 }
 
-export function mergePMS230(prev: PMS230Result | null | undefined, next: PMS230Result): PMS230Result {
-  // Append-style merge: dedup on `${schedule}|${mo}`. Records that exist in both
-  // are kept from `next` (the fresher paste).
-  if (!prev) return next;
+// How much JSON the stored report is allowed to weigh. Every ceiling
+// downstream is harder than this one: D1 refuses a value past 2 000 000 bytes,
+// `PUT /api/schedules` caps the body at 2 MB, and a browser holds two copies of
+// the report — the cache and the pending mutation — inside a ~5 MB
+// localStorage quota. A megabyte clears all three and still holds months of
+// planning: a line costs about 600 bytes, so roughly 1 600 of them.
+const REPORT_BUDGET_BYTES = 1_000_000;
+
+// Nothing is ever removed from the report by hand — see the Schedule tab, where
+// the coarsest gesture only retires a schedule from the planning. But the
+// report only grows, and something has to give before it hits a ceiling that
+// would refuse the *next import* rather than the oldest finished work.
+//
+// So: over budget, whole schedules with nothing left to produce are dropped,
+// oldest first, until it fits. A schedule carrying a single unfinished line is
+// never touched, whatever its age — losing planning to make room for planning
+// would be worse than the overflow. If trimming every eligible schedule still
+// isn't enough, the report is returned over budget and the write fails loudly
+// downstream; that beats silently dropping work the line still has to do.
+export function trimReport(r: PMS230Result): { result: PMS230Result; purged: string[] } {
+  // `.length` counts UTF-16 units, not bytes. The report is codes and digits
+  // with the odd accented customer name, so the two agree to within a rounding
+  // error at this scale — and the budget sits at half the hardest ceiling.
+  const sizes = new Map<PMS230Record, number>();
+  let total = 0;
+  for (const rec of r.records) {
+    const n = JSON.stringify(rec).length + 1;
+    sizes.set(rec, n);
+    total += n;
+  }
+  if (total <= REPORT_BUDGET_BYTES) return { result: r, purged: [] };
+
+  // One entry per schedule: its rows, its weight, whether anything in it is
+  // still to be produced, and the last date it ran — which is what "oldest"
+  // means for a schedule whose lines span several days.
+  interface Group { rows: PMS230Record[]; bytes: number; open: boolean; last: string }
+  const groups = new Map<string, Group>();
+  for (const rec of r.records) {
+    const g = groups.get(rec.schedule)
+      ?? { rows: [], bytes: 0, open: false, last: '' };
+    g.rows.push(rec);
+    g.bytes += sizes.get(rec)!;
+    if (isPlanningRow(rec)) g.open = true;
+    if (rec.startDate > g.last) g.last = rec.startDate;
+    groups.set(rec.schedule, g);
+  }
+
+  const eligible = [...groups.entries()]
+    .filter(([, g]) => !g.open)
+    .sort(([sa, a], [sb, b]) => (a.last === b.last ? sa.localeCompare(sb) : a.last.localeCompare(b.last)));
+
+  const purged: string[] = [];
+  for (const [schedule, g] of eligible) {
+    if (total <= REPORT_BUDGET_BYTES) break;
+    total -= g.bytes;
+    purged.push(schedule);
+  }
+  if (purged.length === 0) return { result: r, purged: [] };
+
+  const dropped = new Set(purged);
+  const records = r.records.filter((rec) => !dropped.has(rec.schedule));
+  return {
+    result: { ...r, records, schedules: summariseSchedules(records) },
+    purged,
+  };
+}
+
+// Append-style merge, then trim to budget. Returns both halves: every caller
+// writes the result somewhere, and every caller owes the operator a word about
+// what the trim took — which is why this doesn't just return the report.
+export function mergePMS230(
+  prev: PMS230Result | null | undefined,
+  next: PMS230Result,
+): { result: PMS230Result; purged: string[] } {
+  // Dedup on `${schedule}|${mo}`. Records that exist in both are kept from
+  // `next` (the fresher paste) — so re-importing a page updates its rows in
+  // place and costs nothing, and the report only grows with new work.
+  if (!prev) return trimReport(next);
   const seen = new Map<string, PMS230Record>();
   for (const r of next.records) seen.set(`${r.schedule}|${r.mo}`, r);
   for (const r of prev.records) {
@@ -427,10 +515,10 @@ export function mergePMS230(prev: PMS230Result | null | undefined, next: PMS230R
     if (a.schedule !== b.schedule) return a.schedule.localeCompare(b.schedule);
     return a.mo.localeCompare(b.mo);
   });
-  return {
+  return trimReport({
     records,
     schedules: summariseSchedules(records),
     warnings: [...(prev.warnings ?? []), ...(next.warnings ?? [])],
     importedAt: next.importedAt,
-  };
+  });
 }

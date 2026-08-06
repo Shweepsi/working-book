@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { isFinished, isPlanningRow, isQcSample, mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -47,22 +47,15 @@ type GroupedItem =
   | { kind: 'break'; id: string; longueur: number }
   | { kind: 'row'; row: DisplayRow };
 
-// Both halves of the planner's Excel formula, which sets these rows aside
-// before anything else is computed. Neither family is work the coater still
-// has to do, so neither takes part in the totals, the throughput tiles or the
-// rail counts.
+// `isQcSample` / `isFinished` / `isPlanningRow` come from the parser, which
+// needs them too. Both halves of the planner's Excel formula, they set rows
+// aside before anything else is computed: neither family is work the coater
+// still has to do, so neither takes part in the totals, the throughput tiles or
+// the rail counts.
 //
 // They part company after that. A QC sample is a prélèvement, not production:
 // it never appears anywhere in this view, and the œillet does not offer it.
 // A finished line is production — the œillet exists to let it be read back.
-const isQcSample = (r: PMS230Record): boolean => /^Vacuum/i.test(r.itemName);
-
-// Op-step 90 marks a line finished, as does a remaining requirement fallen to
-// zero. The two say the same thing by different routes.
-const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites ?? 0) <= 0;
-
-// Still work to do — what the planning table, the totals and the rail count.
-const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
 
 // A schedule out of the planning, as the "terminés" sheet lists it — either
 // because there is nothing left to produce or because someone retired it.
@@ -1012,8 +1005,34 @@ export default function Schedules({ density }: SchedulesProps) {
     // Every import adds, whichever route it came in by. `mergePMS230` keys on
     // schedule|MO, so re-importing a page updates its rows rather than
     // duplicating them; retiring a schedule is done from the rail.
-    setData((prev) => mergePMS230(prev, parsed));
+    const { result, purged } = mergePMS230(data, parsed);
+    setData(result);
     setImportMode(null);
+    if (purged.length === 0) return;
+    // The trim took some finished schedules to make room. Their speed and their
+    // retirement have nothing left to hang off, and kept they would silently
+    // apply to a re-import of the same number months later.
+    forgetSchedules(purged);
+    toast.show({
+      message: `Rapport plein : ${purged.length} schedule${purged.length > 1 ? 's' : ''} `
+        + `terminé${purged.length > 1 ? 's' : ''} purgé${purged.length > 1 ? 's' : ''} `
+        + 'pour faire de la place',
+      ttl: UNDO_TTL,
+    });
+  }
+
+  // Drop every trace of schedules that have left the report. No undo: they went
+  // because the report was full, and putting them back would fill it again.
+  function forgetSchedules(numbers: string[]) {
+    const gone = new Set(numbers);
+    setSpeeds((prev) => {
+      const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => !gone.has(k)));
+      return Object.keys(rest).length === Object.keys(prev).length ? prev : rest;
+    });
+    setArchives((prev) => {
+      const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => !gone.has(k)));
+      return Object.keys(rest).length === Object.keys(prev).length ? prev : rest;
+    });
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
     const snapshot = policy;
