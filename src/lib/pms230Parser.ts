@@ -440,24 +440,21 @@ export function trimReport(
   r: PMS230Result,
   keep: ReadonlySet<string> = new Set(),
 ): { result: PMS230Result; purged: string[] } {
-  // `.length` counts UTF-16 units, not bytes. The report is codes and digits
-  // with the odd accented customer name, so the two agree to within a rounding
-  // error at this scale — and the budget sits at half the hardest ceiling.
-  const sizes = new Map<PMS230Record, number>();
-  let total = 0;
-  for (const rec of r.records) {
-    const n = JSON.stringify(rec).length + 1;
-    sizes.set(rec, n);
-    total += n;
-  }
+  // Weigh the whole array in one serialisation — this runs on every merge, and
+  // the answer is almost always "it fits". `.length` counts UTF-16 units, not
+  // bytes; the report is codes and digits with the odd accented customer name,
+  // so the two agree to within a rounding error at this scale, and the budget
+  // sits at half the hardest ceiling.
+  let total = JSON.stringify(r.records).length;
   if (total <= REPORT_BUDGET_BYTES) return { result: r, purged: [] };
 
-  // One entry per schedule: its weight, and the last date it ran — which is what
-  // "oldest" means for a schedule whose lines span several days.
+  // Over budget, and only now worth the per-record pass: one entry per
+  // schedule, its weight and the last date it ran — which is what "oldest"
+  // means for a schedule whose lines span several days.
   const groups = new Map<string, { bytes: number; last: string }>();
   for (const rec of r.records) {
     const g = groups.get(rec.schedule) ?? { bytes: 0, last: '' };
-    g.bytes += sizes.get(rec)!;
+    g.bytes += JSON.stringify(rec).length + 1;
     if (rec.startDate > g.last) g.last = rec.startDate;
     groups.set(rec.schedule, g);
   }
@@ -476,9 +473,9 @@ export function trimReport(
     total -= g.bytes;
     purged.push(schedule);
   }
-  // Still over budget with everything purgeable gone — the incoming import alone
-  // is bigger than the budget. Nothing left to give: the report goes out as it
-  // is and the write fails at the ceiling, which is the honest outcome.
+  // Nothing could be given up — everything is either protected or the last
+  // schedule standing. The report goes out as it is and the write fails at the
+  // ceiling, which is the honest outcome.
   if (purged.length === 0) return { result: r, purged: [] };
 
   const dropped = new Set(purged);

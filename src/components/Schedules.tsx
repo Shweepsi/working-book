@@ -29,9 +29,11 @@ const KEY_TABLE    = 'wb.schedules.table.v1';
 // anything.
 const DEFAULT_SPEED = 0;
 
-// Undo window on retiring a schedule. Wider than the toast default because the
-// action is coarse and the operator may be away from the screen when it lands.
-const UNDO_TTL = 10_000;
+// How long the two coarse Schedule toasts stay up — retiring a schedule, and
+// the import announcing a purge. Wider than the toast default because both are
+// whole-schedule news and the operator may be away from the screen when it
+// lands; the first of them also has an Annuler to reach in that time.
+const LONG_TOAST_TTL = 10_000;
 
 // How far a rail card has to travel left before the release retires its
 // schedule. Absolute rather than a share of the width so the gesture feels the
@@ -407,8 +409,9 @@ function describePolicy(r: PolicyResult): string {
 function retireConfirmBody(data: PMS230Result, schedule: string): string {
   const records = data.records.filter((r) => r.schedule === schedule).length;
   return (
-    `${records} ligne${records > 1 ? 's' : ''} quitte${records > 1 ? 'nt' : ''} le planning `
-    + 'et rejoi' + (records > 1 ? 'gnent' : 'nt') + ' la liste des terminés. '
+    (records > 1
+      ? `${records} lignes quittent le planning et rejoignent la liste des terminés. `
+      : '1 ligne quitte le planning et rejoint la liste des terminés. ')
     + 'Rien ne sort du rapport : le schedule reste consultable depuis cette liste.'
   );
 }
@@ -437,12 +440,21 @@ function sanitiseSpeeds(raw: unknown): SpeedMap {
 
 // Schedules retired from the planning by hand, against the moment it happened
 // (ISO). Shared like the speeds: a schedule the line has set aside is set aside
-// for the planning room too.
+// for the planning room too. Nothing renders the date today — the sheet lists
+// the schedule, not when it left — but it is the only trace of when the
+// decision was taken, and it costs a dozen bytes to keep.
 type ArchiveMap = Record<string, string>;
+
+// The same map minus a few schedules. Returns `prev` untouched when none of
+// them were in it, so a no-op can't queue a pointless sync write.
+function withoutSchedules<T>(prev: Record<string, T>, gone: ReadonlySet<string>): Record<string, T> {
+  const kept = Object.entries(prev).filter(([schedule]) => !gone.has(schedule));
+  return kept.length === Object.keys(prev).length ? prev : Object.fromEntries(kept);
+}
 
 // Same defensive read as `sanitiseSpeeds`. Anything that isn't a date string is
 // dropped — an entry with a junk value would still hide a schedule from the
-// rail, and the sheet could not say when it left.
+// rail, with nothing to say when or why it went.
 function sanitiseArchives(raw: unknown): ArchiveMap {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: ArchiveMap = {};
@@ -995,13 +1007,9 @@ export default function Schedules({ density }: SchedulesProps) {
     }
     toast.show({
       message: `Schedule ${schedule} retiré du planning`,
-      ttl: UNDO_TTL,
+      ttl: LONG_TOAST_TTL,
       undo: () => {
-        setArchives((prev) => {
-          const rest = { ...prev };
-          delete rest[schedule];
-          return rest;
-        });
+        setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
         setSelected(snapshotSelected);
         setTableSettings((s) => ({ ...s, ...snapshotFilters }));
       },
@@ -1026,7 +1034,7 @@ export default function Schedules({ density }: SchedulesProps) {
     toast.show({
       message: `Rapport plein : ${purged.length} schedule${purged.length > 1 ? 's' : ''} `
         + `parmi les plus anciens purgé${purged.length > 1 ? 's' : ''} (${named})`,
-      ttl: UNDO_TTL,
+      ttl: LONG_TOAST_TTL,
     });
   }
 
@@ -1034,14 +1042,8 @@ export default function Schedules({ density }: SchedulesProps) {
   // because the report was full, and putting them back would fill it again.
   function forgetSchedules(numbers: string[]) {
     const gone = new Set(numbers);
-    setSpeeds((prev) => {
-      const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => !gone.has(k)));
-      return Object.keys(rest).length === Object.keys(prev).length ? prev : rest;
-    });
-    setArchives((prev) => {
-      const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => !gone.has(k)));
-      return Object.keys(rest).length === Object.keys(prev).length ? prev : rest;
-    });
+    setSpeeds((prev) => withoutSchedules(prev, gone));
+    setArchives((prev) => withoutSchedules(prev, gone));
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
     const snapshot = policy;

@@ -490,7 +490,7 @@ async function handleSchedulesIngest(
       imported: parsed.records.length,
       records: merged.records.length,
       schedules: merged.schedules.length,
-      // Finished schedules the trim dropped to keep the report under budget.
+      // Oldest schedules the trim dropped to keep the report under budget.
       // Reported rather than silent: the bookmarklet is the one import route
       // with no screen of its own, and this is the only place it can be said.
       purged: purged.length,
