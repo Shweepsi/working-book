@@ -85,6 +85,8 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
 - `GET  /api/speeds` → `{ data: Record<schedule, number> | null, updated_at }` — coater speed (m/min) per schedule
 - `PUT  /api/speeds` body: `Record<schedule, number>`
+- `GET  /api/archives` → `{ data: Record<schedule, ISO date> | null, updated_at }` — schedules retirés du planning
+- `PUT  /api/archives` body: `Record<schedule, ISO date>`
 - `GET  /api/updates[?date=…&poste=…&shift=…]` → `{ data: Record<domain, number | null>, updated_at }` — change probe, see below
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
@@ -94,8 +96,9 @@ stored JSON wholesale on every `PUT`.
 
 `GET /api/updates` answers with nothing but the `updated_at` of each partition,
 keyed by the domain names the front uses (`suivi`, `policy`, `schedules`,
-`speeds`, plus `logbook` / `prodtest` when the matching params are supplied).
-A couple of hundred bytes against a report blob past a hundred kilobytes: that
+`speeds`, `archives`, plus `logbook` / `prodtest` when the matching params are
+supplied). A couple of hundred bytes against a report blob past a hundred
+kilobytes: that
 ratio is what lets a client poll on a short interval and only fetch a partition
 whose stamp has actually moved. The reply is `Cache-Control: no-store` — a
 cached probe would pin a tab on a stale timestamp.
@@ -118,8 +121,10 @@ credentials.
 **Every import adds.** There is no replace and no mode parameter: an operator
 walking a multi-page report, or re-importing after a fresh search, only ever
 wants more rows. `mergePMS230` keys on `schedule|MO`, so re-sending a page
-updates those rows in place instead of duplicating them. Removing a schedule is
-a deliberate act, done from the Schedule tab.
+updates those rows in place instead of duplicating them. Taking a schedule out
+of the planning is a deliberate act, done from the Schedule tab — and it retires
+the schedule (`/api/archives`) rather than deleting it, so a re-import of the
+same number stays out of the rail until somebody puts it back.
 
 A dump that yields no decodable row answers `422 no_records` and leaves the
 stored report alone, so a mis-click on the wrong screen can't damage it.

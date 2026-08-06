@@ -2515,6 +2515,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   touch-action: pan-y;
 }
 .sch-swipe.is-dragging { user-select: none; }
+/* Green, not red: the swipe files the schedule under "terminés", it does not
+   destroy it. A red strip under a reversible gesture reads as a warning the
+   action doesn't deserve — and it would make the one action that *is*
+   destructive, in the terminés sheet, look no different. */
 .sch-swipe-action {
   position: absolute;
   inset: 0;
@@ -2523,16 +2527,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   justify-content: flex-end;
   gap: var(--space-3);
   padding-right: var(--space-5);
-  background: color-mix(in srgb, var(--hl-red) 70%, var(--paper));
-  color: var(--flag-unsched-fg);
+  background: color-mix(in srgb, var(--hl-green) 70%, var(--paper));
+  color: var(--flag-ok-fg);
   font-size: var(--fs-sm);
   font-weight: 600;
   transition: background 120ms ease, color 120ms ease;
 }
 /* Past the release threshold the strip goes solid: the card tells the operator
-   the delete is armed before they lift their finger. */
+   the gesture is armed before they lift their finger. */
 .sch-swipe.is-armed .sch-swipe-action {
-  background: var(--flag-unsched-bd);
+  background: var(--flag-ok-bd);
   color: var(--paper);
 }
 .sch-swipe-action-label { letter-spacing: 0.02em; }
@@ -3718,12 +3722,25 @@ body.is-col-resizing * {
   flex-direction: column;
   gap: var(--space-2);
 }
-/* Same shape as a rail card, and the same job: pick a schedule to read. */
+/* The row is the card plus its two coarse actions. They sit outside the card
+   rather than inside it because the card is itself a button — one that opens
+   the schedule — and a button inside a button is not a thing the browser will
+   render. */
+.sch-done-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* Same shape as a rail card, and the same job: pick a schedule to read — two
+   lines, identity above and counts below. One line was enough while the row
+   was only a link; with a tag and two buttons beside it the name was down to a
+   couple of characters. */
 .sch-done-item {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-4);
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-lg);
@@ -3744,6 +3761,19 @@ body.is-col-resizing * {
   background: var(--paper-2);
 }
 .sch-done-item.is-current .sch-done-go { visibility: hidden; }
+.sch-done-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.sch-done-top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: 0;
+}
 .sch-done-num { font-weight: 600; }
 .sch-done-name {
   min-width: 0;
@@ -3752,9 +3782,9 @@ body.is-col-resizing * {
   white-space: nowrap;
   color: var(--ink-soft);
 }
-/* Pushed right and kept off the name's line-length: the counts are what the
-   eye scans down the list. */
-.sch-done-meta { margin-left: auto; flex: none; }
+/* Under the identity line, as on a rail card: the counts are what the eye
+   scans down the list, and they line up with each other there. */
+.sch-done-meta { white-space: nowrap; }
 /* The "goes somewhere" mark. It only firms up under the pointer — at rest the
    row is already a button, and a column of dark arrows would out-shout the
    numbers beside them. */
@@ -3769,6 +3799,41 @@ body.is-col-resizing * {
   transition: border-color 120ms ease;
 }
 .sch-done-item:hover .sch-done-go { border-color: var(--ink-soft); }
+/* Marks the rows that are here by decision rather than by exhaustion. Same
+   quiet chip as the flags elsewhere — it labels a row, it doesn't shout at it. */
+.sch-done-tag {
+  flex: none;
+  align-self: center;
+  padding: 1px var(--space-3);
+  border: 1px solid var(--flag-ok-bd);
+  border-radius: var(--radius-pill);
+  color: var(--ink-soft);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Fixed-width column, right-aligned: the rows carry a different number of
+   buttons — only a retired schedule can go back to the planning — and cards
+   that stopped at a different x on every row would read as a ragged list. */
+.sch-done-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex: none;
+  min-width: 11rem;
+}
+/* `.btn.mini` pushes itself right on its own; in a row of two it just has to
+   sit where it is put. */
+.sch-done-actions .btn.mini { margin-left: 0; white-space: nowrap; }
+/* On a phone the buttons and the card can't share a line without squeezing the
+   schedule number itself. They drop under it instead, still right-aligned. */
+@media (max-width: 560px) {
+  .sch-done-row { flex-wrap: wrap; }
+  .sch-done-item { flex-basis: 100%; }
+  .sch-done-actions { min-width: 0; margin-left: auto; }
+}
 
 /* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),

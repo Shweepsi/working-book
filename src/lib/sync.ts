@@ -8,7 +8,7 @@ import { save } from './storage';
 // Partitions marked `live` also follow the Worker while the page is open — see
 // the live-updates section further down.
 
-export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedules' | 'speeds';
+export type SyncDomain = 'logbook' | 'prodtest' | 'suivi' | 'policy' | 'schedules' | 'speeds' | 'archives';
 
 export interface SyncRemote {
   domain: SyncDomain;
