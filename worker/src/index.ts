@@ -14,6 +14,11 @@ export interface Env {
 }
 
 const MAX_BODY_BYTES = 512 * 1024;
+// The report is the one partition that can legitimately run to a megabyte, and
+// `trimReport` holds it there. 512 KB would have refused a write the storage
+// itself accepts — D1 takes a value up to 2 000 000 bytes — so this route gets
+// the ceiling that actually matters rather than one four times lower.
+const SCHEDULES_MAX_BODY_BYTES = 2 * 1024 * 1024;
 // A full Ctrl+A of an Operator Mashup page runs well past the 512 KB the JSON
 // blobs are held to — the dump carries the whole page's chrome, not just the
 // grid rows the parser keeps.
@@ -61,6 +66,8 @@ export default {
           return await handleSchedules(request, env, cors);
         case '/api/speeds':
           return await handleSpeeds(request, env, cors);
+        case '/api/archives':
+          return await handleArchives(request, env, cors);
         case '/api/updates':
           return await handleUpdates(request, url, env, cors);
         case INGEST_PATH:
@@ -267,7 +274,7 @@ async function handleSchedules(
   }
 
   if (request.method === 'PUT') {
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, SCHEDULES_MAX_BODY_BYTES);
     if (body !== null && typeof body !== 'object') return json({ error: 'expected_object_or_null' }, cors, 400);
     const now = await writeSchedules(env, body);
     return json({ ok: true, updated_at: now }, cors);
@@ -314,6 +321,47 @@ async function handleSpeeds(
   return json({ error: 'method_not_allowed' }, cors, 405);
 }
 
+// Schedules retirés du planning — singleton holding a `{ schedule: ISO date }`
+// map. Its own partition for the same reason as the speeds: the ingest endpoint
+// rewrites `schedules` from the Infor portal, and a client PUTing its copy of
+// the report just to retire one schedule would undo an import that landed
+// meanwhile. Retiring is deliberately not a delete — the rows stay in the
+// report, they only leave the planning rail — so this map is the whole record
+// of the decision and every client has to see it.
+async function handleArchives(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare(
+      'SELECT state_json, updated_at FROM schedule_archives WHERE id = 1',
+    ).first<{ state_json: string; updated_at: number }>();
+    if (!row) return json({ data: null, updated_at: null }, cors);
+    return json({ data: JSON.parse(row.state_json), updated_at: row.updated_at }, cors);
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return json({ error: 'expected_object' }, cors, 400);
+    }
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO schedule_archives (id, state_json, updated_at)
+       VALUES (1, ?1, ?2)
+       ON CONFLICT(id) DO UPDATE SET
+         state_json = excluded.state_json,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(JSON.stringify(body), now)
+      .run();
+    return json({ ok: true, updated_at: now }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
 // "Has anything changed?" probe for the clients' live poller. Answers with the
 // `updated_at` of every partition that can be on screen and nothing else — a
 // couple of hundred bytes, against a report blob that runs past a hundred
@@ -329,12 +377,13 @@ async function handleUpdates(
 
   // Keys match the front's `SyncDomain`, so a client can look its own partition
   // up by name without a translation table.
-  const domains = ['suivi', 'policy', 'schedules', 'speeds'];
+  const domains = ['suivi', 'policy', 'schedules', 'speeds', 'archives'];
   const statements = [
     env.DB.prepare('SELECT updated_at FROM suivi WHERE id = 1'),
     env.DB.prepare('SELECT updated_at FROM policy WHERE id = 1'),
     env.DB.prepare('SELECT updated_at FROM schedules WHERE id = 1'),
     env.DB.prepare('SELECT updated_at FROM schedule_speeds WHERE id = 1'),
+    env.DB.prepare('SELECT updated_at FROM schedule_archives WHERE id = 1'),
   ];
 
   // The keyed partitions only answer when the caller says which shift it is
@@ -410,8 +459,9 @@ async function writeSchedules(env: Env, value: unknown): Promise<number> {
 // Every import adds. There is no replace: an operator walking a multi-page
 // report, or re-importing after a fresh search, only ever wants more rows —
 // and `mergePMS230` keys on schedule|MO, so re-sending the same page updates
-// those rows in place instead of duplicating them. Removing a schedule is a
-// deliberate act, done from the Schedule tab.
+// those rows in place instead of duplicating them. Taking a schedule out of the
+// planning is a deliberate act done from the Schedule tab, and it retires the
+// schedule (see `/api/archives`) rather than deleting it.
 async function handleSchedulesIngest(
   request: Request,
   env: Env,
@@ -431,7 +481,7 @@ async function handleSchedulesIngest(
     return json({ error: 'no_records', warnings: parsed.warnings.slice(0, 10) }, cors, 422);
   }
 
-  const merged = mergePMS230(await readSchedules(env), parsed);
+  const { result: merged, purged } = mergePMS230(await readSchedules(env), parsed);
   const updatedAt = await writeSchedules(env, merged);
 
   return json(
@@ -440,6 +490,10 @@ async function handleSchedulesIngest(
       imported: parsed.records.length,
       records: merged.records.length,
       schedules: merged.schedules.length,
+      // Oldest schedules the trim dropped to keep the report under budget.
+      // Reported rather than silent: the bookmarklet is the one import route
+      // with no screen of its own, and this is the only place it can be said.
+      purged: purged.length,
       warnings: parsed.warnings.length,
       updated_at: updatedAt,
     },

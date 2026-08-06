@@ -413,10 +413,91 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
   };
 }
 
-export function mergePMS230(prev: PMS230Result | null | undefined, next: PMS230Result): PMS230Result {
-  // Append-style merge: dedup on `${schedule}|${mo}`. Records that exist in both
-  // are kept from `next` (the fresher paste).
-  if (!prev) return next;
+// How much JSON the stored report is allowed to weigh. Every ceiling
+// downstream is harder than this one: D1 refuses a value past 2 000 000 bytes,
+// `PUT /api/schedules` caps the body at 2 MB, and a browser holds two copies of
+// the report — the cache and the pending mutation — inside a ~5 MB
+// localStorage quota. A megabyte clears all three and still holds months of
+// planning: a line costs about 600 bytes, so roughly 1 600 of them.
+const REPORT_BUDGET_BYTES = 1_000_000;
+
+// Nothing is ever removed from the report by hand — see the Schedule tab, where
+// the coarsest gesture only retires a schedule from the planning. But the report
+// only grows, and something has to give before it hits a ceiling that would
+// refuse the *next import* rather than the oldest work.
+//
+// So: over budget, whole schedules are dropped oldest first — by the last date
+// they ran — until it fits. Oldest and nothing else: a schedule that hasn't run
+// in months is the least useful thing in the report whether or not it still
+// carries lines to produce, and a rule anybody can state in one sentence beats
+// one that quietly keeps a two-year-old order alive because a line never closed.
+//
+// `keep` is the one exception, and it is not a matter of taste: the schedules an
+// import is bringing in are never purged by that same import. Without it, adding
+// an old schedule to a full report could drop the very rows just imported, and
+// the operator would watch an import do nothing at all.
+export function trimReport(
+  r: PMS230Result,
+  keep: ReadonlySet<string> = new Set(),
+): { result: PMS230Result; purged: string[] } {
+  // Weigh the whole array in one serialisation — this runs on every merge, and
+  // the answer is almost always "it fits". `.length` counts UTF-16 units, not
+  // bytes; the report is codes and digits with the odd accented customer name,
+  // so the two agree to within a rounding error at this scale, and the budget
+  // sits at half the hardest ceiling.
+  let total = JSON.stringify(r.records).length;
+  if (total <= REPORT_BUDGET_BYTES) return { result: r, purged: [] };
+
+  // Over budget, and only now worth the per-record pass: one entry per
+  // schedule, its weight and the last date it ran — which is what "oldest"
+  // means for a schedule whose lines span several days.
+  const groups = new Map<string, { bytes: number; last: string }>();
+  for (const rec of r.records) {
+    const g = groups.get(rec.schedule) ?? { bytes: 0, last: '' };
+    g.bytes += JSON.stringify(rec).length + 1;
+    if (rec.startDate > g.last) g.last = rec.startDate;
+    groups.set(rec.schedule, g);
+  }
+
+  const oldestFirst = [...groups.entries()]
+    .filter(([schedule]) => !keep.has(schedule))
+    .sort(([sa, a], [sb, b]) => (a.last === b.last ? sa.localeCompare(sb) : a.last.localeCompare(b.last)));
+
+  const purged: string[] = [];
+  for (const [schedule, g] of oldestFirst) {
+    if (total <= REPORT_BUDGET_BYTES) break;
+    // Never empty the report. One schedule over budget on its own can't be
+    // helped by purging it — that turns "too big to write" into "nothing left
+    // to read", which is worse and much harder to notice.
+    if (purged.length === groups.size - 1) break;
+    total -= g.bytes;
+    purged.push(schedule);
+  }
+  // Nothing could be given up — everything is either protected or the last
+  // schedule standing. The report goes out as it is and the write fails at the
+  // ceiling, which is the honest outcome.
+  if (purged.length === 0) return { result: r, purged: [] };
+
+  const dropped = new Set(purged);
+  const records = r.records.filter((rec) => !dropped.has(rec.schedule));
+  return {
+    result: { ...r, records, schedules: summariseSchedules(records) },
+    purged,
+  };
+}
+
+// Append-style merge, then trim to budget. Returns both halves: every caller
+// writes the result somewhere, and every caller owes the operator a word about
+// what the trim took — which is why this doesn't just return the report.
+export function mergePMS230(
+  prev: PMS230Result | null | undefined,
+  next: PMS230Result,
+): { result: PMS230Result; purged: string[] } {
+  // Dedup on `${schedule}|${mo}`. Records that exist in both are kept from
+  // `next` (the fresher paste) — so re-importing a page updates its rows in
+  // place and costs nothing, and the report only grows with new work.
+  const incoming = new Set(next.records.map((r) => r.schedule));
+  if (!prev) return trimReport(next, incoming);
   const seen = new Map<string, PMS230Record>();
   for (const r of next.records) seen.set(`${r.schedule}|${r.mo}`, r);
   for (const r of prev.records) {
@@ -427,23 +508,10 @@ export function mergePMS230(prev: PMS230Result | null | undefined, next: PMS230R
     if (a.schedule !== b.schedule) return a.schedule.localeCompare(b.schedule);
     return a.mo.localeCompare(b.mo);
   });
-  return {
+  return trimReport({
     records,
     schedules: summariseSchedules(records),
     warnings: [...(prev.warnings ?? []), ...(next.warnings ?? [])],
     importedAt: next.importedAt,
-  };
-}
-
-// Drop one schedule and every record attached to it. Returns null once nothing
-// is left, so the caller falls back to the "aucun rapport" empty state rather
-// than holding an empty-but-truthy report. Returns `prev` untouched when the
-// schedule isn't in the report, so an undo of a stale delete can't wipe totals.
-export function removeSchedule(prev: PMS230Result, schedule: string): PMS230Result | null {
-  const records = prev.records.filter((r) => r.schedule !== schedule);
-  if (records.length === prev.records.length) return prev;
-  if (records.length === 0) return null;
-  // Re-summarise rather than filtering `prev.schedules`: the totals are derived
-  // from the records, and the two must not drift apart.
-  return { ...prev, records, schedules: summariseSchedules(records) };
+  }, incoming);
 }

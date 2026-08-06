@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, removeSchedule, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -17,10 +17,11 @@ import PortalImport from './PortalImport';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
 
-const KEY_DATA   = 'wb.schedules.v1';
-const KEY_POLICY = 'wb.schedules.policy.v1';
-const KEY_SPEEDS = 'wb.schedules.vitesses.v1';
-const KEY_TABLE  = 'wb.schedules.table.v1';
+const KEY_DATA     = 'wb.schedules.v1';
+const KEY_POLICY   = 'wb.schedules.policy.v1';
+const KEY_SPEEDS   = 'wb.schedules.vitesses.v1';
+const KEY_ARCHIVES = 'wb.schedules.archives.v1';
+const KEY_TABLE    = 'wb.schedules.table.v1';
 
 // Coater speed of a schedule nobody has set one on yet. The tile reads as
 // invalid at 0 and the throughput tiles show an em dash, which is the honest
@@ -28,14 +29,16 @@ const KEY_TABLE  = 'wb.schedules.table.v1';
 // anything.
 const DEFAULT_SPEED = 0;
 
-// Undo window on a schedule delete. Wider than the toast default because the
-// action is coarse and the operator may be away from the screen when it lands.
-const DELETE_UNDO_TTL = 10_000;
+// How long the two coarse Schedule toasts stay up — retiring a schedule, and
+// the import announcing a purge. Wider than the toast default because both are
+// whole-schedule news and the operator may be away from the screen when it
+// lands; the first of them also has an Annuler to reach in that time.
+const LONG_TOAST_TTL = 10_000;
 
-// How far a rail card has to travel left before the release counts as a delete
-// swipe. Absolute rather than a share of the width so the gesture feels the
+// How far a rail card has to travel left before the release retires its
+// schedule. Absolute rather than a share of the width so the gesture feels the
 // same on the 240px desktop rail and on the wider phone chips.
-const SWIPE_DELETE_PX = 88;
+const SWIPE_RETIRE_PX = 88;
 
 type DisplayRow = PMS230Record & { mtoMts: string };
 
@@ -63,14 +66,21 @@ const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites
 // Still work to do — what the planning table, the totals and the rail count.
 const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
 
-// A schedule with nothing left to produce, as the "terminés" sheet lists it.
+// A schedule out of the planning, as the "terminés" sheet lists it — either
+// because there is nothing left to produce or because someone retired it.
 interface FinishedSchedule {
   schedule: string;
   name: string;
   count: number;
-  // Lites actually produced, and the surface they represent.
+  // Lites already produced, and the surface still to coat. On a schedule that
+  // ran to the end the second one is zero, which is precisely what says it is
+  // finished; on a retired one it is what the line chose to leave behind.
+  // Either way the sheet prints it as a reste, so both rows read the same.
   lites: number;
   m2: number;
+  // Rows still to produce. Zero on a finished schedule — the œillet has to be
+  // open for the table to show anything at all when one is opened from here.
+  planning: number;
 }
 
 interface RailStat {
@@ -396,14 +406,16 @@ function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
-function deleteConfirmBody(data: PMS230Result, schedule: string): string {
+function retireConfirmBody(data: PMS230Result, schedule: string): string {
   const records = data.records.filter((r) => r.schedule === schedule).length;
-  const rest = (data.schedules?.length ?? 0) - 1;
   return (
-    `${records} ligne${records > 1 ? 's' : ''} quitte${records > 1 ? 'nt' : ''} le rapport. ` +
-    (rest > 0
-      ? `Les ${rest} autre${rest > 1 ? 's' : ''} schedule${rest > 1 ? 's' : ''} et la table MTO/MTS sont conservés.`
-      : "C'est le dernier schedule du rapport — la table MTO/MTS est conservée.")
+    // The count is interpolated on both branches, singular included: a sync can
+    // drop the schedule while the dialog sits open, and "1 ligne quitte le
+    // planning" over an empty schedule would be the sheet inventing a row.
+    (records > 1
+      ? `${records} lignes quittent le planning et rejoignent la liste des terminés. `
+      : `${records} ligne quitte le planning et rejoint la liste des terminés. `)
+    + 'Rien ne sort du rapport : le schedule reste consultable depuis cette liste.'
   );
 }
 
@@ -425,6 +437,32 @@ function sanitiseSpeeds(raw: unknown): SpeedMap {
   for (const [schedule, value] of Object.entries(raw as Record<string, unknown>)) {
     const n = Number(value);
     if (Number.isFinite(n) && n >= 0) out[schedule] = n;
+  }
+  return out;
+}
+
+// Schedules retired from the planning by hand, against the moment it happened
+// (ISO). Shared like the speeds: a schedule the line has set aside is set aside
+// for the planning room too. Nothing renders the date today — the sheet lists
+// the schedule, not when it left — but it is the only trace of when the
+// decision was taken, and it costs a dozen bytes to keep.
+type ArchiveMap = Record<string, string>;
+
+// The same map minus a few schedules. Returns `prev` untouched when none of
+// them were in it, so a no-op can't queue a pointless sync write.
+function withoutSchedules<T>(prev: Record<string, T>, gone: ReadonlySet<string>): Record<string, T> {
+  const kept = Object.entries(prev).filter(([schedule]) => !gone.has(schedule));
+  return kept.length === Object.keys(prev).length ? prev : Object.fromEntries(kept);
+}
+
+// Same defensive read as `sanitiseSpeeds`. Anything that isn't a date string is
+// dropped — an entry with a junk value would still hide a schedule from the
+// rail, with nothing to say when or why it went.
+function sanitiseArchives(raw: unknown): ArchiveMap {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: ArchiveMap = {};
+  for (const [schedule, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string' && value) out[schedule] = value;
   }
   return out;
 }
@@ -470,14 +508,24 @@ export default function Schedules({ density }: SchedulesProps) {
     // reload — that is the whole point of hanging it off the schedule.
     { live: true },
   );
+  const archivesInit = useCallback(() => sanitiseArchives(load<unknown>(KEY_ARCHIVES, {})), []);
+  const [archives, setArchives] = useSyncedState<ArchiveMap>(
+    KEY_ARCHIVES,
+    { domain: 'archives', params: {} },
+    archivesInit,
+    // Retiring a schedule changes what the planning *is*, so it has to reach
+    // the other screen as fast as an import does — otherwise the line and the
+    // planning room work from two different rails.
+    { live: true },
+  );
   const [selected, setSelected] = useState<string | null>(null);
   // What the operator is currently typing in the Vitesse field, or null when it
   // just mirrors the stored value. Without it, clearing the box would snap it
   // back to "0" mid-edit and the next keystroke would land after that zero.
   const [speedDraft, setSpeedDraft] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | 'portal' | null>(null);
-  // Schedule number waiting on the delete confirmation, or null.
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  // Schedule number waiting on the retire confirmation, or null.
+  const [pendingRetire, setPendingRetire] = useState<string | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [finishedOpen, setFinishedOpen] = useState(false);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
@@ -843,29 +891,35 @@ export default function Schedules({ density }: SchedulesProps) {
   }, [data]);
 
   // Hide schedules with no remaining surface to coat — covers the case where
-  // every surviving row has largeur=longueur=0 (QC-style samples).
+  // every surviving row has largeur=longueur=0 (QC-style samples) — and those
+  // the line has retired by hand. Both leave by the same door: the rail lists
+  // work to do, and neither is any.
   const visibleSchedules = useMemo(
-    () => schedules.filter((s) => (railStats.get(s.schedule)?.m2 ?? 0) > 0),
-    [schedules, railStats],
+    () => schedules.filter(
+      (s) => (railStats.get(s.schedule)?.m2 ?? 0) > 0 && !archives[s.schedule],
+    ),
+    [schedules, railStats, archives],
   );
 
-  // The other side of that filter: schedules with nothing left to produce.
-  // They have no place in a rail that lists work to do, but they are the record
-  // of what the line has already made — so they get a sheet of their own, from
-  // which any of them can be opened in the table.
+  // The other side of that filter: every schedule that has left the rail,
+  // whether it ran out of work or was retired. They have no place in a list of
+  // work to do, but they are the record of what the line has already made — so
+  // they get a sheet of their own, from which any of them can be opened in the
+  // table.
   //
   // QC samples are left out here as everywhere else, which also settles what a
   // sample-only schedule is doing in a list headed "terminés": nothing — it
   // ends up with no rows and drops out.
   const finishedSchedules: FinishedSchedule[] = useMemo(() => {
     const visible = new Set(visibleSchedules.map((s) => s.schedule));
-    const tally = new Map<string, { count: number; lites: number; m2: number }>();
+    const tally = new Map<string, { count: number; lites: number; m2: number; planning: number }>();
     for (const r of data?.records ?? []) {
       if (visible.has(r.schedule) || isQcSample(r)) continue;
-      const cur = tally.get(r.schedule) ?? { count: 0, lites: 0, m2: 0 };
+      const cur = tally.get(r.schedule) ?? { count: 0, lites: 0, m2: 0, planning: 0 };
       cur.count += 1;
       cur.lites += r.prodLites ?? 0;
       cur.m2 += r.m2;
+      if (isPlanningRow(r)) cur.planning += 1;
       tally.set(r.schedule, cur);
     }
     return schedules
@@ -877,8 +931,22 @@ export default function Schedules({ density }: SchedulesProps) {
       }));
   }, [schedules, visibleSchedules, data]);
 
+  // Only for the sheet's subtitle, which cannot claim "sans reste à produire"
+  // over a list where some rows were pulled out with work still in them.
+  const retiredCount = useMemo(
+    () => finishedSchedules.filter((s) => archives[s.schedule]).length,
+    [finishedSchedules, archives],
+  );
+
+  // Nothing left to list — close the sheet rather than leave an empty dialog
+  // standing after the last row went back to the planning.
+  useEffect(() => {
+    if (finishedSchedules.length === 0) setFinishedOpen(false);
+  }, [finishedSchedules.length]);
+
   // Auto-select once data loads, and re-pick when the selection is gone from
-  // the report entirely — a delete, or a re-import that dropped it.
+  // the report entirely — nothing here removes a schedule, but a re-import can
+  // land without one.
   //
   // Absent from the *rail* is not gone: a finished schedule opened from the
   // terminés sheet is legitimately selected while having no place in a list of
@@ -896,13 +964,15 @@ export default function Schedules({ density }: SchedulesProps) {
     if (selected && next !== selected) clearFilters();
   }, [data, selected, schedules, visibleSchedules]);
 
-  // Open a finished schedule in the table. The œillet goes with it: its rows
-  // are all finished by definition, so leaving it shut would answer the click
-  // with an empty table.
-  function openFinished(schedule: string) {
+  // Open a schedule from the terminés sheet in the table. The œillet goes with
+  // it when the schedule has no planning row left — all its rows are finished,
+  // so leaving it shut would answer the click with an empty table. A retired
+  // schedule still has work in it and needs no such help; forcing the œillet
+  // there would grey nothing and change a setting the operator didn't touch.
+  function openFinished(item: FinishedSchedule) {
     setFinishedOpen(false);
-    setTableSettings((s) => ({ ...s, showFinished: true }));
-    selectSchedule(schedule);
+    if (item.planning === 0) setTableSettings((s) => ({ ...s, showFinished: true }));
+    selectSchedule(item.schedule);
   }
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
@@ -917,44 +987,34 @@ export default function Schedules({ density }: SchedulesProps) {
     clearFilters();
   }
 
-  function handleDeleteSchedule(schedule: string) {
-    if (!data) return;
-    const snapshot = data;
+  // Retire a schedule from the planning: its rows stay in the report, it moves
+  // to the terminés sheet. The rail gesture used to drop the schedule out of
+  // the report outright, which is not this app's call to make on a report that
+  // came from Infor — nothing removes one any more.
+  function handleRetireSchedule(schedule: string) {
+    if (archives[schedule]) return;
     const snapshotSelected = selected;
     const snapshotFilters = {
       qualite: tableSettings.qualite,
       pdp: tableSettings.pdp,
       mtoMts: tableSettings.mtoMts,
     };
-    const next = removeSchedule(snapshot, schedule);
-    // A sync from another device can drop the schedule while the confirmation
-    // sits open. Nothing was removed here, so nothing is announced or undone.
-    if (next === snapshot) return;
-    setData(next);
-    // The speed goes with the schedule. Left behind it would silently reapply
-    // to a re-import of the same number, which is exactly the stale value the
-    // per-schedule speed exists to avoid.
-    const snapshotSpeed = speeds[schedule];
-    if (snapshotSpeed !== undefined) {
-      setSpeeds((prev) => {
-        const rest = { ...prev };
-        delete rest[schedule];
-        return rest;
-      });
+    setArchives((prev) => ({ ...prev, [schedule]: new Date().toISOString() }));
+    // The schedule is still in the report, so the auto-select effect has no
+    // reason to move off it. Move on by hand: the card the operator was reading
+    // has just left the rail, and staying on it would leave the table showing a
+    // schedule nothing points at any more.
+    if (selected === schedule) {
+      setSelected(visibleSchedules.find((s) => s.schedule !== schedule)?.schedule ?? null);
+      clearFilters();
     }
-    // `selected` deliberately stays on the deleted schedule: the auto-select
-    // effect above re-picks the first survivor and resets the filters through
-    // the same path a manual selection change takes.
     toast.show({
-      message: `Schedule ${schedule} supprimé`,
-      ttl: DELETE_UNDO_TTL,
+      message: `Schedule ${schedule} retiré du planning`,
+      ttl: LONG_TOAST_TTL,
       undo: () => {
-        setData(snapshot);
+        setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
         setSelected(snapshotSelected);
         setTableSettings((s) => ({ ...s, ...snapshotFilters }));
-        if (snapshotSpeed !== undefined) {
-          setSpeeds((prev) => ({ ...prev, [schedule]: snapshotSpeed }));
-        }
       },
     });
   }
@@ -962,9 +1022,31 @@ export default function Schedules({ density }: SchedulesProps) {
   function handlePms230Confirm(parsed: PMS230Result) {
     // Every import adds, whichever route it came in by. `mergePMS230` keys on
     // schedule|MO, so re-importing a page updates its rows rather than
-    // duplicating them; dropping a schedule is done from the rail.
-    setData((prev) => mergePMS230(prev, parsed));
+    // duplicating them; retiring a schedule is done from the rail.
+    const { result, purged } = mergePMS230(data, parsed);
+    setData(result);
     setImportMode(null);
+    if (purged.length === 0) return;
+    // The trim took the oldest schedules to make room. Their speed and their
+    // retirement have nothing left to hang off, and kept they would silently
+    // apply to a re-import of the same number months later.
+    forgetSchedules(purged);
+    // Named, not just counted: what left may still have had lines to produce,
+    // and the operator has to be able to go and re-import one if it mattered.
+    const named = purged.slice(0, 3).join(', ') + (purged.length > 3 ? '…' : '');
+    toast.show({
+      message: `Rapport plein : ${purged.length} schedule${purged.length > 1 ? 's' : ''} `
+        + `parmi les plus anciens purgé${purged.length > 1 ? 's' : ''} (${named})`,
+      ttl: LONG_TOAST_TTL,
+    });
+  }
+
+  // Drop every trace of schedules that have left the report. No undo: they went
+  // because the report was full, and putting them back would fill it again.
+  function forgetSchedules(numbers: string[]) {
+    const gone = new Set(numbers);
+    setSpeeds((prev) => withoutSchedules(prev, gone));
+    setArchives((prev) => withoutSchedules(prev, gone));
   }
   function handlePolicyConfirm(parsed: PolicyResult) {
     const snapshot = policy;
@@ -989,13 +1071,13 @@ export default function Schedules({ density }: SchedulesProps) {
       {/* `data` guards the sheet as well as the gesture: a sync from another
           device can empty the report while the dialog sits open, and there is
           then nothing left to confirm. */}
-      {pendingDelete && data && (
+      {pendingRetire && data && (
         <ConfirmSheet
-          title={`Supprimer le schedule ${pendingDelete} ?`}
-          body={deleteConfirmBody(data, pendingDelete)}
-          confirmLabel="Supprimer"
-          onConfirm={() => handleDeleteSchedule(pendingDelete)}
-          onClose={() => setPendingDelete(null)}
+          title={`Retirer le schedule ${pendingRetire} du planning ?`}
+          body={retireConfirmBody(data, pendingRetire)}
+          confirmLabel="Retirer"
+          onConfirm={() => handleRetireSchedule(pendingRetire)}
+          onClose={() => setPendingRetire(null)}
         />
       )}
 
@@ -1026,7 +1108,11 @@ export default function Schedules({ density }: SchedulesProps) {
                   type="button"
                   className="sch-rail-done-btn"
                   onClick={() => setFinishedOpen(true)}
-                  title="Consulter les schedules dont il ne reste rien à produire"
+                  title={
+                    retiredCount > 0
+                      ? `Consulter les schedules terminés et les ${retiredCount} retiré${retiredCount > 1 ? 's' : ''} du planning`
+                      : 'Consulter les schedules dont il ne reste rien à produire'
+                  }
                 >
                   {finishedSchedules.length} terminé{finishedSchedules.length > 1 ? 's' : ''}
                 </button>
@@ -1037,7 +1123,7 @@ export default function Schedules({ density }: SchedulesProps) {
                 const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0, shortName: '' };
                 return (
                   <li key={s.schedule}>
-                    <SwipeToDelete onDelete={() => setPendingDelete(s.schedule)}>
+                    <SwipeToRetire onRetire={() => setPendingRetire(s.schedule)}>
                       <button
                         type="button"
                         className={`sch-rail-item ${selected === s.schedule ? 'active' : ''}`}
@@ -1047,9 +1133,9 @@ export default function Schedules({ density }: SchedulesProps) {
                         onKeyDown={(e) => {
                           if (e.key !== 'Delete' && e.key !== 'Backspace') return;
                           e.preventDefault();
-                          setPendingDelete(s.schedule);
+                          setPendingRetire(s.schedule);
                         }}
-                        title={`Schedule ${s.schedule} — glisser vers la gauche (ou touche Suppr) pour le retirer du rapport`}
+                        title={`Schedule ${s.schedule} — glisser vers la gauche (ou touche Suppr) pour le retirer du planning ; il rejoint les terminés`}
                       >
                         <div className="sch-rail-top">
                           <span className="mono sch-rail-num">{s.schedule}</span>
@@ -1059,7 +1145,7 @@ export default function Schedules({ density }: SchedulesProps) {
                           {stat.count} ligne{stat.count > 1 ? 's' : ''} · {fmtNum(stat.m2, 0)} m²
                         </div>
                       </button>
-                    </SwipeToDelete>
+                    </SwipeToRetire>
                   </li>
                 );
               })}
@@ -1256,6 +1342,7 @@ export default function Schedules({ density }: SchedulesProps) {
       {finishedOpen && (
         <FinishedSheet
           schedules={finishedSchedules}
+          retiredCount={retiredCount}
           current={selected}
           onOpen={openFinished}
           onClose={() => setFinishedOpen(false)}
@@ -1265,24 +1352,36 @@ export default function Schedules({ density }: SchedulesProps) {
   );
 }
 
-// The schedules that have dropped out of the rail with nothing left to
-// produce. The sheet is a way back in: picking one opens it in the table like
-// any rail card, which is where a schedule is meant to be read.
+// Everything that has left the rail: the schedules with nothing left to
+// produce, and the ones the line retired by hand. The sheet is the way back in
+// — picking one opens it in the table like any rail card, which is where a
+// schedule is meant to be read. Nothing leaves the report: this list is where a
+// schedule ends up, not a waiting room before a deletion.
 function FinishedSheet({
   schedules,
+  retiredCount,
   current,
   onOpen,
   onClose,
 }: {
   schedules: FinishedSchedule[];
+  retiredCount: number;
   // The one already on screen, if the operator is looking at a finished
   // schedule. No rail card can carry the selection in that case, so the sheet
   // is the only place left to say where they are.
   current: string | null;
-  onOpen: (schedule: string) => void;
+  onOpen: (item: FinishedSchedule) => void;
   onClose: () => void;
 }) {
   useEscapeToClose(onClose);
+
+  const done = schedules.length - retiredCount;
+  // Two populations under one heading, so the subtitle has to name whichever
+  // ones are actually there rather than claim "sans reste à produire" over a
+  // list where half the rows still have work in them.
+  const parts: string[] = [];
+  if (done > 0) parts.push(`${done} sans reste à produire`);
+  if (retiredCount > 0) parts.push(`${retiredCount} retiré${retiredCount > 1 ? 's' : ''} du planning`);
 
   return (
     <>
@@ -1293,7 +1392,7 @@ function FinishedSheet({
           <div className="sheet-head-titles">
             <h3>Schedules terminés</h3>
             <div className="sheet-head-sub">
-              {schedules.length} schedule{schedules.length > 1 ? 's' : ''} sans reste à produire
+              {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
             </div>
           </div>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
@@ -1305,7 +1404,7 @@ function FinishedSheet({
               <button
                 type="button"
                 className={`sch-done-item ${s.schedule === current ? 'is-current' : ''}`}
-                onClick={() => onOpen(s.schedule)}
+                onClick={() => onOpen(s)}
                 aria-current={s.schedule === current ? 'true' : undefined}
                 title={
                   s.schedule === current
@@ -1315,8 +1414,13 @@ function FinishedSheet({
               >
                 <span className="mono sch-done-num">{s.schedule}</span>
                 <span className="sch-done-name">{s.name}</span>
+                {/* "reste" rather than a bare m²: on a schedule that ran to the
+                    end it is zero — which is what put it in this list — and on
+                    one retired with work in it, what is left is the figure
+                    somebody opening the sheet is looking for. One wording for
+                    both, so no row needs a badge to be read correctly. */}
                 <span className="sch-done-meta faint small mono">
-                  {s.count} ligne{s.count > 1 ? 's' : ''} · {fmtNum(s.lites, 0)} lites · {fmtNum(s.m2, 0)} m²
+                  {s.count} ligne{s.count > 1 ? 's' : ''} · {fmtNum(s.lites, 0)} lites · reste {fmtNum(s.m2, 0)} m²
                 </span>
                 <span className="sch-done-go" aria-hidden="true" />
               </button>
@@ -1328,12 +1432,12 @@ function FinishedSheet({
   );
 }
 
-// Swipe a rail card to the left to retire its schedule. The gesture is the
-// discoverable route on the shop-floor tablets; ConfirmSheet is what actually
-// guards the delete, so an accidental swipe costs one tap. Pointer events mean
-// a mouse drag works the same way, and the card carries a Suppr key handler for
-// anyone on a keyboard.
-function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children: ReactNode }) {
+// Swipe a rail card to the left to retire its schedule from the planning. The
+// gesture is the discoverable route on the shop-floor tablets; ConfirmSheet is
+// what actually guards it, so an accidental swipe costs one tap. Pointer events
+// mean a mouse drag works the same way, and the card carries a Suppr key
+// handler for anyone on a keyboard.
+function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children: ReactNode }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
   // Mirrors `dx` for the release decision: pointerup can land in the same batch
@@ -1377,7 +1481,7 @@ function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children:
     if (s.axis !== 'x') return;
     // Left only — nothing is armed on the right, so that side gets a few pixels
     // of give and no more.
-    const next = Math.max(-SWIPE_DELETE_PX * 1.5, Math.min(12, mx));
+    const next = Math.max(-SWIPE_RETIRE_PX * 1.5, Math.min(12, mx));
     if (next <= -8) swiped.current = true;
     offset.current = next;
     setDx(next);
@@ -1387,12 +1491,12 @@ function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children:
     const axis = start.current?.axis;
     const travelled = offset.current;
     reset(e);
-    if (axis === 'x' && travelled <= -SWIPE_DELETE_PX) onDelete();
+    if (axis === 'x' && travelled <= -SWIPE_RETIRE_PX) onRetire();
   }
 
   return (
     <div
-      className={`sch-swipe${dragging ? ' is-dragging' : ''}${dx <= -SWIPE_DELETE_PX ? ' is-armed' : ''}`}
+      className={`sch-swipe${dragging ? ' is-dragging' : ''}${dx <= -SWIPE_RETIRE_PX ? ' is-armed' : ''}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -1407,8 +1511,8 @@ function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children:
       <div className="sch-swipe-action" aria-hidden="true">
         {/* Dingbat rather than an emoji: it inherits the strip's colour instead
             of dropping a full-colour glyph into the muted palette. */}
-        <span className="sch-swipe-action-glyph">✕</span>
-        <span className="sch-swipe-action-label">Supprimer</span>
+        <span className="sch-swipe-action-glyph">↧</span>
+        <span className="sch-swipe-action-label">Terminés</span>
       </div>
       <div className="sch-swipe-surface" style={{ transform: `translate3d(${dx}px, 0, 0)` }}>
         {children}
@@ -1417,11 +1521,11 @@ function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children:
   );
 }
 
-// Confirmation step in front of a destructive action. The app's default is
-// "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
-// edits; dropping a whole schedule is coarse enough — and reachable by an
-// accidental swipe — to be worth a stop first. The undo toast still fires
-// afterwards.
+// Confirmation step in front of the rail gesture. The app's default is "act
+// now, offer Annuler in a toast" (see lib/toast), which suits per-row edits;
+// pulling a whole schedule out of the planning is coarse enough — and reachable
+// by an accidental swipe — to be worth a stop first, even though nothing is
+// destroyed by it. The undo toast still fires afterwards.
 function ConfirmSheet({
   title, body, confirmLabel, onConfirm, onClose,
 }: {
@@ -1444,8 +1548,10 @@ function ConfirmSheet({
         <div className="actions">
           <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
+          {/* Not `destructive`: that red is for actions that lose data, and
+              this one only moves the schedule to another list. */}
           <button
-            className="btn destructive"
+            className="btn primary"
             type="button"
             autoFocus
             onClick={() => { onConfirm(); onClose(); }}
