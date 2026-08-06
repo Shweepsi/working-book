@@ -409,9 +409,12 @@ function describePolicy(r: PolicyResult): string {
 function retireConfirmBody(data: PMS230Result, schedule: string): string {
   const records = data.records.filter((r) => r.schedule === schedule).length;
   return (
+    // The count is interpolated on both branches, singular included: a sync can
+    // drop the schedule while the dialog sits open, and "1 ligne quitte le
+    // planning" over an empty schedule would be the sheet inventing a row.
     (records > 1
       ? `${records} lignes quittent le planning et rejoignent la liste des terminés. `
-      : '1 ligne quitte le planning et rejoint la liste des terminés. ')
+      : `${records} ligne quitte le planning et rejoint la liste des terminés. `)
     + 'Rien ne sort du rapport : le schedule reste consultable depuis cette liste.'
   );
 }
