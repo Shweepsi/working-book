@@ -2348,10 +2348,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-policy-chip-glyph { color: var(--ink-faint); font-size: var(--fs-md); line-height: 1; }
 .sch-policy-chip strong { color: var(--ink); font-weight: 600; }
 
-/* Confirmation sheet — a couple of lines of prose, so narrower than the
-   560px form sheets it inherits from. */
-.sch-confirm { width: min(420px, calc(100% - 40px)); }
-.sch-confirm p { margin: 0; line-height: 1.45; }
 
 .sch-hint {
   display: flex;
@@ -3722,10 +3718,10 @@ body.is-col-resizing * {
   flex-direction: column;
   gap: var(--space-2);
 }
-/* The row is the card plus its two coarse actions. They sit outside the card
-   rather than inside it because the card is itself a button — one that opens
-   the schedule — and a button inside a button is not a thing the browser will
-   render. */
+/* The row is the card plus its "remettre au planning" button. The button sits
+   outside the card rather than inside it because the card is itself a button —
+   one that opens the schedule — and a button inside a button is not a thing the
+   browser will render. */
 .sch-done-row {
   display: flex;
   align-items: center;
@@ -3813,26 +3809,23 @@ body.is-col-resizing * {
   text-transform: uppercase;
   white-space: nowrap;
 }
-/* Fixed-width column, right-aligned: the rows carry a different number of
-   buttons — only a retired schedule can go back to the planning — and cards
-   that stopped at a different x on every row would read as a ragged list. */
+/* Fixed-width column, held open even on the rows that carry no button, so the
+   cards all stop at the same x instead of reading as a ragged list. */
 .sch-done-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-2);
   flex: none;
-  min-width: 11rem;
+  min-width: 7rem;
 }
-/* `.btn.mini` pushes itself right on its own; in a row of two it just has to
-   sit where it is put. */
 .sch-done-actions .btn.mini { margin-left: 0; white-space: nowrap; }
-/* On a phone the buttons and the card can't share a line without squeezing the
-   schedule number itself. They drop under it instead, still right-aligned. */
+/* On a phone the button and the card can't share a line without squeezing the
+   schedule number itself. It drops under it instead, still right-aligned. */
 @media (max-width: 560px) {
   .sch-done-row { flex-wrap: wrap; }
   .sch-done-item { flex-basis: 100%; }
   .sch-done-actions { min-width: 0; margin-left: auto; }
+  .sch-done-actions:empty { display: none; }
 }
 
 /* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */

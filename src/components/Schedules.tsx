@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, removeSchedule, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -29,9 +29,8 @@ const KEY_TABLE    = 'wb.schedules.table.v1';
 // anything.
 const DEFAULT_SPEED = 0;
 
-// Undo window on retiring or deleting a schedule. Wider than the toast default
-// because the action is coarse and the operator may be away from the screen
-// when it lands.
+// Undo window on retiring a schedule. Wider than the toast default because the
+// action is coarse and the operator may be away from the screen when it lands.
 const UNDO_TTL = 10_000;
 
 // How far a rail card has to travel left before the release retires its
@@ -408,18 +407,6 @@ function describePolicy(r: PolicyResult): string {
   return `✓ ${r.count} produits chargés`;
 }
 
-function deleteConfirmBody(data: PMS230Result, schedule: string): string {
-  const records = data.records.filter((r) => r.schedule === schedule).length;
-  const rest = (data.schedules?.length ?? 0) - 1;
-  return (
-    `Suppression définitive : ${records} ligne${records > 1 ? 's' : ''} quitte${records > 1 ? 'nt' : ''} `
-    + 'le rapport et la liste des terminés. '
-    + (rest > 0
-      ? `Les ${rest} autre${rest > 1 ? 's' : ''} schedule${rest > 1 ? 's' : ''} et la table MTO/MTS sont conservés.`
-      : "C'est le dernier schedule du rapport — la table MTO/MTS est conservée.")
-  );
-}
-
 function fmtDate(yyyymmdd: string | null | undefined): string {
   if (!yyyymmdd || yyyymmdd.length !== 8) return '';
   return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
@@ -516,8 +503,6 @@ export default function Schedules({ density }: SchedulesProps) {
   // back to "0" mid-edit and the next keystroke would land after that zero.
   const [speedDraft, setSpeedDraft] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | 'portal' | null>(null);
-  // Schedule number waiting on the delete confirmation, or null.
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [finishedOpen, setFinishedOpen] = useState(false);
   const [tableSettings, setTableSettings] = useState<TableSettings>(
@@ -897,7 +882,7 @@ export default function Schedules({ density }: SchedulesProps) {
   // whether it ran out of work or was retired. They have no place in a list of
   // work to do, but they are the record of what the line has already made — so
   // they get a sheet of their own, from which any of them can be opened in the
-  // table, put back in the planning, or dropped from the report for good.
+  // table and a retired one put back in the planning.
   //
   // QC samples are left out here as everywhere else, which also settles what a
   // sample-only schedule is doing in a list headed "terminés": nothing — it
@@ -941,13 +926,14 @@ export default function Schedules({ density }: SchedulesProps) {
   );
 
   // Nothing left to list — close the sheet rather than leave an empty dialog
-  // standing after the last row was deleted or put back in the planning.
+  // standing after the last row went back to the planning.
   useEffect(() => {
     if (finishedSchedules.length === 0) setFinishedOpen(false);
   }, [finishedSchedules.length]);
 
   // Auto-select once data loads, and re-pick when the selection is gone from
-  // the report entirely — a delete, or a re-import that dropped it.
+  // the report entirely — nothing here removes a schedule, but a re-import can
+  // land without one.
   //
   // Absent from the *rail* is not gone: a finished schedule opened from the
   // terminés sheet is legitimately selected while having no place in a list of
@@ -988,12 +974,12 @@ export default function Schedules({ density }: SchedulesProps) {
     clearFilters();
   }
 
-  // Retire a schedule from the planning. Not a delete: its rows stay in the
-  // report, it moves to the terminés sheet, and it can be put back from there.
-  // The rail gesture used to drop the schedule outright — a coarse, syncing,
-  // irreversible-after-ten-seconds act for what is nearly always "we're done
-  // with this one for now". Deleting is still possible, from the sheet, where
-  // it reads as the deliberate purge it is.
+  // Retire a schedule from the planning: its rows stay in the report, it moves
+  // to the terminés sheet, and it can be put back from there. The rail gesture
+  // used to drop the schedule outright — a coarse, syncing, irreversible-after-
+  // ten-seconds act for what is nearly always "we're done with this one for
+  // now". Nothing removes a schedule from the report any more; a report that
+  // came from Infor is not this app's to shred.
   function handleRetireSchedule(schedule: string) {
     if (archives[schedule]) return;
     const snapshotSelected = selected;
@@ -1003,10 +989,10 @@ export default function Schedules({ density }: SchedulesProps) {
       mtoMts: tableSettings.mtoMts,
     };
     setArchives((prev) => ({ ...prev, [schedule]: new Date().toISOString() }));
-    // Unlike a delete, the schedule is still in the report, so the auto-select
-    // effect has no reason to move off it. Move on by hand: the card the
-    // operator was reading has just left the rail, and staying on it would
-    // leave the table showing a schedule nothing points at any more.
+    // The schedule is still in the report, so the auto-select effect has no
+    // reason to move off it. Move on by hand: the card the operator was reading
+    // has just left the rail, and staying on it would leave the table showing a
+    // schedule nothing points at any more.
     if (selected === schedule) {
       setSelected(visibleSchedules.find((s) => s.schedule !== schedule)?.schedule ?? null);
       clearFilters();
@@ -1042,62 +1028,6 @@ export default function Schedules({ density }: SchedulesProps) {
     toast.show({
       message: `Schedule ${schedule} remis au planning`,
       undo: () => setArchives((prev) => ({ ...prev, [schedule]: snapshot })),
-    });
-  }
-
-  function handleDeleteSchedule(schedule: string) {
-    if (!data) return;
-    const snapshot = data;
-    const snapshotSelected = selected;
-    const snapshotRetiredAt = archives[schedule];
-    const snapshotFilters = {
-      qualite: tableSettings.qualite,
-      pdp: tableSettings.pdp,
-      mtoMts: tableSettings.mtoMts,
-    };
-    const next = removeSchedule(snapshot, schedule);
-    // A sync from another device can drop the schedule while the confirmation
-    // sits open. Nothing was removed here, so nothing is announced or undone.
-    if (next === snapshot) return;
-    setData(next);
-    // The speed goes with the schedule. Left behind it would silently reapply
-    // to a re-import of the same number, which is exactly the stale value the
-    // per-schedule speed exists to avoid.
-    const snapshotSpeed = speeds[schedule];
-    if (snapshotSpeed !== undefined) {
-      setSpeeds((prev) => {
-        const rest = { ...prev };
-        delete rest[schedule];
-        return rest;
-      });
-    }
-    // The retirement goes with it too, for the same reason as the speed: kept,
-    // it would silently hide a re-import of the same number from the rail, and
-    // nothing on screen would say why.
-    if (snapshotRetiredAt !== undefined) {
-      setArchives((prev) => {
-        const rest = { ...prev };
-        delete rest[schedule];
-        return rest;
-      });
-    }
-    // `selected` deliberately stays on the deleted schedule: the auto-select
-    // effect above re-picks the first survivor and resets the filters through
-    // the same path a manual selection change takes.
-    toast.show({
-      message: `Schedule ${schedule} supprimé`,
-      ttl: UNDO_TTL,
-      undo: () => {
-        setData(snapshot);
-        setSelected(snapshotSelected);
-        setTableSettings((s) => ({ ...s, ...snapshotFilters }));
-        if (snapshotSpeed !== undefined) {
-          setSpeeds((prev) => ({ ...prev, [schedule]: snapshotSpeed }));
-        }
-        if (snapshotRetiredAt !== undefined) {
-          setArchives((prev) => ({ ...prev, [schedule]: snapshotRetiredAt }));
-        }
-      },
     });
   }
 
@@ -1393,24 +1323,7 @@ export default function Schedules({ density }: SchedulesProps) {
           current={selected}
           onOpen={openFinished}
           onRestore={handleRestoreSchedule}
-          onDelete={setPendingDelete}
           onClose={() => setFinishedOpen(false)}
-        />
-      )}
-
-      {/* Last of the sheets on purpose: the confirmation is raised from the
-          terminés sheet and shares its z-index, so it has to come after it in
-          the DOM to land on top.
-          `data` guards it as well as the gesture: a sync from another device
-          can empty the report while the dialog sits open, and there is then
-          nothing left to confirm. */}
-      {pendingDelete && data && (
-        <ConfirmSheet
-          title={`Supprimer le schedule ${pendingDelete} ?`}
-          body={deleteConfirmBody(data, pendingDelete)}
-          confirmLabel="Supprimer"
-          onConfirm={() => handleDeleteSchedule(pendingDelete)}
-          onClose={() => setPendingDelete(null)}
         />
       )}
     </div>
@@ -1420,16 +1333,15 @@ export default function Schedules({ density }: SchedulesProps) {
 // Everything that has left the rail: the schedules with nothing left to
 // produce, and the ones the line retired by hand. The sheet is the way back in
 // — picking one opens it in the table like any rail card, which is where a
-// schedule is meant to be read — and it is where the two coarse decisions
-// about such a schedule live: put it back in the planning, or drop it from the
-// report for good.
+// schedule is meant to be read — and a retired one can be put straight back in
+// the planning from here. Nothing leaves the report: this list is where a
+// schedule ends up, not a waiting room before a deletion.
 function FinishedSheet({
   schedules,
   retiredCount,
   current,
   onOpen,
   onRestore,
-  onDelete,
   onClose,
 }: {
   schedules: FinishedSchedule[];
@@ -1440,7 +1352,6 @@ function FinishedSheet({
   current: string | null;
   onOpen: (item: FinishedSchedule) => void;
   onRestore: (schedule: string) => void;
-  onDelete: (schedule: string) => void;
   onClose: () => void;
 }) {
   useEscapeToClose(onClose);
@@ -1506,10 +1417,11 @@ function FinishedSheet({
                 </span>
                 <span className="sch-done-go" aria-hidden="true" />
               </button>
+              {/* The column is held open on every row, button or not: only a
+                  retired schedule can go back to the planning — one that ran
+                  out of work would be filtered straight back out of the rail —
+                  and cards ending at a different x per row read as ragged. */}
               <div className="sch-done-actions">
-                {/* Only on the retired ones: a schedule that ran out of work
-                    would be filtered straight back out of the rail, so the
-                    button would do nothing you could see. */}
                 {s.retiredAt && (
                   <button
                     type="button"
@@ -1520,14 +1432,6 @@ function FinishedSheet({
                     ↩ Planning
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="btn mini danger"
-                  onClick={() => onDelete(s.schedule)}
-                  title={`Supprimer définitivement le schedule ${s.schedule} du rapport`}
-                >
-                  Supprimer
-                </button>
               </div>
             </li>
           ))}
@@ -1548,9 +1452,10 @@ function fmtRetiredAt(iso: string): string {
 // Swipe a rail card to the left to retire its schedule from the planning. The
 // gesture is the discoverable route on the shop-floor tablets. Nothing is
 // destroyed — the schedule moves to the terminés sheet and can be brought back
-// from there — so the undo toast is guard enough and there is no confirmation
-// step in front of it. Pointer events mean a mouse drag works the same way, and
-// the card carries a Suppr key handler for anyone on a keyboard.
+// from there — so the undo toast is guard enough and the confirmation sheet
+// this gesture used to raise is gone. Pointer events mean a mouse drag works
+// the same way, and the card carries a Suppr key handler for anyone on a
+// keyboard.
 function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children: ReactNode }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -1632,47 +1537,6 @@ function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children:
         {children}
       </div>
     </div>
-  );
-}
-
-// Confirmation step in front of a destructive action. The app's default is
-// "act now, offer Annuler in a toast" (see lib/toast), which suits per-row
-// edits and the rail's retire gesture, both of which can be taken back at
-// leisure. Dropping a whole schedule out of the report cannot, so it gets a
-// stop first. The undo toast still fires afterwards.
-function ConfirmSheet({
-  title, body, confirmLabel, onConfirm, onClose,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  useEscapeToClose(onClose);
-  return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sch-confirm" role="dialog" aria-modal="true">
-        <div className="grabber" />
-        <div className="sheet-head">
-          <h3>{title}</h3>
-        </div>
-        <p className="faint small">{body}</p>
-        <div className="actions">
-          <span style={{ flex: 1 }} />
-          <button className="btn ghost" type="button" onClick={onClose}>Annuler</button>
-          <button
-            className="btn destructive"
-            type="button"
-            autoFocus
-            onClick={() => { onConfirm(); onClose(); }}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </>
   );
 }
 

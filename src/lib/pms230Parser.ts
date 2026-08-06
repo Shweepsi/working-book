@@ -434,16 +434,3 @@ export function mergePMS230(prev: PMS230Result | null | undefined, next: PMS230R
     importedAt: next.importedAt,
   };
 }
-
-// Drop one schedule and every record attached to it. Returns null once nothing
-// is left, so the caller falls back to the "aucun rapport" empty state rather
-// than holding an empty-but-truthy report. Returns `prev` untouched when the
-// schedule isn't in the report, so an undo of a stale delete can't wipe totals.
-export function removeSchedule(prev: PMS230Result, schedule: string): PMS230Result | null {
-  const records = prev.records.filter((r) => r.schedule !== schedule);
-  if (records.length === prev.records.length) return prev;
-  if (records.length === 0) return null;
-  // Re-summarise rather than filtering `prev.schedules`: the totals are derived
-  // from the records, and the two must not drift apart.
-  return { ...prev, records, schedules: summariseSchedules(records) };
-}
