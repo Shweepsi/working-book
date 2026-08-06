@@ -2348,6 +2348,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-policy-chip-glyph { color: var(--ink-faint); font-size: var(--fs-md); line-height: 1; }
 .sch-policy-chip strong { color: var(--ink); font-weight: 600; }
 
+/* Confirmation sheet — a couple of lines of prose, so narrower than the
+   560px form sheets it inherits from. */
+.sch-confirm { width: min(420px, calc(100% - 40px)); }
+.sch-confirm p { margin: 0; line-height: 1.45; }
 
 .sch-hint {
   display: flex;
@@ -2501,7 +2505,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-size: var(--fs-2xs);
 }
 
-/* Swipe-to-delete wrapper around a rail card. The action layer sits underneath
+/* Swipe-to-retire wrapper around a rail card. The action layer sits underneath
    and is uncovered as the card slides left. `pan-y` leaves the rail's own
    vertical scrolling to the browser and claims only the horizontal axis. */
 .sch-swipe {
@@ -2512,9 +2516,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .sch-swipe.is-dragging { user-select: none; }
 /* Green, not red: the swipe files the schedule under "terminés", it does not
-   destroy it. A red strip under a reversible gesture reads as a warning the
-   action doesn't deserve — and it would make the one action that *is*
-   destructive, in the terminés sheet, look no different. */
+   destroy it — nothing in this tab does. Red would promise a loss that never
+   happens. */
 .sch-swipe-action {
   position: absolute;
   inset: 0;
@@ -3718,25 +3721,12 @@ body.is-col-resizing * {
   flex-direction: column;
   gap: var(--space-2);
 }
-/* The row is the card plus its "remettre au planning" button. The button sits
-   outside the card rather than inside it because the card is itself a button —
-   one that opens the schedule — and a button inside a button is not a thing the
-   browser will render. */
-.sch-done-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-/* Same shape as a rail card, and the same job: pick a schedule to read — two
-   lines, identity above and counts below. One line was enough while the row
-   was only a link; with a tag and two buttons beside it the name was down to a
-   couple of characters. */
+/* Same shape as a rail card, and the same job: pick a schedule to read. */
 .sch-done-item {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-4);
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--line-faint);
   border-radius: var(--radius-lg);
@@ -3757,19 +3747,6 @@ body.is-col-resizing * {
   background: var(--paper-2);
 }
 .sch-done-item.is-current .sch-done-go { visibility: hidden; }
-.sch-done-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-.sch-done-top {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  min-width: 0;
-}
 .sch-done-num { font-weight: 600; }
 .sch-done-name {
   min-width: 0;
@@ -3778,9 +3755,9 @@ body.is-col-resizing * {
   white-space: nowrap;
   color: var(--ink-soft);
 }
-/* Under the identity line, as on a rail card: the counts are what the eye
-   scans down the list, and they line up with each other there. */
-.sch-done-meta { white-space: nowrap; }
+/* Pushed right and kept off the name's line-length: the counts are what the
+   eye scans down the list. */
+.sch-done-meta { margin-left: auto; flex: none; }
 /* The "goes somewhere" mark. It only firms up under the pointer — at rest the
    row is already a button, and a column of dark arrows would out-shout the
    numbers beside them. */
@@ -3795,39 +3772,6 @@ body.is-col-resizing * {
   transition: border-color 120ms ease;
 }
 .sch-done-item:hover .sch-done-go { border-color: var(--ink-soft); }
-/* Marks the rows that are here by decision rather than by exhaustion. Same
-   quiet chip as the flags elsewhere — it labels a row, it doesn't shout at it. */
-.sch-done-tag {
-  flex: none;
-  align-self: center;
-  padding: 1px var(--space-3);
-  border: 1px solid var(--flag-ok-bd);
-  border-radius: var(--radius-pill);
-  color: var(--ink-soft);
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-/* Fixed-width column, held open even on the rows that carry no button, so the
-   cards all stop at the same x instead of reading as a ragged list. */
-.sch-done-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex: none;
-  min-width: 7rem;
-}
-.sch-done-actions .btn.mini { margin-left: 0; white-space: nowrap; }
-/* On a phone the button and the card can't share a line without squeezing the
-   schedule number itself. It drops under it instead, still right-aligned. */
-@media (max-width: 560px) {
-  .sch-done-row { flex-wrap: wrap; }
-  .sch-done-item { flex-basis: 100%; }
-  .sch-done-actions { min-width: 0; margin-left: auto; }
-  .sch-done-actions:empty { display: none; }
-}
-
 /* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),
 .app-main:has(.sv) { max-width: none; }
