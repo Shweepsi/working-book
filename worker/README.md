@@ -99,8 +99,7 @@ keyed by the domain names the front uses (`suivi`, `policy`, `schedules`,
 `speeds`, `archives`, plus `logbook` / `prodtest` when the matching params are
 supplied). A couple of hundred bytes against a report blob past a hundred
 kilobytes: that ratio is what lets a client poll on a short interval and only
-fetch a partition
-whose stamp has actually moved. The reply is `Cache-Control: no-store` — a
+fetch a partition whose stamp has actually moved. The reply is `Cache-Control: no-store` — a
 cached probe would pin a tab on a stale timestamp.
 
 Clients poll it while the tab is visible and stop entirely when it is hidden
@@ -129,8 +128,8 @@ same number stays out of the rail until somebody puts it back.
 A dump that yields no decodable row answers `422 no_records` and leaves the
 stored report alone, so a mis-click on the wrong screen can't damage it.
 
-The reply carries `purged`: how many finished schedules the trim below dropped
-to fit the incoming rows in. The bookmarklet is the one import route with no
+The reply carries `purged`: how many of the oldest schedules the trim below
+dropped to fit the incoming rows in. The bookmarklet is the one import route with no
 screen of its own, so this is the only place it can be said.
 
 ## What keeps the report from growing forever
@@ -145,12 +144,18 @@ quota.
 So `mergePMS230` ends every merge in `trimReport` (`src/lib/pms230Parser.ts`),
 which holds the stored JSON under **1 MB** — about 1 700 lines at the ~590 bytes
 one costs today, several months of planning. Over budget, it drops whole
-schedules **with nothing left to produce**, oldest first (by the last `startDate`
-in the schedule), until it fits. A schedule carrying a single unfinished line is
-never dropped, however old: losing planning to make room for planning would be
-worse than the overflow. If trimming every eligible schedule still isn't enough,
-the report is written over budget and fails loudly at the ceiling rather than
-silently shedding work the line still has to do.
+schedules **oldest first**, by the last `startDate` in the schedule, until it
+fits. Oldest and nothing else: whether the schedule still carries lines to
+produce does not enter into it, and a rule anybody can state in one sentence
+beats one that quietly keeps a two-year-old order alive because a line never
+closed.
+
+Two invariants bound it. The schedules an import is bringing in are never purged
+by that same import — otherwise adding an old schedule to a full report could
+drop the rows just imported, and the operator would watch an import do nothing.
+And the trim never empties the report: a single schedule over budget on its own
+cannot be helped by purging it, since that turns "too big to write" into
+"nothing left to read".
 
 Both write paths go through `mergePMS230`, so both trim: the ingest above, and
 the front's paste import, whose merge result is what it then `PUT`s.

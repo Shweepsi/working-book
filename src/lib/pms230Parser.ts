@@ -301,20 +301,6 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   return r;
 }
 
-// What a row *is*, as opposed to how a screen chooses to draw it — hence here
-// rather than in the Schedule tab, which is no longer the only reader: the trim
-// below has to know which rows are still work before it may drop anything.
-
-// A QC sample is a prélèvement, not production.
-export const isQcSample = (r: PMS230Record): boolean => /^Vacuum/i.test(r.itemName);
-
-// Op-step 90 marks a line finished, as does a remaining requirement fallen to
-// zero. The two say the same thing by different routes.
-export const isFinished = (r: PMS230Record): boolean => r.opStepD === 90 || (r.reqLites ?? 0) <= 0;
-
-// Still work to do — what the planning table, the totals and the rail count.
-export const isPlanningRow = (r: PMS230Record): boolean => !isQcSample(r) && !isFinished(r);
-
 function rowM2(r: DecodedRecord): number {
   // "m² restants" — the area still to produce. reqLites is sched minus what's
   // already produced, so multiplying by it (not schedLites) matches Excel and
@@ -436,17 +422,24 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
 const REPORT_BUDGET_BYTES = 1_000_000;
 
 // Nothing is ever removed from the report by hand — see the Schedule tab, where
-// the coarsest gesture only retires a schedule from the planning. But the
-// report only grows, and something has to give before it hits a ceiling that
-// would refuse the *next import* rather than the oldest finished work.
+// the coarsest gesture only retires a schedule from the planning. But the report
+// only grows, and something has to give before it hits a ceiling that would
+// refuse the *next import* rather than the oldest work.
 //
-// So: over budget, whole schedules with nothing left to produce are dropped,
-// oldest first, until it fits. A schedule carrying a single unfinished line is
-// never touched, whatever its age — losing planning to make room for planning
-// would be worse than the overflow. If trimming every eligible schedule still
-// isn't enough, the report is returned over budget and the write fails loudly
-// downstream; that beats silently dropping work the line still has to do.
-export function trimReport(r: PMS230Result): { result: PMS230Result; purged: string[] } {
+// So: over budget, whole schedules are dropped oldest first — by the last date
+// they ran — until it fits. Oldest and nothing else: a schedule that hasn't run
+// in months is the least useful thing in the report whether or not it still
+// carries lines to produce, and a rule anybody can state in one sentence beats
+// one that quietly keeps a two-year-old order alive because a line never closed.
+//
+// `keep` is the one exception, and it is not a matter of taste: the schedules an
+// import is bringing in are never purged by that same import. Without it, adding
+// an old schedule to a full report could drop the very rows just imported, and
+// the operator would watch an import do nothing at all.
+export function trimReport(
+  r: PMS230Result,
+  keep: ReadonlySet<string> = new Set(),
+): { result: PMS230Result; purged: string[] } {
   // `.length` counts UTF-16 units, not bytes. The report is codes and digits
   // with the odd accented customer name, so the two agree to within a rounding
   // error at this scale — and the budget sits at half the hardest ceiling.
@@ -459,31 +452,33 @@ export function trimReport(r: PMS230Result): { result: PMS230Result; purged: str
   }
   if (total <= REPORT_BUDGET_BYTES) return { result: r, purged: [] };
 
-  // One entry per schedule: its rows, its weight, whether anything in it is
-  // still to be produced, and the last date it ran — which is what "oldest"
-  // means for a schedule whose lines span several days.
-  interface Group { rows: PMS230Record[]; bytes: number; open: boolean; last: string }
-  const groups = new Map<string, Group>();
+  // One entry per schedule: its weight, and the last date it ran — which is what
+  // "oldest" means for a schedule whose lines span several days.
+  const groups = new Map<string, { bytes: number; last: string }>();
   for (const rec of r.records) {
-    const g = groups.get(rec.schedule)
-      ?? { rows: [], bytes: 0, open: false, last: '' };
-    g.rows.push(rec);
+    const g = groups.get(rec.schedule) ?? { bytes: 0, last: '' };
     g.bytes += sizes.get(rec)!;
-    if (isPlanningRow(rec)) g.open = true;
     if (rec.startDate > g.last) g.last = rec.startDate;
     groups.set(rec.schedule, g);
   }
 
-  const eligible = [...groups.entries()]
-    .filter(([, g]) => !g.open)
+  const oldestFirst = [...groups.entries()]
+    .filter(([schedule]) => !keep.has(schedule))
     .sort(([sa, a], [sb, b]) => (a.last === b.last ? sa.localeCompare(sb) : a.last.localeCompare(b.last)));
 
   const purged: string[] = [];
-  for (const [schedule, g] of eligible) {
+  for (const [schedule, g] of oldestFirst) {
     if (total <= REPORT_BUDGET_BYTES) break;
+    // Never empty the report. One schedule over budget on its own can't be
+    // helped by purging it — that turns "too big to write" into "nothing left
+    // to read", which is worse and much harder to notice.
+    if (purged.length === groups.size - 1) break;
     total -= g.bytes;
     purged.push(schedule);
   }
+  // Still over budget with everything purgeable gone — the incoming import alone
+  // is bigger than the budget. Nothing left to give: the report goes out as it
+  // is and the write fails at the ceiling, which is the honest outcome.
   if (purged.length === 0) return { result: r, purged: [] };
 
   const dropped = new Set(purged);
@@ -504,7 +499,8 @@ export function mergePMS230(
   // Dedup on `${schedule}|${mo}`. Records that exist in both are kept from
   // `next` (the fresher paste) — so re-importing a page updates its rows in
   // place and costs nothing, and the report only grows with new work.
-  if (!prev) return trimReport(next);
+  const incoming = new Set(next.records.map((r) => r.schedule));
+  if (!prev) return trimReport(next, incoming);
   const seen = new Map<string, PMS230Record>();
   for (const r of next.records) seen.set(`${r.schedule}|${r.mo}`, r);
   for (const r of prev.records) {
@@ -520,5 +516,5 @@ export function mergePMS230(
     schedules: summariseSchedules(records),
     warnings: [...(prev.warnings ?? []), ...(next.warnings ?? [])],
     importedAt: next.importedAt,
-  });
+  }, incoming);
 }
