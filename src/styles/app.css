@@ -544,11 +544,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 
 .sheet {
+  /* Variants set --sheet-w and nothing else. They live further down the file,
+     so a `width` of their own would out-order the phone override below and
+     leave the bottom sheet pinned at left:0 with a gutter hanging off the
+     right edge — the width has to be declared here, once. */
+  --sheet-w: 560px;
   position: fixed;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(560px, calc(100% - 40px));
+  width: min(var(--sheet-w), calc(100% - 40px));
   background: var(--paper);
   border-radius: var(--radius-2xl);
   padding: var(--space-9) var(--space-10) var(--space-10);
@@ -1314,7 +1319,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   }
   .summary .btn { padding: 4px 10px; font-size: var(--fs-sm); min-height: 26px; }
 
-  /* Phone sheet: full-width bottom sheet, not centered modal */
+  /* Phone sheet: full-width bottom sheet, not centered modal. Edge to edge —
+     `left: 0` plus a width narrower than the viewport would sit the sheet
+     against the left edge with the gutter all on the right, which is why the
+     variants carry --sheet-w instead of a width of their own. */
   .sheet {
     left: 0;
     right: 0;
@@ -2350,7 +2358,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 /* Confirmation sheet — a couple of lines of prose, so narrower than the
    560px form sheets it inherits from. */
-.sch-confirm { width: min(420px, calc(100% - 40px)); }
+.sch-confirm { --sheet-w: 420px; }
 .sch-confirm p { margin: 0; line-height: 1.45; }
 
 .sch-hint {
@@ -3395,7 +3403,7 @@ body.is-col-resizing * {
 :root[data-density='advanced'] .sch-mto { padding: 3px 8px; font-size: var(--fs-sm); }
 
 /* Paste-import sheet */
-.sch-import { width: min(720px, 92vw); }
+.sch-import { --sheet-w: 720px; }
 .sch-import-hint {
   margin: 0 0 6px;
   font-size: var(--fs-md);
@@ -3471,7 +3479,7 @@ body.is-col-resizing * {
 }
 
 /* Direct-import sheet — builds the Operator Mashup bookmarklet. */
-.sch-portal { width: min(720px, 92vw); }
+.sch-portal { --sheet-w: 720px; }
 .sch-portal-steps {
   margin: 0;
   padding-left: 20px;
@@ -3553,7 +3561,7 @@ body.is-col-resizing * {
 }
 
 /* Row-detail sheet — opened on row click. */
-.sch-row-sheet { width: min(640px, calc(100% - 40px)); }
+.sch-row-sheet { --sheet-w: 640px; }
 .sch-row-sheet-title {
   display: flex;
   align-items: flex-start;
@@ -3712,7 +3720,7 @@ body.is-col-resizing * {
 
 /* Wider than the row sheet: each line carries a schedule number, a name and
    three counts on one row. */
-.sch-done-sheet { width: min(660px, calc(100% - 40px)); }
+.sch-done-sheet { --sheet-w: 660px; }
 .sch-done-list {
   list-style: none;
   margin: 0;
@@ -3772,6 +3780,23 @@ body.is-col-resizing * {
   transition: border-color 120ms ease;
 }
 .sch-done-item:hover .sch-done-go { border-color: var(--ink-soft); }
+
+/* Phone: the three counts don't fit beside the schedule number, and `flex:
+   none` kept them from shrinking — the tail ran off the sheet and had to be
+   scrolled to. Give the counts a line of their own under the number. */
+@media (max-width: 600px) {
+  .sch-done-item {
+    flex-wrap: wrap;
+    gap: 2px var(--space-4);
+  }
+  .sch-done-name { flex: 1 1 auto; }
+  .sch-done-go { margin-left: auto; }
+  .sch-done-meta {
+    order: 1;
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+}
 /* Layout: let the Schedule and Cosmétique tabs use the full viewport width since their tables are wide. */
 .app-main:has(.sch),
 .app-main:has(.sv) { max-width: none; }
@@ -4095,7 +4120,7 @@ body.is-col-resizing * {
 }
 
 /* ---------- Edit sheet ---------- */
-.sv-sheet { width: min(720px, calc(100% - 40px)); }
+.sv-sheet { --sheet-w: 720px; }
 .sv-sheet-title {
   display: flex;
   align-items: baseline;
@@ -4403,7 +4428,7 @@ button.as-row:focus-visible {
   letter-spacing: 0;
 }
 
-.kbd-help-sheet { width: min(480px, calc(100% - 40px)); }
+.kbd-help-sheet { --sheet-w: 480px; }
 .kbd-help-list {
   display: flex;
   flex-direction: column;
