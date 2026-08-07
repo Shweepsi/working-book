@@ -55,6 +55,25 @@ When `wrangler dev` is running, point the front at it from the repo root with:
 VITE_API_URL=http://127.0.0.1:8787 npm run dev
 ```
 
+## Deploy order
+
+The `pages` job waits on both Worker jobs: the front goes out after the Worker
+it talks to, never beside it. Run in parallel, a bundle that knows a new route
+can reach a Worker that doesn't have it yet — and the client's sync queue is
+FIFO and retries a failed write forever, so a single 404 on a new partition
+stalls every other partition, logbook included, until the Worker lands. A
+Worker job that is *skipped* (prod on a branch, both on a PR) doesn't hold Pages
+back; only one that tried and failed does.
+
+Within the Worker jobs, `d1 migrations apply` runs before `wrangler deploy`, so
+a Worker never starts against a schema it predates.
+
+**Re-running the workflow by hand deploys production too** — `workflow_dispatch`
+on `main` is treated like a push there. It is the way to recover when GitHub
+never created a run for a merge, which happens; without it the button was a
+trap, deploying the front to production while leaving the Worker and the
+migrations of the previous release in place.
+
 ## Manual ops (only if needed)
 
 ```bash

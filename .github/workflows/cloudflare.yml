@@ -65,8 +65,16 @@ jobs:
   worker-prod:
     name: Deploy Worker (prod)
     needs: preflight
-    # Prod stays main-only — feature branches only touch dev.
-    if: needs.preflight.outputs.configured == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Prod stays main-only — feature branches only touch dev — but a manual run
+    # counts as much as a push. Without that, `workflow_dispatch` was a trap: it
+    # deploys Pages (prod, since the ref is main) while skipping this job, so
+    # the one button offered for a manual deploy shipped a front against the
+    # Worker and the migrations of the previous release. The `github.ref` test
+    # is what keeps PRs out — their ref is refs/pull/N/merge.
+    if: >-
+      needs.preflight.outputs.configured == 'true'
+      && github.ref == 'refs/heads/main'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -89,8 +97,27 @@ jobs:
 
   pages:
     name: Build and deploy to Cloudflare Pages
-    needs: preflight
-    if: needs.preflight.outputs.configured == 'true'
+    # The front goes out after the Worker it talks to, never beside it. Run in
+    # parallel, a bundle that knows a new route can reach a Worker that doesn't
+    # have it yet: the client's sync queue is FIFO and retries a failed write
+    # forever, so one 404 on a new partition stalls every other partition —
+    # logbook included — until the Worker lands. Seconds, self-healing, and
+    # entirely avoidable by waiting.
+    needs: [preflight, worker-dev, worker-prod]
+    # `needs` alone would skip this job whenever a Worker job is skipped, which
+    # is the normal case: prod on branches, both on PRs. `!cancelled()` turns
+    # that into "run unless the run is being torn down", and the two result
+    # tests keep the only case worth stopping for — a Worker that tried and
+    # failed, which must not get a newer front pointed at it.
+    #
+    # Bracketed rather than dotted: a hyphen in a property path is ambiguous
+    # with subtraction, and a mis-parse here would read as false and quietly
+    # stop deploying anything at all.
+    if: >-
+      !cancelled()
+      && needs.preflight.outputs.configured == 'true'
+      && needs['worker-dev'].result != 'failure'
+      && needs['worker-prod'].result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: read
