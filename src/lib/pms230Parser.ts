@@ -314,9 +314,13 @@ function rowM2(r: DecodedRecord): number {
 //   CSGSN40/23TXC0600  -> SN40/23HT (trailing T = trempé, expand to HT)
 //   CGSGNRGARCL0210    -> SGNRGAR
 //   CIRRCBCL0160       -> IRRCB
+//   SN70SHT            -> SN70SHT   (already short — returned untouched)
 // Strips a leading C/CG/CSG prefix, drops the dimension code (2 letters + 4
 // digits) and any tail past it, and normalizes the heat-treatment flag so a
 // trailing T renders as HT.
+//
+// Idempotent by design: the UI re-runs it over the cached `itemRoot`, which is
+// itself already a short form, so a second pass has to be a no-op.
 export function shortItemName(itemName: string): string {
   if (!itemName) return '';
   let body = itemName;
@@ -329,6 +333,10 @@ export function shortItemName(itemName: string): string {
   const tailTreated = tail.startsWith('T');
   const headHasH = /H$/.test(head);
   const headEndsT = /T$/.test(head);
+  // The flag is already spelled out — leave it alone. Without this, the
+  // "trailing T = trempé" rule below fires on a second pass over SN70SHT and
+  // rewrites it as SN70SHHT (the T is dropped, then HT re-appended).
+  if (/HT$/.test(head)) return head;
   if (headHasH && tailTreated) return head + 'T';
   if (headEndsT && !headHasH)  return head.slice(0, -1) + 'HT';
   if (tailTreated)             return head + 'HT';
