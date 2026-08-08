@@ -5165,6 +5165,10 @@ button.as-row:focus-visible {
 .sch-recap {
   color: var(--print-ink-strong);
   font-size: 10pt;
+  /* A hair of room on the right. The table is 100 % wide, so its outer rule
+     lands exactly on the page's content edge, where the printer clips it — it
+     came out half the width of every other line on the sheet. */
+  padding-right: 1pt;
 }
 .sch-recap-head {
   margin-bottom: 10pt;
@@ -5189,7 +5193,16 @@ button.as-row:focus-visible {
 .sch-recap-table {
   width: 100%;
   table-layout: fixed;
-  border-collapse: collapse;
+  /* Separate borders with zero spacing rather than collapsed: each rule is
+     then one stroke painted inside its own cell — top and right on every cell,
+     left and bottom on the table — so the heavier section rules below simply
+     override a cell's own top border instead of stacking on the one above it.
+     (The right-hand rule printing at half width was not this model's doing;
+     see the padding on .sch-recap.) */
+  border-collapse: separate;
+  border-spacing: 0;
+  border-left: 0.75pt solid var(--print-line);
+  border-bottom: 0.75pt solid var(--print-line);
 }
 /* Repeats the column header on every sheet, same reason as the detail table:
    page two of a récap is unreadable without it. */
@@ -5201,7 +5214,9 @@ button.as-row:focus-visible {
 .sch-recap-table th,
 .sch-recap-table td {
   padding: 3pt 5pt;
-  border: 0.75pt solid var(--print-line);
+  border: 0;
+  border-top: 0.75pt solid var(--print-line);
+  border-right: 0.75pt solid var(--print-line);
   text-align: left;
   vertical-align: middle;
 }
@@ -5257,7 +5272,7 @@ button.as-row:focus-visible {
    in, and a line tall enough to write in with a pen held over a rack — a box
    sized to the text around it is a box you write above rather than inside. */
 .sch-recap-fill {
-  height: 12mm;
+  height: 15mm;
   background: var(--print-bg);
 }
 /* Group and total rows get no box: plates are counted per dimension *and*

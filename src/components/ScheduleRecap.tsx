@@ -62,9 +62,9 @@ export default function ScheduleRecap({
         <colgroup>
           {/* The column that gets written in takes the widest share: the two
               others only have to hold a dimension label and a count. */}
-          <col style={{ width: '38%' }} />
+          <col style={{ width: '32%' }} />
           <col style={{ width: '15%' }} />
-          <col style={{ width: '47%' }} />
+          <col style={{ width: '53%' }} />
         </colgroup>
         <thead>
           <tr>
