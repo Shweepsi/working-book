@@ -35,9 +35,6 @@ export default function ScheduleRecap({
   const recap = useMemo(() => buildScheduleRecap(rows), [rows]);
 
   const name = shortName || shortItemName(schedule.itemRoot) || schedule.itemRoot;
-  // Printed at, not imported at: the sheet is filled in by hand and filed, and
-  // two of them on the same desk have to be tellable apart.
-  const printedAt = new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 
   return (
     <section className="sch-recap print-only">
@@ -57,31 +54,28 @@ export default function ScheduleRecap({
               {new Date(importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
             </span>
           )}
-          <span>imprimé le {printedAt}</span>
           {filterSummary && <strong>filtré : {filterSummary}</strong>}
         </div>
       </header>
 
       <table className="sch-recap-table">
         <colgroup>
-          <col style={{ width: '44%' }} />
-          <col style={{ width: '15%' }} />
-          <col style={{ width: '16%' }} />
-          <col style={{ width: '25%' }} />
+          <col style={{ width: '46%' }} />
+          <col style={{ width: '24%' }} />
+          <col style={{ width: '30%' }} />
         </colgroup>
         <thead>
           <tr>
             <th scope="col" className="sch-recap-col-label">Dimension · épaisseur</th>
             <th scope="col" className="sch-recap-col-num">Lites restantes</th>
             <th scope="col" className="sch-recap-col-fill">Plaques dispo.</th>
-            <th scope="col" className="sch-recap-col-fill">Commentaires</th>
           </tr>
         </thead>
 
         {recap.lines === 0 ? (
           <tbody>
             <tr className="sch-recap-empty">
-              <td colSpan={4}>Aucune ligne à produire sur ce schedule.</td>
+              <td colSpan={3}>Aucune ligne à produire sur ce schedule.</td>
             </tr>
           </tbody>
         ) : (
@@ -97,7 +91,7 @@ export default function ScheduleRecap({
             <td className="sch-recap-num mono">{fmt(recap.reqLites)}</td>
             {/* No writing box on a total: plates are counted per dimension and
                 thickness, and a box here would invite a figure nothing checks. */}
-            <td className="sch-recap-blank" colSpan={2} />
+            <td className="sch-recap-blank" />
           </tr>
         </tfoot>
       </table>
@@ -119,11 +113,7 @@ function QualityBlock({
           needs a box to hang off. */}
       <tbody className="sch-recap-qgroup">
         <tr className="sch-recap-q">
-          <th scope="colgroup">Qualité {group.qualite}</th>
-          {/* In the lites column, like the total — pushed further right it
-              reads as a plate count. */}
-          <td className="sch-recap-num mono">{fmt(group.reqLites)}</td>
-          <td className="sch-recap-blank" colSpan={2} />
+          <th scope="colgroup" colSpan={3}>Qualité {group.qualite}</th>
         </tr>
       </tbody>
       {group.dimensions.map((d) => (
@@ -138,7 +128,7 @@ function QualityBlock({
             {/* No subtotal, and no box to fill: the dimension row is a heading
                 for the thicknesses under it, and every figure on this sheet —
                 counted or written — belongs to a dimension *and* a thickness. */}
-            <td className="sch-recap-blank" colSpan={3} />
+            <td className="sch-recap-blank" colSpan={2} />
           </tr>
           {d.thicknesses.map((t) => (
             <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${t.key || 'nc'}`}>
@@ -146,7 +136,6 @@ function QualityBlock({
                 <span className="mono">{t.label}</span>
               </th>
               <td className="sch-recap-num mono">{fmt(t.reqLites)}</td>
-              <td className="sch-recap-fill" />
               <td className="sch-recap-fill" />
             </tr>
           ))}

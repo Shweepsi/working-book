@@ -531,14 +531,15 @@ La feuille détaillée répond à « qu'y a-t-il à produire, ligne par ligne »
 récap répond à la question posée devant les racks : « pour chaque dimension et
 chaque épaisseur, combien de lites reste-t-il, et ai-je les plaques ». Il
 regroupe donc les lignes de planning par qualité → dimension → épaisseur, et
-laisse deux colonnes vides (`Plaques dispo.`, `Commentaires`) remplies au stylo.
+laisse une colonne vide (`Plaques dispo.`) remplie au stylo.
 
 Les trois niveaux restent dans la colonne de gauche, y compris la qualité quand
 le schedule n'en a qu'une : remontée dans le titre, elle laisserait une feuille
 dont les colonnes ne disent plus ce qu'elles qualifient. Seules les lignes
-d'épaisseur portent un chiffre et des cases à remplir — la ligne de dimension
-est un intitulé, et tout ce qui se compte ou s'écrit ici appartient à une
-dimension *et* à une épaisseur.
+d'épaisseur portent un chiffre et une case à remplir — qualité et dimension
+sont des intitulés, et tout ce qui se compte ou s'écrit ici appartient à une
+dimension *et* à une épaisseur. Trois colonnes, donc, et un en-tête réduit au
+schedule, à l'article et à la provenance du rapport.
 
 ## Choix de mise en œuvre
 
