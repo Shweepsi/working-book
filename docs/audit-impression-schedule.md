@@ -583,6 +583,11 @@ quatrième bande grise.
 - **Une ligne sans épaisseur décodée** n'est pas perdue : elle tombe dans un
   bucket nommé en fin de groupe, qui dit le trou au lieu de le cacher dans une
   épaisseur réelle.
+- **Le PDP est réduit à la plaque qu'il désigne** : `O PL6` s'écrit « 6 mm »,
+  `O PL44.2` s'écrit « 4.4.2 ». Le « O » est sur tous les PDP et les autres
+  jetons (`SP3`…) ne changent pas ce qu'on prend au rack — écartés du libellé,
+  ils le sont aussi du regroupement : deux PDP qui n'en diffèrent que par là
+  sont la même plaque, et deux intitulés identiques se liraient comme un bug.
 - **Un feuilleté n'est pas une plaque de son épaisseur totale.** Le code
   article porte la composition derrière les quatre chiffres d'épaisseur
   (`CSGSNX50HXC08004.4.2CL` → 08.00 mm finis, mais deux plaques de 4). Groupé

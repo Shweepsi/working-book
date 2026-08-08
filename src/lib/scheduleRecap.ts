@@ -100,6 +100,27 @@ export function thicknessMm(raw: string): number | null {
   return Number.isFinite(mm) && mm > 0 ? mm : null;
 }
 
+// The plate a PDP calls for, rather than the PDP as the report writes it:
+//   "O PL6"      -> "6 mm"    a plain 6 mm plate
+//   "O PL44.2"   -> "4.4.2"   4 + 4 + a 0.2 interlayer
+//   "O SP3 PL6"  -> "6 mm"    SP3 says nothing about the plate
+//   "O"          -> "O"       nothing to unpack, left as it is
+//
+// Only the `PL` payload is kept: the leading "O" is on every PDP, and the other
+// tokens don't change what comes off the rack. Since they are dropped from the
+// label they are dropped from the grouping too — two PDPs that differ only by
+// one of them are the same plate, and printing them as two identical headings
+// would only look like a bug. A payload with a decimal is a laminate (its
+// whole-number part is the plies, one digit each); one without is a thickness.
+export function pdpLabel(pdp: string): string {
+  const tokens = pdp.split(/\s+/).filter((t) => t && t !== 'O');
+  const pl = tokens.find((t) => /^PL[\d.]+$/.test(t));
+  if (!pl) return tokens.join(' ') || pdp;
+
+  const [whole = '', decimals] = pl.slice(2).split('.');
+  return decimals ? `${whole.split('').join('.')}.${decimals}` : `${whole} mm`;
+}
+
 // Dimension as the rest of the app writes it — largeur × longueur (see the
 // `format` cell in Schedules and the row detail sheet). The Excel pivot this
 // sheet takes after writes it the other way round; internal consistency wins,
@@ -135,7 +156,8 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
     const qualite = r.qualite || NO_QUALITE;
     const dimKey = `${r.largeur}×${r.longueur}`;
-    const pdpKey = r.pdp || NO_PDP_KEY;
+    // Keyed on the plate the PDP calls for, not on its raw text — see pdpLabel.
+    const pdpKey = r.pdp ? pdpLabel(r.pdp) : NO_PDP_KEY;
     // Thickness *and* make-up. On the thickness alone a 4.4.2 lands in the same
     // bucket as a plain 8 mm — same finished thickness, two entirely different
     // plates to fetch, and the sheet would send the operator to the wrong rack.
