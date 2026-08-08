@@ -539,7 +539,17 @@ dont les colonnes ne disent plus ce qu'elles qualifient. Seules les lignes
 d'épaisseur portent un chiffre et une case à remplir — qualité et dimension
 sont des intitulés, et tout ce qui se compte ou s'écrit ici appartient à une
 dimension *et* à une épaisseur. Trois colonnes, donc, et un en-tête réduit au
-schedule, à l'article et à la provenance du rapport.
+schedule, à l'article et à la provenance du rapport, sur une seule ligne de
+base.
+
+Pas de grille complète : le rythme horizontal des lignes, et un seul filet
+vertical devant chaque colonne de chiffres — celle qui se lit, celle qui
+s'écrit. Le reste tenait de la copie de tableur. Les trois niveaux se
+distinguent alors par trois textures plutôt que par trois gris : la qualité est
+un intertitre (filet fort au-dessus, capitales espacées, aucun fond), la
+dimension une bande teintée qui court sur toute la largeur, l'épaisseur une
+ligne blanche en retrait. Le total ferme la feuille sur un filet et non sur une
+quatrième bande grise.
 
 ## Choix de mise en œuvre
 

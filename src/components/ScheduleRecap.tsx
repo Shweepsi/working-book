@@ -40,9 +40,8 @@ export default function ScheduleRecap({
     <section className="sch-recap print-only">
       <header className="sch-recap-head">
         <h2 className="sch-recap-title">
-          <span className="mono">{schedule.schedule}</span>
-          <span className="sch-recap-title-sep"> — </span>
-          <span>{name}</span>
+          <span className="mono sch-recap-title-num">{schedule.schedule}</span>
+          <span className="sch-recap-title-name">{name}</span>
         </h2>
         {/* Same job as the detailed sheet's provenance line: off-screen the
             paper has to say where its figures came from and whether they are

@@ -5170,24 +5170,42 @@ button.as-row:focus-visible {
      came out half the width of every other line on the sheet. */
   padding-right: 1pt;
 }
+/* Title and provenance share a baseline instead of stacking: the sheet's own
+   heading has two things to say and they are not a hierarchy, one names the
+   schedule and the other says where its figures came from. */
 .sch-recap-head {
-  margin-bottom: 10pt;
-  padding-bottom: 6pt;
-  border-bottom: 1.5pt solid var(--print-ink-strong);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2pt 16pt;
+  margin-bottom: 12pt;
+  padding-bottom: 5pt;
+  border-bottom: 1pt solid var(--print-ink-strong);
 }
 .sch-recap-title {
-  margin: 0 0 4pt;
+  display: flex;
+  align-items: baseline;
+  gap: 8pt;
+  margin: 0;
   font-size: 15pt;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
 }
-.sch-recap-title-sep { color: var(--print-ink-soft); font-weight: 400; }
+/* The number is the sheet's identity — it carries the weight; the article
+   name qualifies it, in the text face and a shade lighter. */
+.sch-recap-title-num { letter-spacing: -0.01em; }
+.sch-recap-title-name {
+  font-size: 12pt;
+  font-weight: 400;
+  color: var(--print-ink);
+}
 .sch-recap-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 2pt 14pt;
-  font-size: 8.5pt;
-  color: var(--print-ink);
+  gap: 2pt 12pt;
+  font-size: 8pt;
+  color: var(--print-ink-soft);
 }
 
 .sch-recap-table {
@@ -5201,8 +5219,7 @@ button.as-row:focus-visible {
      see the padding on .sch-recap.) */
   border-collapse: separate;
   border-spacing: 0;
-  border-left: 0.75pt solid var(--print-line);
-  border-bottom: 0.75pt solid var(--print-line);
+  border: 0.75pt solid var(--print-line);
 }
 /* Repeats the column header on every sheet, same reason as the detail table:
    page two of a récap is unreadable without it. */
@@ -5211,26 +5228,44 @@ button.as-row:focus-visible {
    would repeat it on every sheet and read as a per-page subtotal. */
 .sch-recap-table > tfoot { display: table-row-group; }
 
+/* Rules where they carry meaning, and nowhere else. A full grid turned the
+   sheet into a spreadsheet dump: what it needs is the horizontal rhythm of the
+   rows, and one vertical rule in front of each figure column — the one that is
+   read and the one that is written in. The heading bands then run clean across
+   the width, which is what makes the three levels legible at a glance. */
 .sch-recap-table th,
 .sch-recap-table td {
-  padding: 3pt 5pt;
+  padding: 3pt 6pt;
   border: 0;
   border-top: 0.75pt solid var(--print-line);
-  border-right: 0.75pt solid var(--print-line);
   text-align: left;
   vertical-align: middle;
 }
+/* The frame draws the top edge; a row border here would double it. */
+.sch-recap-table thead th { border-top: 0; }
+.sch-recap-table .sch-recap-col-num,
+.sch-recap-table .sch-recap-num,
+.sch-recap-table .sch-recap-col-fill,
+.sch-recap-table .sch-recap-fill,
+.sch-recap-table .sch-recap-blank {
+  border-left: 0.75pt solid var(--print-line);
+}
 .sch-recap-table thead th {
+  padding-top: 4pt;
+  padding-bottom: 4pt;
   font-size: 8pt;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  color: var(--print-ink);
   background: var(--print-bg-tint);
 }
 /* Scoped to the table: the generic `th, td` rule above is a class *and* a
    type, so a bare class would lose the alignment race. */
+/* A touch more air on the right of the figures: flush against the rule that
+   opens the writing column, they read as its left edge rather than as counts. */
 .sch-recap-table .sch-recap-col-num,
-.sch-recap-table .sch-recap-num { text-align: right; }
+.sch-recap-table .sch-recap-num { text-align: right; padding-right: 9pt; }
 .sch-recap-table .sch-recap-col-fill { text-align: center; }
 
 /* A dimension group is never split across two sheets: at the racks, half a
@@ -5242,25 +5277,29 @@ button.as-row:focus-visible {
 /* The three levels step in by an indent each — qualité flush left, dimension
    under it, thickness under that. Tint and weight already separate them, but
    on a sheet read at arm's length the left edge is what carries the nesting. */
+/* Qualité is a section title, not a row: no fill, a rule of its own above and
+   air around it. Three shades of grey read as three shades of grey; a title,
+   a band and a plain row read as three different things. */
 .sch-recap-q th,
 .sch-recap-q td {
-  padding: 4pt 5pt;
-  font-size: 10.5pt;
+  padding: 8pt 6pt 3pt;
+  font-size: 9pt;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  background: var(--print-bg-tint);
   border-top: 1.25pt solid var(--print-ink-strong);
 }
 
+/* The dimension keeps the band: it is the thing the eye hunts for at the
+   racks, and a tint finds it faster than a weight does. */
 .sch-recap-dim th {
   padding-left: 11pt;
   font-size: 10.5pt;
   font-weight: 600;
 }
 .sch-recap-dim th,
-.sch-recap-dim td { background: color-mix(in srgb, var(--print-bg-tint) 55%, var(--print-bg)); }
-.sch-recap-unit { font-size: 8.5pt; color: var(--print-ink); }
+.sch-recap-dim td { background: color-mix(in srgb, var(--print-bg-tint) 60%, var(--print-bg)); }
+.sch-recap-unit { font-size: 8.5pt; font-weight: 400; color: var(--print-ink); }
 
 /* Thicknesses are indented under their dimension rather than given a column of
    their own: the sheet is read as a list of racks, and the indent is what says
@@ -5296,13 +5335,14 @@ button.as-row:focus-visible {
    of its own would only ever lose to the row rules above. The class stays in
    the markup to name the intent. */
 
+/* The total closes the sheet on a rule, not on another grey band — the tint
+   was doing the same job as the qualité bands and blunting both. */
 .sch-recap-total th,
 .sch-recap-total td {
-  padding: 4pt 5pt;
-  font-size: 10pt;
+  padding: 5pt 6pt;
+  font-size: 11pt;
   font-weight: 700;
-  border-top: 1.25pt solid var(--print-ink-strong);
-  background: var(--print-bg-tint);
+  border-top: 1.5pt solid var(--print-ink-strong);
 }
 .sch-recap-total-sub { font-weight: 400; font-size: 8.5pt; color: var(--print-ink); }
 
