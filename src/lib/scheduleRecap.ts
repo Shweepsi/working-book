@@ -23,7 +23,7 @@ const NO_QUALITE = '—';
 // gather in a bucket of their own, sorted last, that names the gap rather than
 // hiding it inside a real thickness.
 const NO_THICKNESS_KEY = '';
-const NO_THICKNESS_LABEL = 'ép. n. c.';
+const NO_THICKNESS_LABEL = 'épaisseur non renseignée';
 
 export interface RecapThicknessGroup {
   key: string;

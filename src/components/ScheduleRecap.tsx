@@ -46,16 +46,19 @@ export default function ScheduleRecap({
         </h2>
         {/* Same job as the detailed sheet's provenance line: off-screen the
             paper has to say where its figures came from and whether they are
-            the whole picture. */}
-        <div className="sch-recap-meta">
-          {importedAt && (
-            <span>
-              rapport importé le{' '}
-              {new Date(importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-            </span>
-          )}
-          {filterSummary && <strong>filtré : {filterSummary}</strong>}
-        </div>
+            the whole picture. Skipped entirely when it would say nothing —
+            an empty line still costs the gap above the rule. */}
+        {(importedAt || filterSummary) && (
+          <div className="sch-recap-meta">
+            {importedAt && (
+              <span>
+                rapport importé le{' '}
+                {new Date(importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+            )}
+            {filterSummary && <strong>filtré : {filterSummary}</strong>}
+          </div>
+        )}
       </header>
 
       <table className="sch-recap-table">
@@ -68,7 +71,7 @@ export default function ScheduleRecap({
         </colgroup>
         <thead>
           <tr>
-            <th scope="col" className="sch-recap-col-label">Dimension · épaisseur</th>
+            <th scope="col">Dimension · épaisseur</th>
             <th scope="col" className="sch-recap-col-num">Lites restantes</th>
             <th scope="col" className="sch-recap-col-fill">Plaques dispo.</th>
           </tr>
@@ -135,7 +138,9 @@ function QualityBlock({
           {d.thicknesses.map((t) => (
             <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${t.key || 'nc'}`}>
               <th scope="row" className="sch-recap-th-label">
-                <span className="mono">{t.label}</span>
+                {t.mm == null
+                  ? <span className="sch-recap-th-unknown">{t.label}</span>
+                  : <span className="mono">{t.label}</span>}
               </th>
               <td className="sch-recap-num mono">{fmt(t.reqLites)}</td>
               <td className="sch-recap-fill" />

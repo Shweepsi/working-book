@@ -5137,8 +5137,8 @@ button.as-row:focus-visible {
    ==========================================================================
    The other sheet the schedule prints. Where the layout above puts the whole
    planning table on landscape paper, this one collapses it into what the racks
-   need: lites left to produce per dimension and per thickness, plus two empty
-   columns filled in by hand.
+   need: lites left to produce per dimension and per thickness, plus one empty
+   column filled in by hand.
 
    One block, not two. The `.sch-recap-*` namespace is new and has no on-screen
    rules to beat — the section is `print-only`, so nothing renders it outside
@@ -5239,6 +5239,9 @@ button.as-row:focus-visible {
 /* And a qualité banner never ends one. */
 .sch-recap-qgroup { break-after: avoid; page-break-after: avoid; }
 
+/* The three levels step in by an indent each — qualité flush left, dimension
+   under it, thickness under that. Tint and weight already separate them, but
+   on a sheet read at arm's length the left edge is what carries the nesting. */
 .sch-recap-q th,
 .sch-recap-q td {
   padding: 4pt 5pt;
@@ -5251,6 +5254,7 @@ button.as-row:focus-visible {
 }
 
 .sch-recap-dim th {
+  padding-left: 11pt;
   font-size: 10.5pt;
   font-weight: 600;
 }
@@ -5261,12 +5265,22 @@ button.as-row:focus-visible {
 /* Thicknesses are indented under their dimension rather than given a column of
    their own: the sheet is read as a list of racks, and the indent is what says
    "still the same dimension" without spending width on it. */
-.sch-recap-th-label {
-  padding-left: 16pt;
+/* Scoped to the table for the same reason as the alignment rules above: the
+   base `th, td` padding is a class *and* a type, so a bare class loses to it
+   and the indent silently never happened. */
+.sch-recap-table .sch-recap-th-label {
+  padding-left: 22pt;
   font-size: 9.5pt;
   font-weight: 400;
 }
 .sch-recap-th .sch-recap-num { font-size: 10pt; }
+/* A row whose thickness never decoded. Set in the text face rather than the
+   mono the real thicknesses wear, so it reads as the words it is and not as
+   another rack code. */
+.sch-recap-th-unknown {
+  font-style: italic;
+  color: var(--print-ink);
+}
 
 /* The column nobody fills in on screen. White ground whatever the row it sits
    in, and a line tall enough to write in with a pen held over a rack — a box
@@ -5275,9 +5289,12 @@ button.as-row:focus-visible {
   height: 15mm;
   background: var(--print-bg);
 }
-/* Group and total rows get no box: plates are counted per dimension *and*
-   thickness, so a figure written here would total nothing. */
-.sch-recap-blank { background: var(--print-bg-tint); }
+/* `.sch-recap-blank` — the cell closing a heading or the total row — is
+   deliberately styled by nothing here. Group and total rows get no box (plates
+   are counted per dimension *and* thickness, so a figure written there would
+   total nothing) and the cell takes its ground from its own row; a background
+   of its own would only ever lose to the row rules above. The class stays in
+   the markup to name the intent. */
 
 .sch-recap-total th,
 .sch-recap-total td {
