@@ -343,20 +343,27 @@ export function shortItemName(itemName: string): string {
   return head;
 }
 
-// The laminated make-up an item code carries, or null when the article is
-// monolithic:
-//   CSGSN51XC10005.5.2CL   -> "5.5.2"   two 5 mm plates + a 0.2 interlayer
-//   CSGSNX50HXC08004.4.2CL -> "4.4.2"   two 4 mm plates + a 0.2 interlayer
-//   CSGSN51HXC0600         -> null
+// Sub-quality that reads as the standard one, so it is left off a make-up:
+// "5.5.2CL" is a 5.5.2, while "5.5.2SR" is its own thing on the racks.
+const STANDARD_GRADE = 'CL';
+
+// The laminated make-up an item code carries, sub-quality included, or null
+// when the article is monolithic:
+//   CSGSN70/37XC10005.5.2SR -> "5.5.2SR"  5+5+0.2, sub-quality SR
+//   CSGSN51XC06003.3.4BF    -> "3.3.4BF"  3+3+0.4, sub-quality BF
+//   CSGSNX50HXC08004.4.2CL  -> "4.4.2"    CL is the standard, left unsaid
+//   CSGSN51HXC0600          -> null
 //
 // The four digits in front of it are the *finished* thickness (1000 = 10.00 mm)
 // and that is what the report's thickness column carries — which is exactly how
 // a 5.5.2 comes to look like a plain 10 mm plate. Anything preparing plates has
 // to read the make-up instead: a 4.4.2 is fetched from the 4 mm racks, not the
-// 8 mm ones.
+// 8 mm ones, and a 5.5.2SR is not fetched from the same stack as a 5.5.2.
 export function glassMakeup(itemName: string): string | null {
-  const m = itemName?.match(/[A-Z]{2}\d{4}(\d(?:\.\d+)+)/);
-  return m ? m[1]! : null;
+  const m = itemName?.match(/[A-Z]{2}\d{4}(\d(?:\.\d+)+)([A-Z]*)/);
+  if (!m) return null;
+  const grade = m[2] === STANDARD_GRADE ? '' : m[2] ?? '';
+  return `${m[1]}${grade}`;
 }
 
 function dominantItemRoot(records: PMS230Record[]): string {

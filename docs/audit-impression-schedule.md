@@ -588,9 +588,10 @@ quatrième bande grise.
   (`CSGSNX50HXC08004.4.2CL` → 08.00 mm finis, mais deux plaques de 4). Groupé
   sur la seule colonne épaisseur du rapport, un 4.4.2 tombait dans le même
   « 08 mm » qu'un monolithique et envoyait chercher au mauvais rack. La feuille
-  regroupe donc sur épaisseur *et* composition, et nomme la ligne par la
-  composition, l'épaisseur finie derrière en petit — c'est le nom que porte le
-  reste de la paperasse.
+  regroupe donc sur épaisseur *et* composition, et nomme la ligne par la seule
+  composition — le total nomme l'article, pas la plaque. La sous-qualité en fait
+  partie quand il y en a une (`5.5.2SR`, `3.3.4BF`) ; `CL` étant le standard,
+  elle reste tue (`4.4.2`).
 
 ## Vérifié (Chromium, même harnais)
 

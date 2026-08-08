@@ -192,17 +192,12 @@ function QualityBlock({
                 <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${p.key}-${t.key || 'nc'}`}>
                   <th scope="row" className="sch-recap-th-label">
                     {t.makeup ? (
-                      // A laminate is named by its make-up, not by what it adds
-                      // up to: a 4.4.2 is picked from the 4 mm racks, and its
-                      // finished 08 mm would send the operator to the wrong
-                      // one. The total follows, small, because that is the
-                      // figure the rest of the paperwork speaks in.
-                      <>
-                        <span className="mono">{t.makeup}</span>
-                        {t.mm != null && (
-                          <span className="sch-recap-th-total"> · {t.label} total</span>
-                        )}
-                      </>
+                      // A laminate is named by its make-up and nothing else: a
+                      // 4.4.2 is picked from the 4 mm racks, and its finished
+                      // 08 mm would send the operator to the wrong one. The
+                      // total is not repeated here — it names the article, not
+                      // the plate, and this sheet is about plates.
+                      <span className="mono">{t.makeup}</span>
                     ) : t.mm == null ? (
                       <span className="sch-recap-th-unknown">{t.label}</span>
                     ) : (

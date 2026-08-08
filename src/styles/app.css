@@ -5386,9 +5386,6 @@ button.as-row:focus-visible {
   font-style: italic;
   color: var(--print-ink);
 }
-/* The finished thickness of a laminate, behind its make-up. Small and faint:
-   it is what the rest of the paperwork calls the article, not what to fetch. */
-.sch-recap-th-total { font-size: 8pt; color: var(--print-ink); }
 
 /* The column nobody fills in on screen. White ground whatever the row it sits
    in, and a line tall enough to write in with a pen held over a rack — a box
