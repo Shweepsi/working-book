@@ -105,7 +105,7 @@ export function thicknessMm(raw: string): number | null {
 //   "O PL44.2"       -> "4.4.2"  4 + 4 + a 0.2 interlayer
 //   "O SP3 PL6"      -> "6 mm"   SP3 says nothing about the plate
 //   "O"    + ILLT1   -> "LLT"    no payload, but the format code carries it
-//   "O"    + I11L    -> "?"      genuinely unsaid
+//   "O"    + I11L    -> "O"      genuinely unsaid — kept as the report writes it
 //
 // Only the `PL` payload is kept: the leading "O" is on every PDP, and the other
 // tokens (SP3, EC…) don't change what comes off the rack. Since they are
@@ -116,13 +116,13 @@ export function thicknessMm(raw: string): number | null {
 // a thickness in millimetres.
 //
 // A PDP with no payload at all usually still says its plate through the format
-// code — `ILLT1` marks an LLT. When even that is silent the heading is a plain
-// "?": measured on the live report that is a real bucket (~15 rows), and a
-// question mark invites the check that an invented label would prevent.
+// code — `ILLT1` marks an LLT. When even that is silent the heading stays "O",
+// exactly as the report writes it: measured on the live report that is a real
+// bucket (~15 rows), and an honest O beats a label the data doesn't carry.
 export function pdpLabel(pdp: string, formatCode = ''): string {
   const tokens = pdp.split(/\s+/).filter((t) => t && t !== 'O');
   const pl = tokens.find((t) => /^PL[\d.]+$/.test(t));
-  if (!pl) return formatCode.includes('LLT') ? 'LLT' : '?';
+  if (!pl) return formatCode.includes('LLT') ? 'LLT' : 'O';
 
   const [whole = '', decimals] = pl.slice(2).split('.');
   return decimals ? `${whole.split('').join('.')}.${decimals}` : `${whole} mm`;
@@ -226,10 +226,9 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       }
 
       // PDP descending, the planner's secondary sort in the detailed table
-      // (longueur DESC, PDP DESC). The "?" bucket sinks below the named plates
-      // — collation would place the punctuation wherever it likes — and a row
-      // with no PDP at all lands very last.
-      const rank = (k: string) => (k === '' ? 2 : k === '?' ? 1 : 0);
+      // (longueur DESC, PDP DESC). The bare-O bucket sinks below the named
+      // plates — it says the least — and a row with no PDP at all lands last.
+      const rank = (k: string) => (k === '' ? 2 : k === 'O' ? 1 : 0);
       pdps.sort((a, b) => rank(a.key) - rank(b.key) || b.key.localeCompare(a.key, 'fr'));
 
       const first = pdpBuckets.values().next().value!.values().next().value![0]!;
