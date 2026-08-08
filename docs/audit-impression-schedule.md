@@ -546,11 +546,11 @@ Pas de grille complète : le rythme horizontal des lignes, et un seul filet
 vertical devant chaque colonne de chiffres — celle qui se lit, celle qui
 s'écrit. Le reste tenait de la copie de tableur. Les trois niveaux se
 distinguent alors par trois textures plutôt que par trois gris : la qualité est
-une bande inversée — la seule tache sombre de la feuille, lisible de loin et
-après photocopie —, la dimension une bande teintée qui court sur toute la
-largeur, l'épaisseur une ligne blanche en retrait. Posée en clair, filet et
-blanc tournant, la qualité perdait contre les bandes de dimension placées
-juste dessous. Le total ferme la feuille sur un filet et non sur une
+une bande soutenue précédée d'un filet fort, la dimension une bande légère qui
+court sur toute la largeur, l'épaisseur une ligne blanche en retrait. Posée en
+clair — filet et fond blanc — la qualité perdait contre les bandes de dimension
+placées juste dessous ; inversée en noir elle prenait toute la feuille. Deux
+crans de gris entre les deux niveaux suffisent. Le total ferme la feuille sur un filet et non sur une
 quatrième bande grise.
 
 ## Choix de mise en œuvre

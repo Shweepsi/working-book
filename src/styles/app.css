@@ -5277,11 +5277,11 @@ button.as-row:focus-visible {
 /* The three levels step in by an indent each — qualité flush left, dimension
    under it, thickness under that. Tint and weight already separate them, but
    on a sheet read at arm's length the left edge is what carries the nesting. */
-/* Qualité is the sheet's top cut, and it has to win against the tinted
-   dimension bands under it — set light, with only a rule and some air, it lost
-   to them. Reversed: the one dark band on the sheet, unmistakable at arm's
-   length and still legible through a photocopy. There is one per qualité, two
-   or three on a sheet, so the toner is not an argument. */
+/* Qualité is the sheet's top cut and has to win against the tinted dimension
+   bands under it — set light, with only a rule and some air, it lost to them.
+   A tint two steps darker than theirs, plus the rule and the spaced caps, is
+   enough to carry the level; reversed out of black it read as a slab and took
+   the sheet over. */
 .sch-recap-q th,
 .sch-recap-q td {
   padding: 5pt 6pt;
@@ -5289,9 +5289,8 @@ button.as-row:focus-visible {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--print-bg);
-  background: var(--print-ink-strong);
-  border-top: 0.75pt solid var(--print-ink-strong);
+  background: color-mix(in srgb, var(--print-ink-strong) 20%, var(--print-bg));
+  border-top: 1.25pt solid var(--print-ink-strong);
 }
 
 /* The dimension keeps the band: it is the thing the eye hunts for at the
