@@ -1848,6 +1848,20 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
 .print-preview-bar .btn.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+/* The bar is ink-on-paper inverted, so the generic ghost hover — which paints
+   `--paper` behind text this bar has already recoloured to `--paper` — turned
+   every button white on white. Hover here is a wash of the text colour, not
+   the paper itself. */
+.print-preview-bar .btn.ghost:hover {
+  background: color-mix(in srgb, var(--paper) 18%, transparent);
+  border-color: color-mix(in srgb, var(--paper) 55%, transparent);
+  color: var(--paper);
+}
+.print-preview-bar .btn.primary:hover {
+  background: color-mix(in srgb, var(--paper) 86%, var(--ink));
+  border-color: color-mix(in srgb, var(--paper) 86%, var(--ink));
+  color: var(--ink);
+}
 /* Segmented choice between the schedule's two sheets. Reads as one control
    rather than two buttons: only one of them is ever true, and the pair has to
    say so at a glance on a bar the user is about to print from. */
@@ -1860,7 +1874,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .print-mode-switch .btn + .btn { border-left-width: 0; }
 .print-mode-switch .btn:first-child { border-top-left-radius: var(--radius-pill); border-bottom-left-radius: var(--radius-pill); }
 .print-mode-switch .btn:last-child { border-top-right-radius: var(--radius-pill); border-bottom-right-radius: var(--radius-pill); }
-.print-mode-switch .btn.is-on {
+.print-mode-switch .btn.is-on,
+.print-mode-switch .btn.is-on:hover {
   background: var(--paper);
   color: var(--ink);
   border-color: var(--paper);
