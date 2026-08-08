@@ -1289,6 +1289,9 @@ export default function Schedules({ density, printMode }: SchedulesProps) {
                 shortName={railStats.get(selectedSchedule.schedule)?.shortName ?? ''}
                 importedAt={data?.importedAt}
                 filterSummary={filterSummary}
+                vitesse={vitesse}
+                coaterMin={coaterMin}
+                coaterMinDt={coaterMinDt}
               />
             )}
 

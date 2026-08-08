@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { PMS230Record, PMS230Schedule } from '../lib/pms230Parser';
 import { shortItemName } from '../lib/pms230Parser';
+import { fmtHMmin, hasHMmin } from '../lib/coaterMath';
 import { buildScheduleRecap } from '../lib/scheduleRecap';
 
 // The schedule's second printout: a portrait sheet that groups what is left to
@@ -20,6 +21,12 @@ interface ScheduleRecapProps {
   importedAt?: string;
   /** Active filters, already summarised by the page ('' when none). */
   filterSummary: string;
+  /** Schedule speed in m/min, 0 when nobody has set one. */
+  vitesse: number;
+  /** Minutes still needed on the Coater at that speed, null without one. */
+  coaterMin: number | null;
+  /** Same, plus the 9 % downtime factor. */
+  coaterMinDt: number | null;
 }
 
 const fmt = (n: number, digits = 0): string =>
@@ -31,6 +38,9 @@ export default function ScheduleRecap({
   shortName,
   importedAt,
   filterSummary,
+  vitesse,
+  coaterMin,
+  coaterMinDt,
 }: ScheduleRecapProps) {
   const recap = useMemo(() => buildScheduleRecap(rows), [rows]);
 
@@ -62,6 +72,30 @@ export default function ScheduleRecap({
           <span className="sch-recap-title-sep"> — </span>
           <span className="sch-recap-title-name">{name}</span>
         </h2>
+        {/* The same three tiles the detailed sheet carries, computed from the
+            same rows: what the line is set to run at, and how long the rest
+            takes. The plates are prepared against that duration. */}
+        <div className="sch-recap-stats">
+          <div className="sch-recap-stat">
+            <span className="sch-recap-stat-label">Vitesse</span>
+            <strong className="sch-recap-stat-value mono">
+              {vitesse}
+              <span className="sch-recap-stat-unit"> m/min</span>
+            </strong>
+          </div>
+          <div className="sch-recap-stat">
+            <span className="sch-recap-stat-label">Production</span>
+            <strong className={`sch-recap-stat-value mono ${hasHMmin(coaterMin) ? '' : 'is-empty'}`}>
+              {fmtHMmin(coaterMin)}
+            </strong>
+          </div>
+          <div className="sch-recap-stat">
+            <span className="sch-recap-stat-label">+ DT 9 %</span>
+            <strong className={`sch-recap-stat-value mono ${hasHMmin(coaterMinDt) ? '' : 'is-empty'}`}>
+              {fmtHMmin(coaterMinDt)}
+            </strong>
+          </div>
+        </div>
       </header>
 
       <table className="sch-recap-table">
