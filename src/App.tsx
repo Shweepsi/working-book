@@ -429,7 +429,7 @@ export default function App() {
                       : 'Récap des lites restantes par dimension et épaisseur, A4 portrait, colonne plaques à remplir'
                   }
                 >
-                  {mode === 'detail' ? 'Détail' : 'Récap plaques'}
+                  {mode === 'detail' ? 'Détail' : 'Récap'}
                 </button>
               ))}
             </div>

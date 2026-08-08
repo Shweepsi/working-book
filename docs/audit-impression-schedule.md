@@ -533,6 +533,13 @@ chaque épaisseur, combien de lites reste-t-il, et ai-je les plaques ». Il
 regroupe donc les lignes de planning par qualité → dimension → épaisseur, et
 laisse deux colonnes vides (`Plaques dispo.`, `Commentaires`) remplies au stylo.
 
+Les trois niveaux restent dans la colonne de gauche, y compris la qualité quand
+le schedule n'en a qu'une : remontée dans le titre, elle laisserait une feuille
+dont les colonnes ne disent plus ce qu'elles qualifient. Seules les lignes
+d'épaisseur portent un chiffre et des cases à remplir — la ligne de dimension
+est un intitulé, et tout ce qui se compte ou s'écrit ici appartient à une
+dimension *et* à une épaisseur.
+
 ## Choix de mise en œuvre
 
 - **Les deux rendus sont montés en même temps.** L'écran garde son tableau —

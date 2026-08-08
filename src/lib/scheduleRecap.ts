@@ -57,17 +57,9 @@ export interface RecapQualityGroup {
 
 export interface ScheduleRecap {
   qualities: RecapQualityGroup[];
-  /** True once the rows span more than one qualité — the sheet only prints the
-   *  qualité level then, and puts the single one in its title otherwise. */
-  multiQuality: boolean;
-  /** The single qualité when there is exactly one, '' otherwise. */
-  soleQualite: string;
   reqLites: number;
   m2: number;
   lines: number;
-  /** Distinct dimension × épaisseur buckets, all qualités together — what the
-   *  sheet's header announces as its size. */
-  groups: number;
 }
 
 // "06.00" → "06 mm", "10.00" → "10 mm", "03.85" → "3,85 mm".
@@ -134,7 +126,6 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
   }
 
   const qualities: RecapQualityGroup[] = [];
-  let groups = 0;
 
   for (const [qualite, dims] of byQualite) {
     const dimensions: RecapDimensionGroup[] = [];
@@ -156,7 +147,6 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       // Thickest first, like the pivot the sheet takes after (10, 08, 06);
       // the unknown bucket sinks to the bottom of its dimension.
       thicknesses.sort((a, b) => (b.mm ?? -1) - (a.mm ?? -1));
-      groups += thicknesses.length;
 
       const first = ths.values().next().value![0]!;
       dimensions.push({
@@ -188,11 +178,8 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
   return {
     qualities,
-    multiQuality: qualities.length > 1,
-    soleQualite: qualities.length === 1 ? qualities[0]!.qualite : '',
     reqLites: qualities.reduce((s, q) => s + q.reqLites, 0),
     m2: qualities.reduce((s, q) => s + q.m2, 0),
     lines: qualities.reduce((s, q) => s + q.lines, 0),
-    groups,
   };
 }

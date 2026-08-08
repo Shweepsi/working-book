@@ -46,12 +46,6 @@ export default function ScheduleRecap({
           <span className="mono">{schedule.schedule}</span>
           <span className="sch-recap-title-sep"> — </span>
           <span>{name}</span>
-          {recap.soleQualite && (
-            <>
-              <span className="sch-recap-title-sep"> — </span>
-              <span>Qualité {recap.soleQualite}</span>
-            </>
-          )}
         </h2>
         {/* Same job as the detailed sheet's provenance line: off-screen the
             paper has to say where its figures came from and whether they are
@@ -91,18 +85,14 @@ export default function ScheduleRecap({
             </tr>
           </tbody>
         ) : (
-          recap.qualities.map((q) => (
-            <QualityBlock key={q.qualite} group={q} showQualite={recap.multiQuality} />
-          ))
+          recap.qualities.map((q) => <QualityBlock key={q.qualite} group={q} />)
         )}
 
         <tfoot>
           <tr className="sch-recap-total">
             <th scope="row">
               Total
-              <span className="sch-recap-total-sub">
-                {' '}· {fmt(recap.m2)} m² · {recap.groups} regroupement{recap.groups > 1 ? 's' : ''}
-              </span>
+              <span className="sch-recap-total-sub"> · {fmt(recap.m2)} m²</span>
             </th>
             <td className="sch-recap-num mono">{fmt(recap.reqLites)}</td>
             {/* No writing box on a total: plates are counted per dimension and
@@ -117,26 +107,25 @@ export default function ScheduleRecap({
 
 function QualityBlock({
   group,
-  showQualite,
 }: {
   group: ReturnType<typeof buildScheduleRecap>['qualities'][number];
-  showQualite: boolean;
 }) {
   return (
     <>
-      {/* A tbody of its own so the qualité banner can refuse to be the last
-          thing on a page — `break-after: avoid` needs a box to hang off. */}
-      {showQualite && (
-        <tbody className="sch-recap-qgroup">
-          <tr className="sch-recap-q">
-            <th scope="colgroup">Qualité {group.qualite}</th>
-            {/* In the lites column, like every other subtotal on the sheet —
-                pushed further right it reads as a plate count. */}
-            <td className="sch-recap-num mono">{fmt(group.reqLites)}</td>
-            <td className="sch-recap-blank" colSpan={2} />
-          </tr>
-        </tbody>
-      )}
+      {/* The qualité stays a row of the table, even when the schedule has only
+          one: moved up into the title it would leave a sheet whose columns no
+          longer say what they are qualifying. A tbody of its own so the banner
+          can refuse to be the last thing on a page — `break-after: avoid`
+          needs a box to hang off. */}
+      <tbody className="sch-recap-qgroup">
+        <tr className="sch-recap-q">
+          <th scope="colgroup">Qualité {group.qualite}</th>
+          {/* In the lites column, like the total — pushed further right it
+              reads as a plate count. */}
+          <td className="sch-recap-num mono">{fmt(group.reqLites)}</td>
+          <td className="sch-recap-blank" colSpan={2} />
+        </tr>
+      </tbody>
       {group.dimensions.map((d) => (
         // One tbody per dimension: a group small enough to fit is never split
         // across two sheets, which is what makes the sheet usable at the racks.
@@ -146,10 +135,10 @@ function QualityBlock({
               <span className="mono">{d.label}</span>
               <span className="sch-recap-unit"> mm</span>
             </th>
-            <td className="sch-recap-num mono">{fmt(d.reqLites)}</td>
-            {/* Same reason as the total row: the boxes to fill in belong to the
-                thickness rows, where the plates are actually stacked. */}
-            <td className="sch-recap-blank" colSpan={2} />
+            {/* No subtotal, and no box to fill: the dimension row is a heading
+                for the thicknesses under it, and every figure on this sheet —
+                counted or written — belongs to a dimension *and* a thickness. */}
+            <td className="sch-recap-blank" colSpan={3} />
           </tr>
           {d.thicknesses.map((t) => (
             <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${t.key || 'nc'}`}>
