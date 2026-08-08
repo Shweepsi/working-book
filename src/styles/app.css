@@ -5271,17 +5271,19 @@ button.as-row:focus-visible {
      see the padding on .sch-recap.) */
   border-collapse: separate;
   border-spacing: 0;
+  /* Stops the engine handing the last row of a page-fragment whatever space is
+     left when the next group is pushed onto the following sheet: that row came
+     out stretched to the page bottom, trailing its column rules into the blank.
+     A 1px minimum is below any real content height, so nothing else moves. */
+  height: 1px;
   border: 0.75pt solid var(--print-line);
   /* The header card closes on its own rule and the table starts directly under
      it, exactly as on the detailed sheet — a border of its own would double
      that line. */
   border-top: 0;
 }
-/* Repeats the column header on every sheet, same reason as the detail table:
-   page two of a récap is unreadable without it. */
-.sch-recap-table > thead { display: table-header-group; }
-/* The total, on the other hand, must appear once at the end — a footer group
-   would repeat it on every sheet and read as a per-page subtotal. */
+/* The total must appear once at the end — a footer group would repeat it on
+   every sheet and read as a per-page subtotal. */
 .sch-recap-table > tfoot { display: table-row-group; }
 
 /* Rules where they carry meaning, and nowhere else. A full grid turned the
@@ -5297,38 +5299,27 @@ button.as-row:focus-visible {
   text-align: left;
   vertical-align: middle;
 }
-/* The frame draws the top edge; a row border here would double it. */
-.sch-recap-table thead th { border-top: 0; }
-.sch-recap-table .sch-recap-col-num,
+/* The header card draws the top edge; a row border on the first row would
+   double it. */
+.sch-recap-table tbody:first-of-type tr:first-child th,
+.sch-recap-table tbody:first-of-type tr:first-child td { border-top: 0; }
 .sch-recap-table .sch-recap-num,
-.sch-recap-table .sch-recap-col-fill,
 .sch-recap-table .sch-recap-fill,
 .sch-recap-table .sch-recap-blank {
   border-left: 0.75pt solid var(--print-line);
-}
-.sch-recap-table thead th {
-  padding-top: 4pt;
-  padding-bottom: 4pt;
-  font-size: 8pt;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--print-ink);
-  background: var(--print-bg-tint);
 }
 /* Scoped to the table: the generic `th, td` rule above is a class *and* a
    type, so a bare class would lose the alignment race. */
 /* A touch more air on the right of the figures: flush against the rule that
    opens the writing column, they read as its left edge rather than as counts. */
-.sch-recap-table .sch-recap-col-num,
 .sch-recap-table .sch-recap-num { text-align: right; padding-right: 9pt; }
-.sch-recap-table .sch-recap-col-fill { text-align: center; }
 
-/* A dimension group is never split across two sheets: at the racks, half a
-   group is worse than a shorter first page. */
+/* A PDP and its thicknesses are never split across two sheets: at the racks,
+   half a group is worse than a shorter first page. */
 .sch-recap-group { break-inside: avoid; page-break-inside: avoid; }
-/* And a qualité banner never ends one. */
-.sch-recap-qgroup { break-after: avoid; page-break-after: avoid; }
+/* And neither heading above it ever ends a page alone. */
+.sch-recap-qgroup,
+.sch-recap-dimgroup { break-after: avoid; page-break-after: avoid; }
 
 /* The three levels step in by an indent each — qualité flush left, dimension
    under it, thickness under that. Tint and weight already separate them, but
@@ -5360,6 +5351,22 @@ button.as-row:focus-visible {
 .sch-recap-dim td { background: color-mix(in srgb, var(--print-bg-tint) 60%, var(--print-bg)); }
 .sch-recap-unit { font-size: 8.5pt; font-weight: 400; color: var(--print-ink); }
 
+/* PDP between the dimension and its thicknesses — the order the plates are
+   picked in at the racks. A heading like the two above it, but the lightest of
+   the three: no fill, just the indent, the size and the tag. */
+.sch-recap-table .sch-recap-pdp th {
+  padding-left: 22pt;
+  padding-top: 4pt;
+  font-size: 9.5pt;
+  font-weight: 600;
+}
+.sch-recap-pdp-tag {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--print-ink-soft);
+}
+
 /* Thicknesses are indented under their dimension rather than given a column of
    their own: the sheet is read as a list of racks, and the indent is what says
    "still the same dimension" without spending width on it. */
@@ -5367,7 +5374,7 @@ button.as-row:focus-visible {
    base `th, td` padding is a class *and* a type, so a bare class loses to it
    and the indent silently never happened. */
 .sch-recap-table .sch-recap-th-label {
-  padding-left: 22pt;
+  padding-left: 34pt;
   font-size: 9.5pt;
   font-weight: 400;
 }
@@ -5383,8 +5390,14 @@ button.as-row:focus-visible {
 /* The column nobody fills in on screen. White ground whatever the row it sits
    in, and a line tall enough to write in with a pen held over a rack — a box
    sized to the text around it is a box you write above rather than inside. */
-.sch-recap-fill {
-  height: 15mm;
+/* Padding, not `height` — and scoped to the table, like the other geometry
+   rules here, because the base `th, td` padding is a class *and* a type.
+   A row given a height is a row the engine may stretch to fill what is left of
+   a page: the last row before a group pushed onto the next sheet came out
+   stretched to the page bottom, trailing its column rules into the blank.
+   Padding sets the same 15 mm and cannot be stretched. */
+.sch-recap-table .sch-recap-fill {
+  padding: 7.4mm 6pt;
   background: var(--print-bg);
 }
 /* `.sch-recap-blank` — the cell closing a heading or the total row — is

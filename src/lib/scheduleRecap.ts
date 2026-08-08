@@ -25,6 +25,11 @@ const NO_QUALITE = '—';
 const NO_THICKNESS_KEY = '';
 const NO_THICKNESS_LABEL = 'épaisseur non renseignée';
 
+// Same treatment for a row the report gave no PDP: named, sorted last, never
+// folded into a real one.
+const NO_PDP_KEY = '';
+const NO_PDP_LABEL = 'PDP non renseigné';
+
 export interface RecapThicknessGroup {
   key: string;
   label: string;
@@ -36,6 +41,15 @@ export interface RecapThicknessGroup {
   lines: number;
 }
 
+export interface RecapPdpGroup {
+  key: string;
+  label: string;
+  reqLites: number;
+  m2: number;
+  lines: number;
+  thicknesses: RecapThicknessGroup[];
+}
+
 export interface RecapDimensionGroup {
   key: string;
   label: string;
@@ -44,7 +58,7 @@ export interface RecapDimensionGroup {
   reqLites: number;
   m2: number;
   lines: number;
-  thicknesses: RecapThicknessGroup[];
+  pdps: RecapPdpGroup[];
 }
 
 export interface RecapQualityGroup {
@@ -92,8 +106,8 @@ export function dimensionLabel(largeur: number, longueur: number): string {
 }
 
 /**
- * Collapse planning rows into the qualité → dimension → épaisseur tree the
- * récap sheet prints.
+ * Collapse planning rows into the qualité → dimension → PDP → épaisseur tree
+ * the récap sheet prints.
  *
  * Feed it the rows the table itself shows (`visibleRows`): schedule-scoped,
  * QC samples and finished lines already out, current filters applied. The
@@ -104,7 +118,9 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
   // Nested maps keep insertion cheap; the ordering is imposed once at the end,
   // because it isn't the order rows arrive in (the table's sort is the user's,
   // and it may be on any column).
-  const byQualite = new Map<string, Map<string, Map<string, PMS230Record[]>>>();
+  type ThicknessBuckets = Map<string, PMS230Record[]>;
+  type PdpBuckets = Map<string, ThicknessBuckets>;
+  const byQualite = new Map<string, Map<string, PdpBuckets>>();
 
   for (const r of rows) {
     // A row with no dimension is not a plate to prepare — QC samples are
@@ -114,12 +130,15 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
     const qualite = r.qualite || NO_QUALITE;
     const dimKey = `${r.largeur}×${r.longueur}`;
+    const pdpKey = r.pdp || NO_PDP_KEY;
     const thKey = thicknessMm(r.thickness) == null ? NO_THICKNESS_KEY : r.thickness;
 
     let dims = byQualite.get(qualite);
     if (!dims) byQualite.set(qualite, (dims = new Map()));
-    let ths = dims.get(dimKey);
-    if (!ths) dims.set(dimKey, (ths = new Map()));
+    let pdps = dims.get(dimKey);
+    if (!pdps) dims.set(dimKey, (pdps = new Map()));
+    let ths = pdps.get(pdpKey);
+    if (!ths) pdps.set(pdpKey, (ths = new Map()));
     const bucket = ths.get(thKey);
     if (bucket) bucket.push(r);
     else ths.set(thKey, [r]);
@@ -130,34 +149,55 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
   for (const [qualite, dims] of byQualite) {
     const dimensions: RecapDimensionGroup[] = [];
 
-    for (const [dimKey, ths] of dims) {
-      const thicknesses: RecapThicknessGroup[] = [];
+    for (const [dimKey, pdpBuckets] of dims) {
+      const pdps: RecapPdpGroup[] = [];
 
-      for (const [thKey, bucket] of ths) {
-        thicknesses.push({
-          key: thKey || NO_THICKNESS_KEY,
-          label: thicknessLabel(thKey),
-          mm: thicknessMm(thKey),
-          reqLites: totalReqLites(bucket),
-          m2: totalM2(bucket),
-          lines: bucket.length,
+      for (const [pdpKey, ths] of pdpBuckets) {
+        const thicknesses: RecapThicknessGroup[] = [];
+
+        for (const [thKey, bucket] of ths) {
+          thicknesses.push({
+            key: thKey || NO_THICKNESS_KEY,
+            label: thicknessLabel(thKey),
+            mm: thicknessMm(thKey),
+            reqLites: totalReqLites(bucket),
+            m2: totalM2(bucket),
+            lines: bucket.length,
+          });
+        }
+
+        // Thickest first, like the pivot the sheet takes after (10, 08, 06);
+        // the unknown bucket sinks to the bottom of its PDP.
+        thicknesses.sort((a, b) => (b.mm ?? -1) - (a.mm ?? -1));
+
+        pdps.push({
+          key: pdpKey,
+          label: pdpKey || NO_PDP_LABEL,
+          reqLites: thicknesses.reduce((s, t) => s + t.reqLites, 0),
+          m2: thicknesses.reduce((s, t) => s + t.m2, 0),
+          lines: thicknesses.reduce((s, t) => s + t.lines, 0),
+          thicknesses,
         });
       }
 
-      // Thickest first, like the pivot the sheet takes after (10, 08, 06);
-      // the unknown bucket sinks to the bottom of its dimension.
-      thicknesses.sort((a, b) => (b.mm ?? -1) - (a.mm ?? -1));
+      // PDP descending, the planner's secondary sort in the detailed table
+      // (longueur DESC, PDP DESC). A row without one lands last whatever the
+      // comparison would otherwise do with an empty string.
+      pdps.sort((a, b) => {
+        if (!a.key !== !b.key) return a.key ? -1 : 1;
+        return b.key.localeCompare(a.key, 'fr');
+      });
 
-      const first = ths.values().next().value![0]!;
+      const first = pdpBuckets.values().next().value!.values().next().value![0]!;
       dimensions.push({
         key: dimKey,
         label: dimensionLabel(first.largeur, first.longueur),
         largeur: first.largeur,
         longueur: first.longueur,
-        reqLites: thicknesses.reduce((s, t) => s + t.reqLites, 0),
-        m2: thicknesses.reduce((s, t) => s + t.m2, 0),
-        lines: thicknesses.reduce((s, t) => s + t.lines, 0),
-        thicknesses,
+        reqLites: pdps.reduce((s, p) => s + p.reqLites, 0),
+        m2: pdps.reduce((s, p) => s + p.m2, 0),
+        lines: pdps.reduce((s, p) => s + p.lines, 0),
+        pdps,
       });
     }
 

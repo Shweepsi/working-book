@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import type { PMS230Record, PMS230Schedule } from '../lib/pms230Parser';
 import { shortItemName } from '../lib/pms230Parser';
 import { fmtHMmin, hasHMmin } from '../lib/coaterMath';
@@ -106,14 +106,12 @@ export default function ScheduleRecap({
           <col style={{ width: '15%' }} />
           <col style={{ width: '53%' }} />
         </colgroup>
-        <thead>
-          <tr>
-            <th scope="col">Dimension · épaisseur</th>
-            <th scope="col" className="sch-recap-col-num">Lites restantes</th>
-            <th scope="col" className="sch-recap-col-fill">Plaques dispo.</th>
-          </tr>
-        </thead>
-
+        {/* No column header. The sheet has three columns and each says what it
+            is by what it holds — a label in the left one, a count in the
+            middle, nothing in the right. The band it replaced cost a row of
+            grey at the top of every page for names nobody read twice.
+            Consequence to know: a récap running over several pages no longer
+            carries column names on pages 2 and beyond. */}
         {recap.lines === 0 ? (
           <tbody>
             <tr className="sch-recap-empty">
@@ -159,31 +157,51 @@ function QualityBlock({
         </tr>
       </tbody>
       {group.dimensions.map((d) => (
-        // One tbody per dimension: a group small enough to fit is never split
-        // across two sheets, which is what makes the sheet usable at the racks.
-        <tbody className="sch-recap-group" key={`${group.qualite}-${d.key}`}>
-          <tr className="sch-recap-dim">
-            <th scope="rowgroup">
-              <span className="mono">{d.label}</span>
-              <span className="sch-recap-unit"> mm</span>
-            </th>
-            {/* No subtotal, and no box to fill: the dimension row is a heading
-                for the thicknesses under it, and every figure on this sheet —
-                counted or written — belongs to a dimension *and* a thickness. */}
-            <td className="sch-recap-blank" colSpan={2} />
-          </tr>
-          {d.thicknesses.map((t) => (
-            <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${t.key || 'nc'}`}>
-              <th scope="row" className="sch-recap-th-label">
-                {t.mm == null
-                  ? <span className="sch-recap-th-unknown">{t.label}</span>
-                  : <span className="mono">{t.label}</span>}
+        <Fragment key={`${group.qualite}-${d.key}`}>
+          {/* Heading in a group of its own, like the qualité banner: it must
+              not be the last thing on a page. */}
+          <tbody className="sch-recap-dimgroup">
+            <tr className="sch-recap-dim">
+              <th scope="rowgroup">
+                <span className="mono">{d.label}</span>
+                <span className="sch-recap-unit"> mm</span>
               </th>
-              <td className="sch-recap-num mono">{fmt(t.reqLites)}</td>
-              <td className="sch-recap-fill" />
+              {/* No subtotal, and no box to fill: the dimension row is a
+                  heading for what sits under it, and every figure on this
+                  sheet — counted or written — belongs to a leaf. */}
+              <td className="sch-recap-blank" colSpan={2} />
             </tr>
+          </tbody>
+          {d.pdps.map((p) => (
+            // The unbreakable unit is the PDP and its thicknesses, not the whole
+            // dimension: that is what gets picked in one go at the racks, and a
+            // smaller unit leaves a smaller gap when it is pushed onto the next
+            // sheet — the engine stretches the last row of a page fragment, so
+            // whatever is pushed is paid for in blank paper above it.
+            <tbody className="sch-recap-group" key={`${group.qualite}-${d.key}-${p.key || 'nc'}`}>
+              <tr className="sch-recap-pdp">
+                <th scope="rowgroup">
+                  <span className="sch-recap-pdp-tag">PDP</span>
+                  {p.key
+                    ? <span className="mono"> {p.label}</span>
+                    : <span className="sch-recap-th-unknown"> non renseigné</span>}
+                </th>
+                <td className="sch-recap-blank" colSpan={2} />
+              </tr>
+              {p.thicknesses.map((t) => (
+                <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${p.key}-${t.key || 'nc'}`}>
+                  <th scope="row" className="sch-recap-th-label">
+                    {t.mm == null
+                      ? <span className="sch-recap-th-unknown">{t.label}</span>
+                      : <span className="mono">{t.label}</span>}
+                  </th>
+                  <td className="sch-recap-num mono">{fmt(t.reqLites)}</td>
+                  <td className="sch-recap-fill" />
+                </tr>
+              ))}
+            </tbody>
           ))}
-        </tbody>
+        </Fragment>
       ))}
     </>
   );
