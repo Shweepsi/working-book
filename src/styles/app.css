@@ -5277,17 +5277,21 @@ button.as-row:focus-visible {
 /* The three levels step in by an indent each — qualité flush left, dimension
    under it, thickness under that. Tint and weight already separate them, but
    on a sheet read at arm's length the left edge is what carries the nesting. */
-/* Qualité is a section title, not a row: no fill, a rule of its own above and
-   air around it. Three shades of grey read as three shades of grey; a title,
-   a band and a plain row read as three different things. */
+/* Qualité is the sheet's top cut, and it has to win against the tinted
+   dimension bands under it — set light, with only a rule and some air, it lost
+   to them. Reversed: the one dark band on the sheet, unmistakable at arm's
+   length and still legible through a photocopy. There is one per qualité, two
+   or three on a sheet, so the toner is not an argument. */
 .sch-recap-q th,
 .sch-recap-q td {
-  padding: 8pt 6pt 3pt;
-  font-size: 9pt;
+  padding: 5pt 6pt;
+  font-size: 10pt;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  border-top: 1.25pt solid var(--print-ink-strong);
+  color: var(--print-bg);
+  background: var(--print-ink-strong);
+  border-top: 0.75pt solid var(--print-ink-strong);
 }
 
 /* The dimension keeps the band: it is the thing the eye hunts for at the
