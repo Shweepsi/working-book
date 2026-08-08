@@ -588,6 +588,10 @@ quatrième bande grise.
   jetons (`SP3`…) ne changent pas ce qu'on prend au rack — écartés du libellé,
   ils le sont aussi du regroupement : deux PDP qui n'en diffèrent que par là
   sont la même plaque, et deux intitulés identiques se liraient comme un bug.
+  Un PDP sans charge `PL` dit généralement sa plaque par le code format —
+  `ILLT1` → « LLT » ; sinon la ligne s'intitule « ? », sous les plaques
+  nommées : un point d'interrogation appelle la vérification qu'une étiquette
+  inventée empêcherait. Mesuré sur le rapport prod : 18 lignes LLT, 16 « ? ».
 - **Un feuilleté n'est pas une plaque de son épaisseur totale.** Le code
   article porte la composition derrière les quatre chiffres d'épaisseur
   (`CSGSNX50HXC08004.4.2CL` → 08.00 mm finis, mais deux plaques de 4). Groupé

@@ -101,21 +101,28 @@ export function thicknessMm(raw: string): number | null {
 }
 
 // The plate a PDP calls for, rather than the PDP as the report writes it:
-//   "O PL6"      -> "6 mm"    a plain 6 mm plate
-//   "O PL44.2"   -> "4.4.2"   4 + 4 + a 0.2 interlayer
-//   "O SP3 PL6"  -> "6 mm"    SP3 says nothing about the plate
-//   "O"          -> "O"       nothing to unpack, left as it is
+//   "O PL6"          -> "6 mm"   a plain 6 mm plate
+//   "O PL44.2"       -> "4.4.2"  4 + 4 + a 0.2 interlayer
+//   "O SP3 PL6"      -> "6 mm"   SP3 says nothing about the plate
+//   "O"    + ILLT1   -> "LLT"    no payload, but the format code carries it
+//   "O"    + I11L    -> "?"      genuinely unsaid
 //
 // Only the `PL` payload is kept: the leading "O" is on every PDP, and the other
-// tokens don't change what comes off the rack. Since they are dropped from the
-// label they are dropped from the grouping too — two PDPs that differ only by
-// one of them are the same plate, and printing them as two identical headings
-// would only look like a bug. A payload with a decimal is a laminate (its
-// whole-number part is the plies, one digit each); one without is a thickness.
-export function pdpLabel(pdp: string): string {
+// tokens (SP3, EC…) don't change what comes off the rack. Since they are
+// dropped from the label they are dropped from the grouping too — two PDPs that
+// differ only by one of them are the same plate, and printing them as two
+// identical headings would only look like a bug. A payload with a decimal is a
+// laminate (its whole-number part is the plies, one digit each); one without is
+// a thickness in millimetres.
+//
+// A PDP with no payload at all usually still says its plate through the format
+// code — `ILLT1` marks an LLT. When even that is silent the heading is a plain
+// "?": measured on the live report that is a real bucket (~15 rows), and a
+// question mark invites the check that an invented label would prevent.
+export function pdpLabel(pdp: string, formatCode = ''): string {
   const tokens = pdp.split(/\s+/).filter((t) => t && t !== 'O');
   const pl = tokens.find((t) => /^PL[\d.]+$/.test(t));
-  if (!pl) return tokens.join(' ') || pdp;
+  if (!pl) return formatCode.includes('LLT') ? 'LLT' : '?';
 
   const [whole = '', decimals] = pl.slice(2).split('.');
   return decimals ? `${whole.split('').join('.')}.${decimals}` : `${whole} mm`;
@@ -157,7 +164,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
     const qualite = r.qualite || NO_QUALITE;
     const dimKey = `${r.largeur}×${r.longueur}`;
     // Keyed on the plate the PDP calls for, not on its raw text — see pdpLabel.
-    const pdpKey = r.pdp ? pdpLabel(r.pdp) : NO_PDP_KEY;
+    const pdpKey = r.pdp ? pdpLabel(r.pdp, r.formatCode) : NO_PDP_KEY;
     // Thickness *and* make-up. On the thickness alone a 4.4.2 lands in the same
     // bucket as a plain 8 mm — same finished thickness, two entirely different
     // plates to fetch, and the sheet would send the operator to the wrong rack.
@@ -219,12 +226,11 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       }
 
       // PDP descending, the planner's secondary sort in the detailed table
-      // (longueur DESC, PDP DESC). A row without one lands last whatever the
-      // comparison would otherwise do with an empty string.
-      pdps.sort((a, b) => {
-        if (!a.key !== !b.key) return a.key ? -1 : 1;
-        return b.key.localeCompare(a.key, 'fr');
-      });
+      // (longueur DESC, PDP DESC). The "?" bucket sinks below the named plates
+      // — collation would place the punctuation wherever it likes — and a row
+      // with no PDP at all lands very last.
+      const rank = (k: string) => (k === '' ? 2 : k === '?' ? 1 : 0);
+      pdps.sort((a, b) => rank(a.key) - rank(b.key) || b.key.localeCompare(a.key, 'fr'));
 
       const first = pdpBuckets.values().next().value!.values().next().value![0]!;
       dimensions.push({
