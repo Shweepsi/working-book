@@ -359,8 +359,14 @@ const STANDARD_GRADE = 'CL';
 // a 5.5.2 comes to look like a plain 10 mm plate. Anything preparing plates has
 // to read the make-up instead: a 4.4.2 is fetched from the 4 mm racks, not the
 // 8 mm ones, and a 5.5.2SR is not fetched from the same stack as a 5.5.2.
+//
+// Anchored on the four thickness digits alone, NOT on `[A-Z]{2}\d{4}`: quality
+// codes ending in a digit (NEX9, NEX6) glue that digit to the thickness —
+// "NEX910005.5.2CL" — and a two-letter anchor then reads "EX9100" and misses
+// the make-up entirely. Audited against every item code in the live production
+// report; backtracking settles "910005.5.2" on "1000" + "5.5.2" by itself.
 export function glassMakeup(itemName: string): string | null {
-  const m = itemName?.match(/[A-Z]{2}\d{4}(\d(?:\.\d+)+)([A-Z]*)/);
+  const m = itemName?.match(/\d{4}(\d(?:\.\d+)+)([A-Z]*)/);
   if (!m) return null;
   const grade = m[2] === STANDARD_GRADE ? '' : m[2] ?? '';
   return `${m[1]}${grade}`;

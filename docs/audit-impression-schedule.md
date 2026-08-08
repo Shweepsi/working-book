@@ -596,7 +596,12 @@ quatrième bande grise.
   regroupe donc sur épaisseur *et* composition, et nomme la ligne par la seule
   composition — le total nomme l'article, pas la plaque. La sous-qualité en fait
   partie quand il y en a une (`5.5.2SR`, `3.3.4BF`) ; `CL` étant le standard,
-  elle reste tue (`4.4.2`).
+  elle reste tue (`4.4.2`). L'extraction s'ancre sur les quatre chiffres
+  d'épaisseur seuls, pas sur `[A-Z]{2}\d{4}` : les qualités finissant par un
+  chiffre (NEX9, NEX6) collent ce chiffre à l'épaisseur et décalaient la
+  lecture d'un cran. Audité contre le rapport de production réel (204 lignes,
+  110 codes article distincts, base D1 prod) : composition attendue retrouvée
+  sur les 110, zéro écart.
 
 ## Vérifié (Chromium, même harnais)
 
