@@ -191,9 +191,23 @@ function QualityBlock({
               {p.thicknesses.map((t) => (
                 <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${p.key}-${t.key || 'nc'}`}>
                   <th scope="row" className="sch-recap-th-label">
-                    {t.mm == null
-                      ? <span className="sch-recap-th-unknown">{t.label}</span>
-                      : <span className="mono">{t.label}</span>}
+                    {t.makeup ? (
+                      // A laminate is named by its make-up, not by what it adds
+                      // up to: a 4.4.2 is picked from the 4 mm racks, and its
+                      // finished 08 mm would send the operator to the wrong
+                      // one. The total follows, small, because that is the
+                      // figure the rest of the paperwork speaks in.
+                      <>
+                        <span className="mono">{t.makeup}</span>
+                        {t.mm != null && (
+                          <span className="sch-recap-th-total"> · {t.label} total</span>
+                        )}
+                      </>
+                    ) : t.mm == null ? (
+                      <span className="sch-recap-th-unknown">{t.label}</span>
+                    ) : (
+                      <span className="mono">{t.label}</span>
+                    )}
                   </th>
                   <td className="sch-recap-num mono">{fmt(t.reqLites)}</td>
                   <td className="sch-recap-fill" />

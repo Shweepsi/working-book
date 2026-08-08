@@ -12,6 +12,7 @@
 // the group labels the sheet prints.
 
 import type { PMS230Record } from './pms230Parser';
+import { glassMakeup } from './pms230Parser';
 import { totalM2, totalReqLites } from './coaterMath';
 
 // Label used when a row carries no qualité at all. Same em dash the rest of the
@@ -32,9 +33,13 @@ const NO_PDP_LABEL = 'PDP non renseigné';
 
 export interface RecapThicknessGroup {
   key: string;
+  /** The finished thickness, written out: "08 mm". */
   label: string;
-  /** Sort value in mm, or null for the "unknown thickness" bucket. */
+  /** Sort value in mm, or null for the "unknown thickness" bucket. Always the
+   *  finished thickness, laminate included — a 5.5.2 sorts with the 10 mm. */
   mm: number | null;
+  /** Laminated make-up ("4.4.2"), or null for a monolithic article. */
+  makeup: string | null;
   reqLites: number;
   m2: number;
   /** How many planning rows collapsed into this bucket. */
@@ -131,7 +136,12 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
     const qualite = r.qualite || NO_QUALITE;
     const dimKey = `${r.largeur}×${r.longueur}`;
     const pdpKey = r.pdp || NO_PDP_KEY;
-    const thKey = thicknessMm(r.thickness) == null ? NO_THICKNESS_KEY : r.thickness;
+    // Thickness *and* make-up. On the thickness alone a 4.4.2 lands in the same
+    // bucket as a plain 8 mm — same finished thickness, two entirely different
+    // plates to fetch, and the sheet would send the operator to the wrong rack.
+    const thMm = thicknessMm(r.thickness) == null ? NO_THICKNESS_KEY : r.thickness;
+    const makeup = glassMakeup(r.itemName);
+    const thKey = `${thMm}|${makeup ?? ''}`;
 
     let dims = byQualite.get(qualite);
     if (!dims) byQualite.set(qualite, (dims = new Map()));
@@ -156,10 +166,12 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
         const thicknesses: RecapThicknessGroup[] = [];
 
         for (const [thKey, bucket] of ths) {
+          const [rawMm = '', makeup = ''] = thKey.split('|');
           thicknesses.push({
-            key: thKey || NO_THICKNESS_KEY,
-            label: thicknessLabel(thKey),
-            mm: thicknessMm(thKey),
+            key: thKey,
+            label: thicknessLabel(rawMm),
+            mm: thicknessMm(rawMm),
+            makeup: makeup || null,
             reqLites: totalReqLites(bucket),
             m2: totalM2(bucket),
             lines: bucket.length,
@@ -167,8 +179,12 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
         }
 
         // Thickest first, like the pivot the sheet takes after (10, 08, 06);
-        // the unknown bucket sinks to the bottom of its PDP.
-        thicknesses.sort((a, b) => (b.mm ?? -1) - (a.mm ?? -1));
+        // the unknown bucket sinks to the bottom of its PDP. Laminates sort on
+        // their finished thickness, so a 5.5.2 sits next to the plain 10 mm it
+        // would otherwise have been confused with — side by side is exactly
+        // where the difference has to be visible.
+        thicknesses.sort((a, b) =>
+          (b.mm ?? -1) - (a.mm ?? -1) || (a.makeup ?? '').localeCompare(b.makeup ?? '', 'fr'));
 
         pdps.push({
           key: pdpKey,

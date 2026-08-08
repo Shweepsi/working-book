@@ -581,8 +581,16 @@ quatrième bande grise.
   lignes terminées). Les deux feuilles ne peuvent donc pas se contredire, et
   les filtres actifs sont rappelés en tête de récap comme sur l'autre feuille.
 - **Une ligne sans épaisseur décodée** n'est pas perdue : elle tombe dans un
-  bucket « ép. n. c. » en fin de groupe, qui nomme le trou au lieu de le
-  cacher dans une épaisseur réelle.
+  bucket nommé en fin de groupe, qui dit le trou au lieu de le cacher dans une
+  épaisseur réelle.
+- **Un feuilleté n'est pas une plaque de son épaisseur totale.** Le code
+  article porte la composition derrière les quatre chiffres d'épaisseur
+  (`CSGSNX50HXC08004.4.2CL` → 08.00 mm finis, mais deux plaques de 4). Groupé
+  sur la seule colonne épaisseur du rapport, un 4.4.2 tombait dans le même
+  « 08 mm » qu'un monolithique et envoyait chercher au mauvais rack. La feuille
+  regroupe donc sur épaisseur *et* composition, et nomme la ligne par la
+  composition, l'épaisseur finie derrière en petit — c'est le nom que porte le
+  reste de la paperasse.
 
 ## Vérifié (Chromium, même harnais)
 

@@ -343,6 +343,22 @@ export function shortItemName(itemName: string): string {
   return head;
 }
 
+// The laminated make-up an item code carries, or null when the article is
+// monolithic:
+//   CSGSN51XC10005.5.2CL   -> "5.5.2"   two 5 mm plates + a 0.2 interlayer
+//   CSGSNX50HXC08004.4.2CL -> "4.4.2"   two 4 mm plates + a 0.2 interlayer
+//   CSGSN51HXC0600         -> null
+//
+// The four digits in front of it are the *finished* thickness (1000 = 10.00 mm)
+// and that is what the report's thickness column carries — which is exactly how
+// a 5.5.2 comes to look like a plain 10 mm plate. Anything preparing plates has
+// to read the make-up instead: a 4.4.2 is fetched from the 4 mm racks, not the
+// 8 mm ones.
+export function glassMakeup(itemName: string): string | null {
+  const m = itemName?.match(/[A-Z]{2}\d{4}(\d(?:\.\d+)+)/);
+  return m ? m[1]! : null;
+}
+
 function dominantItemRoot(records: PMS230Record[]): string {
   // Pick the short form that covers the most rows among glass records (skip QC samples).
   const counts = new Map<string, number>();
