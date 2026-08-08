@@ -60,9 +60,11 @@ export default function ScheduleRecap({
 
       <table className="sch-recap-table">
         <colgroup>
-          <col style={{ width: '46%' }} />
-          <col style={{ width: '24%' }} />
-          <col style={{ width: '30%' }} />
+          {/* The column that gets written in takes the widest share: the two
+              others only have to hold a dimension label and a count. */}
+          <col style={{ width: '38%' }} />
+          <col style={{ width: '20%' }} />
+          <col style={{ width: '42%' }} />
         </colgroup>
         <thead>
           <tr>

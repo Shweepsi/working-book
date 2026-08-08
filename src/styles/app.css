@@ -5238,10 +5238,11 @@ button.as-row:focus-visible {
 }
 .sch-recap-th .sch-recap-num { font-size: 10pt; }
 
-/* The two columns nobody fills in on screen. White ground whatever the row
-   they sit in, and tall enough to write a two-digit count with a pen. */
+/* The column nobody fills in on screen. White ground whatever the row it sits
+   in, and a line tall enough to write in with a pen held over a rack — a box
+   sized to the text around it is a box you write above rather than inside. */
 .sch-recap-fill {
-  height: 8.5mm;
+  height: 12mm;
   background: var(--print-bg);
 }
 /* Group and total rows get no box: plates are counted per dimension *and*
