@@ -38,26 +38,30 @@ export default function ScheduleRecap({
 
   return (
     <section className="sch-recap print-only">
+      {/* Same furniture as the detailed sheet, in the same order: provenance
+          first as a discreet line under the top margin, then the title in its
+          band. Reference matter above content — and the sheet reads as the
+          other one's sibling rather than as a document from elsewhere.
+          Skipped entirely when it would say nothing: an empty line still costs
+          the gap under it. */}
+      {(importedAt || filterSummary) && (
+        <div className="sch-recap-meta">
+          {importedAt && (
+            <span>
+              rapport importé le{' '}
+              {new Date(importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+            </span>
+          )}
+          {filterSummary && <strong>filtré : {filterSummary}</strong>}
+        </div>
+      )}
+
       <header className="sch-recap-head">
         <h2 className="sch-recap-title">
           <span className="mono sch-recap-title-num">{schedule.schedule}</span>
+          <span className="sch-recap-title-sep"> — </span>
           <span className="sch-recap-title-name">{name}</span>
         </h2>
-        {/* Same job as the detailed sheet's provenance line: off-screen the
-            paper has to say where its figures came from and whether they are
-            the whole picture. Skipped entirely when it would say nothing —
-            an empty line still costs the gap above the rule. */}
-        {(importedAt || filterSummary) && (
-          <div className="sch-recap-meta">
-            {importedAt && (
-              <span>
-                rapport importé le{' '}
-                {new Date(importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-              </span>
-            )}
-            {filterSummary && <strong>filtré : {filterSummary}</strong>}
-          </div>
-        )}
       </header>
 
       <table className="sch-recap-table">

@@ -5170,43 +5170,41 @@ button.as-row:focus-visible {
      came out half the width of every other line on the sheet. */
   padding-right: 1pt;
 }
-/* Title and provenance share a baseline instead of stacking: the sheet's own
-   heading has two things to say and they are not a hierarchy, one names the
-   schedule and the other says where its figures came from. */
-.sch-recap-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 2pt 16pt;
-  margin-bottom: 12pt;
-  padding-bottom: 5pt;
-  border-bottom: 1pt solid var(--print-ink-strong);
-}
-.sch-recap-title {
-  display: flex;
-  align-items: baseline;
-  gap: 8pt;
-  margin: 0;
-  font-size: 15pt;
-  font-weight: 600;
-  line-height: 1.15;
-}
-/* The number is the sheet's identity — it carries the weight; the article
-   name qualifies it, in the text face and a shade lighter. */
-.sch-recap-title-num { letter-spacing: -0.01em; }
-.sch-recap-title-name {
-  font-size: 12pt;
-  font-weight: 400;
-  color: var(--print-ink);
-}
+/* The header is the detailed sheet's, to the letter: the same tinted band with
+   its rounded top and side rails closing on a rule, the same 17pt title, and
+   the same faint provenance line above it. Two sheets of the same schedule
+   should open the same way — declared here rather than borrowed from
+   `.sch-detail-head`, whose own rules are hidden in this mode. */
 .sch-recap-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 2pt 12pt;
-  font-size: 8pt;
-  color: var(--print-ink-soft);
+  gap: 2pt 10pt;
+  margin: 0 0 2mm;
+  font-size: 7pt;
+  color: var(--ink-faint);
 }
+/* "filtré : …" is the one item here that changes how the sheet must be read —
+   it says these are not all the rows. Full ink while the rest stays faint. */
+.sch-recap-meta strong { font-weight: 600; color: var(--ink); }
+
+.sch-recap-head {
+  display: flex;
+  align-items: center;
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-bottom: 1pt solid var(--line-soft);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.sch-recap-title {
+  margin: 0;
+  font-size: 17pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.sch-recap-title-num { font-variant-numeric: tabular-nums; }
+.sch-recap-title-sep { margin: 0 2pt; }
+.sch-recap-title-name { font-weight: 600; }
 
 .sch-recap-table {
   width: 100%;
@@ -5220,6 +5218,10 @@ button.as-row:focus-visible {
   border-collapse: separate;
   border-spacing: 0;
   border: 0.75pt solid var(--print-line);
+  /* The header card closes on its own rule and the table starts directly under
+     it, exactly as on the detailed sheet — a border of its own would double
+     that line. */
+  border-top: 0;
 }
 /* Repeats the column header on every sheet, same reason as the detail table:
    page two of a récap is unreadable without it. */
