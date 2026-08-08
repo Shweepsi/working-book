@@ -2684,14 +2684,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-color: var(--ink-faint);
   color: var(--ink);
 }
-/* Armed = the next print gives the récap sheet instead of the table. The state
-   is invisible on screen otherwise (the récap is print-only), so the button
-   has to carry it on its own. */
-.sch-recap-btn.is-on {
-  background: var(--paper-2);
-  border-color: var(--line-soft);
-  color: var(--accent);
-}
 /* CSS-drawn like .sch-cols-icon. The lens is a square with two opposite
    corners rounded, turned 45° so the points land left and right; the pupil is
    the dot at its centre. */

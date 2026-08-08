@@ -550,11 +550,12 @@ laisse deux colonnes vides (`Plaques dispo.`, `Commentaires`) remplies au stylo.
   règle écran à écraser : `print-only` suffit à le tenir hors de l'écran, et
   l'aperçu comme le papier définissent les mêmes tokens `--print-*`. Ni
   duplication ni `!important`.
-- **Bascule à deux endroits.** Un bouton « Récap plaques » dans la barre
-  d'outils du tableau (`no-print`), et le sélecteur `Détail | Récap` dans la
-  barre d'aperçu — la barre d'outils y étant masquée, l'aperçu serait sinon un
-  cul-de-sac. Le choix est persisté (`wb.sched.printMode`) : qui imprime le
-  récap chaque matin ne le réarme pas chaque matin.
+- **Bascule dans l'aperçu, et là seulement.** Le sélecteur `Détail | Récap`
+  vit dans la barre d'aperçu d'impression. Choisir sa feuille est une décision
+  de papier : elle a sa place au dernier arrêt avant la boîte d'impression, pas
+  dans la barre d'outils du tableau, qui n'imprime rien. Le choix est persisté
+  (`wb.sched.printMode`) : qui imprime le récap chaque matin ne le réarme pas
+  chaque matin.
 - **Les chiffres viennent de `visibleRows`**, les lignes que compte déjà la
   ligne Total du tableau : mêmes filtres, mêmes exclusions (échantillons QC,
   lignes terminées). Les deux feuilles ne peuvent donc pas se contredire, et

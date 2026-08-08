@@ -477,13 +477,12 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
 interface SchedulesProps {
   density: Density;
   // Which of the two paper layouts the view prints as. Owned by App, which
-  // holds the single `@page` rule the orientation depends on — see
-  // PAGE_SIZE_STYLE_ID there.
+  // holds the single `@page` rule the orientation depends on and the aperçu bar
+  // the choice is made in — see PAGE_SIZE_STYLE_ID there.
   printMode: SchedPrintMode;
-  onPrintModeChange: (mode: SchedPrintMode) => void;
 }
 
-export default function Schedules({ density, printMode, onPrintModeChange }: SchedulesProps) {
+export default function Schedules({ density, printMode }: SchedulesProps) {
   // Every domain syncs, the PMS230 report included — the per-operator
   // local-only toggle it used to honour is gone.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
@@ -1260,8 +1259,6 @@ export default function Schedules({ density, printMode, onPrintModeChange }: Sch
               onTogglePinned={togglePinned}
               onMoveColumn={moveColumn}
               onResetLayout={resetTableLayout}
-              printMode={printMode}
-              onPrintModeChange={onPrintModeChange}
             />
 
             <ScheduleTable
@@ -2079,8 +2076,6 @@ interface TableControlsProps {
   onTogglePinned: (key: string) => void;
   onMoveColumn: (key: string, dir: -1 | 1) => void;
   onResetLayout: () => void;
-  printMode: SchedPrintMode;
-  onPrintModeChange: (mode: SchedPrintMode) => void;
 }
 
 function TableControls({
@@ -2101,8 +2096,6 @@ function TableControls({
   onTogglePinned,
   onMoveColumn,
   onResetLayout,
-  printMode,
-  onPrintModeChange,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
 
@@ -2147,22 +2140,6 @@ function TableControls({
         </button>
       )}
       <div className="sch-controls-end">
-        {/* The récap only exists on paper, so its switch has to be reachable
-            without opening the aperçu first — the aperçu carries the same
-            choice, but nothing here would otherwise say the sheet exists. */}
-        <button
-          type="button"
-          className={`btn ghost mini sch-recap-btn ${printMode === 'recap' ? 'is-on' : ''}`}
-          onClick={() => onPrintModeChange(printMode === 'recap' ? 'detail' : 'recap')}
-          aria-pressed={printMode === 'recap'}
-          title={
-            printMode === 'recap'
-              ? 'Impression : récap plaques (portrait) — cliquer pour revenir au tableau détaillé'
-              : 'Imprimer un récap des lites restantes par dimension et épaisseur, avec une colonne plaques à remplir'
-          }
-        >
-          Récap plaques
-        </button>
         {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control

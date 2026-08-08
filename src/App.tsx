@@ -399,11 +399,7 @@ export default function App() {
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
         {tab === 'sched' && (
-          <Schedules
-            density={density}
-            printMode={schedPrintMode}
-            onPrintModeChange={setSchedPrintMode}
-          />
+          <Schedules density={density} printMode={schedPrintMode} />
         )}
         {tab === 'suivi' && <Suivi />}
       </main>
@@ -414,9 +410,10 @@ export default function App() {
         <div className="print-preview-bar" role="status">
           <span><strong>Aperçu d’impression</strong> — la mise en page papier s’applique à l’écran.</span>
           <span style={{ flex: 1 }} />
-          {/* The Schedule view has two sheets. The aperçu is where the choice
-              between them belongs — the view's own controls are hidden here,
-              and this is the last stop before the print dialog. */}
+          {/* The Schedule view has two sheets, and this is the only place the
+              choice between them is offered: it is a paper decision, so it
+              belongs on the last stop before the print dialog rather than in
+              the table's own toolbar, which prints nothing. */}
           {tab === 'sched' && (
             <div className="print-mode-switch" role="group" aria-label="Mise en page du schedule">
               {(['detail', 'recap'] as const).map((mode) => (
