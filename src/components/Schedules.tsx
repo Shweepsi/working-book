@@ -14,6 +14,8 @@ import {
 } from '../lib/coaterMath';
 import PasteImport from './PasteImport';
 import PortalImport from './PortalImport';
+import ScheduleRecap from './ScheduleRecap';
+import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
 
@@ -474,9 +476,14 @@ function fmtNum(n: number | null | undefined, digits = 0): string {
 
 interface SchedulesProps {
   density: Density;
+  // Which of the two paper layouts the view prints as. Owned by App, which
+  // holds the single `@page` rule the orientation depends on — see
+  // PAGE_SIZE_STYLE_ID there.
+  printMode: SchedPrintMode;
+  onPrintModeChange: (mode: SchedPrintMode) => void;
 }
 
-export default function Schedules({ density }: SchedulesProps) {
+export default function Schedules({ density, printMode, onPrintModeChange }: SchedulesProps) {
   // Every domain syncs, the PMS230 report included — the per-operator
   // local-only toggle it used to honour is gone.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
@@ -1061,7 +1068,10 @@ export default function Schedules({ density }: SchedulesProps) {
   }
 
   return (
-    <div className="sch">
+    // The print mode is carried on the root rather than on <html>: the paper
+    // rules only ever need it from inside this view, and `:has()` lets the
+    // preview sheet pick its own width off the same class (see app.css).
+    <div className={`sch${printMode === 'recap' ? ' is-print-recap' : ''}`}>
       <SummaryBar
         data={data}
         policy={policy}
@@ -1250,6 +1260,8 @@ export default function Schedules({ density }: SchedulesProps) {
               onTogglePinned={togglePinned}
               onMoveColumn={moveColumn}
               onResetLayout={resetTableLayout}
+              printMode={printMode}
+              onPrintModeChange={onPrintModeChange}
             />
 
             <ScheduleTable
@@ -1268,6 +1280,20 @@ export default function Schedules({ density }: SchedulesProps) {
               sortDir={tableSettings.sortDir}
               onSort={toggleSort}
             />
+
+            {/* The second paper layout. Mounted alongside the table rather than
+                in its place: the table stays the screen's working tool, and the
+                paper rules swap which of the two is printed. Fed the same rows
+                the Total row counts, so the two sheets can't disagree. */}
+            {printMode === 'recap' && selectedSchedule && (
+              <ScheduleRecap
+                rows={visibleRows}
+                schedule={selectedSchedule}
+                shortName={railStats.get(selectedSchedule.schedule)?.shortName ?? ''}
+                importedAt={data?.importedAt}
+                filterSummary={filterSummary}
+              />
+            )}
 
           </section>
         </div>
@@ -2053,6 +2079,8 @@ interface TableControlsProps {
   onTogglePinned: (key: string) => void;
   onMoveColumn: (key: string, dir: -1 | 1) => void;
   onResetLayout: () => void;
+  printMode: SchedPrintMode;
+  onPrintModeChange: (mode: SchedPrintMode) => void;
 }
 
 function TableControls({
@@ -2073,6 +2101,8 @@ function TableControls({
   onTogglePinned,
   onMoveColumn,
   onResetLayout,
+  printMode,
+  onPrintModeChange,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
 
@@ -2117,6 +2147,22 @@ function TableControls({
         </button>
       )}
       <div className="sch-controls-end">
+        {/* The récap only exists on paper, so its switch has to be reachable
+            without opening the aperçu first — the aperçu carries the same
+            choice, but nothing here would otherwise say the sheet exists. */}
+        <button
+          type="button"
+          className={`btn ghost mini sch-recap-btn ${printMode === 'recap' ? 'is-on' : ''}`}
+          onClick={() => onPrintModeChange(printMode === 'recap' ? 'detail' : 'recap')}
+          aria-pressed={printMode === 'recap'}
+          title={
+            printMode === 'recap'
+              ? 'Impression : récap plaques (portrait) — cliquer pour revenir au tableau détaillé'
+              : 'Imprimer un récap des lites restantes par dimension et épaisseur, avec une colonne plaques à remplir'
+          }
+        >
+          Récap plaques
+        </button>
         {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control

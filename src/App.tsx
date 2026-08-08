@@ -19,7 +19,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types';
+import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
@@ -115,6 +115,13 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
+  // Which paper layout the Schedule view prints as. Kept here, next to the
+  // `@page` rule and the aperçu bar, so the orientation has a single owner.
+  // Persisted like the other paper-adjacent preferences: an operator who
+  // prints the récap every morning shouldn't re-arm it every morning.
+  const [schedPrintMode, setSchedPrintMode] = useState<SchedPrintMode>(
+    () => (load<SchedPrintMode>('wb.sched.printMode', 'detail') === 'recap' ? 'recap' : 'detail'),
+  );
 
   const live = useNowLive();
   const toast = useToast();
@@ -137,6 +144,7 @@ export default function App() {
     });
   }, [toast]);
 
+  useEffect(() => { save('wb.sched.printMode', schedPrintMode); }, [schedPrintMode]);
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
@@ -188,11 +196,17 @@ export default function App() {
     // The schedule sheet gets taller top/bottom margins: 5mm glued the title
     // to the paper edge, and on later pages the repeated column header sat
     // just as tight. Sides stay at 5mm — the table needs the width.
+    //
+    // Its récap is the exception: four columns fit portrait, and two of them
+    // are filled in by hand, so the margins go wider — the sheet is held and
+    // written on, not just read.
     el.textContent =
-      tab === 'sched'
+      tab === 'sched' && schedPrintMode === 'detail'
         ? '@media print { @page { size: A4 landscape; margin: 8mm 5mm; } }'
-        : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
-  }, [tab]);
+        : tab === 'sched'
+          ? '@media print { @page { size: A4 portrait; margin: 10mm 8mm; } }'
+          : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
+  }, [tab, schedPrintMode]);
 
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
@@ -384,7 +398,13 @@ export default function App() {
         {tab === 'test' && (
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
-        {tab === 'sched' && <Schedules density={density} />}
+        {tab === 'sched' && (
+          <Schedules
+            density={density}
+            printMode={schedPrintMode}
+            onPrintModeChange={setSchedPrintMode}
+          />
+        )}
         {tab === 'suivi' && <Suivi />}
       </main>
 
@@ -394,6 +414,29 @@ export default function App() {
         <div className="print-preview-bar" role="status">
           <span><strong>Aperçu d’impression</strong> — la mise en page papier s’applique à l’écran.</span>
           <span style={{ flex: 1 }} />
+          {/* The Schedule view has two sheets. The aperçu is where the choice
+              between them belongs — the view's own controls are hidden here,
+              and this is the last stop before the print dialog. */}
+          {tab === 'sched' && (
+            <div className="print-mode-switch" role="group" aria-label="Mise en page du schedule">
+              {(['detail', 'recap'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`btn ghost mini ${schedPrintMode === mode ? 'is-on' : ''}`}
+                  onClick={() => setSchedPrintMode(mode)}
+                  aria-pressed={schedPrintMode === mode}
+                  title={
+                    mode === 'detail'
+                      ? 'Tableau détaillé du planning, A4 paysage'
+                      : 'Récap des lites restantes par dimension et épaisseur, A4 portrait, colonne plaques à remplir'
+                  }
+                >
+                  {mode === 'detail' ? 'Détail' : 'Récap plaques'}
+                </button>
+              ))}
+            </div>
+          )}
           <button type="button" className="btn ghost mini" onClick={() => window.print()}>
             Imprimer
           </button>

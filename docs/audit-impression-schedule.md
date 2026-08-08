@@ -521,3 +521,61 @@ section de la fiche de détail ; rien d'autre n'a bougé au pixel près.
 - Tout a été mesuré sous Chromium. Le repli fragile ayant disparu, plus rien ne
   dépend de `beforeprint`, mais la répétition de `<thead>` et les sauts de page
   restent à confirmer sur un autre moteur.
+
+---
+
+# Second rendu papier — récap plaques (portrait)
+
+Ajouté après cet audit, à côté du tableau détaillé et sans rien y changer.
+La feuille détaillée répond à « qu'y a-t-il à produire, ligne par ligne » ; le
+récap répond à la question posée devant les racks : « pour chaque dimension et
+chaque épaisseur, combien de lites reste-t-il, et ai-je les plaques ». Il
+regroupe donc les lignes de planning par qualité → dimension → épaisseur, et
+laisse deux colonnes vides (`Plaques dispo.`, `Commentaires`) remplies au stylo.
+
+## Choix de mise en œuvre
+
+- **Les deux rendus sont montés en même temps.** L'écran garde son tableau —
+  c'est l'outil de travail, et le récap n'a rien à y faire : il porte une
+  colonne que personne ne peut remplir sur un écran. `ScheduleRecap` est
+  `print-only` ; le CSS papier masque le tableau quand `.sch.is-print-recap`.
+- **`@page` garde une source unique.** L'orientation reste décidée par le seul
+  élément `wb-page-size` d'`App.tsx` — d'où l'état `schedPrintMode` hébergé
+  dans `App` plutôt que dans `Schedules`. Deux composants réécrivant `@page`
+  auraient reproduit exactement la fragilité que le reste de ce document
+  documente. Portrait, marges 10 mm / 8 mm : la feuille est tenue et écrite,
+  pas seulement lue.
+- **Un seul jeu de règles CSS**, contrairement à la section `.sch-*` qui doit
+  être écrite deux fois. Le namespace `.sch-recap-*` est neuf et n'a aucune
+  règle écran à écraser : `print-only` suffit à le tenir hors de l'écran, et
+  l'aperçu comme le papier définissent les mêmes tokens `--print-*`. Ni
+  duplication ni `!important`.
+- **Bascule à deux endroits.** Un bouton « Récap plaques » dans la barre
+  d'outils du tableau (`no-print`), et le sélecteur `Détail | Récap` dans la
+  barre d'aperçu — la barre d'outils y étant masquée, l'aperçu serait sinon un
+  cul-de-sac. Le choix est persisté (`wb.sched.printMode`) : qui imprime le
+  récap chaque matin ne le réarme pas chaque matin.
+- **Les chiffres viennent de `visibleRows`**, les lignes que compte déjà la
+  ligne Total du tableau : mêmes filtres, mêmes exclusions (échantillons QC,
+  lignes terminées). Les deux feuilles ne peuvent donc pas se contredire, et
+  les filtres actifs sont rappelés en tête de récap comme sur l'autre feuille.
+- **Une ligne sans épaisseur décodée** n'est pas perdue : elle tombe dans un
+  bucket « ép. n. c. » en fin de groupe, qui nomme le trou au lieu de le
+  cacher dans une épaisseur réelle.
+
+## Vérifié (Chromium, même harnais)
+
+`<thead>` répété sur chacune des 4 pages d'un récap de 24 dimensions, aucun
+groupe dimension coupé en deux (un `<tbody>` par dimension, `break-inside:
+avoid`), total imprimé une seule fois en fin de document (`tfoot` remis en
+`table-row-group` — en groupe de pied il se serait répété à chaque page et lu
+comme un sous-total). Total récap = total `Req` du tableau détaillé à filtres
+identiques (637 lites, 11 164 m² sur le jeu de test). Aller-retour entre les
+deux modes : orientation, largeur de feuille d'aperçu et contenu suivent, sans
+trace de l'autre rendu. Écran inchangé dans les deux modes.
+
+## Limites connues
+
+- Le récap ne couvre que le schedule sélectionné, comme la feuille détaillée.
+  Préparer les plaques de plusieurs schedules demande autant d'impressions.
+- Mesuré sous Chromium uniquement, comme le reste de ce document.
