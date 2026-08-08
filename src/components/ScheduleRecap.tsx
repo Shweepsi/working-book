@@ -5,8 +5,8 @@ import { fmtHMmin, hasHMmin } from '../lib/coaterMath';
 import { buildScheduleRecap } from '../lib/scheduleRecap';
 
 // The schedule's second printout: a portrait sheet that groups what is left to
-// produce by dimension and by thickness, with an empty column for the plate
-// count the operator writes in front of the racks.
+// produce by qualité, dimension, PDP and plate, with an empty column for the
+// plate count the operator writes in front of the racks.
 //
 // Print-only by design. The detailed table stays on screen and stays the
 // working tool — this is a paper form, not a second view of the planning, and
@@ -183,8 +183,8 @@ function QualityBlock({
                 <th scope="rowgroup">
                   <span className="sch-recap-pdp-tag">PDP</span>
                   {p.key
-                    ? <span className="mono"> {p.label}</span>
-                    : <span className="sch-recap-th-unknown"> non renseigné</span>}
+                    ? <span className="mono"> {p.key}</span>
+                    : <span className="sch-recap-unknown"> non renseigné</span>}
                 </th>
                 <td className="sch-recap-blank" colSpan={2} />
               </tr>
@@ -199,7 +199,7 @@ function QualityBlock({
                       // the plate, and this sheet is about plates.
                       <span className="mono">{t.makeup}</span>
                     ) : t.mm == null ? (
-                      <span className="sch-recap-th-unknown">{t.label}</span>
+                      <span className="sch-recap-unknown">{t.label}</span>
                     ) : (
                       <span className="mono">{t.label}</span>
                     )}

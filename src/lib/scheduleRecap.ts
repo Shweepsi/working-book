@@ -3,10 +3,10 @@
 //
 // The detailed landscape sheet answers "what is there to produce, line by
 // line". This one answers a different question, the one asked in front of the
-// racks: "for each dimension and each thickness, how many lites are still to
-// produce, and have I got the plates for it". So the planning rows collapse
-// into qualité → dimension → épaisseur buckets, and the plate count itself is
-// left blank — nobody has that figure in the report, it is written by hand.
+// racks: "for each dimension, each PDP and each plate, how many lites are
+// still to produce, and have I got the stock". So the planning rows collapse
+// into qualité → dimension → PDP → plaque buckets, and the plate count itself
+// is left blank — nobody has that figure in the report, it is written by hand.
 //
 // Pure functions over rows: no DOM, no state, no formatting decisions beyond
 // the group labels the sheet prints.
@@ -26,10 +26,9 @@ const NO_QUALITE = '—';
 const NO_THICKNESS_KEY = '';
 const NO_THICKNESS_LABEL = 'épaisseur non renseignée';
 
-// Same treatment for a row the report gave no PDP: named, sorted last, never
-// folded into a real one.
+// Same treatment for a row the report gave no PDP: keyed apart, sorted last,
+// never folded into a real one. The sheet names the gap itself.
 const NO_PDP_KEY = '';
-const NO_PDP_LABEL = 'PDP non renseigné';
 
 export interface RecapThicknessGroup {
   key: string;
@@ -47,8 +46,9 @@ export interface RecapThicknessGroup {
 }
 
 export interface RecapPdpGroup {
+  /** The plate this PDP calls for ("6 mm", "4.4.2", "LLT", "O"), or '' when
+   *  the report carried no PDP at all. */
   key: string;
-  label: string;
   reqLites: number;
   m2: number;
   lines: number;
@@ -217,7 +217,6 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
         pdps.push({
           key: pdpKey,
-          label: pdpKey || NO_PDP_LABEL,
           reqLites: thicknesses.reduce((s, t) => s + t.reqLites, 0),
           m2: thicknesses.reduce((s, t) => s + t.m2, 0),
           lines: thicknesses.reduce((s, t) => s + t.lines, 0),
