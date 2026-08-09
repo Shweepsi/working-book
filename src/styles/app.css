@@ -1846,7 +1846,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-size: var(--fs-md);
   max-width: calc(100% - 40px);
 }
-.print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
+/* `nowrap`: the bar is a fixed-width pill and the sentence on its left is the
+   only thing that should give way. A two-line "Tri PDP" grew the whole bar and
+   left its buttons at odd heights. */
+.print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); white-space: nowrap; }
 .print-preview-bar .btn.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
 /* The bar is ink-on-paper inverted, so the generic ghost hover — which paints
    `--paper` behind text this bar has already recoloured to `--paper` — turned
@@ -1874,8 +1877,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .print-mode-switch .btn + .btn { border-left-width: 0; }
 .print-mode-switch .btn:first-child { border-top-left-radius: var(--radius-pill); border-bottom-left-radius: var(--radius-pill); }
 .print-mode-switch .btn:last-child { border-top-right-radius: var(--radius-pill); border-bottom-right-radius: var(--radius-pill); }
-.print-mode-switch .btn.is-on,
-.print-mode-switch .btn.is-on:hover {
+/* What is on, on this bar, is filled with the text colour — the segmented pair
+   and the standalone toggles alike, so "active" reads the same whichever
+   control wears it. */
+.print-preview-bar .btn.ghost.is-on,
+.print-preview-bar .btn.ghost.is-on:hover {
   background: var(--paper);
   color: var(--ink);
   border-color: var(--paper);
@@ -5378,6 +5384,10 @@ button.as-row:focus-visible {
   font-size: 9.5pt;
   font-weight: 400;
 }
+/* Without the PDP level the plates move up a rung: the indent says which
+   heading owns them, and kept at 34pt it would point at a row that isn't
+   printed. */
+.sch-recap.is-flat .sch-recap-table .sch-recap-th-label { padding-left: 22pt; }
 .sch-recap-th .sch-recap-num { font-size: 10pt; }
 /* A gap the report left — a thickness that never decoded, a missing PDP. Set
    in the text face rather than the mono the real values wear, so it reads as

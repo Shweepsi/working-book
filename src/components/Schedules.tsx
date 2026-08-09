@@ -12,6 +12,7 @@ import {
   totalM2,
   totalReqLites,
 } from '../lib/coaterMath';
+import { fmtNum, fmtStamp } from '../lib/format';
 import PasteImport from './PasteImport';
 import PortalImport from './PortalImport';
 import ScheduleRecap from './ScheduleRecap';
@@ -469,20 +470,19 @@ function sanitiseArchives(raw: unknown): ArchiveMap {
   return out;
 }
 
-function fmtNum(n: number | null | undefined, digits = 0): string {
-  if (n == null || !Number.isFinite(n)) return '';
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
-
 interface SchedulesProps {
   density: Density;
   // Which of the two paper layouts the view prints as. Owned by App, which
   // holds the single `@page` rule the orientation depends on and the aperçu bar
   // the choice is made in — see PAGE_SIZE_STYLE_ID there.
   printMode: SchedPrintMode;
+  // Whether the récap sheet splits each dimension's plates by PDP. Lives next
+  // to `printMode` for the same reason: it is a paper choice, made on the same
+  // bar, and the table on screen doesn't have a PDP grouping to speak of.
+  recapByPdp: boolean;
 }
 
-export default function Schedules({ density, printMode }: SchedulesProps) {
+export default function Schedules({ density, printMode, recapByPdp }: SchedulesProps) {
   // Every domain syncs, the PMS230 report included — the per-operator
   // local-only toggle it used to honour is gone.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
@@ -982,6 +982,9 @@ export default function Schedules({ density, printMode }: SchedulesProps) {
   }
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
+  // The récap only exists for a schedule. Both the paper class and the sheet
+  // itself hang off this, so they can never disagree about what gets printed.
+  const recapSheet = printMode === 'recap' && !!selectedSchedule;
 
   // Filters are global — one qualité/PDP/MTO set shared by every schedule. Kept
   // across a selection change they routinely match nothing in the schedule the
@@ -1070,7 +1073,12 @@ export default function Schedules({ density, printMode }: SchedulesProps) {
     // The print mode is carried on the root rather than on <html>: the paper
     // rules only ever need it from inside this view, and `:has()` lets the
     // preview sheet pick its own width off the same class (see app.css).
-    <div className={`sch${printMode === 'recap' ? ' is-print-recap' : ''}`}>
+    //
+    // Gated on there being a schedule to print: the class hides the table, and
+    // with nothing selected there is no récap to put in its place — printing
+    // then handed out a blank sheet. Without the class the rail prints, which
+    // is at least what the screen shows.
+    <div className={`sch${recapSheet ? ' is-print-recap' : ''}`}>
       <SummaryBar
         data={data}
         policy={policy}
@@ -1169,12 +1177,7 @@ export default function Schedules({ density, printMode }: SchedulesProps) {
                 band under the header — it is reference matter, not content.
                 Row count is left out — the Total row already carries it. */}
             <div className="sch-print-meta print-only">
-              {data?.importedAt && (
-                <span>
-                  rapport importé le{' '}
-                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
-              )}
+              {data?.importedAt && <span>rapport importé le {fmtStamp(data.importedAt)}</span>}
               <span>tri : {sortSummary}</span>
               {finishedSummary && <span>{finishedSummary}</span>}
               {filterSummary && <strong>filtré : {filterSummary}</strong>}
@@ -1282,7 +1285,7 @@ export default function Schedules({ density, printMode }: SchedulesProps) {
                 in its place: the table stays the screen's working tool, and the
                 paper rules swap which of the two is printed. Fed the same rows
                 the Total row counts, so the two sheets can't disagree. */}
-            {printMode === 'recap' && selectedSchedule && (
+            {recapSheet && selectedSchedule && (
               <ScheduleRecap
                 rows={visibleRows}
                 schedule={selectedSchedule}
@@ -1292,6 +1295,7 @@ export default function Schedules({ density, printMode }: SchedulesProps) {
                 vitesse={vitesse}
                 coaterMin={coaterMin}
                 coaterMinDt={coaterMinDt}
+                byPdp={recapByPdp}
               />
             )}
 

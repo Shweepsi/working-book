@@ -122,6 +122,12 @@ export default function App() {
   const [schedPrintMode, setSchedPrintMode] = useState<SchedPrintMode>(
     () => (load<SchedPrintMode>('wb.sched.printMode', 'detail') === 'recap' ? 'recap' : 'detail'),
   );
+  // Whether that récap splits each dimension's plates by PDP. Same drawer as
+  // the mode above, and persisted for the same reason: the two shifts don't
+  // prepare plates the same way, and neither should have to re-arm the sheet.
+  const [recapByPdp, setRecapByPdp] = useState<boolean>(
+    () => load<boolean>('wb.sched.recapByPdp', true) !== false,
+  );
 
   const live = useNowLive();
   const toast = useToast();
@@ -145,6 +151,7 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => { save('wb.sched.printMode', schedPrintMode); }, [schedPrintMode]);
+  useEffect(() => { save('wb.sched.recapByPdp', recapByPdp); }, [recapByPdp]);
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
@@ -197,9 +204,9 @@ export default function App() {
     // to the paper edge, and on later pages the repeated column header sat
     // just as tight. Sides stay at 5mm — the table needs the width.
     //
-    // Its récap is the exception: four columns fit portrait, and two of them
-    // are filled in by hand, so the margins go wider — the sheet is held and
-    // written on, not just read.
+    // Its récap is the exception: three columns fit portrait, and the widest of
+    // them is filled in by hand, so the margins go wider — the sheet is held
+    // and written on, not just read.
     el.textContent =
       tab === 'sched' && schedPrintMode === 'detail'
         ? '@media print { @page { size: A4 landscape; margin: 8mm 5mm; } }'
@@ -399,7 +406,7 @@ export default function App() {
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
         {tab === 'sched' && (
-          <Schedules density={density} printMode={schedPrintMode} />
+          <Schedules density={density} printMode={schedPrintMode} recapByPdp={recapByPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
       </main>
@@ -426,13 +433,31 @@ export default function App() {
                   title={
                     mode === 'detail'
                       ? 'Tableau détaillé du planning, A4 paysage'
-                      : 'Récap des lites restantes par dimension et épaisseur, A4 portrait, colonne plaques à remplir'
+                      : 'Récap des lites restantes par qualité, dimension, PDP et plaque, A4 portrait, colonne plaques à remplir'
                   }
                 >
                   {mode === 'detail' ? 'Détail' : 'Récap'}
                 </button>
               ))}
             </div>
+          )}
+          {/* Only the récap has a PDP level to fold away, so the toggle only
+              shows once that sheet is the one being printed — next to the
+              choice it depends on, not somewhere else on the bar. */}
+          {tab === 'sched' && schedPrintMode === 'recap' && (
+            <button
+              type="button"
+              className={`btn ghost mini ${recapByPdp ? 'is-on' : ''}`}
+              onClick={() => setRecapByPdp((v) => !v)}
+              aria-pressed={recapByPdp}
+              title={
+                recapByPdp
+                  ? 'Plaques regroupées par PDP sous chaque dimension — cliquer pour les lister directement'
+                  : 'Regrouper les plaques par PDP sous chaque dimension'
+              }
+            >
+              Tri PDP
+            </button>
           )}
           <button type="button" className="btn ghost mini" onClick={() => window.print()}>
             Imprimer

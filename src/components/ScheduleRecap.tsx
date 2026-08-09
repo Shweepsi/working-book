@@ -2,6 +2,7 @@ import { Fragment, useMemo } from 'react';
 import type { PMS230Record, PMS230Schedule } from '../lib/pms230Parser';
 import { shortItemName } from '../lib/pms230Parser';
 import { fmtHMmin, hasHMmin } from '../lib/coaterMath';
+import { fmtNum, fmtStamp } from '../lib/format';
 import { buildScheduleRecap } from '../lib/scheduleRecap';
 
 // The schedule's second printout: a portrait sheet that groups what is left to
@@ -27,10 +28,9 @@ interface ScheduleRecapProps {
   coaterMin: number | null;
   /** Same, plus the 9 % downtime factor. */
   coaterMinDt: number | null;
+  /** Split each dimension's plates by PDP, or list them straight under it. */
+  byPdp: boolean;
 }
-
-const fmt = (n: number, digits = 0): string =>
-  n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 export default function ScheduleRecap({
   rows,
@@ -41,13 +41,14 @@ export default function ScheduleRecap({
   vitesse,
   coaterMin,
   coaterMinDt,
+  byPdp,
 }: ScheduleRecapProps) {
-  const recap = useMemo(() => buildScheduleRecap(rows), [rows]);
+  const recap = useMemo(() => buildScheduleRecap(rows, { byPdp }), [rows, byPdp]);
 
   const name = shortName || shortItemName(schedule.itemRoot) || schedule.itemRoot;
 
   return (
-    <section className="sch-recap print-only">
+    <section className={`sch-recap print-only${recap.byPdp ? '' : ' is-flat'}`}>
       {/* Same furniture as the detailed sheet, in the same order: provenance
           first as a discreet line under the top margin, then the title in its
           band. Reference matter above content — and the sheet reads as the
@@ -56,12 +57,7 @@ export default function ScheduleRecap({
           the gap under it. */}
       {(importedAt || filterSummary) && (
         <div className="sch-recap-meta">
-          {importedAt && (
-            <span>
-              rapport importé le{' '}
-              {new Date(importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-            </span>
-          )}
+          {importedAt && <span>rapport importé le {fmtStamp(importedAt)}</span>}
           {filterSummary && <strong>filtré : {filterSummary}</strong>}
         </div>
       )}
@@ -119,16 +115,16 @@ export default function ScheduleRecap({
             </tr>
           </tbody>
         ) : (
-          recap.qualities.map((q) => <QualityBlock key={q.qualite} group={q} />)
+          recap.qualities.map((q) => <QualityBlock key={q.qualite} group={q} byPdp={recap.byPdp} />)
         )}
 
         <tfoot>
           <tr className="sch-recap-total">
             <th scope="row">
               Total
-              <span className="sch-recap-total-sub"> · {fmt(recap.m2)} m²</span>
+              <span className="sch-recap-total-sub"> · {fmtNum(recap.m2)} m²</span>
             </th>
-            <td className="sch-recap-num mono">{fmt(recap.reqLites)}</td>
+            <td className="sch-recap-num mono">{fmtNum(recap.reqLites)}</td>
             {/* No writing box on a total: plates are counted per dimension and
                 thickness, and a box here would invite a figure nothing checks. */}
             <td className="sch-recap-blank" />
@@ -141,8 +137,10 @@ export default function ScheduleRecap({
 
 function QualityBlock({
   group,
+  byPdp,
 }: {
   group: ReturnType<typeof buildScheduleRecap>['qualities'][number];
+  byPdp: boolean;
 }) {
   return (
     <>
@@ -163,8 +161,18 @@ function QualityBlock({
           <tbody className="sch-recap-dimgroup">
             <tr className="sch-recap-dim">
               <th scope="rowgroup">
-                <span className="mono">{d.label}</span>
-                <span className="sch-recap-unit"> mm</span>
+                {/* A row the report gave no dimension for keeps its lites and
+                    says so, in the words the rest of the sheet uses for a gap.
+                    Dropping it would leave a total the detailed sheet
+                    contradicts, which is the one thing this sheet can't do. */}
+                {d.known ? (
+                  <>
+                    <span className="mono">{d.label}</span>
+                    <span className="sch-recap-unit"> mm</span>
+                  </>
+                ) : (
+                  <span className="sch-recap-unknown">{d.label}</span>
+                )}
               </th>
               {/* No subtotal, and no box to fill: the dimension row is a
                   heading for what sits under it, and every figure on this
@@ -179,15 +187,20 @@ function QualityBlock({
             // sheet — the engine stretches the last row of a page fragment, so
             // whatever is pushed is paid for in blank paper above it.
             <tbody className="sch-recap-group" key={`${group.qualite}-${d.key}-${p.key || 'nc'}`}>
-              <tr className="sch-recap-pdp">
-                <th scope="rowgroup">
-                  <span className="sch-recap-pdp-tag">PDP</span>
-                  {p.key
-                    ? <span className="mono"> {p.key}</span>
-                    : <span className="sch-recap-unknown"> non renseigné</span>}
-                </th>
-                <td className="sch-recap-blank" colSpan={2} />
-              </tr>
+              {/* Without the PDP level there is exactly one group per dimension
+                  and nothing to head it with: the plates hang straight off the
+                  dimension, one indent shallower (see `.is-flat` in app.css). */}
+              {byPdp && (
+                <tr className="sch-recap-pdp">
+                  <th scope="rowgroup">
+                    <span className="sch-recap-pdp-tag">PDP</span>
+                    {p.key
+                      ? <span className="mono"> {p.key}</span>
+                      : <span className="sch-recap-unknown"> non renseigné</span>}
+                  </th>
+                  <td className="sch-recap-blank" colSpan={2} />
+                </tr>
+              )}
               {p.thicknesses.map((t) => (
                 <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${p.key}-${t.key || 'nc'}`}>
                   <th scope="row" className="sch-recap-th-label">
@@ -204,7 +217,7 @@ function QualityBlock({
                       <span className="mono">{t.label}</span>
                     )}
                   </th>
-                  <td className="sch-recap-num mono">{fmt(t.reqLites)}</td>
+                  <td className="sch-recap-num mono">{fmtNum(t.reqLites)}</td>
                   <td className="sch-recap-fill" />
                 </tr>
               ))}

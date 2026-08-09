@@ -28,7 +28,18 @@ const NO_THICKNESS_LABEL = 'épaisseur non renseignée';
 
 // Same treatment for a row the report gave no PDP: keyed apart, sorted last,
 // never folded into a real one. The sheet names the gap itself.
+//
+// It doubles as the key of the single group a dimension holds when the PDP
+// level is switched off — there is then no PDP to name, the sheet prints no
+// heading for it, and an empty key is exactly the honest one to carry.
 const NO_PDP_KEY = '';
+
+// A row the report gave no usable dimension for. It has lites to produce like
+// any other, so it cannot be dropped: the récap total has to keep matching the
+// detailed sheet's Total row, and a quietly missing line is worse on paper than
+// a line that says what it is missing. Sorts last, on a zero dimension.
+const NO_DIMENSION_KEY = '';
+const NO_DIMENSION_LABEL = 'dimension non renseignée';
 
 export interface RecapThicknessGroup {
   key: string;
@@ -58,6 +69,8 @@ export interface RecapPdpGroup {
 export interface RecapDimensionGroup {
   key: string;
   label: string;
+  /** False for the bucket holding rows the report gave no dimension for. */
+  known: boolean;
   largeur: number;
   longueur: number;
   reqLites: number;
@@ -76,6 +89,10 @@ export interface RecapQualityGroup {
 
 export interface ScheduleRecap {
   qualities: RecapQualityGroup[];
+  /** Whether the plates were split by PDP. False collapses that level: every
+   *  dimension then holds one nameless group, and the sheet prints no heading
+   *  for it. Carried here so the tree says how it was built. */
+  byPdp: boolean;
   reqLites: number;
   m2: number;
   lines: number;
@@ -124,8 +141,15 @@ export function pdpLabel(pdp: string, formatCode = ''): string {
   const pl = tokens.find((t) => /^PL[\d.]+$/.test(t));
   if (!pl) return formatCode.includes('LLT') ? 'LLT' : 'O';
 
-  const [whole = '', decimals] = pl.slice(2).split('.');
-  return decimals ? `${whole.split('').join('.')}.${decimals}` : `${whole} mm`;
+  const payload = pl.slice(2);
+  const [whole = '', decimals] = payload.split('.');
+  if (!decimals) return `${whole} mm`;
+  // One digit per ply, "44.2" being 4 + 4 + 0.2. A zero among them would be a
+  // nought-millimetre ply, so on that payload the convention plainly doesn't
+  // hold: print it as the report writes it rather than invent a plate nobody
+  // can fetch. Same for a payload with nothing in front of the dot.
+  if (!whole || whole.includes('0')) return payload;
+  return `${whole.split('').join('.')}.${decimals}`;
 }
 
 // Dimension as the rest of the app writes it — largeur × longueur (see the
@@ -146,8 +170,16 @@ export function dimensionLabel(largeur: number, longueur: number): string {
  * QC samples and finished lines already out, current filters applied. The
  * totals then match the detailed sheet's Total row line for line, which is the
  * only way the two printouts can be trusted side by side.
+ *
+ * `byPdp` false drops the PDP level: the plates of a dimension are then listed
+ * straight under it, and two rows that differ only by their PDP become one
+ * line. Shorter sheet, one less thing to read — for the days the plates are
+ * prepared by dimension rather than picked PDP by PDP.
  */
-export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
+export function buildScheduleRecap(
+  rows: PMS230Record[],
+  { byPdp = true }: { byPdp?: boolean } = {},
+): ScheduleRecap {
   // Nested maps keep insertion cheap; the ordering is imposed once at the end,
   // because it isn't the order rows arrive in (the table's sort is the user's,
   // and it may be on any column).
@@ -156,15 +188,13 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
   const byQualite = new Map<string, Map<string, PdpBuckets>>();
 
   for (const r of rows) {
-    // A row with no dimension is not a plate to prepare — QC samples are
-    // already filtered out upstream, but a malformed row would otherwise open
-    // a "0 × 0" group that means nothing on the racks.
-    if (!r.largeur || !r.longueur) continue;
-
     const qualite = r.qualite || NO_QUALITE;
-    const dimKey = `${r.largeur}×${r.longueur}`;
+    // A row whose dimension didn't decode gathers in a bucket that names the
+    // gap, rather than being dropped: it still carries lites, and a récap whose
+    // total no longer matches the detailed sheet's is a récap nobody can check.
+    const dimKey = r.largeur && r.longueur ? `${r.largeur}×${r.longueur}` : NO_DIMENSION_KEY;
     // Keyed on the plate the PDP calls for, not on its raw text — see pdpLabel.
-    const pdpKey = r.pdp ? pdpLabel(r.pdp, r.formatCode) : NO_PDP_KEY;
+    const pdpKey = !byPdp ? NO_PDP_KEY : r.pdp ? pdpLabel(r.pdp, r.formatCode) : NO_PDP_KEY;
     // Thickness *and* make-up. On the thickness alone a 4.4.2 lands in the same
     // bucket as a plain 8 mm — same finished thickness, two entirely different
     // plates to fetch, and the sheet would send the operator to the wrong rack.
@@ -231,9 +261,11 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       pdps.sort((a, b) => rank(a.key) - rank(b.key) || b.key.localeCompare(a.key, 'fr'));
 
       const first = pdpBuckets.values().next().value!.values().next().value![0]!;
+      const known = !!first.largeur && !!first.longueur;
       dimensions.push({
         key: dimKey,
-        label: dimensionLabel(first.largeur, first.longueur),
+        label: known ? dimensionLabel(first.largeur, first.longueur) : NO_DIMENSION_LABEL,
+        known,
         largeur: first.largeur,
         longueur: first.longueur,
         reqLites: pdps.reduce((s, p) => s + p.reqLites, 0),
@@ -245,6 +277,8 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
     // Longueur DESC then largeur DESC — the planner's own order, the one the
     // table groups by (DEFAULT_SORT_KEY) and the one the racks are walked in.
+    // The undecoded bucket carries a zero dimension, so it lands last on its
+    // own without a rule of its own.
     dimensions.sort((a, b) => b.longueur - a.longueur || b.largeur - a.largeur);
 
     qualities.push({
@@ -260,6 +294,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
   return {
     qualities,
+    byPdp,
     reqLites: qualities.reduce((s, q) => s + q.reqLites, 0),
     m2: qualities.reduce((s, q) => s + q.m2, 0),
     lines: qualities.reduce((s, q) => s + q.lines, 0),
