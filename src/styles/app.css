@@ -5357,19 +5357,11 @@ button.as-row:focus-visible {
 .sch-recap-dim td { background: color-mix(in srgb, var(--print-bg-tint) 60%, var(--print-bg)); }
 .sch-recap-unit { font-size: 8.5pt; font-weight: 400; color: var(--print-ink); }
 
-/* PDP between the dimension and its thicknesses — the order the plates are
-   picked in at the racks. A heading like the two above it, but the lightest of
-   the three: no fill, just the indent, the size and the tag. */
-.sch-recap-table .sch-recap-pdp th {
-  padding-left: 22pt;
-  padding-top: 4pt;
-  font-size: 9.5pt;
-  font-weight: 600;
-}
-.sch-recap-pdp-tag {
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+/* The PDP behind its plate, not above a group of plates: it says which plate to
+   fetch, and the plate is already named — so it reads as a note on the line.
+   Smaller and softer than the plate it follows, close enough to belong to it. */
+.sch-recap-pdp-note {
+  font-size: 8pt;
   color: var(--print-ink-soft);
 }
 
@@ -5380,14 +5372,10 @@ button.as-row:focus-visible {
    base `th, td` padding is a class *and* a type, so a bare class loses to it
    and the indent silently never happened. */
 .sch-recap-table .sch-recap-th-label {
-  padding-left: 34pt;
+  padding-left: 22pt;
   font-size: 9.5pt;
   font-weight: 400;
 }
-/* Without the PDP level the plates move up a rung: the indent says which
-   heading owns them, and kept at 34pt it would point at a row that isn't
-   printed. */
-.sch-recap.is-flat .sch-recap-table .sch-recap-th-label { padding-left: 22pt; }
 .sch-recap-th .sch-recap-num { font-size: 10pt; }
 /* A gap the report left — a thickness that never decoded, a missing PDP. Set
    in the text face rather than the mono the real values wear, so it reads as

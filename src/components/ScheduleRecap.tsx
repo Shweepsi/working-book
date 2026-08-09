@@ -6,8 +6,9 @@ import { fmtNum, fmtStamp } from '../lib/format';
 import { buildScheduleRecap } from '../lib/scheduleRecap';
 
 // The schedule's second printout: a portrait sheet that groups what is left to
-// produce by qualité, dimension, PDP and plate, with an empty column for the
-// plate count the operator writes in front of the racks.
+// produce by qualité, dimension and plate — each plate noting the PDPs that
+// call for it — with an empty column for the plate count the operator writes in
+// front of the racks.
 //
 // Print-only by design. The detailed table stays on screen and stays the
 // working tool — this is a paper form, not a second view of the planning, and
@@ -28,8 +29,8 @@ interface ScheduleRecapProps {
   coaterMin: number | null;
   /** Same, plus the 9 % downtime factor. */
   coaterMinDt: number | null;
-  /** Split each dimension's plates by PDP, or list them straight under it. */
-  byPdp: boolean;
+  /** Print each plate's PDP behind it, in parentheses. */
+  showPdp: boolean;
 }
 
 export default function ScheduleRecap({
@@ -41,14 +42,14 @@ export default function ScheduleRecap({
   vitesse,
   coaterMin,
   coaterMinDt,
-  byPdp,
+  showPdp,
 }: ScheduleRecapProps) {
-  const recap = useMemo(() => buildScheduleRecap(rows, { byPdp }), [rows, byPdp]);
+  const recap = useMemo(() => buildScheduleRecap(rows), [rows]);
 
   const name = shortName || shortItemName(schedule.itemRoot) || schedule.itemRoot;
 
   return (
-    <section className={`sch-recap print-only${recap.byPdp ? '' : ' is-flat'}`}>
+    <section className="sch-recap print-only">
       {/* Same furniture as the detailed sheet, in the same order: provenance
           first as a discreet line under the top margin, then the title in its
           band. Reference matter above content — and the sheet reads as the
@@ -115,7 +116,7 @@ export default function ScheduleRecap({
             </tr>
           </tbody>
         ) : (
-          recap.qualities.map((q) => <QualityBlock key={q.qualite} group={q} byPdp={recap.byPdp} />)
+          recap.qualities.map((q) => <QualityBlock key={q.qualite} group={q} showPdp={showPdp} />)
         )}
 
         <tfoot>
@@ -137,10 +138,10 @@ export default function ScheduleRecap({
 
 function QualityBlock({
   group,
-  byPdp,
+  showPdp,
 }: {
   group: ReturnType<typeof buildScheduleRecap>['qualities'][number];
-  byPdp: boolean;
+  showPdp: boolean;
 }) {
   return (
     <>
@@ -180,49 +181,40 @@ function QualityBlock({
               <td className="sch-recap-blank" colSpan={2} />
             </tr>
           </tbody>
-          {d.pdps.map((p) => (
-            // The unbreakable unit is the PDP and its thicknesses, not the whole
-            // dimension: that is what gets picked in one go at the racks, and a
-            // smaller unit leaves a smaller gap when it is pushed onto the next
-            // sheet — the engine stretches the last row of a page fragment, so
-            // whatever is pushed is paid for in blank paper above it.
-            <tbody className="sch-recap-group" key={`${group.qualite}-${d.key}-${p.key || 'nc'}`}>
-              {/* Without the PDP level there is exactly one group per dimension
-                  and nothing to head it with: the plates hang straight off the
-                  dimension, one indent shallower (see `.is-flat` in app.css). */}
-              {byPdp && (
-                <tr className="sch-recap-pdp">
-                  <th scope="rowgroup">
-                    <span className="sch-recap-pdp-tag">PDP</span>
-                    {p.key
-                      ? <span className="mono"> {p.key}</span>
-                      : <span className="sch-recap-unknown"> non renseigné</span>}
-                  </th>
-                  <td className="sch-recap-blank" colSpan={2} />
-                </tr>
-              )}
-              {p.thicknesses.map((t) => (
-                <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${p.key}-${t.key || 'nc'}`}>
-                  <th scope="row" className="sch-recap-th-label">
-                    {t.makeup ? (
-                      // A laminate is named by its make-up and nothing else: a
-                      // 4.4.2 is picked from the 4 mm racks, and its finished
-                      // 08 mm would send the operator to the wrong one. The
-                      // total is not repeated here — it names the article, not
-                      // the plate, and this sheet is about plates.
-                      <span className="mono">{t.makeup}</span>
-                    ) : t.mm == null ? (
-                      <span className="sch-recap-unknown">{t.label}</span>
-                    ) : (
-                      <span className="mono">{t.label}</span>
-                    )}
-                  </th>
-                  <td className="sch-recap-num mono">{fmtNum(t.reqLites)}</td>
-                  <td className="sch-recap-fill" />
-                </tr>
-              ))}
-            </tbody>
-          ))}
+          {/* The unbreakable unit is the dimension and its plates: that is one
+              pile to prepare, and it is what the eye follows down the sheet.
+              The engine stretches the last row of a page fragment, so whatever
+              is pushed onto the next sheet is paid for in blank paper above
+              it — hence a heading that never travels alone. */}
+          <tbody className="sch-recap-group">
+            {d.plates.map((p) => (
+              <tr className="sch-recap-th" key={`${group.qualite}-${d.key}-${p.key || 'nc'}`}>
+                <th scope="row" className="sch-recap-th-label">
+                  {p.makeup ? (
+                    // A laminate is named by its make-up and nothing else: a
+                    // 4.4.2 is picked from the 4 mm racks, and its finished
+                    // 08 mm would send the operator to the wrong one. The
+                    // total is not repeated here — it names the article, not
+                    // the plate, and this sheet is about plates.
+                    <span className="mono">{p.makeup}</span>
+                  ) : p.mm == null ? (
+                    <span className="sch-recap-unknown">{p.label}</span>
+                  ) : (
+                    <span className="mono">{p.label}</span>
+                  )}
+                  {/* The PDP rides behind the plate rather than heading a group
+                      of its own: it says which plate to fetch, and the plate is
+                      already named — so it is a note on the line, in the
+                      quieter type a note wears. */}
+                  {showPdp && p.pdps.length > 0 && (
+                    <span className="sch-recap-pdp-note mono"> ({p.pdps.join(', ')})</span>
+                  )}
+                </th>
+                <td className="sch-recap-num mono">{fmtNum(p.reqLites)}</td>
+                <td className="sch-recap-fill" />
+              </tr>
+            ))}
+          </tbody>
         </Fragment>
       ))}
     </>

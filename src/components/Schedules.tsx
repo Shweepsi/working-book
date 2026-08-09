@@ -476,13 +476,13 @@ interface SchedulesProps {
   // holds the single `@page` rule the orientation depends on and the aperçu bar
   // the choice is made in — see PAGE_SIZE_STYLE_ID there.
   printMode: SchedPrintMode;
-  // Whether the récap sheet splits each dimension's plates by PDP. Lives next
-  // to `printMode` for the same reason: it is a paper choice, made on the same
-  // bar, and the table on screen doesn't have a PDP grouping to speak of.
-  recapByPdp: boolean;
+  // Whether the récap sheet notes each plate's PDP behind it. Lives next to
+  // `printMode` for the same reason: it is a paper choice, made on the same
+  // bar, and the table on screen already has a PDP column of its own.
+  recapShowPdp: boolean;
 }
 
-export default function Schedules({ density, printMode, recapByPdp }: SchedulesProps) {
+export default function Schedules({ density, printMode, recapShowPdp }: SchedulesProps) {
   // Every domain syncs, the PMS230 report included — the per-operator
   // local-only toggle it used to honour is gone.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
@@ -1295,7 +1295,7 @@ export default function Schedules({ density, printMode, recapByPdp }: SchedulesP
                 vitesse={vitesse}
                 coaterMin={coaterMin}
                 coaterMinDt={coaterMinDt}
-                byPdp={recapByPdp}
+                showPdp={recapShowPdp}
               />
             )}
 

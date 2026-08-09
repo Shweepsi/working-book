@@ -26,13 +26,14 @@ const NO_QUALITE = '—';
 const NO_THICKNESS_KEY = '';
 const NO_THICKNESS_LABEL = 'épaisseur non renseignée';
 
-// Same treatment for a row the report gave no PDP: keyed apart, sorted last,
-// never folded into a real one. The sheet names the gap itself.
-//
-// It doubles as the key of the single group a dimension holds when the PDP
-// level is switched off — there is then no PDP to name, the sheet prints no
-// heading for it, and an empty key is exactly the honest one to carry.
-const NO_PDP_KEY = '';
+// How the line writes a PDP plate on its own notes: "FPL6", "FPL4.4.2". The
+// report's own token is `PL6` — the prefix is the shop's, not the report's.
+const PDP_PREFIX = 'FPL';
+
+// A PDP that carries no plate at all. Kept as the report writes it rather than
+// left blank: an operator reading "O" knows the PDP was silent, where an empty
+// parenthesis would only look like something failed to print.
+const BARE_PDP = 'O';
 
 // A row the report gave no usable dimension for. It has lites to produce like
 // any other, so it cannot be dropped: the récap total has to keep matching the
@@ -41,7 +42,7 @@ const NO_PDP_KEY = '';
 const NO_DIMENSION_KEY = '';
 const NO_DIMENSION_LABEL = 'dimension non renseignée';
 
-export interface RecapThicknessGroup {
+export interface RecapPlateGroup {
   key: string;
   /** The finished thickness, written out: "08 mm". */
   label: string;
@@ -50,20 +51,13 @@ export interface RecapThicknessGroup {
   mm: number | null;
   /** Laminated make-up ("4.4.2"), or null for a monolithic article. */
   makeup: string | null;
+  /** What the PDPs of these rows say, ready to print between parentheses:
+   *  ["FPL6"], ["FPL6", "LLT"], ["O"]. Empty when no row carried a PDP. */
+  pdps: string[];
   reqLites: number;
   m2: number;
   /** How many planning rows collapsed into this bucket. */
   lines: number;
-}
-
-export interface RecapPdpGroup {
-  /** The plate this PDP calls for ("6 mm", "4.4.2", "LLT", "O"), or '' when
-   *  the report carried no PDP at all. */
-  key: string;
-  reqLites: number;
-  m2: number;
-  lines: number;
-  thicknesses: RecapThicknessGroup[];
 }
 
 export interface RecapDimensionGroup {
@@ -76,7 +70,7 @@ export interface RecapDimensionGroup {
   reqLites: number;
   m2: number;
   lines: number;
-  pdps: RecapPdpGroup[];
+  plates: RecapPlateGroup[];
 }
 
 export interface RecapQualityGroup {
@@ -89,10 +83,6 @@ export interface RecapQualityGroup {
 
 export interface ScheduleRecap {
   qualities: RecapQualityGroup[];
-  /** Whether the plates were split by PDP. False collapses that level: every
-   *  dimension then holds one nameless group, and the sheet prints no heading
-   *  for it. Carried here so the tree says how it was built. */
-  byPdp: boolean;
   reqLites: number;
   m2: number;
   lines: number;
@@ -117,39 +107,70 @@ export function thicknessMm(raw: string): number | null {
   return Number.isFinite(mm) && mm > 0 ? mm : null;
 }
 
-// The plate a PDP calls for, rather than the PDP as the report writes it:
-//   "O PL6"          -> "6 mm"   a plain 6 mm plate
-//   "O PL44.2"       -> "4.4.2"  4 + 4 + a 0.2 interlayer
-//   "O SP3 PL6"      -> "6 mm"   SP3 says nothing about the plate
-//   "O"    + ILLT1   -> "LLT"    no payload, but the format code carries it
-//   "O"    + I11L    -> "O"      genuinely unsaid — kept as the report writes it
+// The plate a PDP calls for, or null when it names none:
+//   "O PL6"      -> "6"      a plain 6 mm plate
+//   "O PL44.2"   -> "4.4.2"  4 + 4 + a 0.2 interlayer
+//   "O SP3 PL6"  -> "6"      SP3 says nothing about the plate
+//   "O"          -> null     the PDP is silent
 //
-// Only the `PL` payload is kept: the leading "O" is on every PDP, and the other
-// tokens (SP3, EC…) don't change what comes off the rack. Since they are
-// dropped from the label they are dropped from the grouping too — two PDPs that
-// differ only by one of them are the same plate, and printing them as two
-// identical headings would only look like a bug. A payload with a decimal is a
-// laminate (its whole-number part is the plies, one digit each); one without is
-// a thickness in millimetres.
-//
-// A PDP with no payload at all usually still says its plate through the format
-// code — `ILLT1` marks an LLT. When even that is silent the heading stays "O",
-// exactly as the report writes it: measured on the live report that is a real
-// bucket (~15 rows), and an honest O beats a label the data doesn't carry.
-export function pdpLabel(pdp: string, formatCode = ''): string {
+// Only the `PL` payload is read: the leading "O" is on every PDP, and the other
+// tokens (SP3, EC…) don't change what comes off the rack. A payload with a
+// decimal is a laminate — its whole-number part is the plies, one digit each;
+// one without is a thickness in millimetres, written bare because that is how
+// the report writes it (`PL6`).
+export function pdpPlate(pdp: string): string | null {
   const tokens = pdp.split(/\s+/).filter((t) => t && t !== 'O');
   const pl = tokens.find((t) => /^PL[\d.]+$/.test(t));
-  if (!pl) return formatCode.includes('LLT') ? 'LLT' : 'O';
+  if (!pl) return null;
 
   const payload = pl.slice(2);
   const [whole = '', decimals] = payload.split('.');
-  if (!decimals) return `${whole} mm`;
+  if (!decimals) return whole;
   // One digit per ply, "44.2" being 4 + 4 + 0.2. A zero among them would be a
   // nought-millimetre ply, so on that payload the convention plainly doesn't
   // hold: print it as the report writes it rather than invent a plate nobody
   // can fetch. Same for a payload with nothing in front of the dot.
   if (!whole || whole.includes('0')) return payload;
   return `${whole.split('').join('.')}.${decimals}`;
+}
+
+/**
+ * What the PDPs of a plate's rows have to say, ready to print in parentheses
+ * behind the plate: `06 mm (FPL6)`, `4.4.2 (FPL4.4.2)`, `06 mm (FPL6, LLT)`.
+ *
+ * It is an annotation, not a grouping: two rows of the same plate that differ
+ * only by their PDP stay one line and put both PDPs behind it. Which is the
+ * whole point — the operator counts plates, and the PDP only says which one to
+ * fetch.
+ *
+ * A PDP with no `PL` payload still often names its plate through the format
+ * code, where `ILLT1` marks an LLT; that marker rides alongside the plate
+ * rather than instead of it, so a row can read `(FPL6, LLT)`. When a PDP says
+ * neither, it leaves the "O" the report wrote — an honest O beats a silence
+ * that reads like a printing fault. A row carrying no PDP field at all adds
+ * nothing: there the silence is the report's, and nothing is what it said.
+ */
+export function pdpNotes(rows: PMS230Record[]): string[] {
+  const plates = new Set<string>();
+  let bare = false;
+  let llt = false;
+
+  for (const r of rows) {
+    if (!r.pdp) continue;
+    const plate = pdpPlate(r.pdp);
+    const isLlt = !!r.formatCode?.includes('LLT');
+    if (plate) plates.add(plate);
+    if (isLlt) llt = true;
+    // "O" only for a row that says nothing at all. A silent PDP whose format
+    // code carries the LLT has already been answered — noting both would print
+    // the question next to its own answer.
+    else if (!plate) bare = true;
+  }
+
+  const notes = [...plates].sort((a, b) => a.localeCompare(b, 'fr')).map((p) => `${PDP_PREFIX}${p}`);
+  if (bare) notes.push(BARE_PDP);
+  if (llt) notes.push('LLT');
+  return notes;
 }
 
 // Dimension as the rest of the app writes it — largeur × longueur (see the
@@ -163,29 +184,24 @@ export function dimensionLabel(largeur: number, longueur: number): string {
 }
 
 /**
- * Collapse planning rows into the qualité → dimension → PDP → épaisseur tree
- * the récap sheet prints.
+ * Collapse planning rows into the qualité → dimension → plaque tree the récap
+ * sheet prints.
  *
  * Feed it the rows the table itself shows (`visibleRows`): schedule-scoped,
  * QC samples and finished lines already out, current filters applied. The
  * totals then match the detailed sheet's Total row line for line, which is the
  * only way the two printouts can be trusted side by side.
  *
- * `byPdp` false drops the PDP level: the plates of a dimension are then listed
- * straight under it, and two rows that differ only by their PDP become one
- * line. Shorter sheet, one less thing to read — for the days the plates are
- * prepared by dimension rather than picked PDP by PDP.
+ * The PDP is not a level of this tree: it rides on the plate as an annotation
+ * (see `pdpNotes`). Grouping by it split one pile of plates across several
+ * headings — the operator counts a plate once, whichever PDP asked for it.
  */
-export function buildScheduleRecap(
-  rows: PMS230Record[],
-  { byPdp = true }: { byPdp?: boolean } = {},
-): ScheduleRecap {
+export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
   // Nested maps keep insertion cheap; the ordering is imposed once at the end,
   // because it isn't the order rows arrive in (the table's sort is the user's,
   // and it may be on any column).
-  type ThicknessBuckets = Map<string, PMS230Record[]>;
-  type PdpBuckets = Map<string, ThicknessBuckets>;
-  const byQualite = new Map<string, Map<string, PdpBuckets>>();
+  type PlateBuckets = Map<string, PMS230Record[]>;
+  const byQualite = new Map<string, Map<string, PlateBuckets>>();
 
   for (const r of rows) {
     const qualite = r.qualite || NO_QUALITE;
@@ -193,24 +209,20 @@ export function buildScheduleRecap(
     // gap, rather than being dropped: it still carries lites, and a récap whose
     // total no longer matches the detailed sheet's is a récap nobody can check.
     const dimKey = r.largeur && r.longueur ? `${r.largeur}×${r.longueur}` : NO_DIMENSION_KEY;
-    // Keyed on the plate the PDP calls for, not on its raw text — see pdpLabel.
-    const pdpKey = !byPdp ? NO_PDP_KEY : r.pdp ? pdpLabel(r.pdp, r.formatCode) : NO_PDP_KEY;
     // Thickness *and* make-up. On the thickness alone a 4.4.2 lands in the same
     // bucket as a plain 8 mm — same finished thickness, two entirely different
     // plates to fetch, and the sheet would send the operator to the wrong rack.
     const thMm = thicknessMm(r.thickness) == null ? NO_THICKNESS_KEY : r.thickness;
     const makeup = glassMakeup(r.itemName);
-    const thKey = `${thMm}|${makeup ?? ''}`;
+    const plateKey = `${thMm}|${makeup ?? ''}`;
 
     let dims = byQualite.get(qualite);
     if (!dims) byQualite.set(qualite, (dims = new Map()));
-    let pdps = dims.get(dimKey);
-    if (!pdps) dims.set(dimKey, (pdps = new Map()));
-    let ths = pdps.get(pdpKey);
-    if (!ths) pdps.set(pdpKey, (ths = new Map()));
-    const bucket = ths.get(thKey);
+    let plates = dims.get(dimKey);
+    if (!plates) dims.set(dimKey, (plates = new Map()));
+    const bucket = plates.get(plateKey);
     if (bucket) bucket.push(r);
-    else ths.set(thKey, [r]);
+    else plates.set(plateKey, [r]);
   }
 
   const qualities: RecapQualityGroup[] = [];
@@ -218,49 +230,32 @@ export function buildScheduleRecap(
   for (const [qualite, dims] of byQualite) {
     const dimensions: RecapDimensionGroup[] = [];
 
-    for (const [dimKey, pdpBuckets] of dims) {
-      const pdps: RecapPdpGroup[] = [];
+    for (const [dimKey, plateBuckets] of dims) {
+      const plates: RecapPlateGroup[] = [];
 
-      for (const [pdpKey, ths] of pdpBuckets) {
-        const thicknesses: RecapThicknessGroup[] = [];
-
-        for (const [thKey, bucket] of ths) {
-          const [rawMm = '', makeup = ''] = thKey.split('|');
-          thicknesses.push({
-            key: thKey,
-            label: thicknessLabel(rawMm),
-            mm: thicknessMm(rawMm),
-            makeup: makeup || null,
-            reqLites: totalReqLites(bucket),
-            m2: totalM2(bucket),
-            lines: bucket.length,
-          });
-        }
-
-        // Thickest first, like the pivot the sheet takes after (10, 08, 06);
-        // the unknown bucket sinks to the bottom of its PDP. Laminates sort on
-        // their finished thickness, so a 5.5.2 sits next to the plain 10 mm it
-        // would otherwise have been confused with — side by side is exactly
-        // where the difference has to be visible.
-        thicknesses.sort((a, b) =>
-          (b.mm ?? -1) - (a.mm ?? -1) || (a.makeup ?? '').localeCompare(b.makeup ?? '', 'fr'));
-
-        pdps.push({
-          key: pdpKey,
-          reqLites: thicknesses.reduce((s, t) => s + t.reqLites, 0),
-          m2: thicknesses.reduce((s, t) => s + t.m2, 0),
-          lines: thicknesses.reduce((s, t) => s + t.lines, 0),
-          thicknesses,
+      for (const [plateKey, bucket] of plateBuckets) {
+        const [rawMm = '', makeup = ''] = plateKey.split('|');
+        plates.push({
+          key: plateKey,
+          label: thicknessLabel(rawMm),
+          mm: thicknessMm(rawMm),
+          makeup: makeup || null,
+          pdps: pdpNotes(bucket),
+          reqLites: totalReqLites(bucket),
+          m2: totalM2(bucket),
+          lines: bucket.length,
         });
       }
 
-      // PDP descending, the planner's secondary sort in the detailed table
-      // (longueur DESC, PDP DESC). The bare-O bucket sinks below the named
-      // plates — it says the least — and a row with no PDP at all lands last.
-      const rank = (k: string) => (k === '' ? 2 : k === 'O' ? 1 : 0);
-      pdps.sort((a, b) => rank(a.key) - rank(b.key) || b.key.localeCompare(a.key, 'fr'));
+      // Thickest first, like the pivot the sheet takes after (10, 08, 06); the
+      // unknown bucket sinks to the bottom of its dimension. Laminates sort on
+      // their finished thickness, so a 5.5.2 sits next to the plain 10 mm it
+      // would otherwise have been confused with — side by side is exactly where
+      // the difference has to be visible.
+      plates.sort((a, b) =>
+        (b.mm ?? -1) - (a.mm ?? -1) || (a.makeup ?? '').localeCompare(b.makeup ?? '', 'fr'));
 
-      const first = pdpBuckets.values().next().value!.values().next().value![0]!;
+      const first = plateBuckets.values().next().value![0]!;
       const known = !!first.largeur && !!first.longueur;
       dimensions.push({
         key: dimKey,
@@ -268,10 +263,10 @@ export function buildScheduleRecap(
         known,
         largeur: first.largeur,
         longueur: first.longueur,
-        reqLites: pdps.reduce((s, p) => s + p.reqLites, 0),
-        m2: pdps.reduce((s, p) => s + p.m2, 0),
-        lines: pdps.reduce((s, p) => s + p.lines, 0),
-        pdps,
+        reqLites: plates.reduce((s, p) => s + p.reqLites, 0),
+        m2: plates.reduce((s, p) => s + p.m2, 0),
+        lines: plates.reduce((s, p) => s + p.lines, 0),
+        plates,
       });
     }
 
@@ -294,7 +289,6 @@ export function buildScheduleRecap(
 
   return {
     qualities,
-    byPdp,
     reqLites: qualities.reduce((s, q) => s + q.reqLites, 0),
     m2: qualities.reduce((s, q) => s + q.m2, 0),
     lines: qualities.reduce((s, q) => s + q.lines, 0),

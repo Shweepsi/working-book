@@ -122,11 +122,11 @@ export default function App() {
   const [schedPrintMode, setSchedPrintMode] = useState<SchedPrintMode>(
     () => (load<SchedPrintMode>('wb.sched.printMode', 'detail') === 'recap' ? 'recap' : 'detail'),
   );
-  // Whether that récap splits each dimension's plates by PDP. Same drawer as
-  // the mode above, and persisted for the same reason: the two shifts don't
-  // prepare plates the same way, and neither should have to re-arm the sheet.
-  const [recapByPdp, setRecapByPdp] = useState<boolean>(
-    () => load<boolean>('wb.sched.recapByPdp', true) !== false,
+  // Whether that récap notes each plate's PDP behind it. Same drawer as the
+  // mode above, and persisted for the same reason: the two shifts don't prepare
+  // plates the same way, and neither should have to re-arm the sheet.
+  const [recapShowPdp, setRecapShowPdp] = useState<boolean>(
+    () => load<boolean>('wb.sched.recapPdp', true) !== false,
   );
 
   const live = useNowLive();
@@ -151,7 +151,7 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => { save('wb.sched.printMode', schedPrintMode); }, [schedPrintMode]);
-  useEffect(() => { save('wb.sched.recapByPdp', recapByPdp); }, [recapByPdp]);
+  useEffect(() => { save('wb.sched.recapPdp', recapShowPdp); }, [recapShowPdp]);
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
@@ -406,7 +406,7 @@ export default function App() {
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
         {tab === 'sched' && (
-          <Schedules density={density} printMode={schedPrintMode} recapByPdp={recapByPdp} />
+          <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
       </main>
@@ -441,22 +441,22 @@ export default function App() {
               ))}
             </div>
           )}
-          {/* Only the récap has a PDP level to fold away, so the toggle only
-              shows once that sheet is the one being printed — next to the
-              choice it depends on, not somewhere else on the bar. */}
+          {/* Only the récap carries the PDP note, so the toggle only shows once
+              that sheet is the one being printed — next to the choice it
+              depends on, not somewhere else on the bar. */}
           {tab === 'sched' && schedPrintMode === 'recap' && (
             <button
               type="button"
-              className={`btn ghost mini ${recapByPdp ? 'is-on' : ''}`}
-              onClick={() => setRecapByPdp((v) => !v)}
-              aria-pressed={recapByPdp}
+              className={`btn ghost mini ${recapShowPdp ? 'is-on' : ''}`}
+              onClick={() => setRecapShowPdp((v) => !v)}
+              aria-pressed={recapShowPdp}
               title={
-                recapByPdp
-                  ? 'Plaques regroupées par PDP sous chaque dimension — cliquer pour les lister directement'
-                  : 'Regrouper les plaques par PDP sous chaque dimension'
+                recapShowPdp
+                  ? 'PDP noté derrière chaque plaque — cliquer pour ne garder que les plaques'
+                  : 'Noter le PDP derrière chaque plaque'
               }
             >
-              Tri PDP
+              PDP
             </button>
           )}
           <button type="button" className="btn ghost mini" onClick={() => window.print()}>

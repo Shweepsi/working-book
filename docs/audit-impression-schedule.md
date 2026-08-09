@@ -583,15 +583,13 @@ quatrième bande grise.
 - **Une ligne sans épaisseur décodée** n'est pas perdue : elle tombe dans un
   bucket nommé en fin de groupe, qui dit le trou au lieu de le cacher dans une
   épaisseur réelle.
-- **Le PDP est réduit à la plaque qu'il désigne** : `O PL6` s'écrit « 6 mm »,
-  `O PL44.2` s'écrit « 4.4.2 ». Le « O » est sur tous les PDP et les autres
-  jetons (`SP3`…) ne changent pas ce qu'on prend au rack — écartés du libellé,
-  ils le sont aussi du regroupement : deux PDP qui n'en diffèrent que par là
-  sont la même plaque, et deux intitulés identiques se liraient comme un bug.
-  Un PDP sans charge `PL` dit généralement sa plaque par le code format —
-  `ILLT1` → « LLT » ; sinon la ligne garde le « O » du rapport, sous les
-  plaques nommées : un O honnête vaut mieux qu'une étiquette que la donnée ne
-  porte pas. Mesuré sur le rapport prod : 18 lignes LLT, 16 « O ».
+- **Le PDP est réduit à la plaque qu'il désigne** : `O PL6` s'écrit « FPL6 »,
+  `O PL44.2` s'écrit « FPL4.4.2 ». Le « O » est sur tous les PDP et les autres
+  jetons (`SP3`…) ne changent pas ce qu'on prend au rack — écartés de la note.
+  Un PDP sans charge `PL` dit généralement sa plaque par le code format
+  (`ILLT1` → « LLT ») ; sinon la note garde le « O » du rapport : un O honnête
+  vaut mieux qu'une étiquette que la donnée ne porte pas. Mesuré sur le rapport
+  prod : 18 lignes LLT, 16 « O ». Voir « Le PDP est une note » plus bas.
 - **Un feuilleté n'est pas une plaque de son épaisseur totale.** Le code
   article porte la composition derrière les quatre chiffres d'épaisseur
   (`CSGSNX50HXC08004.4.2CL` → 08.00 mm finis, mais deux plaques de 4). Groupé
@@ -618,22 +616,38 @@ identiques (637 lites, 11 164 m² sur le jeu de test). Aller-retour entre les
 deux modes : orientation, largeur de feuille d'aperçu et contenu suivent, sans
 trace de l'autre rendu. Écran inchangé dans les deux modes.
 
-## Le niveau PDP se replie
+## Le PDP est une note, pas un niveau
 
-Le PDP est un niveau de regroupement, pas une donnée de plus : selon la façon
-dont les plaques sont préparées — PDP par PDP, ou dimension par dimension — il
-aide ou il allonge. Un bouton **Tri PDP** dans la barre d'aperçu, à côté du
-sélecteur de feuille et visible seulement quand le récap est la feuille
-choisie, l'active ou l'escamote ; le choix est persisté (`wb.sched.recapByPdp`),
-comme le mode d'impression lui-même.
+Le PDP a d'abord été un niveau de regroupement, entre la dimension et la
+plaque. Il découpait une même pile en plusieurs intitulés : un 4.4.2 demandé
+par deux PDP sortait sur deux lignes, alors qu'on le compte une fois au rack.
+Il est donc redescendu sur la ligne de plaque, entre parenthèses derrière
+elle :
 
-Replié, chaque dimension liste ses plaques directement, et deux lignes qui ne
-différaient que par leur PDP n'en font plus qu'une : sur le rapport de
-production, 34 intitulés PDP et 58 lignes de plaque deviennent 47 lignes sans
-intitulé — une page de moins sur quatre. Les totaux, eux, ne bougent pas : le
-repli ne change que la profondeur du regroupement. Le retrait des plaques suit
-d'un cran (`.sch-recap.is-flat`) — laissé à 34 pt, il désignerait un intitulé
-qui n'est plus imprimé.
+```
+     2,1 mm (FPL4)                     une plaque de 4, PDP « O PL4 »
+     2,1 mm (FPL4, LLT)                … dont le code format dit LLT
+     2,1 mm (LLT)                      PDP muet, mais le format parle
+     4.4.2  (FPL4.4.2, FPL6)           une seule pile, deux PDP la demandent
+     08 mm  (O)                        le PDP n'a rien dit
+```
+
+Ce que porte la parenthèse : la charge `PL` de chaque PDP du groupe, préfixée
+`FPL` comme la ligne l'écrit, puis `LLT` si un code format le porte. Un PDP
+muet laisse le « O » du rapport — sauf si son propre code format a déjà
+répondu, auquel cas écrire les deux reviendrait à imprimer la question à côté
+de sa réponse. Une ligne sans PDP du tout n'annote rien : le silence est celui
+du rapport. Mesuré sur le rapport de production : 47 plaques, 36 à une seule
+note, 9 à deux, une à trois.
+
+Un bouton **PDP** dans la barre d'aperçu, à côté du sélecteur de feuille et
+visible seulement quand le récap est la feuille choisie, imprime ou tait la
+note ; le choix est persisté (`wb.sched.recapPdp`), comme le mode d'impression
+lui-même. Le tait ne change ni le regroupement ni les totaux — c'est bien une
+annotation, et la feuille garde ses 47 lignes dans les deux cas.
+
+Le bloc insécable redevient la dimension et ses plaques : c'est une pile à
+préparer, et c'est ce que l'œil suit.
 
 ## Corrections après revue
 
@@ -671,6 +685,10 @@ qui n'est plus imprimé.
   article, plis d'un ou deux chiffres. Une famille qui l'écrirait autrement
   retomberait silencieusement sur l'épaisseur finie — traitée en monolithique,
   sans signalement. Zéro cas dans le rapport prod audité.
-- Replié, le bloc insécable redevient la dimension entière : une dimension qui
-  porterait plus d'une quinzaine de plaques dépasserait la page et serait
-  coupée. Aucune n'en porte plus de huit sur le rapport prod.
+- Le bloc insécable est la dimension et ses plaques : une dimension qui en
+  porterait plus d'une quinzaine dépasserait la page et serait coupée. Aucune
+  n'en porte plus de huit sur le rapport prod.
+- La note PDP liste les charges `PL` du groupe ; deux PDP qui ne diffèrent que
+  par un jeton sans effet sur la plaque (`SP3`, `OTP`…) n'y apparaissent donc
+  qu'une fois, ce qui est voulu — mais la note ne dit pas laquelle des lignes
+  du groupe vient de quel PDP. Le tableau détaillé le dit, lui.
