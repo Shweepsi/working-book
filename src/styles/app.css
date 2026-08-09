@@ -5154,16 +5154,19 @@ button.as-row:focus-visible {
 
 /* Both layouts are mounted at once (the table stays the screen's tool), so the
    paper picks one and hides the other. The récap carries its own title and its
-   own provenance line, so the detail header and meta line go with the table. */
-:root.is-print-preview .sch.is-print-recap .sch-table,
-:root.is-print-preview .sch.is-print-recap .sch-detail-head,
-:root.is-print-preview .sch.is-print-recap .sch-print-meta {
+   own provenance line, so the detail header and meta line go with the table.
+
+   Gated on the récap actually being there (`:has`): with no schedule selected
+   there is no sheet to put in the table's place, and hiding it regardless
+   printed a blank page. `.sch-empty-rows` is in the list because the table
+   swaps itself for that div when a filter clears every row — the class the
+   rules above hide is then nowhere on the page, and its screen-styled "aucune
+   ligne" printed above the récap's own. */
+:root.is-print-preview .sch.is-print-recap:has(.sch-recap) :is(.sch-table, .sch-empty-rows, .sch-detail-head, .sch-print-meta) {
   display: none !important;
 }
 @media print {
-  .sch.is-print-recap .sch-table,
-  .sch.is-print-recap .sch-detail-head,
-  .sch.is-print-recap .sch-print-meta {
+  .sch.is-print-recap:has(.sch-recap) :is(.sch-table, .sch-empty-rows, .sch-detail-head, .sch-print-meta) {
     display: none !important;
   }
 }

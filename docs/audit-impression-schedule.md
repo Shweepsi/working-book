@@ -658,9 +658,21 @@ préparer, et c'est ce que l'œil suit.
   des lites, et un récap dont le total ne colle plus à celui de la feuille
   détaillée n'est plus vérifiable. Sur le rapport prod, la seule ligne
   concernée est l'échantillon QC, déjà exclu en amont par son nom d'article.
-- **Le récap sans schedule sélectionné** ne pose plus sa classe papier : celle-ci
-  masque le tableau, et sans feuille pour le remplacer l'impression sortait une
-  page blanche. Le tableau (et son « aucune ligne ») s'imprime à la place.
+- **Le récap sans schedule sélectionné** sortait une page blanche : la classe
+  papier masque le tableau, et il n'y avait pas de feuille pour le remplacer.
+  Ce n'est plus la classe qui est conditionnelle — l'orientation `@page` suit le
+  même mode, et une classe qui allait et venait avec la sélection aurait dimensionné
+  la feuille d'aperçu contre une page que l'imprimante n'utilisait pas — mais le
+  masquage, que les règles papier accrochent à la présence du récap
+  (`:has(.sch-recap)`). Sans lui, le tableau s'imprime.
+- **Le tableau se remplace lui-même par un `.sch-empty-rows`** quand un filtre
+  vide toutes ses lignes : la classe masquée n'est alors nulle part sur la page,
+  et son « aucune ligne » à la mise en forme écran s'imprimait au-dessus de celui
+  du récap. Les deux sont masqués ensemble.
+- **Charge PDP déjà espacée.** `PL4.4.2` se lisait « 4.4 » : la découpe ne
+  gardait que deux segments, le troisième tombait. Une charge portant plus d'un
+  point est déjà écrite pli par pli et passe telle quelle. Aucun cas dans le
+  rapport prod, où les charges s'écrivent collées (`PL44.2`).
 - **Composition d'un feuilleté à plis de deux chiffres.** L'épaisseur et le
   premier pli sont écrits collés (`10005.5.2`, mais aussi `200010.10.2`), et
   lire un chiffre dans les deux cas donnait un « 0.10.2 » qui ne nomme aucune

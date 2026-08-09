@@ -982,9 +982,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   }
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
-  // The récap only exists for a schedule. Both the paper class and the sheet
-  // itself hang off this, so they can never disagree about what gets printed.
-  const recapSheet = printMode === 'recap' && !!selectedSchedule;
 
   // Filters are global — one qualité/PDP/MTO set shared by every schedule. Kept
   // across a selection change they routinely match nothing in the schedule the
@@ -1074,11 +1071,12 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     // rules only ever need it from inside this view, and `:has()` lets the
     // preview sheet pick its own width off the same class (see app.css).
     //
-    // Gated on there being a schedule to print: the class hides the table, and
-    // with nothing selected there is no récap to put in its place — printing
-    // then handed out a blank sheet. Without the class the rail prints, which
-    // is at least what the screen shows.
-    <div className={`sch${recapSheet ? ' is-print-recap' : ''}`}>
+    // Carried whenever the mode is on, selection or not: the `@page`
+    // orientation in App keys off the same mode, and a class that came and went
+    // with the selection would have sized the aperçu sheet against a page the
+    // printer wasn't using. What hangs on the selection is the *hiding* of the
+    // table, and the paper rules read that off the récap's own presence.
+    <div className={`sch${printMode === 'recap' ? ' is-print-recap' : ''}`}>
       <SummaryBar
         data={data}
         policy={policy}
@@ -1285,7 +1283,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                 in its place: the table stays the screen's working tool, and the
                 paper rules swap which of the two is printed. Fed the same rows
                 the Total row counts, so the two sheets can't disagree. */}
-            {recapSheet && selectedSchedule && (
+            {printMode === 'recap' && selectedSchedule && (
               <ScheduleRecap
                 rows={visibleRows}
                 schedule={selectedSchedule}

@@ -125,14 +125,21 @@ export function pdpPlate(pdp: string): string | null {
   if (!pl) return null;
 
   const payload = pl.slice(2);
-  const [whole = '', decimals] = payload.split('.');
-  if (!decimals) return whole;
+  const parts = payload.split('.');
+  // No dot at all: a plain thickness in millimetres.
+  if (parts.length === 1) return payload;
+  // More than one: the payload already spells its plies out, so there is
+  // nothing to unglue — passing it through the split below would drop
+  // everything after the second segment.
+  if (parts.length > 2) return payload;
+
+  const [plies = '', interlayer] = parts;
   // One digit per ply, "44.2" being 4 + 4 + 0.2. A zero among them would be a
   // nought-millimetre ply, so on that payload the convention plainly doesn't
   // hold: print it as the report writes it rather than invent a plate nobody
   // can fetch. Same for a payload with nothing in front of the dot.
-  if (!whole || whole.includes('0')) return payload;
-  return `${whole.split('').join('.')}.${decimals}`;
+  if (!plies || plies.includes('0')) return payload;
+  return `${plies.split('').join('.')}.${interlayer}`;
 }
 
 /**
