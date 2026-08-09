@@ -12,8 +12,11 @@ import {
   totalM2,
   totalReqLites,
 } from '../lib/coaterMath';
+import { fmtNum, fmtStamp } from '../lib/format';
 import PasteImport from './PasteImport';
 import PortalImport from './PortalImport';
+import ScheduleRecap from './ScheduleRecap';
+import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
 
@@ -467,16 +470,19 @@ function sanitiseArchives(raw: unknown): ArchiveMap {
   return out;
 }
 
-function fmtNum(n: number | null | undefined, digits = 0): string {
-  if (n == null || !Number.isFinite(n)) return '';
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
-
 interface SchedulesProps {
   density: Density;
+  // Which of the two paper layouts the view prints as. Owned by App, which
+  // holds the single `@page` rule the orientation depends on and the aperçu bar
+  // the choice is made in — see PAGE_SIZE_STYLE_ID there.
+  printMode: SchedPrintMode;
+  // Whether the récap sheet notes each plate's PDP behind it. Lives next to
+  // `printMode` for the same reason: it is a paper choice, made on the same
+  // bar, and the table on screen already has a PDP column of its own.
+  recapShowPdp: boolean;
 }
 
-export default function Schedules({ density }: SchedulesProps) {
+export default function Schedules({ density, printMode, recapShowPdp }: SchedulesProps) {
   // Every domain syncs, the PMS230 report included — the per-operator
   // local-only toggle it used to honour is gone.
   const dataInit = useCallback(() => load<PMS230Result | null>(KEY_DATA, null), []);
@@ -1061,7 +1067,16 @@ export default function Schedules({ density }: SchedulesProps) {
   }
 
   return (
-    <div className="sch">
+    // The print mode is carried on the root rather than on <html>: the paper
+    // rules only ever need it from inside this view, and `:has()` lets the
+    // preview sheet pick its own width off the same class (see app.css).
+    //
+    // Carried whenever the mode is on, selection or not: the `@page`
+    // orientation in App keys off the same mode, and a class that came and went
+    // with the selection would have sized the aperçu sheet against a page the
+    // printer wasn't using. What hangs on the selection is the *hiding* of the
+    // table, and the paper rules read that off the récap's own presence.
+    <div className={`sch${printMode === 'recap' ? ' is-print-recap' : ''}`}>
       <SummaryBar
         data={data}
         policy={policy}
@@ -1160,12 +1175,7 @@ export default function Schedules({ density }: SchedulesProps) {
                 band under the header — it is reference matter, not content.
                 Row count is left out — the Total row already carries it. */}
             <div className="sch-print-meta print-only">
-              {data?.importedAt && (
-                <span>
-                  rapport importé le{' '}
-                  {new Date(data.importedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
-              )}
+              {data?.importedAt && <span>rapport importé le {fmtStamp(data.importedAt)}</span>}
               <span>tri : {sortSummary}</span>
               {finishedSummary && <span>{finishedSummary}</span>}
               {filterSummary && <strong>filtré : {filterSummary}</strong>}
@@ -1268,6 +1278,24 @@ export default function Schedules({ density }: SchedulesProps) {
               sortDir={tableSettings.sortDir}
               onSort={toggleSort}
             />
+
+            {/* The second paper layout. Mounted alongside the table rather than
+                in its place: the table stays the screen's working tool, and the
+                paper rules swap which of the two is printed. Fed the same rows
+                the Total row counts, so the two sheets can't disagree. */}
+            {printMode === 'recap' && selectedSchedule && (
+              <ScheduleRecap
+                rows={visibleRows}
+                schedule={selectedSchedule}
+                shortName={railStats.get(selectedSchedule.schedule)?.shortName ?? ''}
+                importedAt={data?.importedAt}
+                filterSummary={filterSummary}
+                vitesse={vitesse}
+                coaterMin={coaterMin}
+                coaterMinDt={coaterMinDt}
+                showPdp={recapShowPdp}
+              />
+            )}
 
           </section>
         </div>

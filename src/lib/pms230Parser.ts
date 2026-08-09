@@ -343,6 +343,58 @@ export function shortItemName(itemName: string): string {
   return head;
 }
 
+// Sub-quality that reads as the standard one, so it is left off a make-up:
+// "5.5.2CL" is a 5.5.2, while "5.5.2SR" is its own thing on the racks.
+const STANDARD_GRADE = 'CL';
+
+// The laminated make-up an item code carries, sub-quality included, or null
+// when the article is monolithic:
+//   CSGSN70/37XC10005.5.2SR -> "5.5.2SR"  5+5+0.2, sub-quality SR
+//   CSGSN51XC06003.3.4BF    -> "3.3.4BF"  3+3+0.4, sub-quality BF
+//   CSGSNX50HXC08004.4.2CL  -> "4.4.2"    CL is the standard, left unsaid
+//   CSGSN51HXC0600          -> null
+//
+// The four digits in front of it are the *finished* thickness (1000 = 10.00 mm)
+// and that is what the report's thickness column carries — which is exactly how
+// a 5.5.2 comes to look like a plain 10 mm plate. Anything preparing plates has
+// to read the make-up instead: a 4.4.2 is fetched from the 4 mm racks, not the
+// 8 mm ones, and a 5.5.2SR is not fetched from the same stack as a 5.5.2.
+//
+// Read from the end of the code, NOT from a `[A-Z]{2}\d{4}` anchor: quality
+// codes ending in a digit (NEX9, NEX6) glue that digit to the thickness —
+// "NEX910005.5.2CL" — and a two-letter anchor then reads "EX9100" and misses
+// the make-up entirely.
+//
+// What is left to decide is where the thickness stops and the first ply
+// starts, because the two are written with nothing between them: "10005.5.2"
+// is 1000 + 5.5.2, but "200010.10.2" is 2000 + 10.10.2, and reading one digit
+// in both cases turns the second into a "0.10.2" that names no plate at all.
+// The thickness itself settles it — the plies, interlayer aside, add up to it —
+// so both readings are tried and the one that balances wins. When neither does
+// (the report carries one code whose four digits contradict its own make-up,
+// "…12008.8.1"), the single-digit reading stands: it is the common one, and on
+// that code it is also the right one.
+export function glassMakeup(itemName: string): string | null {
+  const m = itemName?.match(/(\d+)((?:\.\d+)+)([A-Z]*)$/);
+  if (!m) return null;
+  const [, head, dotted, letters = ''] = m;
+  const grade = letters === STANDARD_GRADE ? '' : letters;
+  const rest = dotted.slice(1).split('.');
+
+  for (const firstPly of [1, 2]) {
+    if (head.length < 4 + firstPly) continue;
+    const plies = [head.slice(head.length - firstPly), ...rest];
+    const mm = Number(head.slice(head.length - firstPly - 4, head.length - firstPly)) / 100;
+    // Every ply but the last, which is the interlayer: "5.5.2" is 5 + 5 with a
+    // 0.2 film between, and the code in front of it says 1000.
+    const stack = plies.slice(0, -1).reduce((s, p) => s + Number(p), 0);
+    if (stack === mm) return plies.join('.') + grade;
+  }
+
+  if (head.length < 5) return null;
+  return [head.slice(-1), ...rest].join('.') + grade;
+}
+
 function dominantItemRoot(records: PMS230Record[]): string {
   // Pick the short form that covers the most rows among glass records (skip QC samples).
   const counts = new Map<string, number>();

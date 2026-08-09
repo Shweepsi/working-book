@@ -1703,10 +1703,20 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 /* Schedule view is laid out in landscape on paper (see PAGE_SIZE_STYLE_ID in
    App.tsx), so the preview swaps to a landscape sheet to match:
    A4 landscape 210mm − 2×8mm = 194mm per page. */
-:root.is-print-preview .app-main:has(.sch) {
+:root.is-print-preview .app-main:has(.sch:not(.is-print-recap)) {
   width: 297mm;
   --preview-pad-v: 8mm;
   --preview-page-h: 194mm;
+}
+/* …except in récap mode, which prints portrait with wider margins because the
+   sheet is written on by hand: A4 portrait 297mm − 2×10mm = 277mm per page.
+   Keep the pair in step with the `@page` rule App.tsx installs. */
+:root.is-print-preview .app-main:has(.sch.is-print-recap) {
+  width: 210mm;
+  --preview-pad-v: 10mm;
+  --preview-page-h: 277mm;
+  padding-left: 8mm;
+  padding-right: 8mm;
 }
 :root.is-print-preview .print-only { display: block; }
 :root.is-print-preview .print-header {
@@ -1836,8 +1846,46 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-size: var(--fs-md);
   max-width: calc(100% - 40px);
 }
-.print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
+/* `nowrap`: the bar is a fixed-width pill and the sentence on its left is the
+   only thing that should give way. A two-line "Tri PDP" grew the whole bar and
+   left its buttons at odd heights. */
+.print-preview-bar .btn { background: transparent; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 30%, transparent); white-space: nowrap; }
 .print-preview-bar .btn.primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+/* The bar is ink-on-paper inverted, so the generic ghost hover — which paints
+   `--paper` behind text this bar has already recoloured to `--paper` — turned
+   every button white on white. Hover here is a wash of the text colour, not
+   the paper itself. */
+.print-preview-bar .btn.ghost:hover {
+  background: color-mix(in srgb, var(--paper) 18%, transparent);
+  border-color: color-mix(in srgb, var(--paper) 55%, transparent);
+  color: var(--paper);
+}
+.print-preview-bar .btn.primary:hover {
+  background: color-mix(in srgb, var(--paper) 86%, var(--ink));
+  border-color: color-mix(in srgb, var(--paper) 86%, var(--ink));
+  color: var(--ink);
+}
+/* Segmented choice between the schedule's two sheets. Reads as one control
+   rather than two buttons: only one of them is ever true, and the pair has to
+   say so at a glance on a bar the user is about to print from. */
+.print-mode-switch {
+  display: inline-flex;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.print-mode-switch .btn { border-radius: 0; }
+.print-mode-switch .btn + .btn { border-left-width: 0; }
+.print-mode-switch .btn:first-child { border-top-left-radius: var(--radius-pill); border-bottom-left-radius: var(--radius-pill); }
+.print-mode-switch .btn:last-child { border-top-right-radius: var(--radius-pill); border-bottom-right-radius: var(--radius-pill); }
+/* What is on, on this bar, is filled with the text colour — the segmented pair
+   and the standalone toggles alike, so "active" reads the same whichever
+   control wears it. */
+.print-preview-bar .btn.ghost.is-on,
+.print-preview-bar .btn.ghost.is-on:hover {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--paper);
+}
 /* Hide the preview bar when actually sending to paper. (It's rendered only
    while preview is on, but if the user prints from inside preview mode the
    bar should not appear on the printout.) */
@@ -5088,4 +5136,291 @@ button.as-row:focus-visible {
   /* Underline is this flag's print voice, and a finished line has no packing
      work left to flag — same reasoning as the colour it drops on screen. */
   .sch-row.is-muted .sch-packs-short { font-weight: inherit; text-decoration: none; }
+}
+
+/* ==========================================================================
+   Schedule — récap plaques (second rendu papier, portrait)
+   ==========================================================================
+   The other sheet the schedule prints. Where the layout above puts the whole
+   planning table on landscape paper, this one collapses it into what the racks
+   need: lites left to produce per dimension and per thickness, plus one empty
+   column filled in by hand.
+
+   One block, not two. The `.sch-recap-*` namespace is new and has no on-screen
+   rules to beat — the section is `print-only`, so nothing renders it outside
+   the aperçu and the paper, and both contexts define the same `--print-*`
+   tokens (tokens.css). Hence no duplicated selector list and no `!important`,
+   unlike the `.sch-*` section above which has to out-shout the screen. */
+
+/* Both layouts are mounted at once (the table stays the screen's tool), so the
+   paper picks one and hides the other. The récap carries its own title and its
+   own provenance line, so the detail header and meta line go with the table.
+
+   Gated on the récap actually being there (`:has`): with no schedule selected
+   there is no sheet to put in the table's place, and hiding it regardless
+   printed a blank page. `.sch-empty-rows` is in the list because the table
+   swaps itself for that div when a filter clears every row — the class the
+   rules above hide is then nowhere on the page, and its screen-styled "aucune
+   ligne" printed above the récap's own. */
+:root.is-print-preview .sch.is-print-recap:has(.sch-recap) :is(.sch-table, .sch-empty-rows, .sch-detail-head, .sch-print-meta) {
+  display: none !important;
+}
+@media print {
+  .sch.is-print-recap:has(.sch-recap) :is(.sch-table, .sch-empty-rows, .sch-detail-head, .sch-print-meta) {
+    display: none !important;
+  }
+}
+
+.sch-recap {
+  color: var(--print-ink-strong);
+  font-size: 10pt;
+  /* A hair of room on the right. The table is 100 % wide, so its outer rule
+     lands exactly on the page's content edge, where the printer clips it — it
+     came out half the width of every other line on the sheet. */
+  padding-right: 1pt;
+}
+/* The header is the detailed sheet's, to the letter: the same tinted band with
+   its rounded top and side rails closing on a rule, the same 17pt title, and
+   the same faint provenance line above it. Two sheets of the same schedule
+   should open the same way — declared here rather than borrowed from
+   `.sch-detail-head`, whose own rules are hidden in this mode. */
+.sch-recap-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2pt 10pt;
+  margin: 0 0 2mm;
+  font-size: 7pt;
+  color: var(--ink-faint);
+}
+/* "filtré : …" is the one item here that changes how the sheet must be read —
+   it says these are not all the rows. Full ink while the rest stays faint. */
+.sch-recap-meta strong { font-weight: 600; color: var(--ink); }
+
+.sch-recap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4pt 10pt;
+  background: var(--paper-2);
+  border: 1px solid var(--line-faint);
+  border-bottom: 1pt solid var(--line-soft);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.sch-recap-title {
+  margin: 0;
+  font-size: 17pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.sch-recap-title-num { font-variant-numeric: tabular-nums; }
+.sch-recap-title-sep { margin: 0 2pt; }
+.sch-recap-title-name { font-weight: 600; }
+
+/* Vitesse / Production / + DT, as on the detailed sheet's band: the plates are
+   prepared against that duration, so it belongs on this sheet too. Dividers as
+   short centred pseudo-elements rather than borders — a border spans the tile
+   edge to edge and reads as a bar slicing the band, which is solid grey here. */
+.sch-recap-stats {
+  display: flex;
+  align-items: stretch;
+  margin-left: auto;
+}
+.sch-recap-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1pt;
+  padding: 0 8pt;
+  position: relative;
+}
+.sch-recap-stat + .sch-recap-stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 1px;
+  background: var(--line-faint);
+}
+.sch-recap-stat:last-child { padding-right: 0; }
+.sch-recap-stat-label {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.sch-recap-stat-value {
+  font-size: 12pt;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.sch-recap-stat-unit { font-size: 8pt; font-weight: 400; color: var(--ink-faint); }
+/* The two duration tiles reserve their width whether or not a speed is set, so
+   a sheet printed before anyone set one has the same cluster geometry as one
+   printed after. 11ch is `09 h 25 min` in the mono face they wear — the same
+   reservation the detailed sheet makes. */
+.sch-recap-stat + .sch-recap-stat .sch-recap-stat-value { min-width: 11ch; }
+/* An absent duration should read as absent: at full ink the em dash carried as
+   much weight as a real one. */
+.sch-recap-stat-value.is-empty { color: var(--ink-faint); font-weight: 400; }
+
+.sch-recap-table {
+  width: 100%;
+  table-layout: fixed;
+  /* Separate borders with zero spacing rather than collapsed: each rule is
+     then one stroke painted inside its own cell — top and right on every cell,
+     left and bottom on the table — so the heavier section rules below simply
+     override a cell's own top border instead of stacking on the one above it.
+     (The right-hand rule printing at half width was not this model's doing;
+     see the padding on .sch-recap.) */
+  border-collapse: separate;
+  border-spacing: 0;
+  /* Stops the engine handing the last row of a page-fragment whatever space is
+     left when the next group is pushed onto the following sheet: that row came
+     out stretched to the page bottom, trailing its column rules into the blank.
+     A 1px minimum is below any real content height, so nothing else moves. */
+  height: 1px;
+  border: 0.75pt solid var(--print-line);
+  /* The header card closes on its own rule and the table starts directly under
+     it, exactly as on the detailed sheet — a border of its own would double
+     that line. */
+  border-top: 0;
+}
+/* The total must appear once at the end — a footer group would repeat it on
+   every sheet and read as a per-page subtotal. */
+.sch-recap-table > tfoot { display: table-row-group; }
+
+/* Rules where they carry meaning, and nowhere else. A full grid turned the
+   sheet into a spreadsheet dump: what it needs is the horizontal rhythm of the
+   rows, and one vertical rule in front of each figure column — the one that is
+   read and the one that is written in. The heading bands then run clean across
+   the width, which is what makes the three levels legible at a glance. */
+.sch-recap-table th,
+.sch-recap-table td {
+  padding: 3pt 6pt;
+  border: 0;
+  border-top: 0.75pt solid var(--print-line);
+  text-align: left;
+  vertical-align: middle;
+}
+/* The header card draws the top edge; a row border on the first row would
+   double it. */
+.sch-recap-table tbody:first-of-type tr:first-child th,
+.sch-recap-table tbody:first-of-type tr:first-child td { border-top: 0; }
+.sch-recap-table .sch-recap-num,
+.sch-recap-table .sch-recap-fill,
+.sch-recap-table .sch-recap-blank {
+  border-left: 0.75pt solid var(--print-line);
+}
+/* Scoped to the table: the generic `th, td` rule above is a class *and* a
+   type, so a bare class would lose the alignment race. */
+/* A touch more air on the right of the figures: flush against the rule that
+   opens the writing column, they read as its left edge rather than as counts. */
+.sch-recap-table .sch-recap-num { text-align: right; padding-right: 9pt; }
+
+/* A dimension and its plates are never split across two sheets: at the racks,
+   half a pile is worse than a shorter first page. */
+.sch-recap-group { break-inside: avoid; page-break-inside: avoid; }
+/* And the qualité above them never ends a page alone. */
+.sch-recap-qgroup { break-after: avoid; page-break-after: avoid; }
+
+/* The three levels step in by an indent each — qualité flush left, dimension
+   under it, plate under that. Tint and weight already separate them, but on a
+   sheet read at arm's length the left edge is what carries the nesting. */
+/* Qualité is the sheet's top cut and has to win against the tinted dimension
+   bands under it — set light, with only a rule and some air, it lost to them.
+   A tint two steps darker than theirs, plus the rule and the spaced caps, is
+   enough to carry the level; reversed out of black it read as a slab and took
+   the sheet over. */
+.sch-recap-q th,
+.sch-recap-q td {
+  padding: 5pt 6pt;
+  font-size: 10pt;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--print-ink-strong) 20%, var(--print-bg));
+  border-top: 1.25pt solid var(--print-ink-strong);
+}
+
+/* The dimension keeps the band: it is the thing the eye hunts for at the
+   racks, and a tint finds it faster than a weight does. It opens its own
+   group, so the band always has plates under it on the same sheet. */
+.sch-recap-dim th {
+  padding-left: 11pt;
+  font-size: 10.5pt;
+  font-weight: 600;
+}
+.sch-recap-dim th,
+.sch-recap-dim td { background: color-mix(in srgb, var(--print-bg-tint) 60%, var(--print-bg)); }
+.sch-recap-unit { font-size: 8.5pt; font-weight: 400; color: var(--print-ink); }
+
+/* The PDP behind its plate, not above a group of plates: it says which plate to
+   fetch, and the plate is already named — so it reads as a note on the line.
+   Smaller and softer than the plate it follows, close enough to belong to it. */
+.sch-recap-pdp-note {
+  font-size: 8pt;
+  color: var(--print-ink-soft);
+}
+
+/* Plates are indented under their dimension rather than given a column of
+   their own: the sheet is read as a list of racks, and the indent is what says
+   "still the same dimension" without spending width on it. */
+/* Scoped to the table for the same reason as the alignment rules above: the
+   base `th, td` padding is a class *and* a type, so a bare class loses to it
+   and the indent silently never happened. */
+.sch-recap-table .sch-recap-plate-label {
+  padding-left: 22pt;
+  font-size: 9.5pt;
+  font-weight: 400;
+}
+.sch-recap-plate .sch-recap-num { font-size: 10pt; }
+/* A gap the report left — a thickness that never decoded, a missing PDP. Set
+   in the text face rather than the mono the real values wear, so it reads as
+   the words it is and not as another rack code. */
+.sch-recap-unknown {
+  font-style: italic;
+  color: var(--print-ink);
+}
+
+/* The column nobody fills in on screen. White ground whatever the row it sits
+   in, and a line tall enough to write in with a pen held over a rack — a box
+   sized to the text around it is a box you write above rather than inside. */
+/* Padding, not `height` — and scoped to the table, like the other geometry
+   rules here, because the base `th, td` padding is a class *and* a type.
+   A row given a height is a row the engine may stretch to fill what is left of
+   a page: the last row before a group pushed onto the next sheet came out
+   stretched to the page bottom, trailing its column rules into the blank.
+   Padding sets the same 15 mm and cannot be stretched. */
+.sch-recap-table .sch-recap-fill {
+  padding: 7.4mm 6pt;
+  background: var(--print-bg);
+}
+/* `.sch-recap-blank` — the cell closing a heading or the total row — is
+   deliberately styled by nothing here. Group and total rows get no box (plates
+   are counted per dimension *and* thickness, so a figure written there would
+   total nothing) and the cell takes its ground from its own row; a background
+   of its own would only ever lose to the row rules above. The class stays in
+   the markup to name the intent. */
+
+/* The total closes the sheet on a rule, not on another grey band — the tint
+   was doing the same job as the qualité bands and blunting both. */
+.sch-recap-total th,
+.sch-recap-total td {
+  padding: 5pt 6pt;
+  font-size: 11pt;
+  font-weight: 700;
+  border-top: 1.5pt solid var(--print-ink-strong);
+}
+.sch-recap-total-sub { font-weight: 400; font-size: 8.5pt; color: var(--print-ink); }
+
+.sch-recap-empty td {
+  padding: 10pt 5pt;
+  color: var(--print-ink);
+  font-style: italic;
 }

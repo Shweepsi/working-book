@@ -521,3 +521,188 @@ section de la fiche de détail ; rien d'autre n'a bougé au pixel près.
 - Tout a été mesuré sous Chromium. Le repli fragile ayant disparu, plus rien ne
   dépend de `beforeprint`, mais la répétition de `<thead>` et les sauts de page
   restent à confirmer sur un autre moteur.
+
+---
+
+# Second rendu papier — récap plaques (portrait)
+
+Ajouté après cet audit, à côté du tableau détaillé et sans rien y changer.
+La feuille détaillée répond à « qu'y a-t-il à produire, ligne par ligne » ; le
+récap répond à la question posée devant les racks : « pour chaque dimension et
+chaque épaisseur, combien de lites reste-t-il, et ai-je les plaques ». Il
+regroupe donc les lignes de planning par qualité → dimension → épaisseur, et
+laisse une colonne vide (`Plaques dispo.`) remplie au stylo.
+
+Les trois niveaux restent dans la colonne de gauche, y compris la qualité quand
+le schedule n'en a qu'une : remontée dans le titre, elle laisserait une feuille
+dont les colonnes ne disent plus ce qu'elles qualifient. Seules les lignes
+d'épaisseur portent un chiffre et une case à remplir — qualité et dimension
+sont des intitulés, et tout ce qui se compte ou s'écrit ici appartient à une
+dimension *et* à une épaisseur. Trois colonnes, donc, et un en-tête réduit au
+schedule, à l'article et à la provenance du rapport, sur une seule ligne de
+base.
+
+Pas de grille complète : le rythme horizontal des lignes, et un seul filet
+vertical devant chaque colonne de chiffres — celle qui se lit, celle qui
+s'écrit. Le reste tenait de la copie de tableur. Les trois niveaux se
+distinguent alors par trois textures plutôt que par trois gris : la qualité est
+une bande soutenue précédée d'un filet fort, la dimension une bande légère qui
+court sur toute la largeur, l'épaisseur une ligne blanche en retrait. Posée en
+clair — filet et fond blanc — la qualité perdait contre les bandes de dimension
+placées juste dessous ; inversée en noir elle prenait toute la feuille. Deux
+crans de gris entre les deux niveaux suffisent. Le total ferme la feuille sur un filet et non sur une
+quatrième bande grise.
+
+## Choix de mise en œuvre
+
+- **Les deux rendus sont montés en même temps.** L'écran garde son tableau —
+  c'est l'outil de travail, et le récap n'a rien à y faire : il porte une
+  colonne que personne ne peut remplir sur un écran. `ScheduleRecap` est
+  `print-only` ; le CSS papier masque le tableau quand `.sch.is-print-recap`.
+- **`@page` garde une source unique.** L'orientation reste décidée par le seul
+  élément `wb-page-size` d'`App.tsx` — d'où l'état `schedPrintMode` hébergé
+  dans `App` plutôt que dans `Schedules`. Deux composants réécrivant `@page`
+  auraient reproduit exactement la fragilité que le reste de ce document
+  documente. Portrait, marges 10 mm / 8 mm : la feuille est tenue et écrite,
+  pas seulement lue.
+- **Un seul jeu de règles CSS**, contrairement à la section `.sch-*` qui doit
+  être écrite deux fois. Le namespace `.sch-recap-*` est neuf et n'a aucune
+  règle écran à écraser : `print-only` suffit à le tenir hors de l'écran, et
+  l'aperçu comme le papier définissent les mêmes tokens `--print-*`. Ni
+  duplication ni `!important`.
+- **Bascule dans l'aperçu, et là seulement.** Le sélecteur `Détail | Récap`
+  vit dans la barre d'aperçu d'impression. Choisir sa feuille est une décision
+  de papier : elle a sa place au dernier arrêt avant la boîte d'impression, pas
+  dans la barre d'outils du tableau, qui n'imprime rien. Le choix est persisté
+  (`wb.sched.printMode`) : qui imprime le récap chaque matin ne le réarme pas
+  chaque matin.
+- **Les chiffres viennent de `visibleRows`**, les lignes que compte déjà la
+  ligne Total du tableau : mêmes filtres, mêmes exclusions (échantillons QC,
+  lignes terminées). Les deux feuilles ne peuvent donc pas se contredire, et
+  les filtres actifs sont rappelés en tête de récap comme sur l'autre feuille.
+- **Une ligne sans épaisseur décodée** n'est pas perdue : elle tombe dans un
+  bucket nommé en fin de groupe, qui dit le trou au lieu de le cacher dans une
+  épaisseur réelle.
+- **Le PDP est réduit à la plaque qu'il désigne** : de `O PL6` il ne reste que
+  « PL6 », de `O PL44.2` « PL4.4.2 » — les plis desserrés, le reste écrit comme
+  le rapport l'écrit. Le « O » est sur tous les PDP et les autres
+  jetons (`SP3`…) ne changent pas ce qu'on prend au rack — écartés de la note.
+  Un PDP sans charge `PL` dit généralement sa plaque par le code format
+  (`ILLT1` → « LLT ») ; sinon la note garde le « O » du rapport : un O honnête
+  vaut mieux qu'une étiquette que la donnée ne porte pas. Mesuré sur le rapport
+  prod : 18 lignes LLT, 16 « O ». Voir « Le PDP est une note » plus bas.
+- **Un feuilleté n'est pas une plaque de son épaisseur totale.** Le code
+  article porte la composition derrière les quatre chiffres d'épaisseur
+  (`CSGSNX50HXC08004.4.2CL` → 08.00 mm finis, mais deux plaques de 4). Groupé
+  sur la seule colonne épaisseur du rapport, un 4.4.2 tombait dans le même
+  « 08 mm » qu'un monolithique et envoyait chercher au mauvais rack. La feuille
+  regroupe donc sur épaisseur *et* composition, et nomme la ligne par la seule
+  composition — le total nomme l'article, pas la plaque. La sous-qualité en fait
+  partie quand il y en a une (`5.5.2SR`, `3.3.4BF`) ; `CL` étant le standard,
+  elle reste tue (`4.4.2`). L'extraction s'ancre sur les quatre chiffres
+  d'épaisseur seuls, pas sur `[A-Z]{2}\d{4}` : les qualités finissant par un
+  chiffre (NEX9, NEX6) collent ce chiffre à l'épaisseur et décalaient la
+  lecture d'un cran. Audité contre le rapport de production réel (204 lignes,
+  110 codes article distincts, base D1 prod) : composition attendue retrouvée
+  sur les 110, zéro écart.
+
+## Vérifié (Chromium, même harnais)
+
+Aucun groupe dimension coupé en deux sur les 4 pages d'un récap de 24
+dimensions — un `<tbody>` par dimension, intitulé compris, en `break-inside:
+avoid` — et total imprimé une seule fois en fin de document (`tfoot` remis en
+`table-row-group` : en groupe de pied il se serait répété à chaque page et lu
+comme un sous-total). L'en-tête de colonnes, lui, a été retiré depuis (voir
+plus bas) ; c'est la contrepartie assumée de la bande gagnée en haut de page. Total récap = total `Req` du tableau détaillé à filtres
+identiques (637 lites, 11 164 m² sur le jeu de test). Aller-retour entre les
+deux modes : orientation, largeur de feuille d'aperçu et contenu suivent, sans
+trace de l'autre rendu. Écran inchangé dans les deux modes.
+
+## Le PDP est une note, pas un niveau
+
+Le PDP a d'abord été un niveau de regroupement, entre la dimension et la
+plaque. Il découpait une même pile en plusieurs intitulés : un 4.4.2 demandé
+par deux PDP sortait sur deux lignes, alors qu'on le compte une fois au rack.
+Il est donc redescendu sur la ligne de plaque, entre parenthèses derrière
+elle :
+
+```
+     2,1 mm (PL4)                une plaque de 4, PDP « O PL4 »
+     2,1 mm (PL4, LLT)           … dont le code format dit LLT
+     2,1 mm (LLT)                PDP muet, mais le format parle
+     4.4.2  (PL4.4.2, PL6)       une seule pile, deux PDP la demandent
+     08 mm  (O)                  le PDP n'a rien dit
+```
+
+Ce que porte la parenthèse : la charge `PL` de chaque PDP du groupe, écrite
+comme le rapport l'écrit, puis `LLT` si un code format le porte. Un PDP
+muet laisse le « O » du rapport — sauf si son propre code format a déjà
+répondu, auquel cas écrire les deux reviendrait à imprimer la question à côté
+de sa réponse. Une ligne sans PDP du tout n'annote rien : le silence est celui
+du rapport. Mesuré sur le rapport de production : 47 plaques, 36 à une seule
+note, 9 à deux, une à trois.
+
+Un bouton **PDP** dans la barre d'aperçu, à côté du sélecteur de feuille et
+visible seulement quand le récap est la feuille choisie, imprime ou tait la
+note ; le choix est persisté (`wb.sched.recapPdp`), comme le mode d'impression
+lui-même. La taire ne change ni le regroupement ni les totaux — c'est bien une
+annotation, et la feuille garde ses 47 lignes dans les deux cas.
+
+Le bloc insécable redevient la dimension et ses plaques : c'est une pile à
+préparer, et c'est ce que l'œil suit.
+
+## Corrections après revue
+
+- **Une ligne sans dimension décodée** rejoint un bucket « dimension non
+  renseignée », trié en dernier, au lieu d'être écartée en silence : elle porte
+  des lites, et un récap dont le total ne colle plus à celui de la feuille
+  détaillée n'est plus vérifiable. Sur le rapport prod, la seule ligne
+  concernée est l'échantillon QC, déjà exclu en amont par son nom d'article.
+- **Le récap sans schedule sélectionné** sortait une page blanche : la classe
+  papier masque le tableau, et il n'y avait pas de feuille pour le remplacer.
+  Ce n'est plus la classe qui est conditionnelle — l'orientation `@page` suit le
+  même mode, et une classe qui allait et venait avec la sélection aurait dimensionné
+  la feuille d'aperçu contre une page que l'imprimante n'utilisait pas — mais le
+  masquage, que les règles papier accrochent à la présence du récap
+  (`:has(.sch-recap)`). Sans lui, le tableau s'imprime.
+- **Le tableau se remplace lui-même par un `.sch-empty-rows`** quand un filtre
+  vide toutes ses lignes : la classe masquée n'est alors nulle part sur la page,
+  et son « aucune ligne » à la mise en forme écran s'imprimait au-dessus de celui
+  du récap. Les deux sont masqués ensemble.
+- **Charge PDP déjà espacée.** `PL4.4.2` se lisait « 4.4 » : la découpe ne
+  gardait que deux segments, le troisième tombait. Une charge portant plus d'un
+  point est déjà écrite pli par pli et passe telle quelle. Aucun cas dans le
+  rapport prod, où les charges s'écrivent collées (`PL44.2`).
+- **Composition d'un feuilleté à plis de deux chiffres.** L'épaisseur et le
+  premier pli sont écrits collés (`10005.5.2`, mais aussi `200010.10.2`), et
+  lire un chiffre dans les deux cas donnait un « 0.10.2 » qui ne nomme aucune
+  plaque. L'épaisseur tranche elle-même — les plis, interlayer mis à part, s'y
+  additionnent — donc les deux lectures sont tentées et celle qui s'équilibre
+  gagne. Quand aucune ne s'équilibre (le rapport porte un code dont les quatre
+  chiffres contredisent sa propre composition, `…12008.8.1`), la lecture à un
+  chiffre reste, et sur ce code-là elle est aussi la bonne.
+- **Charge PDP hors convention.** `PL44.2` est un pli par chiffre ; `PL10.4`
+  donnerait un pli de zéro millimètre, donc la convention n'y tient pas : la
+  charge s'imprime telle que le rapport l'écrit plutôt que d'inventer une
+  plaque introuvable.
+- **Nombres et horodatages partagés** (`src/lib/format.ts`) : les deux feuilles
+  se lisent côte à côte, un séparateur de milliers ou une date qui diffère de
+  l'une à l'autre les fait passer pour deux rapports. Les deux copies avaient
+  déjà divergé — l'une gardait contre un nombre absent, l'autre non.
+
+## Limites connues
+
+- Le récap ne couvre que le schedule sélectionné, comme la feuille détaillée.
+  Préparer les plaques de plusieurs schedules demande autant d'impressions.
+- Mesuré sous Chromium uniquement, comme le reste de ce document.
+- La composition se lit juste après les quatre chiffres d'épaisseur du code
+  article, plis d'un ou deux chiffres. Une famille qui l'écrirait autrement
+  retomberait silencieusement sur l'épaisseur finie — traitée en monolithique,
+  sans signalement. Zéro cas dans le rapport prod audité.
+- Le bloc insécable est la dimension et ses plaques : une dimension qui en
+  porterait plus d'une quinzaine dépasserait la page et serait coupée. Aucune
+  n'en porte plus de huit sur le rapport prod.
+- La note PDP liste les charges `PL` du groupe ; deux PDP qui ne diffèrent que
+  par un jeton sans effet sur la plaque (`SP3`, `OTP`…) n'y apparaissent donc
+  qu'une fois, ce qui est voulu — mais la note ne dit pas laquelle des lignes
+  du groupe vient de quel PDP. Le tableau détaillé le dit, lui.

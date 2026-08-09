@@ -19,7 +19,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Poste, ShiftKey, ShiftMeta, Theme } from './types';
+import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
@@ -115,6 +115,19 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
+  // Which paper layout the Schedule view prints as. Kept here, next to the
+  // `@page` rule and the aperçu bar, so the orientation has a single owner.
+  // Persisted like the other paper-adjacent preferences: an operator who
+  // prints the récap every morning shouldn't re-arm it every morning.
+  const [schedPrintMode, setSchedPrintMode] = useState<SchedPrintMode>(
+    () => (load<SchedPrintMode>('wb.sched.printMode', 'detail') === 'recap' ? 'recap' : 'detail'),
+  );
+  // Whether that récap notes each plate's PDP behind it. Same drawer as the
+  // mode above, and persisted for the same reason: the two shifts don't prepare
+  // plates the same way, and neither should have to re-arm the sheet.
+  const [recapShowPdp, setRecapShowPdp] = useState<boolean>(
+    () => load<boolean>('wb.sched.recapPdp', true) !== false,
+  );
 
   const live = useNowLive();
   const toast = useToast();
@@ -137,6 +150,8 @@ export default function App() {
     });
   }, [toast]);
 
+  useEffect(() => { save('wb.sched.printMode', schedPrintMode); }, [schedPrintMode]);
+  useEffect(() => { save('wb.sched.recapPdp', recapShowPdp); }, [recapShowPdp]);
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
@@ -188,11 +203,17 @@ export default function App() {
     // The schedule sheet gets taller top/bottom margins: 5mm glued the title
     // to the paper edge, and on later pages the repeated column header sat
     // just as tight. Sides stay at 5mm — the table needs the width.
+    //
+    // Its récap is the exception: three columns fit portrait, and the widest of
+    // them is filled in by hand, so the margins go wider — the sheet is held
+    // and written on, not just read.
     el.textContent =
-      tab === 'sched'
+      tab === 'sched' && schedPrintMode === 'detail'
         ? '@media print { @page { size: A4 landscape; margin: 8mm 5mm; } }'
-        : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
-  }, [tab]);
+        : tab === 'sched'
+          ? '@media print { @page { size: A4 portrait; margin: 10mm 8mm; } }'
+          : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
+  }, [tab, schedPrintMode]);
 
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
@@ -384,7 +405,9 @@ export default function App() {
         {tab === 'test' && (
           <ProductionTest key={`pt-${date}-${shiftKey}`} poste={poste} shiftMeta={shiftMeta} />
         )}
-        {tab === 'sched' && <Schedules density={density} />}
+        {tab === 'sched' && (
+          <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
+        )}
         {tab === 'suivi' && <Suivi />}
       </main>
 
@@ -394,6 +417,48 @@ export default function App() {
         <div className="print-preview-bar" role="status">
           <span><strong>Aperçu d’impression</strong> — la mise en page papier s’applique à l’écran.</span>
           <span style={{ flex: 1 }} />
+          {/* The Schedule view has two sheets, and this is the only place the
+              choice between them is offered: it is a paper decision, so it
+              belongs on the last stop before the print dialog rather than in
+              the table's own toolbar, which prints nothing. */}
+          {tab === 'sched' && (
+            <div className="print-mode-switch" role="group" aria-label="Mise en page du schedule">
+              {(['detail', 'recap'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`btn ghost mini ${schedPrintMode === mode ? 'is-on' : ''}`}
+                  onClick={() => setSchedPrintMode(mode)}
+                  aria-pressed={schedPrintMode === mode}
+                  title={
+                    mode === 'detail'
+                      ? 'Tableau détaillé du planning, A4 paysage'
+                      : 'Récap des lites restantes par qualité, dimension, PDP et plaque, A4 portrait, colonne plaques à remplir'
+                  }
+                >
+                  {mode === 'detail' ? 'Détail' : 'Récap'}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Only the récap carries the PDP note, so the toggle only shows once
+              that sheet is the one being printed — next to the choice it
+              depends on, not somewhere else on the bar. */}
+          {tab === 'sched' && schedPrintMode === 'recap' && (
+            <button
+              type="button"
+              className={`btn ghost mini ${recapShowPdp ? 'is-on' : ''}`}
+              onClick={() => setRecapShowPdp((v) => !v)}
+              aria-pressed={recapShowPdp}
+              title={
+                recapShowPdp
+                  ? 'PDP noté derrière chaque plaque — cliquer pour ne garder que les plaques'
+                  : 'Noter le PDP derrière chaque plaque'
+              }
+            >
+              PDP
+            </button>
+          )}
           <button type="button" className="btn ghost mini" onClick={() => window.print()}>
             Imprimer
           </button>

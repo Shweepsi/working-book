@@ -59,3 +59,9 @@ export interface ShiftMeta {
 export type Theme = 'auto' | 'light' | 'dark';
 
 export type Density = 'compact' | 'normal' | 'advanced';
+
+// The two paper layouts the Schedule view offers. `detail` is the landscape
+// planning table; `recap` is the portrait plate-preparation sheet, grouped by
+// dimension and thickness. Shared between App (which owns the `@page` rule and
+// the preview bar) and the Schedule view itself.
+export type SchedPrintMode = 'detail' | 'recap';
