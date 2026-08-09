@@ -165,7 +165,7 @@ export function pdpNotes(rows: PMS230Record[]): string[] {
     // "O" only for a row that says nothing at all. A silent PDP whose format
     // code carries the LLT has already been answered — noting both would print
     // the question next to its own answer.
-    else if (!plate) bare = true;
+    if (!plate && !isLlt) bare = true;
   }
 
   const notes = [...plates].sort((a, b) => a.localeCompare(b, 'fr')).map((p) => `${PDP_PREFIX}${p}`);

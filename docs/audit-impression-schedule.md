@@ -608,11 +608,12 @@ quatrième bande grise.
 
 ## Vérifié (Chromium, même harnais)
 
-`<thead>` répété sur chacune des 4 pages d'un récap de 24 dimensions, aucun
-groupe dimension coupé en deux (un `<tbody>` par dimension, `break-inside:
-avoid`), total imprimé une seule fois en fin de document (`tfoot` remis en
-`table-row-group` — en groupe de pied il se serait répété à chaque page et lu
-comme un sous-total). Total récap = total `Req` du tableau détaillé à filtres
+Aucun groupe dimension coupé en deux sur les 4 pages d'un récap de 24
+dimensions — un `<tbody>` par dimension, intitulé compris, en `break-inside:
+avoid` — et total imprimé une seule fois en fin de document (`tfoot` remis en
+`table-row-group` : en groupe de pied il se serait répété à chaque page et lu
+comme un sous-total). L'en-tête de colonnes, lui, a été retiré depuis (voir
+plus bas) ; c'est la contrepartie assumée de la bande gagnée en haut de page. Total récap = total `Req` du tableau détaillé à filtres
 identiques (637 lites, 11 164 m² sur le jeu de test). Aller-retour entre les
 deux modes : orientation, largeur de feuille d'aperçu et contenu suivent, sans
 trace de l'autre rendu. Écran inchangé dans les deux modes.

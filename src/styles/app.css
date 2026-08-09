@@ -5320,16 +5320,15 @@ button.as-row:focus-visible {
    opens the writing column, they read as its left edge rather than as counts. */
 .sch-recap-table .sch-recap-num { text-align: right; padding-right: 9pt; }
 
-/* A PDP and its thicknesses are never split across two sheets: at the racks,
-   half a group is worse than a shorter first page. */
+/* A dimension and its plates are never split across two sheets: at the racks,
+   half a pile is worse than a shorter first page. */
 .sch-recap-group { break-inside: avoid; page-break-inside: avoid; }
-/* And neither heading above it ever ends a page alone. */
-.sch-recap-qgroup,
-.sch-recap-dimgroup { break-after: avoid; page-break-after: avoid; }
+/* And the qualité above them never ends a page alone. */
+.sch-recap-qgroup { break-after: avoid; page-break-after: avoid; }
 
 /* The three levels step in by an indent each — qualité flush left, dimension
-   under it, thickness under that. Tint and weight already separate them, but
-   on a sheet read at arm's length the left edge is what carries the nesting. */
+   under it, plate under that. Tint and weight already separate them, but on a
+   sheet read at arm's length the left edge is what carries the nesting. */
 /* Qualité is the sheet's top cut and has to win against the tinted dimension
    bands under it — set light, with only a rule and some air, it lost to them.
    A tint two steps darker than theirs, plus the rule and the spaced caps, is
@@ -5347,7 +5346,8 @@ button.as-row:focus-visible {
 }
 
 /* The dimension keeps the band: it is the thing the eye hunts for at the
-   racks, and a tint finds it faster than a weight does. */
+   racks, and a tint finds it faster than a weight does. It opens its own
+   group, so the band always has plates under it on the same sheet. */
 .sch-recap-dim th {
   padding-left: 11pt;
   font-size: 10.5pt;
@@ -5365,18 +5365,18 @@ button.as-row:focus-visible {
   color: var(--print-ink-soft);
 }
 
-/* Thicknesses are indented under their dimension rather than given a column of
+/* Plates are indented under their dimension rather than given a column of
    their own: the sheet is read as a list of racks, and the indent is what says
    "still the same dimension" without spending width on it. */
 /* Scoped to the table for the same reason as the alignment rules above: the
    base `th, td` padding is a class *and* a type, so a bare class loses to it
    and the indent silently never happened. */
-.sch-recap-table .sch-recap-th-label {
+.sch-recap-table .sch-recap-plate-label {
   padding-left: 22pt;
   font-size: 9.5pt;
   font-weight: 400;
 }
-.sch-recap-th .sch-recap-num { font-size: 10pt; }
+.sch-recap-plate .sch-recap-num { font-size: 10pt; }
 /* A gap the report left — a thickness that never decoded, a missing PDP. Set
    in the text face rather than the mono the real values wear, so it reads as
    the words it is and not as another rack code. */
