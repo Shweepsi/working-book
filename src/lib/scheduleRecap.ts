@@ -3,10 +3,11 @@
 //
 // The detailed landscape sheet answers "what is there to produce, line by
 // line". This one answers a different question, the one asked in front of the
-// racks: "for each dimension, each PDP and each plate, how many lites are
-// still to produce, and have I got the stock". So the planning rows collapse
-// into qualité → dimension → PDP → plaque buckets, and the plate count itself
-// is left blank — nobody has that figure in the report, it is written by hand.
+// racks: "for each dimension and each plate, how many lites are still to
+// produce, and have I got the stock". So the planning rows collapse into
+// qualité → dimension → plaque buckets — the PDP riding on the plate as a note
+// rather than splitting one pile in two — and the plate count itself is left
+// blank: nobody has that figure in the report, it is written by hand.
 //
 // Pure functions over rows: no DOM, no state, no formatting decisions beyond
 // the group labels the sheet prints.
@@ -26,9 +27,9 @@ const NO_QUALITE = '—';
 const NO_THICKNESS_KEY = '';
 const NO_THICKNESS_LABEL = 'épaisseur non renseignée';
 
-// How the line writes a PDP plate on its own notes: "FPL6", "FPL4.4.2". The
-// report's own token is `PL6` — the prefix is the shop's, not the report's.
-const PDP_PREFIX = 'FPL';
+// The plate is noted the way the report writes it: "PL6", "PL4.4.2". Only the
+// laminate's plies are re-spaced (the report glues them, "PL44.2").
+const PDP_PREFIX = 'PL';
 
 // A PDP that carries no plate at all. Kept as the report writes it rather than
 // left blank: an operator reading "O" knows the PDP was silent, where an empty
@@ -52,7 +53,7 @@ export interface RecapPlateGroup {
   /** Laminated make-up ("4.4.2"), or null for a monolithic article. */
   makeup: string | null;
   /** What the PDPs of these rows say, ready to print between parentheses:
-   *  ["FPL6"], ["FPL6", "LLT"], ["O"]. Empty when no row carried a PDP. */
+   *  ["PL6"], ["PL6", "LLT"], ["O"]. Empty when no row carried a PDP. */
   pdps: string[];
   reqLites: number;
   m2: number;
@@ -136,7 +137,7 @@ export function pdpPlate(pdp: string): string | null {
 
 /**
  * What the PDPs of a plate's rows have to say, ready to print in parentheses
- * behind the plate: `06 mm (FPL6)`, `4.4.2 (FPL4.4.2)`, `06 mm (FPL6, LLT)`.
+ * behind the plate: `06 mm (PL6)`, `4.4.2 (PL4.4.2)`, `06 mm (PL6, LLT)`.
  *
  * It is an annotation, not a grouping: two rows of the same plate that differ
  * only by their PDP stay one line and put both PDPs behind it. Which is the
@@ -145,7 +146,7 @@ export function pdpPlate(pdp: string): string | null {
  *
  * A PDP with no `PL` payload still often names its plate through the format
  * code, where `ILLT1` marks an LLT; that marker rides alongside the plate
- * rather than instead of it, so a row can read `(FPL6, LLT)`. When a PDP says
+ * rather than instead of it, so a row can read `(PL6, LLT)`. When a PDP says
  * neither, it leaves the "O" the report wrote — an honest O beats a silence
  * that reads like a printing fault. A row carrying no PDP field at all adds
  * nothing: there the silence is the report's, and nothing is what it said.

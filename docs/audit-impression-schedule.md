@@ -583,8 +583,9 @@ quatrième bande grise.
 - **Une ligne sans épaisseur décodée** n'est pas perdue : elle tombe dans un
   bucket nommé en fin de groupe, qui dit le trou au lieu de le cacher dans une
   épaisseur réelle.
-- **Le PDP est réduit à la plaque qu'il désigne** : `O PL6` s'écrit « FPL6 »,
-  `O PL44.2` s'écrit « FPL4.4.2 ». Le « O » est sur tous les PDP et les autres
+- **Le PDP est réduit à la plaque qu'il désigne** : de `O PL6` il ne reste que
+  « PL6 », de `O PL44.2` « PL4.4.2 » — les plis desserrés, le reste écrit comme
+  le rapport l'écrit. Le « O » est sur tous les PDP et les autres
   jetons (`SP3`…) ne changent pas ce qu'on prend au rack — écartés de la note.
   Un PDP sans charge `PL` dit généralement sa plaque par le code format
   (`ILLT1` → « LLT ») ; sinon la note garde le « O » du rapport : un O honnête
@@ -625,15 +626,15 @@ Il est donc redescendu sur la ligne de plaque, entre parenthèses derrière
 elle :
 
 ```
-     2,1 mm (FPL4)                     une plaque de 4, PDP « O PL4 »
-     2,1 mm (FPL4, LLT)                … dont le code format dit LLT
-     2,1 mm (LLT)                      PDP muet, mais le format parle
-     4.4.2  (FPL4.4.2, FPL6)           une seule pile, deux PDP la demandent
-     08 mm  (O)                        le PDP n'a rien dit
+     2,1 mm (PL4)                une plaque de 4, PDP « O PL4 »
+     2,1 mm (PL4, LLT)           … dont le code format dit LLT
+     2,1 mm (LLT)                PDP muet, mais le format parle
+     4.4.2  (PL4.4.2, PL6)       une seule pile, deux PDP la demandent
+     08 mm  (O)                  le PDP n'a rien dit
 ```
 
-Ce que porte la parenthèse : la charge `PL` de chaque PDP du groupe, préfixée
-`FPL` comme la ligne l'écrit, puis `LLT` si un code format le porte. Un PDP
+Ce que porte la parenthèse : la charge `PL` de chaque PDP du groupe, écrite
+comme le rapport l'écrit, puis `LLT` si un code format le porte. Un PDP
 muet laisse le « O » du rapport — sauf si son propre code format a déjà
 répondu, auquel cas écrire les deux reviendrait à imprimer la question à côté
 de sa réponse. Une ligne sans PDP du tout n'annote rien : le silence est celui
@@ -643,7 +644,7 @@ note, 9 à deux, une à trois.
 Un bouton **PDP** dans la barre d'aperçu, à côté du sélecteur de feuille et
 visible seulement quand le récap est la feuille choisie, imprime ou tait la
 note ; le choix est persisté (`wb.sched.recapPdp`), comme le mode d'impression
-lui-même. Le tait ne change ni le regroupement ni les totaux — c'est bien une
+lui-même. La taire ne change ni le regroupement ni les totaux — c'est bien une
 annotation, et la feuille garde ses 47 lignes dans les deux cas.
 
 Le bloc insécable redevient la dimension et ses plaques : c'est une pile à
