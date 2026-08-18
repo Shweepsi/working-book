@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import Logbook from './components/Logbook';
+import LogbookPage from './components/LogbookPage';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
 import Settings from './components/Settings';
@@ -389,9 +389,11 @@ export default function App() {
       </header>
 
       <main className="app-main">
+        {/* No remount key here: LogbookPage holds a section that isn't
+            shift-scoped (Cosmétique), so the keys live inside, on the sections
+            that actually follow the header. */}
         {tab === 'logbook' && (
-          <Logbook
-            key={`lb-${date}-${shiftKey}`}
+          <LogbookPage
             poste={poste}
             shiftMeta={shiftMeta}
             onNavigate={(d, p) => {

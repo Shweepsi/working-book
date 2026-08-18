@@ -180,6 +180,21 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 /* ---------- Logbook ---------- */
 
+/* Section switch of the unified Logbook page (Journal | Test | Cosmétique).
+   Reuses the .seg pill, capped so three labels don't stretch across the whole
+   1100px main column on desktop. Not sticky: the type strip below is the bar
+   worth keeping under the thumb while scrolling. */
+.lbp-sections {
+  max-width: 480px;
+  margin: 0 auto 14px;
+}
+.lbp-scope-note {
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  margin: -6px 0 12px;
+}
+
 /* One-tap "type strip" — phone/tablet primary action.
    Two rows: prefilled types on top, ad-hoc (Arrêt / Qualité / Note) below.
    Sticks below the app-header so the +type buttons stay reachable while
