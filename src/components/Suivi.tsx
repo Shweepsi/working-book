@@ -2,25 +2,25 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
 import { useEscapeToClose } from '../lib/hooks';
-import { useToast } from '../lib/toast';
+import { useToast, type ToastApi } from '../lib/toast';
 import { todayISO } from '../lib/shiftCalendar';
 
-const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
+export const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
 const TAGS = ['Production', 'Process', 'Développement', 'Réclamation'] as const;
 const TEST_TYPES = ['Cosmétique', 'Contrôle Couleur'] as const;
 
-type Process = (typeof PROCESSES)[number];
+export type Process = (typeof PROCESSES)[number];
 type Station = (typeof STATIONS)[number];
 type Tag = (typeof TAGS)[number];
 type CellState = 'ok' | 'nok' | 'na' | null;
-type StageStatus = 'complete' | 'fail' | 'na' | 'empty';
+export type StageStatus = 'complete' | 'fail' | 'na' | 'empty';
 
 interface ProcessRow {
   stations: Record<Station, CellState>;
 }
 
-interface SuiviEntry {
+export interface SuiviEntry {
   id: string;
   serial: string;
   color: string;
@@ -38,16 +38,60 @@ interface SuiviEntry {
   updatedAt?: number;
 }
 
-interface SuiviState {
+export interface SuiviState {
   entries: SuiviEntry[];
 }
 
-const STORAGE_KEY = 'wb.suivi.v1';
+export type SuiviSetState = (next: SuiviState | ((prev: SuiviState) => SuiviState)) => void;
+
+// Entry mutators, shared between SuiviView and the unified Logbook page's
+// attachment sheet — one write path to the registry, so the timestamp
+// stamping and the delete/undo contract can never drift apart.
+export function patchSuiviEntryById(
+  setState: SuiviSetState,
+  id: string,
+  mut: (e: SuiviEntry) => SuiviEntry,
+): void {
+  const now = Date.now();
+  setState((s) => ({
+    ...s,
+    entries: s.entries.map((e) =>
+      e.id === id ? { ...mut(e), createdAt: e.createdAt ?? now, updatedAt: now } : e,
+    ),
+  }));
+}
+
+export function deleteSuiviEntryById(setState: SuiviSetState, toast: ToastApi, id: string): void {
+  let removed: SuiviEntry | undefined;
+  let removedIndex = -1;
+  setState((s) => {
+    removedIndex = s.entries.findIndex((e) => e.id === id);
+    if (removedIndex < 0) return s;
+    removed = s.entries[removedIndex];
+    return { ...s, entries: s.entries.filter((e) => e.id !== id) };
+  });
+  if (!removed) return;
+  const restored = removed;
+  const insertAt = removedIndex;
+  toast.show({
+    message: `Entrée #${restored.serial || '—'} supprimée`,
+    undo: () => {
+      setState((s) => {
+        if (s.entries.some((e) => e.id === restored.id)) return s;
+        const next = [...s.entries];
+        next.splice(Math.min(insertAt, next.length), 0, restored);
+        return { ...s, entries: next };
+      });
+    },
+  });
+}
+
+export const SUIVI_STORAGE_KEY = 'wb.suivi.v1';
 const COLOR_DEFAULT = 'SG NRG A/R Clear';
 const ORIGIN_DEFAULT = 'PILK DE';
 const THICKNESS_DEFAULT = '2.1 mm';
 
-const STAGE_LETTER: Record<Process, string> = {
+export const STAGE_LETTER: Record<Process, string> = {
   'Découpe': 'D',
   'Trempe': 'T',
   'Montage': 'M',
@@ -106,8 +150,8 @@ function emptyEntry(serial = ''): SuiviEntry {
   };
 }
 
-function initialState(): SuiviState {
-  const persisted = load<SuiviState | null>(STORAGE_KEY, null);
+export function initialSuiviState(): SuiviState {
+  const persisted = load<SuiviState | null>(SUIVI_STORAGE_KEY, null);
   if (persisted && Array.isArray(persisted.entries)) return persisted;
   return { entries: [] };
 }
@@ -135,7 +179,7 @@ function fmtDateShort(iso: string): string {
 // station wins (red); otherwise any OK promotes to complete (green).
 // We deliberately don't render an 'in progress' / yellow state — the
 // strip is binary green/red plus neutral N/A and empty.
-function stageStatus(row: ProcessRow): StageStatus {
+export function stageStatus(row: ProcessRow): StageStatus {
   const states = STATIONS.map((s) => row.stations[s]);
   if (states.some((s) => s === 'nok')) return 'fail';
   if (states.some((s) => s === 'ok')) return 'complete';
@@ -143,7 +187,7 @@ function stageStatus(row: ProcessRow): StageStatus {
   return 'empty';
 }
 
-function labelForStatus(s: StageStatus): string {
+export function labelForStatus(s: StageStatus): string {
   if (s === 'complete') return 'conforme';
   if (s === 'fail') return 'NOK';
   if (s === 'na') return 'non applicable';
@@ -157,14 +201,27 @@ function labelForCell(v: CellState): string {
   return 'à faire';
 }
 
+// The standalone tab owns its own hook; the unified Logbook page hoists the
+// state and renders SuiviView directly. Never both at once — App mounts one
+// tab at a time — which the sync layer requires: two live hooks on the same
+// partition never see each other's writes (see selfWrites in lib/sync.ts).
 export default function Suivi() {
   const [state, setState] = useSyncedState<SuiviState>(
-    STORAGE_KEY,
+    SUIVI_STORAGE_KEY,
     { domain: 'suivi', params: {} },
-    initialState,
+    initialSuiviState,
     // A single shared list, so anyone's entry has to show up on everyone's.
     { live: true },
   );
+  return <SuiviView state={state} setState={setState} />;
+}
+
+interface SuiviViewProps {
+  state: SuiviState;
+  setState: SuiviSetState;
+}
+
+export function SuiviView({ state, setState }: SuiviViewProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeTags, setActiveTags] = useState<Set<Tag>>(() => new Set());
   const wantOpenRef = useRef<string | null>(null);
@@ -191,15 +248,7 @@ export default function Suivi() {
   }, [state.entries, activeTags]);
 
   function patchEntry(id: string, mut: (e: SuiviEntry) => SuiviEntry) {
-    const now = Date.now();
-    setState((s) => ({
-      ...s,
-      entries: s.entries.map((e) =>
-        e.id === id
-          ? { ...mut(e), createdAt: e.createdAt ?? now, updatedAt: now }
-          : e,
-      ),
-    }));
+    patchSuiviEntryById(setState, id, mut);
   }
 
   function addAndOpen() {
@@ -211,29 +260,8 @@ export default function Suivi() {
   }
 
   function deleteEntry(id: string) {
-    let removed: SuiviEntry | undefined;
-    let removedIndex = -1;
-    setState((s) => {
-      removedIndex = s.entries.findIndex((e) => e.id === id);
-      if (removedIndex < 0) return s;
-      removed = s.entries[removedIndex];
-      return { ...s, entries: s.entries.filter((e) => e.id !== id) };
-    });
+    deleteSuiviEntryById(setState, toast, id);
     if (openId === id) setOpenId(null);
-    if (!removed) return;
-    const restored = removed;
-    const insertAt = removedIndex;
-    toast.show({
-      message: `Entrée #${restored.serial || '—'} supprimée`,
-      undo: () => {
-        setState((s) => {
-          if (s.entries.some((e) => e.id === restored.id)) return s;
-          const next = [...s.entries];
-          next.splice(Math.min(insertAt, next.length), 0, restored);
-          return { ...s, entries: next };
-        });
-      },
-    });
   }
 
   function toggleFilter(t: Tag) {
@@ -414,7 +442,7 @@ interface SheetProps {
   onDelete: () => void;
 }
 
-function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
+export function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
   useEscapeToClose(onClose);
 
   function patchHeader<K extends keyof SuiviEntry>(key: K, value: SuiviEntry[K]) {

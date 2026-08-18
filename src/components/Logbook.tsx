@@ -2,10 +2,10 @@ import { memo, useCallback, useId, useMemo, useState } from 'react';
 import { newId } from '../data/shift';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
-import { load } from '../lib/storage';
-import { useSyncedState } from '../lib/sync';
 import { useToast } from '../lib/toast';
 import EventEditor from './EventEditor';
+import { sanitizeTestNo, testHasMeasures, type Test } from './ProductionTest';
+import { PROCESSES, STAGE_LETTER, stageStatus, type StageStatus, type SuiviEntry } from './Suivi';
 import type { EventType, FlagKey, LogEvent, Poste, ShiftMeta } from '../types';
 
 // Order matches the visual order in the filter row; null is implicit when no
@@ -21,13 +21,24 @@ const TYPE_ROWS = [
   EVENT_TYPES.filter((t) => t.row === 2),
 ] as const;
 
-function storageKey(date: string, poste: Poste | null): string {
+export function logbookStorageKey(date: string, poste: Poste | null): string {
   return `wb.logbook.v4.${date}.${poste}`;
 }
 
 interface LogbookProps {
   poste: Poste | null;
   shiftMeta: ShiftMeta;
+  // State is owned by LogbookPage — the journal shares its shift with the
+  // Test section and the attachment sheets, and the sync layer allows only
+  // one live hook per partition.
+  events: LogEvent[];
+  setEvents: (next: LogEvent[] | ((prev: LogEvent[]) => LogEvent[])) => void;
+  // The shift's test sheets and the global Cosmétique registry, for the
+  // attachment chips on journal lines.
+  tests: Test[];
+  suiviEntries: SuiviEntry[];
+  onOpenTest: (id: string) => void;
+  onOpenSuivi: (id: string) => void;
   onNavigate?: (date: string, poste: Poste) => void;
 }
 
@@ -96,18 +107,144 @@ interface EditingState {
   event: Partial<LogEvent>;
 }
 
-export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) {
+// ---------------------------------------------------------------------------
+// Attachment chips
+//
+// In the paper logbook a "#390 Test QC" or a "Cosmétique AJ2219DE" is a line
+// of the shift's sheet; the actual measurement sheet and the plate follow-up
+// live in their own partitions. The chips are the bridge back: a journal line
+// that mentions a number found in this shift's test sheets (or, for lines
+// mentioning a cosmetic, in the registry's plates born this date) gets a tap
+// target opening that sheet in place.
+//
+// Resolution is by convention, not by stored reference, so everything already
+// imported lights up with zero migration. Test numbers recycle (1..399, and a
+// shift holds several tests), which is why number matching is bounded to the
+// current partition. Plate codes ("AJ2219DE", kept in the entry's comment)
+// are specific enough to resolve across every date — a later shift's
+// "Découpe AJ2219DE" line still gets the plate's chip. In every case an
+// ambiguous token — two sheets claiming it — yields no chip rather than a
+// wrong one.
+// ---------------------------------------------------------------------------
+
+interface AttachChip {
+  kind: 'test' | 'suivi';
+  id: string;
+  label: string;
+  // test: whether any measurement has been typed yet.
+  filled?: boolean;
+  // suivi: the D-T-M-V strip, live from the registry.
+  stages?: { letter: string; status: StageStatus }[];
+}
+
+const MENTION_RE = /#(\d{1,4})\b/g;
+const AJ_CODE_RE = /\bAJ\d{3,5}[A-Z]{2}\b/gi;
+
+function testChip(t: Test): AttachChip {
+  return {
+    kind: 'test',
+    id: t.id,
+    label: `#${sanitizeTestNo(t.header.testNo)}`,
+    filled: testHasMeasures(t),
+  };
+}
+
+function suiviChip(e: SuiviEntry): AttachChip {
+  return {
+    kind: 'suivi',
+    id: e.id,
+    label: `#${e.serial}`,
+    stages: PROCESSES.map((p) => ({ letter: STAGE_LETTER[p], status: stageStatus(e.process[p]) })),
+  };
+}
+
+function chipsForEvents(
+  events: LogEvent[],
+  tests: Test[],
+  suiviEntries: SuiviEntry[],
+  date: string,
+): Map<string, AttachChip[]> {
+  const testsByNo = new Map<string, Test[]>();
+  for (const t of tests) {
+    const no = sanitizeTestNo(t.header.testNo);
+    if (!no) continue;
+    const list = testsByNo.get(no) ?? [];
+    list.push(t);
+    testsByNo.set(no, list);
+  }
+  // Only plates born on the displayed date: serials share the tests' rolling
+  // counter, so an unscoped match would point at another day's plate.
+  const entriesBySerial = new Map<string, SuiviEntry[]>();
+  const entriesByAj = new Map<string, SuiviEntry[]>();
+  for (const e of suiviEntries) {
+    for (const m of (e.comment || '').matchAll(AJ_CODE_RE)) {
+      const code = m[0].toUpperCase();
+      const list = entriesByAj.get(code) ?? [];
+      list.push(e);
+      entriesByAj.set(code, list);
+    }
+    if (e.dateProd !== date) continue;
+    const s = (e.serial || '').replace(/^0+/, '');
+    if (!s) continue;
+    const list = entriesBySerial.get(s) ?? [];
+    list.push(e);
+    entriesBySerial.set(s, list);
+  }
+  if (testsByNo.size === 0 && entriesBySerial.size === 0 && entriesByAj.size === 0) {
+    return new Map();
+  }
+
+  const result = new Map<string, AttachChip[]>();
+  for (const ev of events) {
+    const haystack = [ev.desc, ...(ev.notes || [])].filter(Boolean).join(' ');
+    if (!haystack) continue;
+    // A plate chip needs the line to actually talk about a cosmetic — a bare
+    // "#390 Test QC" must not pick up a plate that happens to share the number.
+    const mentionsCosmetic = /cosm/i.test(haystack);
+    const chips: AttachChip[] = [];
+    const seen = new Set<string>();
+    for (const m of haystack.matchAll(MENTION_RE)) {
+      const no = m[1].replace(/^0+/, '');
+      if (!no) continue;
+      const ts = testsByNo.get(no);
+      if (ts?.length === 1 && !seen.has(`t${ts[0].id}`)) {
+        seen.add(`t${ts[0].id}`);
+        chips.push(testChip(ts[0]));
+      }
+      if (mentionsCosmetic) {
+        const es = entriesBySerial.get(no);
+        if (es?.length === 1 && !seen.has(`s${es[0].id}`)) {
+          seen.add(`s${es[0].id}`);
+          chips.push(suiviChip(es[0]));
+        }
+      }
+    }
+    // The code alone is the signal — the paper line "Cosmétique AJ2219DE"
+    // carries no "#" mention at all.
+    for (const m of haystack.matchAll(AJ_CODE_RE)) {
+      const es = entriesByAj.get(m[0].toUpperCase());
+      if (es?.length === 1 && !seen.has(`s${es[0].id}`)) {
+        seen.add(`s${es[0].id}`);
+        chips.push(suiviChip(es[0]));
+      }
+    }
+    if (chips.length > 0) result.set(ev.id, chips);
+  }
+  return result;
+}
+
+export default function Logbook({
+  poste,
+  shiftMeta,
+  events,
+  setEvents,
+  tests,
+  suiviEntries,
+  onOpenTest,
+  onOpenSuivi,
+  onNavigate,
+}: LogbookProps) {
   const { date } = shiftMeta;
-  const cacheKey = storageKey(date, poste);
-  const init = useCallback(() => load<LogEvent[]>(cacheKey, []), [cacheKey]);
-  const [events, setEvents] = useSyncedState<LogEvent[]>(
-    cacheKey,
-    poste ? { domain: 'logbook', params: { date, poste } } : null,
-    init,
-    // The shift's log is written from whichever device is at hand — the office
-    // PC and the tablet on the line both open the same date and poste.
-    { live: true },
-  );
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -138,6 +275,18 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
   const otherMatches = useMemo(
     () => (filteringActive ? searchOtherShifts(date, poste, query, activeFlags) : []),
     [filteringActive, date, poste, query, activeFlags],
+  );
+
+  // Chip map keyed by event id. The inner arrays stay reference-stable while
+  // the deps don't change, so the memoized rows keep skipping re-renders.
+  const attachChips = useMemo(
+    () => chipsForEvents(events, tests, suiviEntries, date),
+    [events, tests, suiviEntries, date],
+  );
+
+  const openAttachment = useCallback(
+    (chip: AttachChip) => (chip.kind === 'test' ? onOpenTest(chip.id) : onOpenSuivi(chip.id)),
+    [onOpenTest, onOpenSuivi],
   );
 
   function toggleFlagFilter(f: FlagKey) {
@@ -312,7 +461,14 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
           <div className="flags-h">Catégorie</div>
         </div>
         {filteredEvents.map((ev) => (
-          <EventRow key={ev.id} ev={ev} onOpen={openEvent} onRemove={removeEvent} />
+          <EventRow
+            key={ev.id}
+            ev={ev}
+            attachments={attachChips.get(ev.id)}
+            onOpen={openEvent}
+            onRemove={removeEvent}
+            onOpenAttach={openAttachment}
+          />
         ))}
         {filteredEvents.length === 0 && events.length === 0 && !filteringActive && (
           <div className="evt-empty no-print">
@@ -437,11 +593,13 @@ function FabTypeSheet({ onPick, onClose }: FabTypeSheetProps) {
 
 interface EventRowProps {
   ev: LogEvent;
+  attachments?: AttachChip[];
   onOpen: (ev: LogEvent) => void;
   onRemove: (id: string) => void;
+  onOpenAttach: (chip: AttachChip) => void;
 }
 
-const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps) {
+const EventRow = memo(function EventRow({ ev, attachments, onOpen, onRemove, onOpenAttach }: EventRowProps) {
   const tint = tintForFlag(ev.flag);
   const minutes = diffMinutes(ev.start, ev.end);
   const sameStartEnd = ev.start && ev.end && ev.start === ev.end;
@@ -457,6 +615,10 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
       tabIndex={0}
       aria-label={`${ev.start || 'Événement'} ${ev.type} ${ev.desc || ''}`.trim()}
       onKeyDown={(e) => {
+        // Only when the row itself is focused: an Enter bubbling up from an
+        // attachment chip (or the ✕ button) must activate that control, not
+        // hijack it into opening the editor.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           open();
@@ -476,6 +638,42 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
         {notes.map((n, i) => (
           <span key={i} className="sub">{n}</span>
         ))}
+        {/* Screen-only: paper keeps the plain line, the sheets print from
+            their own sections. */}
+        {attachments && attachments.length > 0 && (
+          <span className="evt-attach-row no-print">
+            {attachments.map((a) => (
+              <button
+                key={`${a.kind}.${a.id}`}
+                type="button"
+                className={`evt-attach evt-attach-${a.kind}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenAttach(a);
+                }}
+                title={
+                  a.kind === 'test'
+                    ? `Feuille de mesures ${a.label} — ${a.filled ? 'mesures saisies' : 'feuille vierge'}`
+                    : `Suivi plaque ${a.label} — Découpe · Trempe · Montage · Vitrine`
+                }
+              >
+                {a.kind === 'test' && (
+                  <span className={`evt-attach-dot ${a.filled ? 'is-filled' : ''}`} aria-hidden="true" />
+                )}
+                <span className="evt-attach-label mono">
+                  {a.kind === 'test' ? `Test ${a.label}` : a.label}
+                </span>
+                {a.stages && (
+                  <span className="sv-stages" aria-hidden="true">
+                    {a.stages.map((s) => (
+                      <span key={s.letter} className={`sv-stage sv-st-${s.status}`}>{s.letter}</span>
+                    ))}
+                  </span>
+                )}
+              </button>
+            ))}
+          </span>
+        )}
       </div>
       <div className="flags">
         {ev.flag ? (

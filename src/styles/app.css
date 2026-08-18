@@ -195,6 +195,48 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   margin: -6px 0 12px;
 }
 
+/* Attachment chips on journal lines — the line's window onto its measurement
+   sheet (dot = measurements typed) or its plate follow-up (live D-T-M-V
+   strip). Screen-only; paper keeps the plain line. */
+.evt-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+.evt-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--paper-2);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.evt-attach:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.evt-attach-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-faint);
+}
+.evt-attach-dot.is-filled {
+  background: var(--flag-ok-fg);
+  border-color: transparent;
+}
+
+/* The journal's test sheet reuses the Test section's grids full-width; the
+   default 560px modal would fold them. */
+.pt-sheet { --sheet-w: 920px; }
+.pt-in-sheet { padding-bottom: var(--space-4); }
+
 /* One-tap "type strip" — phone/tablet primary action.
    Two rows: prefilled types on top, ad-hoc (Arrêt / Qualité / Note) below.
    Sticks below the app-header so the +type buttons stay reachable while

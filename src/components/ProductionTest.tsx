@@ -33,7 +33,7 @@ interface TestHeader {
 type YabValues = Partial<Record<YabAxis, string>>;
 type StackValues = Record<StackAxis, string>;
 
-interface Test {
+export interface Test {
   id: string;
   header: TestHeader;
   td: Record<string, string>;
@@ -46,9 +46,27 @@ interface Test {
   updatedAt?: number;
 }
 
-interface TestState {
+export interface TestState {
   tests: Test[];
   activeId: string;
+}
+
+export type TestSetState = (next: TestState | ((prev: TestState) => TestState)) => void;
+
+// Test mutator, shared between ProductionTestView and the journal's
+// TestSheet — one write path, so the timestamp stamping can never drift.
+export function patchTestById(
+  setState: TestSetState,
+  id: string,
+  updater: (t: Test) => Test,
+): void {
+  const now = Date.now();
+  setState((s) => ({
+    ...s,
+    tests: s.tests.map((t) =>
+      t.id === id ? { ...updater(t), createdAt: t.createdAt ?? now, updatedAt: now } : t,
+    ),
+  }));
 }
 
 type YabGroup = 'optoplex' | 'zeiss';
@@ -57,7 +75,7 @@ type YabGroup = 'optoplex' | 'zeiss';
 // not just to a date — multiple postes share the same calendar day. The key
 // is keyed by (date, shift) directly; the poste is recorded inside the test
 // header for the printout.
-function storageKey(date: string, shiftKey: ShiftKey): string {
+export function prodTestStorageKey(date: string, shiftKey: ShiftKey): string {
   return `wb.prodtest.v6.${date}.${shiftKey}`;
 }
 
@@ -77,7 +95,7 @@ function newId(): string {
 
 // Test n° accepts integers 1..399. Strips non-digits, drops leading zeros,
 // clamps the high end. Returns '' for empty / zero input so the placeholder shows.
-function sanitizeTestNo(raw: string | null | undefined): string {
+export function sanitizeTestNo(raw: string | null | undefined): string {
   const digits = String(raw ?? '').replace(/\D/g, '').replace(/^0+/, '');
   if (!digits) return '';
   const n = parseInt(digits, 10);
@@ -85,9 +103,16 @@ function sanitizeTestNo(raw: string | null | undefined): string {
   return String(Math.min(399, n));
 }
 
-function displayTestNo(raw: string | null | undefined): string {
+export function displayTestNo(raw: string | null | undefined): string {
   const s = sanitizeTestNo(raw);
   return s ? `#${s}` : '';
+}
+
+// Whether any measurement has been typed into the sheet — the difference the
+// journal's chip shows between "test logged" and "measurements filled in".
+export function testHasMeasures(t: Test): boolean {
+  const grids = [t.td, ...Object.values(t.optoplex), ...Object.values(t.zeiss), t.stack];
+  return grids.some((g) => Object.values(g).some((v) => v && String(v).trim() !== ''));
 }
 
 function emptyTest(): Test {
@@ -116,8 +141,8 @@ function emptyTest(): Test {
   };
 }
 
-function initialState(date: string, shiftKey: ShiftKey, poste: Poste | null): TestState {
-  const v6 = load<TestState | null>(storageKey(date, shiftKey), null);
+export function initialProdTestState(date: string, shiftKey: ShiftKey, poste: Poste | null): TestState {
+  const v6 = load<TestState | null>(prodTestStorageKey(date, shiftKey), null);
   if (v6 && Array.isArray(v6.tests) && v6.tests.length > 0) {
     return v6;
   }
@@ -138,12 +163,17 @@ interface ProductionTestProps {
   shiftMeta: ShiftMeta;
 }
 
+// The standalone tab owns its own hook; the unified Logbook page hoists the
+// state and renders ProductionTestView directly. Never both at once — App
+// mounts one tab at a time — which the sync layer requires: two live hooks on
+// the same partition never see each other's writes (see selfWrites in
+// lib/sync.ts).
 export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps) {
   const { date, shift } = shiftMeta;
   const shiftKey = shift.key;
-  const cacheKey = storageKey(date, shiftKey);
+  const cacheKey = prodTestStorageKey(date, shiftKey);
   const init = useCallback(
-    () => initialState(date, shiftKey, poste),
+    () => initialProdTestState(date, shiftKey, poste),
     [date, shiftKey, poste],
   );
   const [state, setState] = useSyncedState<TestState>(
@@ -153,43 +183,22 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
     // One test sheet per shift, filled from wherever the measurements are taken.
     { live: true },
   );
+  return <ProductionTestView poste={poste} shiftMeta={shiftMeta} state={state} setState={setState} />;
+}
+
+interface ProductionTestViewProps extends ProductionTestProps {
+  state: TestState;
+  setState: TestSetState;
+}
+
+export function ProductionTestView({ poste, shiftMeta, state, setState }: ProductionTestViewProps) {
   const toast = useToast();
 
   const active: Test | undefined = state.tests.find((t) => t.id === state.activeId) ?? state.tests[0];
 
   function patchActive(updater: (t: Test) => Test) {
     if (!active) return;
-    const now = Date.now();
-    setState((s) => ({
-      ...s,
-      tests: s.tests.map((t) =>
-        t.id === active.id
-          ? { ...updater(t), createdAt: t.createdAt ?? now, updatedAt: now }
-          : t,
-      ),
-    }));
-  }
-
-  function patchHeader<K extends keyof TestHeader>(field: K, value: TestHeader[K]) {
-    patchActive((t) => ({ ...t, header: { ...t.header, [field]: value } }));
-  }
-
-  function patchTd(code: string, value: string) {
-    patchActive((t) => ({ ...t, td: { ...t.td, [code]: value } }));
-  }
-
-  function patchYab(group: YabGroup, code: string, axis: YabAxis, value: string) {
-    patchActive((t) => ({
-      ...t,
-      [group]: {
-        ...t[group],
-        [code]: { ...(t[group][code] || {}), [axis]: value },
-      },
-    }));
-  }
-
-  function patchStack(axis: StackAxis, value: string) {
-    patchActive((t) => ({ ...t, stack: { ...t.stack, [axis]: value } }));
+    patchTestById(setState, active.id, updater);
   }
 
   function reset() {
@@ -304,94 +313,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
         </div>
       </div>
 
-      <header className="pt-header">
-        <Field
-          label="Test n°"
-          prefix="#"
-          inputMode="numeric"
-          maxLength={3}
-          value={active.header.testNo}
-          onChange={(v) => patchHeader('testNo', sanitizeTestNo(v))}
-        />
-        <Field label="Opérateur" value={active.header.operator} onChange={(v) => patchHeader('operator', v)} />
-        <Field label="Date" type="date" value={active.header.date} onChange={(v) => patchHeader('date', v)} auto />
-        <Field label="Heure" value={active.header.hour} onChange={(v) => patchHeader('hour', v)} auto />
-        <Field label="Produit" value={active.header.product} onChange={(v) => patchHeader('product', v)} />
-        <Field label="M3 Lot" value={active.header.m3Lot} onChange={(v) => patchHeader('m3Lot', v)} />
-        <Field label="Épaisseur" value={active.header.thickness} onChange={(v) => patchHeader('thickness', v)} />
-        <Field label="Origine" value={active.header.origin} onChange={(v) => patchHeader('origin', v)} />
-        <Field label="Résistance" value={active.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
-        <Field label="Vitesse" value={active.header.speed} onChange={(v) => patchHeader('speed', v)} />
-      </header>
-
-      <Section title="Transmissions Digitales">
-        <div className="measure-grid" style={{ '--cols': 2 } as React.CSSProperties}>
-          {TD_PAIRS.flatMap(([a, b]) => [
-            <TdCell key={a} code={a} value={active.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
-            <TdCell key={b} code={b} value={active.td[b] || ''} onChange={(v) => patchTd(b, v)} />,
-          ])}
-        </div>
-      </Section>
-
-      <YabSection
-        title="Optoplex"
-        section="optoplex"
-        codes={OPTOPLEX_CODES}
-        values={active.optoplex}
-        onChange={(code, axis, v) => patchYab('optoplex', code, axis, v)}
-      />
-
-      <YabSection
-        title="Zeiss"
-        section="zeiss"
-        codes={ZEISS_CODES}
-        values={active.zeiss}
-        onChange={(code, axis, v) => patchYab('zeiss', code, axis, v)}
-      />
-
-      <Section title="Stack Analysis">
-        <div className="lab-grid">
-          <div className="head" />
-          {STACK_AXES.map((a) => (
-            <div key={a} className="head">{a}</div>
-          ))}
-          <div className="rowlabel">Thermal</div>
-          {STACK_AXES.map((axis) => (
-            <div key={axis} className="lab-cell">
-              <input
-                inputMode="decimal"
-                value={active.stack[axis]}
-                data-stack-axis={axis}
-                onChange={(e) => patchStack(axis, e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter') return;
-                  e.preventDefault();
-                  const next = STACK_AXES[STACK_AXES.indexOf(axis) + 1];
-                  if (!next) return;
-                  const el = document.querySelector<HTMLInputElement>(`input[data-stack-axis="${next}"]`);
-                  if (el) {
-                    el.focus();
-                    el.select?.();
-                  }
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Commentaires">
-        <div className="pt-comments">
-          <textarea
-            placeholder="Notes, anomalies, conditions particulières…"
-            value={active.comments}
-            onChange={(e) => {
-              const v = e.target.value;
-              patchActive((t) => ({ ...t, comments: v }));
-            }}
-          />
-        </div>
-      </Section>
+      <TestFields test={active} onPatch={patchActive} />
 
       <div className="print-signature print-only">
         <div className="sig-row">
@@ -430,6 +352,133 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
       </div>
       </>)}
     </div>
+  );
+}
+
+interface TestFieldsProps {
+  test: Test;
+  onPatch: (updater: (t: Test) => Test) => void;
+}
+
+// The whole editable body of one test — header fields plus the measurement
+// grids. Shared between the full-page view above and the journal's
+// bottom-sheet (TestSheet), so the two can never drift apart. Enter-key
+// navigation relies on document-wide data attributes, so only one TestFields
+// may be mounted at a time — the page guarantees it.
+export function TestFields({ test, onPatch }: TestFieldsProps) {
+  function patchHeader<K extends keyof TestHeader>(field: K, value: TestHeader[K]) {
+    onPatch((t) => ({ ...t, header: { ...t.header, [field]: value } }));
+  }
+
+  function patchTd(code: string, value: string) {
+    onPatch((t) => ({ ...t, td: { ...t.td, [code]: value } }));
+  }
+
+  function patchYab(group: YabGroup, code: string, axis: YabAxis, value: string) {
+    onPatch((t) => ({
+      ...t,
+      [group]: {
+        ...t[group],
+        [code]: { ...(t[group][code] || {}), [axis]: value },
+      },
+    }));
+  }
+
+  function patchStack(axis: StackAxis, value: string) {
+    onPatch((t) => ({ ...t, stack: { ...t.stack, [axis]: value } }));
+  }
+
+  return (
+    <>
+      <header className="pt-header">
+        <Field
+          label="Test n°"
+          prefix="#"
+          inputMode="numeric"
+          maxLength={3}
+          value={test.header.testNo}
+          onChange={(v) => patchHeader('testNo', sanitizeTestNo(v))}
+        />
+        <Field label="Opérateur" value={test.header.operator} onChange={(v) => patchHeader('operator', v)} />
+        <Field label="Date" type="date" value={test.header.date} onChange={(v) => patchHeader('date', v)} auto />
+        <Field label="Heure" value={test.header.hour} onChange={(v) => patchHeader('hour', v)} auto />
+        <Field label="Produit" value={test.header.product} onChange={(v) => patchHeader('product', v)} />
+        <Field label="M3 Lot" value={test.header.m3Lot} onChange={(v) => patchHeader('m3Lot', v)} />
+        <Field label="Épaisseur" value={test.header.thickness} onChange={(v) => patchHeader('thickness', v)} />
+        <Field label="Origine" value={test.header.origin} onChange={(v) => patchHeader('origin', v)} />
+        <Field label="Résistance" value={test.header.resistance} onChange={(v) => patchHeader('resistance', v)} />
+        <Field label="Vitesse" value={test.header.speed} onChange={(v) => patchHeader('speed', v)} />
+      </header>
+
+      <Section title="Transmissions Digitales">
+        <div className="measure-grid" style={{ '--cols': 2 } as React.CSSProperties}>
+          {TD_PAIRS.flatMap(([a, b]) => [
+            <TdCell key={a} code={a} value={test.td[a] || ''} onChange={(v) => patchTd(a, v)} />,
+            <TdCell key={b} code={b} value={test.td[b] || ''} onChange={(v) => patchTd(b, v)} />,
+          ])}
+        </div>
+      </Section>
+
+      <YabSection
+        title="Optoplex"
+        section="optoplex"
+        codes={OPTOPLEX_CODES}
+        values={test.optoplex}
+        onChange={(code, axis, v) => patchYab('optoplex', code, axis, v)}
+      />
+
+      <YabSection
+        title="Zeiss"
+        section="zeiss"
+        codes={ZEISS_CODES}
+        values={test.zeiss}
+        onChange={(code, axis, v) => patchYab('zeiss', code, axis, v)}
+      />
+
+      <Section title="Stack Analysis">
+        <div className="lab-grid">
+          <div className="head" />
+          {STACK_AXES.map((a) => (
+            <div key={a} className="head">{a}</div>
+          ))}
+          <div className="rowlabel">Thermal</div>
+          {STACK_AXES.map((axis) => (
+            <div key={axis} className="lab-cell">
+              <input
+                inputMode="decimal"
+                value={test.stack[axis]}
+                data-stack-axis={axis}
+                onChange={(e) => patchStack(axis, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  const next = STACK_AXES[STACK_AXES.indexOf(axis) + 1];
+                  if (!next) return;
+                  const el = document.querySelector<HTMLInputElement>(`input[data-stack-axis="${next}"]`);
+                  if (el) {
+                    el.focus();
+                    el.select?.();
+                  }
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Commentaires">
+        <div className="pt-comments">
+          <textarea
+            placeholder="Notes, anomalies, conditions particulières…"
+            value={test.comments}
+            onChange={(e) => {
+              const v = e.target.value;
+              onPatch((t) => ({ ...t, comments: v }));
+            }}
+          />
+        </div>
+      </Section>
+    </>
   );
 }
 

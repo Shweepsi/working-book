@@ -27,7 +27,7 @@ interface ShowOptions {
   variant?: 'default' | 'danger';
 }
 
-interface ToastApi {
+export interface ToastApi {
   show: (opts: ShowOptions) => void;
 }
 
