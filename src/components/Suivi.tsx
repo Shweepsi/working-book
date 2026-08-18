@@ -130,7 +130,7 @@ function nextSerial(entries: SuiviEntry[]): string {
   return String(max + 1);
 }
 
-function emptyEntry(serial = ''): SuiviEntry {
+export function emptyEntry(serial = ''): SuiviEntry {
   const now = Date.now();
   return {
     id: newId(),

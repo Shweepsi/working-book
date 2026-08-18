@@ -2,7 +2,6 @@ import { memo, useCallback, useId, useMemo, useState } from 'react';
 import { newId } from '../data/shift';
 import { EVENT_TYPES, FLAGS, tintForFlag } from '../data/eventTypes';
 import { diffMinutes, fmtDuration, fmtHM } from '../lib/time';
-import { useToast } from '../lib/toast';
 import EventEditor from './EventEditor';
 import { sanitizeTestNo, testHasMeasures, type Test } from './ProductionTest';
 import { PROCESSES, STAGE_LETTER, stageStatus, type StageStatus, type SuiviEntry } from './Suivi';
@@ -39,6 +38,14 @@ interface LogbookProps {
   suiviEntries: SuiviEntry[];
   onOpenTest: (id: string) => void;
   onOpenSuivi: (id: string) => void;
+  // The journal is the creator: these gestures write the line AND its sheet.
+  onQuickTest: () => void;
+  onQuickCosmetique: () => void;
+  onCreateTestFromLine: (eventId: string, testNo: string) => void;
+  onCreateSuiviFromLine: (eventId: string, serial: string, plateCode: string | null) => void;
+  // Removal lives in LogbookPage: a linked line needs the attachment states
+  // to ask "et la feuille ?", and the page owns all three.
+  onRemoveEvent: (id: string) => void;
   onNavigate?: (date: string, poste: Poste) => void;
 }
 
@@ -135,6 +142,11 @@ interface AttachChip {
   filled?: boolean;
   // suivi: the D-T-M-V strip, live from the registry.
   stages?: { letter: string; status: StageStatus }[];
+  // The line names a sheet that doesn't exist yet — tapping creates it,
+  // prefilled from the line. The journal writing its own consequences.
+  create?: { testNo?: string; serial?: string; plateCode?: string | null };
+  // Explicit link whose target vanished (deleted from another device).
+  missing?: boolean;
 }
 
 const MENTION_RE = /#(\d{1,4})\b/g;
@@ -143,6 +155,14 @@ const MENTION_RE = /#(\d{1,4})\b/g;
 // registry holds an entry carrying that exact code, so a stray match costs
 // nothing.
 const PLATE_CODE_RE = /\b[A-Z]{2}\d{3,5}[A-Z]{2}\b/gi;
+// Creation offers are stricter than consultation: only a "#nnn Test QC"
+// mention earns a measurement sheet (a Vapo or Acide test has none — hard
+// rule of production_tests), and a cosmetic line is read segment by segment
+// (desc, then each note) so a multi-mention event can't donate its QC number
+// to a plate.
+const TESTQC_RE = /#(\d{1,3})\s+Test QC/i;
+const COSM_NUM_RE = /#(\d{1,4})\b/;
+const PLATE_CODE_ONE = /\b[A-Z]{2}\d{3,5}[A-Z]{2}\b/i;
 
 function testChip(t: Test): AttachChip {
   return {
@@ -194,19 +214,41 @@ function chipsForEvents(
     list.push(e);
     entriesBySerial.set(s, list);
   }
-  if (testsByNo.size === 0 && entriesBySerial.size === 0 && entriesByAj.size === 0) {
-    return new Map();
-  }
-
   const result = new Map<string, AttachChip[]>();
   for (const ev of events) {
-    const haystack = [ev.desc, ...(ev.notes || [])].filter(Boolean).join(' ');
-    if (!haystack) continue;
+    const segments = [ev.desc, ...(ev.notes || [])].filter(Boolean) as string[];
+    const haystack = segments.join(' ');
+    const chips: AttachChip[] = [];
+    const seen = new Set<string>();
+
+    // Explicit links first — the journal created these sheets itself. A
+    // vanished target (deleted from another device) shows as a greyed chip.
+    if (ev.testId) {
+      const t = tests.find((x) => x.id === ev.testId);
+      if (t) {
+        seen.add(`t${t.id}`);
+        chips.push(testChip(t));
+      } else {
+        chips.push({ kind: 'test', id: '', label: '', missing: true });
+      }
+    }
+    if (ev.suiviId) {
+      const e = suiviEntries.find((x) => x.id === ev.suiviId);
+      if (e) {
+        seen.add(`s${e.id}`);
+        chips.push(suiviChip(e));
+      } else {
+        chips.push({ kind: 'suivi', id: '', label: '', missing: true });
+      }
+    }
+
+    if (!haystack) {
+      if (chips.length > 0) result.set(ev.id, chips);
+      continue;
+    }
     // A plate chip needs the line to actually talk about a cosmetic — a bare
     // "#390 Test QC" must not pick up a plate that happens to share the number.
     const mentionsCosmetic = /cosm/i.test(haystack);
-    const chips: AttachChip[] = [];
-    const seen = new Set<string>();
     for (const m of haystack.matchAll(MENTION_RE)) {
       const no = m[1].replace(/^0+/, '');
       if (!no) continue;
@@ -232,6 +274,33 @@ function chipsForEvents(
         chips.push(suiviChip(es[0]));
       }
     }
+
+    // Ghost chips — the line names a sheet that doesn't exist yet, so offer
+    // to create it, prefilled from the line. This is what makes the journal
+    // the creator even for imported or hand-typed lines. Segment-scoped so a
+    // multi-mention event can't cross-donate a number.
+    if (!ev.testId) {
+      for (const seg of segments) {
+        const qc = seg.match(TESTQC_RE);
+        if (!qc) continue;
+        const no = qc[1].replace(/^0+/, '');
+        if (!no || testsByNo.has(no) || seen.has(`gt${no}`)) continue;
+        seen.add(`gt${no}`);
+        chips.push({ kind: 'test', id: '', label: `#${no}`, create: { testNo: no } });
+      }
+    }
+    if (!ev.suiviId) {
+      for (const seg of segments) {
+        if (!/cosm/i.test(seg)) continue;
+        const num = seg.match(COSM_NUM_RE);
+        if (!num) continue;
+        const serial = num[1].replace(/^0+/, '');
+        if (!serial || entriesBySerial.has(serial) || seen.has(`gs${serial}`)) continue;
+        seen.add(`gs${serial}`);
+        const code = seg.match(PLATE_CODE_ONE);
+        chips.push({ kind: 'suivi', id: '', label: `#${serial}`, create: { serial, plateCode: code ? code[0].toUpperCase() : null } });
+      }
+    }
     if (chips.length > 0) result.set(ev.id, chips);
   }
   return result;
@@ -246,6 +315,11 @@ export default function Logbook({
   suiviEntries,
   onOpenTest,
   onOpenSuivi,
+  onQuickTest,
+  onQuickCosmetique,
+  onCreateTestFromLine,
+  onCreateSuiviFromLine,
+  onRemoveEvent,
   onNavigate,
 }: LogbookProps) {
   const { date } = shiftMeta;
@@ -255,7 +329,6 @@ export default function Logbook({
   const [query, setQuery] = useState('');
   const [activeFlags, setActiveFlags] = useState<Set<FlagKey>>(() => new Set());
   const queryInputId = useId();
-  const toast = useToast();
 
   const filteredEvents = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -289,8 +362,19 @@ export default function Logbook({
   );
 
   const openAttachment = useCallback(
-    (chip: AttachChip) => (chip.kind === 'test' ? onOpenTest(chip.id) : onOpenSuivi(chip.id)),
-    [onOpenTest, onOpenSuivi],
+    (ev: LogEvent, chip: AttachChip) => {
+      if (chip.missing) return;
+      if (chip.create) {
+        if (chip.kind === 'test' && chip.create.testNo) onCreateTestFromLine(ev.id, chip.create.testNo);
+        else if (chip.kind === 'suivi' && chip.create.serial) {
+          onCreateSuiviFromLine(ev.id, chip.create.serial, chip.create.plateCode ?? null);
+        }
+        return;
+      }
+      if (chip.kind === 'test') onOpenTest(chip.id);
+      else onOpenSuivi(chip.id);
+    },
+    [onOpenTest, onOpenSuivi, onCreateTestFromLine, onCreateSuiviFromLine],
   );
 
   function toggleFlagFilter(f: FlagKey) {
@@ -324,33 +408,6 @@ export default function Logbook({
   }
 
   const openEvent = useCallback((ev: LogEvent) => setEditing({ event: ev }), []);
-  const removeEvent = useCallback(
-    (id: string) => {
-      let removed: LogEvent | undefined;
-      let removedIndex = -1;
-      setEvents((prev) => {
-        removedIndex = prev.findIndex((e) => e.id === id);
-        if (removedIndex < 0) return prev;
-        removed = prev[removedIndex];
-        return prev.filter((e) => e.id !== id);
-      });
-      if (!removed) return;
-      const restored = removed;
-      const insertAt = removedIndex;
-      toast.show({
-        message: 'Événement supprimé',
-        undo: () => {
-          setEvents((prev) => {
-            if (prev.some((e) => e.id === restored.id)) return prev;
-            const next = [...prev];
-            next.splice(Math.min(insertAt, next.length), 0, restored);
-            return next;
-          });
-        },
-      });
-    },
-    [setEvents, toast],
-  );
 
   function saveFromEditor(payload: LogEvent) {
     const now = Date.now();
@@ -385,6 +442,27 @@ export default function Logbook({
               {t.label}
             </button>
           ))}
+          {/* The creator gestures: one tap writes the line AND its sheet,
+              linked, and opens the sheet. Visually set apart from the plain
+              event types — these have consequences beyond the fil. */}
+          <button
+            type="button"
+            className="type-attach"
+            onClick={onQuickTest}
+            title="Créer la ligne et sa feuille de mesures d'un geste"
+          >
+            <span className="glyph">＋</span>
+            Test QC
+          </button>
+          <button
+            type="button"
+            className="type-attach"
+            onClick={onQuickCosmetique}
+            title="Créer la ligne et sa fiche plaque d'un geste"
+          >
+            <span className="glyph">＋</span>
+            Cosmétique
+          </button>
           <button
             type="button"
             className="type-more"
@@ -470,7 +548,7 @@ export default function Logbook({
             ev={ev}
             attachments={attachChips.get(ev.id)}
             onOpen={openEvent}
-            onRemove={removeEvent}
+            onRemove={onRemoveEvent}
             onOpenAttach={openAttachment}
           />
         ))}
@@ -554,7 +632,7 @@ export default function Logbook({
         <EventEditor
           event={editing.event}
           onSave={saveFromEditor}
-          onDelete={() => editing.event?.id && removeEvent(editing.event.id)}
+          onDelete={() => editing.event?.id && onRemoveEvent(editing.event.id)}
           onClose={() => setEditing(null)}
         />
       )}
@@ -600,7 +678,7 @@ interface EventRowProps {
   attachments?: AttachChip[];
   onOpen: (ev: LogEvent) => void;
   onRemove: (id: string) => void;
-  onOpenAttach: (chip: AttachChip) => void;
+  onOpenAttach: (ev: LogEvent, chip: AttachChip) => void;
 }
 
 const EventRow = memo(function EventRow({ ev, attachments, onOpen, onRemove, onOpenAttach }: EventRowProps) {
@@ -646,36 +724,57 @@ const EventRow = memo(function EventRow({ ev, attachments, onOpen, onRemove, onO
             their own sections. */}
         {attachments && attachments.length > 0 && (
           <span className="evt-attach-row no-print">
-            {attachments.map((a) => (
-              <button
-                key={`${a.kind}.${a.id}`}
-                type="button"
-                className={`evt-attach evt-attach-${a.kind}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenAttach(a);
-                }}
-                title={
-                  a.kind === 'test'
-                    ? `Feuille de mesures ${a.label} — ${a.filled ? 'mesures saisies' : 'feuille vierge'}`
-                    : `Suivi plaque ${a.label} — Découpe · Trempe · Montage · Vitrine`
-                }
-              >
-                {a.kind === 'test' && (
-                  <span className={`evt-attach-dot ${a.filled ? 'is-filled' : ''}`} aria-hidden="true" />
-                )}
-                <span className="evt-attach-label mono">
-                  {a.kind === 'test' ? `Test ${a.label}` : a.label}
-                </span>
-                {a.stages && (
-                  <span className="sv-stages" aria-hidden="true">
-                    {a.stages.map((s) => (
-                      <span key={s.letter} className={`sv-stage sv-st-${s.status}`}>{s.letter}</span>
-                    ))}
+            {attachments.map((a, i) =>
+              a.missing ? (
+                <span
+                  key={`m.${a.kind}.${i}`}
+                  className="evt-attach is-missing"
+                  title={
+                    a.kind === 'test'
+                      ? 'Feuille de mesures liée introuvable — supprimée depuis un autre appareil ?'
+                      : 'Fiche plaque liée introuvable — supprimée depuis un autre appareil ?'
+                  }
+                >
+                  <span className="evt-attach-label mono">
+                    {a.kind === 'test' ? 'feuille ?' : 'plaque ?'}
                   </span>
-                )}
-              </button>
-            ))}
+                </span>
+              ) : (
+                <button
+                  key={a.create ? `c.${a.kind}.${a.label}` : `${a.kind}.${a.id}`}
+                  type="button"
+                  className={`evt-attach evt-attach-${a.kind}${a.create ? ' evt-attach-create' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenAttach(ev, a);
+                  }}
+                  title={
+                    a.create
+                      ? a.kind === 'test'
+                        ? `Créer la feuille de mesures ${a.label} depuis cette ligne`
+                        : `Créer la fiche plaque ${a.label} depuis cette ligne`
+                      : a.kind === 'test'
+                        ? `Feuille de mesures ${a.label} — ${a.filled ? 'mesures saisies' : 'feuille vierge'}`
+                        : `Suivi plaque ${a.label} — Découpe · Trempe · Montage · Vitrine`
+                  }
+                >
+                  {a.create && <span className="glyph" aria-hidden="true">＋</span>}
+                  {a.kind === 'test' && !a.create && (
+                    <span className={`evt-attach-dot ${a.filled ? 'is-filled' : ''}`} aria-hidden="true" />
+                  )}
+                  <span className="evt-attach-label mono">
+                    {a.kind === 'test' ? `Test ${a.label}` : a.label}
+                  </span>
+                  {a.stages && (
+                    <span className="sv-stages" aria-hidden="true">
+                      {a.stages.map((s) => (
+                        <span key={s.letter} className={`sv-stage sv-st-${s.status}`}>{s.letter}</span>
+                      ))}
+                    </span>
+                  )}
+                </button>
+              ),
+            )}
           </span>
         )}
       </div>

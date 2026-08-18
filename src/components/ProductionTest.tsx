@@ -115,7 +115,7 @@ export function testHasMeasures(t: Test): boolean {
   return grids.some((g) => Object.values(g).some((v) => v && String(v).trim() !== ''));
 }
 
-function emptyTest(): Test {
+export function emptyTest(): Test {
   const now = new Date();
   return {
     id: newId(),

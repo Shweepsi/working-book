@@ -43,6 +43,14 @@ export interface LogEvent {
   notes?: string[];
   bold?: boolean;
   danger?: boolean;
+  // Links to the sheet born from this line: a Test in the shift's prodtest
+  // partition, or a SuiviEntry in the Cosmétique registry. Optional and
+  // additive — legacy events, other devices, and the D1 import tooling stay
+  // valid without migration. Links are hints, never invariants: a missing
+  // target renders as a greyed chip, not a crash, and nothing on the target
+  // side points back (a one-way link can't lie under last-write-wins).
+  testId?: string;
+  suiviId?: string;
   // Audit timestamps (epoch ms). Optional so legacy entries from older versions
   // load without migration. Set on first save and bumped on every edit.
   createdAt?: number;
