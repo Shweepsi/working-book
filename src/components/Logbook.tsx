@@ -120,11 +120,11 @@ interface EditingState {
 // Resolution is by convention, not by stored reference, so everything already
 // imported lights up with zero migration. Test numbers recycle (1..399, and a
 // shift holds several tests), which is why number matching is bounded to the
-// current partition. Plate codes ("AJ2219DE", kept in the entry's comment)
-// are specific enough to resolve across every date — a later shift's
-// "Découpe AJ2219DE" line still gets the plate's chip. In every case an
-// ambiguous token — two sheets claiming it — yields no chip rather than a
-// wrong one.
+// current partition. Plate codes ("AJ2219DE", "GJ7827DE" — kept in the
+// entry's comment) are specific enough to resolve across every date — a
+// later shift's "Découpe AJ2219DE" line still gets the plate's chip. In
+// every case an ambiguous token — two sheets claiming it — yields no chip
+// rather than a wrong one.
 // ---------------------------------------------------------------------------
 
 interface AttachChip {
@@ -138,7 +138,11 @@ interface AttachChip {
 }
 
 const MENTION_RE = /#(\d{1,4})\b/g;
-const AJ_CODE_RE = /\bAJ\d{3,5}[A-Z]{2}\b/gi;
+// Two letters, digits, two letters — AJ2219DE and GJ7827DE both observed in
+// the logbook. Loose on purpose: a token only ever produces a chip when the
+// registry holds an entry carrying that exact code, so a stray match costs
+// nothing.
+const PLATE_CODE_RE = /\b[A-Z]{2}\d{3,5}[A-Z]{2}\b/gi;
 
 function testChip(t: Test): AttachChip {
   return {
@@ -177,7 +181,7 @@ function chipsForEvents(
   const entriesBySerial = new Map<string, SuiviEntry[]>();
   const entriesByAj = new Map<string, SuiviEntry[]>();
   for (const e of suiviEntries) {
-    for (const m of (e.comment || '').matchAll(AJ_CODE_RE)) {
+    for (const m of (e.comment || '').matchAll(PLATE_CODE_RE)) {
       const code = m[0].toUpperCase();
       const list = entriesByAj.get(code) ?? [];
       list.push(e);
@@ -221,7 +225,7 @@ function chipsForEvents(
     }
     // The code alone is the signal — the paper line "Cosmétique AJ2219DE"
     // carries no "#" mention at all.
-    for (const m of haystack.matchAll(AJ_CODE_RE)) {
+    for (const m of haystack.matchAll(PLATE_CODE_RE)) {
       const es = entriesByAj.get(m[0].toUpperCase());
       if (es?.length === 1 && !seen.has(`s${es[0].id}`)) {
         seen.add(`s${es[0].id}`);
