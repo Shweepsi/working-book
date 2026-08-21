@@ -608,15 +608,54 @@ quatrième bande grise.
 
 ## Vérifié (Chromium, même harnais)
 
-Aucun groupe dimension coupé en deux sur les 4 pages d'un récap de 24
-dimensions — un `<tbody>` par dimension, intitulé compris, en `break-inside:
-avoid` — et total imprimé une seule fois en fin de document (`tfoot` remis en
-`table-row-group` : en groupe de pied il se serait répété à chaque page et lu
-comme un sous-total). L'en-tête de colonnes, lui, a été retiré depuis (voir
-plus bas) ; c'est la contrepartie assumée de la bande gagnée en haut de page. Total récap = total `Req` du tableau détaillé à filtres
-identiques (637 lites, 11 164 m² sur le jeu de test). Aller-retour entre les
-deux modes : orientation, largeur de feuille d'aperçu et contenu suivent, sans
-trace de l'autre rendu. Écran inchangé dans les deux modes.
+Total imprimé une seule fois en fin de document, dans une table à lui : en
+`tfoot` d'une table fragmentée il se serait répété à chaque page et lu comme un
+sous-total. L'en-tête de colonnes, lui, a été retiré depuis (voir plus bas) ;
+c'est la contrepartie assumée de la bande gagnée en haut de page. Total récap =
+total `Req` du tableau détaillé à filtres identiques (637 lites, 11 164 m² sur
+le jeu de test). Aller-retour entre les deux modes : orientation, largeur de
+feuille d'aperçu et contenu suivent, sans trace de l'autre rendu. Écran
+inchangé dans les deux modes.
+
+## Une pile trop haute vidait la page d'avant
+
+La première version soudait chaque dimension, intitulé compris, en
+`break-inside: avoid` : une pile ne se coupait jamais en deux. Relevé sur le
+schedule 2213000692 (SNX60, A4 portrait, marges 10 mm / 8 mm, donc 277 mm de
+hauteur utile) : la pile `XC 3 210 × 6 000` fait 202,3 mm à elle seule, son
+bandeau de qualité 7,8 mm de plus — soit 210,1 mm demandés pour 205,3 mm
+restants après l'en-tête et les deux petites qualités. Manquaient 4,8 mm : le
+bloc entier basculait en page 2 et laissait **205 mm de blanc** derrière lui,
+traversés jusqu'en bas de feuille par les filets verticaux du fragment de
+table. Une feuille de deux pages dont la première portait deux lignes.
+
+**Correctif.** Le récap n'est plus une table mais une pile de tables, une par
+dimension (`ScheduleRecap.tsx`), et les intitulés sont passés dans le `thead` :
+le moteur les réimprime en tête de la page suivante quand une pile déborde. Une
+pile peut donc se couper, mais la feuille sur laquelle elle continue rouvre sur
+la dimension — et sur la qualité aussi quand la coupe tombe dans la première
+pile de cette qualité. Les colonnes restent alignées d'une table à l'autre :
+même `colgroup` en pour-cent sur une grille `table-layout: fixed`.
+
+Deux détails de filets vont avec, faute de quoi la coupe se voyait :
+
+- le rythme horizontal est passé en bordure **basse** de cellule. Accroché en
+  haut, le filet de fermeture d'une ligne appartenait à la ligne suivante et
+  partait avec elle : la dernière ligne d'une page restait ouverte ;
+- les rails verticaux et le cadre sont peints par les cellules de bord, plus
+  par la boîte `table`. Un fragment de table garde une boîte aussi haute que ce
+  qui reste de la page : ses bordures à lui traînaient sous la dernière ligne
+  jusqu'au bord de feuille. Les cellules, elles, s'arrêtent où les lignes
+  s'arrêtent.
+
+**Mesuré après correctif** (même schedule) : page 1 remplie jusqu'à 268,5 mm
+sur 277, soit 18,5 mm de blanc résiduel — une hauteur de ligne — au lieu de
+205 mm. Balayage de 32 variantes (première pile de 1 à 32 plaques, deux
+qualités, trois dimensions) : aucune page intermédiaire ne se termine sur un
+intitulé seul — le moteur repousse l'en-tête avec ses premières lignes — aucune
+ligne coupée en deux par le bord de page (`break-inside: avoid` sur `tr` : une
+demi-case à remplir n'est une case à remplir sur aucune des deux feuilles), et
+le total ne sort qu'une fois, en fin de document.
 
 ## Le PDP est une note, pas un niveau
 

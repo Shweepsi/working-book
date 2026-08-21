@@ -5271,63 +5271,70 @@ button.as-row:focus-visible {
 
 .sch-recap-table {
   width: 100%;
+  /* Fixed layout on identical per-cent columns: the sheet is a stack of tables
+     (one per pile, see ScheduleRecap.tsx) and this is what makes their rules
+     land on the same two verticals down the page. */
   table-layout: fixed;
   /* Separate borders with zero spacing rather than collapsed: each rule is
-     then one stroke painted inside its own cell — top and right on every cell,
-     left and bottom on the table — so the heavier section rules below simply
-     override a cell's own top border instead of stacking on the one above it.
-     (The right-hand rule printing at half width was not this model's doing;
-     see the padding on .sch-recap.) */
+     then one stroke painted inside its own cell, so the heavier section rules
+     below simply override a cell's own border instead of stacking on the one
+     above it. (The right-hand rule printing at half width was not this model's
+     doing; see the padding on .sch-recap.) */
   border-collapse: separate;
   border-spacing: 0;
-  /* Stops the engine handing the last row of a page-fragment whatever space is
-     left when the next group is pushed onto the following sheet: that row came
-     out stretched to the page bottom, trailing its column rules into the blank.
-     A 1px minimum is below any real content height, so nothing else moves. */
-  height: 1px;
-  border: 0.75pt solid var(--print-line);
-  /* The header card closes on its own rule and the table starts directly under
-     it, exactly as on the detailed sheet — a border of its own would double
-     that line. */
-  border-top: 0;
+  /* Every rule is painted by a cell, none by the table box. A table split over
+     two sheets keeps a box as tall as what is left of the page, so a border of
+     its own would trail down the blank under the last row — which is exactly
+     what the first pile to cross a page did. Cells stop where the rows stop. */
+  border: 0;
 }
-/* The total must appear once at the end — a footer group would repeat it on
-   every sheet and read as a per-page subtotal. */
-.sch-recap-table > tfoot { display: table-row-group; }
 
 /* Rules where they carry meaning, and nowhere else. A full grid turned the
    sheet into a spreadsheet dump: what it needs is the horizontal rhythm of the
    rows, and one vertical rule in front of each figure column — the one that is
    read and the one that is written in. The heading bands then run clean across
    the width, which is what makes the three levels legible at a glance. */
+/* The rhythm hangs under each row rather than over it: a row is then closed by
+   its own rule wherever it ends, page bottom included. Hung above, the last row
+   of a sheet was left open — its closing rule had gone with the row that
+   followed it onto the next page. */
 .sch-recap-table th,
 .sch-recap-table td {
   padding: 3pt 6pt;
   border: 0;
-  border-top: 0.75pt solid var(--print-line);
+  border-bottom: 0.75pt solid var(--print-line);
   text-align: left;
   vertical-align: middle;
 }
-/* The header card draws the top edge; a row border on the first row would
-   double it. */
-.sch-recap-table tbody:first-of-type tr:first-child th,
-.sch-recap-table tbody:first-of-type tr:first-child td { border-top: 0; }
+/* The sheet's outer rails, cell by cell for the same reason as above. */
+.sch-recap-table tr > :first-child { border-left: 0.75pt solid var(--print-line); }
+.sch-recap-table tr > :last-child { border-right: 0.75pt solid var(--print-line); }
 .sch-recap-table .sch-recap-num,
 .sch-recap-table .sch-recap-fill,
 .sch-recap-table .sch-recap-blank {
   border-left: 0.75pt solid var(--print-line);
 }
+/* The header card draws the top edge of the sheet; a rule on the first band
+   would double it. */
+.sch-recap-table:first-of-type > thead > tr:first-child > * { border-top: 0; }
+/* A row is never sliced in two by a page edge: half a writing box on each
+   sheet is a box nobody writes in. */
+.sch-recap-table tr { break-inside: avoid; page-break-inside: avoid; }
 /* Scoped to the table: the generic `th, td` rule above is a class *and* a
    type, so a bare class would lose the alignment race. */
 /* A touch more air on the right of the figures: flush against the rule that
    opens the writing column, they read as its left edge rather than as counts. */
 .sch-recap-table .sch-recap-num { text-align: right; padding-right: 9pt; }
 
-/* A dimension and its plates are never split across two sheets: at the racks,
-   half a pile is worse than a shorter first page. */
-.sch-recap-group { break-inside: avoid; page-break-inside: avoid; }
-/* And the qualité above them never ends a page alone. */
-.sch-recap-qgroup { break-after: avoid; page-break-after: avoid; }
+/* A pile of plates may now cross a page — kept whole, the first one long
+   enough to need most of a sheet was pushed onto the next one and left three
+   quarters of a page blank behind it. What made that unacceptable is fixed
+   where it belonged: the pile's headings live in a `thead` (ScheduleRecap.tsx),
+   so the sheet it continues on reopens with the dimension it belongs to, and
+   the qualité too when the break falls in that qualité's first pile. */
+/* The last pile of a qualité closes on the band that follows it — the next
+   qualité banner, or the total — both of which draw their own heavier rule. */
+.sch-recap-table.is-qend > tbody > tr:last-child > * { border-bottom: 0; }
 
 /* The three levels step in by an indent each — qualité flush left, dimension
    under it, plate under that. Tint and weight already separate them, but on a
@@ -5409,13 +5416,16 @@ button.as-row:focus-visible {
    the markup to name the intent. */
 
 /* The total closes the sheet on a rule, not on another grey band — the tint
-   was doing the same job as the qualité bands and blunting both. */
+   was doing the same job as the qualité bands and blunting both. It is also
+   the one row carrying a bottom rule: the sheet ends there, and nowhere else
+   does a rule mean "nothing follows". */
 .sch-recap-total th,
 .sch-recap-total td {
   padding: 5pt 6pt;
   font-size: 11pt;
   font-weight: 700;
   border-top: 1.5pt solid var(--print-ink-strong);
+  border-bottom: 0.75pt solid var(--print-line);
 }
 .sch-recap-total-sub { font-weight: 400; font-size: 8.5pt; color: var(--print-ink); }
 
