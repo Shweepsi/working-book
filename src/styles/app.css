@@ -180,6 +180,97 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 /* ---------- Logbook ---------- */
 
+/* Section switch of the unified Logbook page (Journal | Test | Cosmétique).
+   Reuses the .seg pill, capped so three labels don't stretch across the whole
+   1100px main column on desktop. Not sticky: the type strip below is the bar
+   worth keeping under the thumb while scrolling. */
+.lbp-sections {
+  max-width: 480px;
+  margin: 0 auto 14px;
+}
+.lbp-scope-note {
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  margin: -6px 0 12px;
+}
+
+/* Attachment chips on journal lines — the line's window onto its measurement
+   sheet (dot = measurements typed) or its plate follow-up (live D-T-M-V
+   strip). Screen-only; paper keeps the plain line. */
+.evt-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+.evt-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-soft);
+  background: var(--paper-2);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.evt-attach:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.evt-attach-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-faint);
+}
+.evt-attach-dot.is-filled {
+  background: var(--flag-ok-fg);
+  border-color: transparent;
+}
+
+/* Ghost chip — the line names a sheet that doesn't exist yet; tapping
+   creates it. Dashed accent, same visual grammar as the "Nouveau" button:
+   this is a creation affordance, not a link. */
+.evt-attach-create {
+  color: var(--accent);
+  border-style: dashed;
+  border-color: var(--accent);
+  background: transparent;
+}
+.evt-attach-create .glyph { font-size: var(--fs-sm); }
+.evt-attach-create:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+  color: var(--accent);
+}
+/* Explicit link whose target is gone (deleted from another device). */
+.evt-attach.is-missing {
+  opacity: 0.55;
+  cursor: default;
+  border-style: dotted;
+}
+
+/* The journal's test sheet reuses the Test section's grids full-width; the
+   default 560px modal would fold them. */
+.pt-sheet { --sheet-w: 920px; }
+.pt-in-sheet { padding-bottom: var(--space-4); }
+
+/* "Supprimer la ligne liée ?" — three stacked choices, narrow. */
+.confirm-sheet { --sheet-w: 440px; }
+.confirm-text {
+  margin: 0 0 14px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 /* One-tap "type strip" — phone/tablet primary action.
    Two rows: prefilled types on top, ad-hoc (Arrêt / Qualité / Note) below.
    Sticks below the app-header so the +type buttons stay reachable while
@@ -288,6 +379,19 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .type-strip button.type-add .glyph,
 .pt-test-chip.add .glyph { color: var(--accent); font-weight: 500; }
+
+/* "Test QC" / "Cosmétique" — the creator gestures: one tap writes the line
+   AND its sheet. Solid accent border (unlike the dashed escape-hatch above):
+   these have consequences beyond the fil. */
+.type-strip button.type-attach {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.type-strip button.type-attach .glyph { color: var(--accent); font-weight: 500; }
+.type-strip button.type-attach:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+  border-color: var(--accent);
+}
 .type-strip button.type-add:hover,
 .pt-test-chip.add:hover {
   background: color-mix(in srgb, var(--accent) 6%, var(--paper));
