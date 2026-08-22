@@ -2309,6 +2309,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--ink-faint);
   line-height: 1.4;
 }
+/* The build stamp under « Version ». Monospaced and dim: it is not something
+   to read every day, it is something to read out over the phone when a tablet
+   is suspected of running last week's app. */
+.popover-version {
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  line-height: 1.5;
+  margin-bottom: var(--space-4);
+  user-select: text;
+}
 
 /* ---------- PWA / standalone polish ---------- */
 @media (display-mode: standalone) {

@@ -10,20 +10,29 @@ interface ToastAction {
 
 interface Toast {
   id: string;
+  key?: string;
   message: string;
   undo?: () => void;
   action?: ToastAction;
-  ttl: number;
+  // `null` means the toast stays until someone dismisses it. Reserved for the
+  // things that must survive a trip to the coater — the update prompt, whose
+  // button is worthless if it has already timed out when the operator returns.
+  ttl: number | null;
   variant: 'default' | 'danger';
 }
 
 interface ShowOptions {
   message: string;
+  // Identity across shows: a second toast with the same key replaces the first
+  // rather than stacking under it. Used by the update prompt, which can be
+  // raised again by a background check while the previous one is still up.
+  key?: string;
   undo?: () => void;
   // Custom action button (e.g. "Mettre à jour"). Distinct from `undo`,
   // which is reserved for the destructive-action / Annuler pattern.
   action?: ToastAction;
-  ttl?: number;
+  /** Milliseconds before the toast fades. `null` keeps it until dismissed. */
+  ttl?: number | null;
   variant?: 'default' | 'danger';
 }
 
@@ -42,6 +51,9 @@ function makeId(): string {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // key → id of the toast currently holding that key, so a re-show can retire
+  // the previous one (and its timer) instead of stacking a twin under it.
+  const keysRef = useRef<Map<string, string>>(new Map());
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -50,23 +62,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       timersRef.current.delete(id);
     }
+    for (const [key, held] of keysRef.current) {
+      if (held === id) keysRef.current.delete(key);
+    }
   }, []);
 
   const show = useCallback(
     (opts: ShowOptions) => {
       const id = makeId();
-      const ttl = opts.ttl ?? DEFAULT_TTL;
+      const ttl = opts.ttl === undefined ? DEFAULT_TTL : opts.ttl;
       const toast: Toast = {
         id,
+        key: opts.key,
         message: opts.message,
         undo: opts.undo,
         action: opts.action,
         ttl,
         variant: opts.variant ?? 'default',
       };
+      if (opts.key) {
+        const held = keysRef.current.get(opts.key);
+        if (held) dismiss(held);
+        keysRef.current.set(opts.key, id);
+      }
       setToasts((prev) => [...prev, toast]);
-      const timer = setTimeout(() => dismiss(id), ttl);
-      timersRef.current.set(id, timer);
+      if (ttl != null) {
+        const timer = setTimeout(() => dismiss(id), ttl);
+        timersRef.current.set(id, timer);
+      }
     },
     [dismiss],
   );
@@ -121,7 +144,10 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     onDismiss();
   }
   return (
-    <div className={`toast toast-${toast.variant}`} style={{ ['--toast-ttl' as string]: `${toast.ttl}ms` }}>
+    <div
+      className={`toast toast-${toast.variant}`}
+      style={toast.ttl == null ? undefined : { ['--toast-ttl' as string]: `${toast.ttl}ms` }}
+    >
       <span className="toast-msg">{toast.message}</span>
       {toast.action && (
         <button type="button" className="toast-undo toast-action" onClick={handleAction}>
@@ -136,7 +162,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       <button type="button" className="toast-close" onClick={onDismiss} aria-label="Fermer">
         ✕
       </button>
-      <span className="toast-progress" aria-hidden="true" />
+      {toast.ttl != null && <span className="toast-progress" aria-hidden="true" />}
     </div>
   );
 }

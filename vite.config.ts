@@ -1,9 +1,40 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
+
+// What the Réglages panel prints under « Version ». Diagnosing a stale tablet
+// over the phone used to be impossible — nothing in the UI said which build was
+// running. The commit is what CI stamps (GitHub Actions sets GITHUB_SHA,
+// Cloudflare Pages sets CF_PAGES_COMMIT_SHA); a local `npm run build` says
+// "local", which is itself the answer to "tu es sur quelle version ?".
+const commit = (process.env.CF_PAGES_COMMIT_SHA ?? process.env.GITHUB_SHA ?? '').slice(0, 7);
+
+// The commit's own date, not the moment of the build. A timestamp would make
+// every CI run produce different bytes, so re-running a deploy on an unchanged
+// commit would hash a new bundle, ship a new worker, and ask every tablet on
+// the line to update for nothing. Locally there may be no git and no commit
+// worth naming — the clock is honest enough there.
+function stamp(): string {
+  try {
+    return execSync('git log -1 --format=%cI', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 export default defineConfig({
   base: '/',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_COMMIT__: JSON.stringify(commit || 'local'),
+    __APP_BUILT_AT__: JSON.stringify(stamp()),
+  },
   plugins: [
     react(),
     VitePWA({
