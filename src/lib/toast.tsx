@@ -51,9 +51,6 @@ function makeId(): string {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  // key → id of the toast currently holding that key, so a re-show can retire
-  // the previous one (and its timer) instead of stacking a twin under it.
-  const keysRef = useRef<Map<string, string>>(new Map());
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -61,9 +58,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     if (timer) {
       clearTimeout(timer);
       timersRef.current.delete(id);
-    }
-    for (const [key, held] of keysRef.current) {
-      if (held === id) keysRef.current.delete(key);
     }
   }, []);
 
@@ -80,12 +74,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ttl,
         variant: opts.variant ?? 'default',
       };
-      if (opts.key) {
-        const held = keysRef.current.get(opts.key);
-        if (held) dismiss(held);
-        keysRef.current.set(opts.key, id);
-      }
-      setToasts((prev) => [...prev, toast]);
+      // A keyed toast replaces the one already holding that key rather than
+      // stacking a twin under it. The replaced toast's timer, if it had one,
+      // is left to fire into a dismiss that finds nothing — cheaper than a
+      // second map to keep in step with this one.
+      setToasts((prev) => [...(opts.key ? prev.filter((t) => t.key !== opts.key) : prev), toast]);
       if (ttl != null) {
         const timer = setTimeout(() => dismiss(id), ttl);
         timersRef.current.set(id, timer);

@@ -18,22 +18,26 @@ const commit = (process.env.CF_PAGES_COMMIT_SHA ?? process.env.GITHUB_SHA ?? '')
 // The commit's own date, not the moment of the build. A timestamp would make
 // every CI run produce different bytes, so re-running a deploy on an unchanged
 // commit would hash a new bundle, ship a new worker, and ask every tablet on
-// the line to update for nothing. Locally there may be no git and no commit
-// worth naming — the clock is honest enough there.
-function stamp(): string {
+// the line to update for nothing — which is also why the fallback is an empty
+// stamp rather than the clock: where there is no git (a source tarball, a
+// shallow checkout), « pas de date » is honest, a fresh timestamp is the very
+// churn this avoids. Only `vite build` pays for the subprocess; the dev server
+// reloads this file often and nobody reads the stamp there.
+function stamp(command: string): string {
+  if (command !== 'build') return '';
   try {
     return execSync('git log -1 --format=%cI', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {
-    return new Date().toISOString();
+    return '';
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: '/',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_COMMIT__: JSON.stringify(commit || 'local'),
-    __APP_BUILT_AT__: JSON.stringify(stamp()),
+    __APP_BUILT_AT__: JSON.stringify(stamp(command)),
   },
   plugins: [
     react(),
@@ -82,4 +86,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

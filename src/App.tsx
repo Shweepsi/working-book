@@ -7,7 +7,7 @@ import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
-import { registerServiceWorker } from './lib/pwa';
+import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import {
@@ -146,11 +146,11 @@ export default function App() {
   // update is reachable from Réglages for anyone who dismissed it.
   useEffect(() => {
     registerServiceWorker({
-      onNeedRefresh(apply) {
+      onNeedRefresh() {
         toast.show({
           key: 'sw-update',
           message: 'Nouvelle version disponible',
-          action: { label: 'Recharger', run: apply },
+          action: { label: 'Recharger', run: applyUpdate },
           ttl: null,
         });
       },

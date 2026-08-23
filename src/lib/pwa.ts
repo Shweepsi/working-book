@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { registerSW } from 'virtual:pwa-register';
 
 // Service-worker plumbing, in three pieces:
@@ -26,7 +27,6 @@ export type UpdateCheck = 'ready' | 'up-to-date' | 'offline' | 'error' | 'unsupp
 
 let applySW: ((reload?: boolean) => Promise<void>) | null = null;
 let registration: ServiceWorkerRegistration | undefined;
-let registered = false;
 let lastCheckAt = 0;
 let updateWaiting = false;
 
@@ -38,14 +38,18 @@ function setWaiting(next: boolean): void {
   listeners.forEach((l) => l());
 }
 
-/** Subscribe to "an update is waiting" changes — shaped for useSyncExternalStore. */
-export function subscribeUpdateWaiting(listener: () => void): () => void {
+function subscribeUpdateWaiting(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-export function isUpdateWaiting(): boolean {
+function isUpdateWaiting(): boolean {
   return updateWaiting;
+}
+
+/** Whether a new version is parked, waiting for someone to say when. */
+export function useUpdateWaiting(): boolean {
+  return useSyncExternalStore(subscribeUpdateWaiting, isUpdateWaiting, isUpdateWaiting);
 }
 
 function supported(): boolean {
@@ -56,19 +60,20 @@ function supported(): boolean {
 //  - onNeedRefresh: a new SW is waiting; we surface a toast that lets the
 //    operator decide when to reload (instead of blindly skipWaiting in the
 //    middle of an edit). Also fires on a worker that was already waiting when
-//    the app started, so a missed toast comes back at the next launch.
+//    the app started, so a missed toast comes back at the next launch. The
+//    toast's button calls `applyUpdate` — the same one the Réglages button
+//    calls, which is worth being able to see at a glance.
 //  - onOfflineReady: first install finished caching; nice-to-know feedback.
 export function registerServiceWorker(callbacks: {
-  onNeedRefresh: (apply: () => void) => void;
+  onNeedRefresh: () => void;
   onOfflineReady?: () => void;
 }): void {
-  if (!supported() || registered) return;
-  registered = true;
+  if (!supported() || applySW) return;
   applySW = registerSW({
     immediate: false,
     onNeedRefresh() {
       setWaiting(true);
-      callbacks.onNeedRefresh(applyUpdate);
+      callbacks.onNeedRefresh();
     },
     onOfflineReady() {
       callbacks.onOfflineReady?.();
@@ -113,6 +118,10 @@ async function check(): Promise<void> {
 export async function checkForUpdate(): Promise<UpdateCheck> {
   if (!supported()) return 'unsupported';
   if (updateWaiting) return 'ready';
+  // Registration is deferred to the window's `load` event, so a press in that
+  // first second would otherwise be answered « pas de worker ici » and cost a
+  // pointless reload. Ask the browser rather than our own callback.
+  if (!registration) registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return 'unsupported';
   if (!navigator.onLine) return 'offline';
   lastCheckAt = Date.now();

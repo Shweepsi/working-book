@@ -2309,15 +2309,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--ink-faint);
   line-height: 1.4;
 }
-/* The build stamp under « Version ». Monospaced and dim: it is not something
-   to read every day, it is something to read out over the phone when a tablet
-   is suspected of running last week's app. */
+/* The build stamp under « Version » wears .popover-help — same dim secondary
+   text as the help lines below it — plus .mono, which already grants
+   user-select. All that is left to say is the room under it for the button. */
 .popover-version {
-  font-size: var(--fs-sm);
-  color: var(--ink-faint);
-  line-height: 1.5;
+  margin-top: 0;
   margin-bottom: var(--space-4);
-  user-select: text;
 }
 
 /* ---------- PWA / standalone polish ---------- */
