@@ -3,13 +3,8 @@
 // button in here — which is the trade: the account of the last run is readable
 // without hovering, and a long walk shows its progress instead of a badge.
 
-const DEFAULTS = {
-  facility: '221',
-  workCenter: 'COATER',
-  fromOffset: -7,
-  toOffset: 14,
-  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
-};
+// The criteria and the addresses both come from config.js, loaded ahead of
+// this file.
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,10 +30,10 @@ function windowOf(fromOffset, toOffset) {
 }
 
 async function showCriteria() {
-  const cfg = await chrome.storage.sync.get(DEFAULTS);
+  const cfg = await wbConfig();
   // A search touches nothing but the Mingle screen, so it stays available even
   // with no server configured; only the import has anywhere to send to.
-  configured = Boolean(cfg.apiBase);
+  configured = cfg.apiBases.length > 0;
   running(false);
   if (!configured) {
     // No button leads here any more, so the way back has to be spelled out.
@@ -49,6 +44,9 @@ async function showCriteria() {
   $('criteria').textContent = [
     `${cfg.facility} · ${cfg.workCenter}`,
     `Fenêtre ${windowOf(cfg.fromOffset, cfg.toOffset)}`,
+    // Shown before the run, like the criteria: the page goes to every one of
+    // these, and finding that out afterwards is finding it out too late.
+    `→ ${cfg.apiBases.map(wbHostOf).join(', ')}`,
   ].join('\n');
 }
 

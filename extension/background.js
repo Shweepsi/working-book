@@ -4,18 +4,7 @@
 // bookmarklet could never have: host permissions bypass CORS, and the portal's
 // own Content-Security-Policy has no say over an extension background fetch.
 
-const DEFAULTS = {
-  apiBase: 'https://working-book-api.loic-cancelotti.workers.dev',
-  // Search criteria. The dates are offsets in days from today, not fixed
-  // dates: a hard-coded 20260718 would silently go stale the next morning and
-  // the operator would never know the window had drifted.
-  autoSearch: false,
-  searchEveryMin: 15,
-  facility: '221',
-  workCenter: 'COATER',
-  fromOffset: -7,
-  toOffset: 14,
-};
+importScripts('config.js');
 
 // Not settings. The grid's pager defaults to 5 rows and the report is read
 // from what the grid rendered, so the page size decides how much gets
@@ -50,27 +39,20 @@ function badge(text, kind, { ttl } = {}) {
   }, ttl ?? spec.ttl);
 }
 
-async function config() {
-  return { ...DEFAULTS, ...(await chrome.storage.sync.get(DEFAULTS)) };
-}
-
-async function ingest(text) {
-  const cfg = await config();
-  if (!cfg.apiBase) {
-    badge('config', 'err');
-    return { ok: false, error: 'not_configured' };
-  }
-
+// One address, one page. Never throws: a server that is down is an outcome to
+// report, and with several addresses in play one refusal must not cancel the
+// posts still in flight to the others.
+async function post(base, text) {
+  const target = { base, host: wbHostOf(base) };
   let res;
   try {
-    res = await fetch(`${cfg.apiBase.replace(/\/+$/, '')}/api/schedules/ingest`, {
+    res = await fetch(`${base}/api/schedules/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
   } catch (err) {
-    badge('rés.', 'err');
-    return { ok: false, error: String(err) };
+    return { ...target, ok: false, unreachable: true, error: String(err) };
   }
 
   const raw = await res.text();
@@ -81,15 +63,44 @@ async function ingest(text) {
     /* non-JSON error page — the status carries the story */
   }
 
-  if (!res.ok) {
-    // 422 means the grid was read but nothing decoded: worth flagging without
-    // shouting, since the stored report is deliberately left untouched.
-    badge(res.status === 422 ? '0' : String(res.status), res.status === 422 ? 'warn' : 'err');
-    return { ok: false, status: res.status, error: body.error };
+  if (!res.ok) return { ...target, ok: false, status: res.status, error: body.error };
+  // `imported` is passed on exactly as the server sent it, missing value
+  // included: the badge tells "nothing came back to count" from "nothing was
+  // counted" apart, and coercing here would collapse the two into a green 0.
+  return { ...target, ok: true, imported: body.imported, body };
+}
+
+// Sends the page to every configured address at once, and answers for the
+// first one. Production is what the operator is importing *for*; dev is kept
+// in step so testing does not start with a day of hand-copied schedules. A
+// mirror that refuses is worth saying, not worth failing the run over — and
+// the two are posted in parallel so the second never adds to the wait.
+async function ingest(text) {
+  const cfg = await wbConfig();
+  if (!cfg.apiBases.length) {
+    badge('config', 'err');
+    return { ok: false, error: 'not_configured' };
   }
 
-  badge(String(body.imported ?? '✓'), 'ok');
-  return { ok: true, ...body };
+  // The first address is the reference; the flag travels with the answer so
+  // the sweep can tell a mirror's refusal from the reference's own.
+  const targets = await Promise.all(
+    cfg.apiBases.map((base, i) => post(base, text).then((t) => ({ ...t, primary: i === 0 }))),
+  );
+  const [primary] = targets;
+  const refused = targets.filter((t) => !t.ok && !t.primary);
+
+  if (!primary.ok) {
+    if (primary.unreachable) badge('rés.', 'err');
+    // 422 means the grid was read but nothing decoded: worth flagging without
+    // shouting, since the stored report is deliberately left untouched.
+    else badge(primary.status === 422 ? '0' : String(primary.status), primary.status === 422 ? 'warn' : 'err');
+    return { ok: false, status: primary.status, error: primary.error, targets };
+  }
+
+  // Green would claim both databases took the page when only one did.
+  badge(String(primary.imported ?? '✓'), refused.length ? 'warn' : 'ok');
+  return { ok: true, ...primary.body, imported: primary.imported, targets };
 }
 
 // Asks every Infor tab, returns the first frame that answers.
@@ -143,7 +154,7 @@ function criteriaOf(cfg) {
 // page size, send every page, then put the grid back on page one. With `send`
 // false it stops after widening — the grid is prepared and left alone.
 async function driveSearch(send = true) {
-  const cfg = await config();
+  const cfg = await wbConfig();
   return ask({ type: 'wb-search', criteria: criteriaOf(cfg), send });
 }
 
@@ -165,6 +176,10 @@ function summarise(reply) {
   if (swept) {
     lines.push(`${swept.pages} page(s) parcourue(s), ${swept.imported} ligne(s) importée(s).`);
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
+    // Named, not merely counted: a mirror falling behind is invisible on
+    // screen — production looks perfectly imported — and the only moment it
+    // can be noticed is here.
+    if (swept.refused?.length) lines.push(`Serveur secondaire en échec : ${swept.refused.join(', ')}.`);
   }
   if (reply.rewound) lines.push('Grille remise en page 1.');
   // Said outright rather than left to be inferred from a missing line: a
@@ -172,7 +187,7 @@ function summarise(reply) {
   if (reply.sent === false) lines.push('Grille prête — rien n’a été envoyé.');
 
   const imported = swept?.imported ?? 0;
-  const failed = swept?.failures?.length ?? 0;
+  const failed = (swept?.failures?.length ?? 0) + (swept?.refused?.length ?? 0);
   return {
     badge: reply.sent === false ? '✓' : String(imported || '✓'),
     kind: failed ? 'warn' : 'ok',
@@ -218,7 +233,7 @@ async function runSearch() {
 // Chrome floors alarm periods at one minute; anything below is silently
 // rounded up, so clamping here keeps the stored value honest.
 async function syncAlarm() {
-  const cfg = await config();
+  const cfg = await wbConfig();
   await chrome.alarms.clear(SEARCH_ALARM);
   if (!cfg.autoSearch) return;
   const minutes = Math.max(1, Number(cfg.searchEveryMin) || 15);

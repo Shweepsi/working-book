@@ -30,19 +30,45 @@ Le favori reste utile là où les extensions sont interdites.
 2. Dans Edge : `edge://extensions` — dans Chrome : `chrome://extensions`.
 3. Activer **Mode développeur**.
 4. **Charger l'extension non empaquetée**, puis désigner le dossier `extension/`.
-5. C'est prêt : l'adresse du serveur, les critères et l'autorisation d'accès
-   sont livrés avec l'extension.
+5. C'est prêt : les **deux adresses de serveur** — production et dev — les
+   critères et les autorisations d'accès sont livrés avec l'extension.
 
 Pour les changer — ou simplement vérifier — clic droit sur l'icône →
-**Options**, puis **Tester la connexion**. `Connexion correcte` confirme que
-tout est en place. Une adresse *différente* de celle livrée demande une
+**Options**, puis **Tester la connexion**. Chaque adresse est testée à part et
+répond pour elle-même ; `connexion correcte` sur les deux lignes confirme que
+tout est en place. Une adresse *différente* de celles livrées demande une
 autorisation au navigateur, à accepter au moment d'enregistrer.
+
+## Les deux serveurs
+
+Le même rapport part vers **production et dev**, en parallèle, à chaque page.
+C'est le réglage d'usine et il n'y a rien à faire pour l'obtenir.
+
+La raison est simple : les deux Workers font tourner le même code sur leur
+propre base D1, et un import qui n'atteignait que la production laissait la
+base dev vieillir. Toute vérification faite là-bas commençait alors par
+recopier à la main une journée de schedules — un travail entier pour retrouver
+un état que l'import venait de produire à côté. Le second envoi coûte une
+requête par page, faite en même temps que la première : l'exécution n'attend
+pas plus longtemps.
+
+La **première** adresse de la liste est la référence. C'est son décompte que la
+pastille affiche et c'est elle seule qui décide si l'exécution a réussi : ce
+pour quoi on importe, c'est la production. Une adresse suivante en échec est
+**nommée** dans le récapitulatif — « Serveur secondaire en échec :
+working-book-api-dev… » — et l'exécution passe en orange sans être déclarée
+manquée. Nommée plutôt que comptée, parce qu'un miroir qui décroche ne se voit
+nulle part ailleurs : à l'écran, la production paraît parfaitement importée.
+
+Les options acceptent une adresse par ligne : en retirer une, en ajouter une
+troisième, ou inverser l'ordre pour importer d'abord vers dev le temps d'un
+essai.
 
 ## Le panneau
 
 Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
-être demandé** : installation, centre de charge et la fenêtre de dates calculée
-pour aujourd'hui. Plus la version chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
+être demandé** : installation, centre de charge, la fenêtre de dates calculée
+pour aujourd'hui, et les serveurs vers lesquels la page partira. Plus la version chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
 dernière build.
 
 Deux boutons, selon ce qu'on veut :
@@ -110,9 +136,10 @@ La pastille sur l'icône indique le résultat :
 | Pastille | Sens |
 | --- | --- |
 | vert, un nombre | lignes importées |
+| orange, un nombre | importées côté référence, mais un serveur secondaire a refusé |
 | orange `0` | rapport lu mais aucune ligne décodée — le rapport stocké n'est pas touché |
 | orange `vide` | aucune grille trouvée dans l'onglet |
-| rouge `config` | adresse du serveur non renseignée |
+| rouge `config` | aucune adresse de serveur renseignée |
 | rouge `rés.` | serveur injoignable |
 | vert `…` puis un chiffre | exécution en cours, le chiffre est la page atteinte |
 | orange `form` | aucun écran PMS230 ouvert |
@@ -266,6 +293,7 @@ besoin une fois l'écran compris.
 
 ## Ce qui sort du poste
 
-Uniquement le texte du rapport, vers l'adresse renseignée dans les options.
+Uniquement le texte du rapport, vers les adresses renseignées dans les options
+— les deux Workers Working Book à la livraison.
 L'extension ne détient aucun identifiant Infor et ne parle jamais à Infor : elle
 lit une page déjà ouverte dans la session de l'opérateur.
