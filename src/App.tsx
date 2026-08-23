@@ -7,7 +7,7 @@ import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
-import { registerServiceWorker } from './lib/pwa';
+import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import {
@@ -138,13 +138,20 @@ export default function App() {
 
   // Service-worker registration is gated behind a user-visible toast so the
   // operator decides when to reload (autoUpdate would refresh mid-edit).
+  //
+  // The toast never times out: it used to fade after 30 s, which is exactly how
+  // long it takes to walk to the coater, and the version then sat waiting for
+  // days behind a button nobody had seen. It carries a key so a background
+  // check can raise it again without stacking a second copy, and the same
+  // update is reachable from Réglages for anyone who dismissed it.
   useEffect(() => {
     registerServiceWorker({
-      onNeedRefresh(apply) {
+      onNeedRefresh() {
         toast.show({
+          key: 'sw-update',
           message: 'Nouvelle version disponible',
-          action: { label: 'Recharger', run: apply },
-          ttl: 30_000,
+          action: { label: 'Recharger', run: applyUpdate },
+          ttl: null,
         });
       },
     });

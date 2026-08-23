@@ -10,20 +10,29 @@ interface ToastAction {
 
 interface Toast {
   id: string;
+  key?: string;
   message: string;
   undo?: () => void;
   action?: ToastAction;
-  ttl: number;
+  // `null` means the toast stays until someone dismisses it. Reserved for the
+  // things that must survive a trip to the coater — the update prompt, whose
+  // button is worthless if it has already timed out when the operator returns.
+  ttl: number | null;
   variant: 'default' | 'danger';
 }
 
 interface ShowOptions {
   message: string;
+  // Identity across shows: a second toast with the same key replaces the first
+  // rather than stacking under it. Used by the update prompt, which can be
+  // raised again by a background check while the previous one is still up.
+  key?: string;
   undo?: () => void;
   // Custom action button (e.g. "Mettre à jour"). Distinct from `undo`,
   // which is reserved for the destructive-action / Annuler pattern.
   action?: ToastAction;
-  ttl?: number;
+  /** Milliseconds before the toast fades. `null` keeps it until dismissed. */
+  ttl?: number | null;
   variant?: 'default' | 'danger';
 }
 
@@ -55,18 +64,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback(
     (opts: ShowOptions) => {
       const id = makeId();
-      const ttl = opts.ttl ?? DEFAULT_TTL;
+      const ttl = opts.ttl === undefined ? DEFAULT_TTL : opts.ttl;
       const toast: Toast = {
         id,
+        key: opts.key,
         message: opts.message,
         undo: opts.undo,
         action: opts.action,
         ttl,
         variant: opts.variant ?? 'default',
       };
-      setToasts((prev) => [...prev, toast]);
-      const timer = setTimeout(() => dismiss(id), ttl);
-      timersRef.current.set(id, timer);
+      // A keyed toast replaces the one already holding that key rather than
+      // stacking a twin under it. The replaced toast's timer, if it had one,
+      // is left to fire into a dismiss that finds nothing — cheaper than a
+      // second map to keep in step with this one.
+      setToasts((prev) => [...(opts.key ? prev.filter((t) => t.key !== opts.key) : prev), toast]);
+      if (ttl != null) {
+        const timer = setTimeout(() => dismiss(id), ttl);
+        timersRef.current.set(id, timer);
+      }
     },
     [dismiss],
   );
@@ -121,7 +137,10 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     onDismiss();
   }
   return (
-    <div className={`toast toast-${toast.variant}`} style={{ ['--toast-ttl' as string]: `${toast.ttl}ms` }}>
+    <div
+      className={`toast toast-${toast.variant}`}
+      style={toast.ttl == null ? undefined : { ['--toast-ttl' as string]: `${toast.ttl}ms` }}
+    >
       <span className="toast-msg">{toast.message}</span>
       {toast.action && (
         <button type="button" className="toast-undo toast-action" onClick={handleAction}>
@@ -136,7 +155,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       <button type="button" className="toast-close" onClick={onDismiss} aria-label="Fermer">
         ✕
       </button>
-      <span className="toast-progress" aria-hidden="true" />
+      {toast.ttl != null && <span className="toast-progress" aria-hidden="true" />}
     </div>
   );
 }
