@@ -15,7 +15,7 @@
       p.lede { margin: 0 0 20px; opacity: 0.7; }
       label { display: block; margin-top: 18px; font-weight: 600; }
       .hint { font-weight: 400; opacity: 0.7; font-size: 13px; margin-top: 4px; }
-      input[type='text'], input[type='url'], select {
+      input[type='text'], input[type='url'], select, textarea {
         width: 100%;
         margin-top: 6px;
         padding: 8px 10px;
@@ -25,6 +25,7 @@
         color: inherit;
         font: inherit;
       }
+      textarea { resize: vertical; min-height: 62px; }
       .row { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
       .row label { margin: 0; }
       .actions { display: flex; gap: 8px; margin-top: 24px; }
@@ -54,16 +55,24 @@
       copier-coller ni changement d’onglet.
     </p>
 
-    <label for="apiBase">
-      Adresse du serveur Working Book
+    <label for="apiBases">
+      Adresses des serveurs Working Book
       <div class="hint">
-        L’URL du Worker, par ex. <code>https://working-book-api.xxx.workers.dev</code>.
-        C’est la même valeur que <code>VITE_API_URL</code>.
+        <strong>Une par ligne.</strong> L’URL du Worker, par ex.
+        <code>https://working-book-api.xxx.workers.dev</code> — la même valeur
+        que <code>VITE_API_URL</code>. L’extension est livrée branchée sur les
+        deux : production et dev.
       </div>
     </label>
-    <input id="apiBase" type="url" placeholder="https://…workers.dev" spellcheck="false" />
+    <textarea id="apiBases" rows="2" placeholder="https://…workers.dev" spellcheck="false"></textarea>
 
     <div class="hint">
+      Chaque page est envoyée à <strong>toutes</strong> les adresses, en
+      parallèle. La <strong>première</strong> est la référence : c’est son
+      décompte qui est affiché, et elle seule décide si l’exécution a réussi.
+      Une adresse suivante en échec est signalée dans le récapitulatif sans
+      faire échouer l’import.
+      <br /><br />
       Chaque envoi <strong>s’ajoute</strong> au rapport ; réimporter une même
       page met simplement ses lignes à jour, elle n’est pas dupliquée.
     </div>
@@ -127,6 +136,7 @@
 
     <div id="status" aria-live="polite"></div>
 
+    <script src="config.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

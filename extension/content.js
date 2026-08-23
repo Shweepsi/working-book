@@ -95,6 +95,9 @@ async function sweep(maxPages) {
   let rows = 0;
   let imported = 0;
   const failures = [];
+  // Mirrors that refused at least one page. A set, not a list: the same server
+  // failing on all thirty pages is one thing gone wrong, said once.
+  const refused = new Set();
 
   for (let i = 0; i < maxPages; i++) {
     await settled();
@@ -115,6 +118,11 @@ async function sweep(maxPages) {
     // otherwise claim an import that never happened.
     if (result?.ok) imported += Number(result.imported) || 0;
     else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
+    // The counts above are the reference server's. The others are posted to in
+    // the same breath, and one of them lagging behind shows up nowhere else.
+    for (const target of result?.targets ?? []) {
+      if (!target.ok && !target.primary) refused.add(target.host);
+    }
 
     // Two jobs: the toolbar counts pages while the walk runs, so a long
     // report does not look like a frozen extension — and the traffic keeps
@@ -134,7 +142,7 @@ async function sweep(maxPages) {
     if (!(await changed(h, 8000))) break;
   }
 
-  return { pages, rows, imported, failures };
+  return { pages, rows, imported, failures, refused: [...refused] };
 }
 
 // Puts the grid back on page one and waits for it, so the screen is left as it
