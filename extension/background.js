@@ -132,9 +132,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     // like an extension that stopped responding.
     badge(`${msg.page}`, 'ok', { ttl: 600000 });
     // Recorded too, so a popup opened mid-run picks the progress back up
-    // instead of showing an idle panel over a walk still in flight.
+    // instead of showing an idle panel over a walk still in flight. Stamped,
+    // because storage.local outlives what wrote it: the popup needs to tell a
+    // walk in flight from the remains of one that died with its worker.
     chrome.storage.local.set({
-      runState: { running: true, page: msg.page, imported: msg.imported },
+      runState: { running: true, page: msg.page, imported: msg.imported, at: Date.now() },
     });
     return false;
   }
@@ -244,8 +246,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === SEARCH_ALARM) runSearch();
 });
 
-chrome.runtime.onInstalled.addListener(syncAlarm);
-chrome.runtime.onStartup.addListener(syncAlarm);
+// No walk survives the browser: closing it mid-import kills the content
+// script and this worker before publish() — the only eraser — ever runs, and
+// storage.local keeps the runState they left behind. The next launch then
+// opened on "Import en cours…" with both buttons locked, for good, since only
+// a finished run clears the flag and a locked button can start none. At
+// startup a stored runState is therefore always a leftover, never a run; an
+// update or a reload orphans the walk the same way, hence both listeners.
+function wake() {
+  chrome.storage.local.remove('runState');
+  syncAlarm();
+}
+
+chrome.runtime.onInstalled.addListener(wake);
+chrome.runtime.onStartup.addListener(wake);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'sync') return;
   if ('autoSearch' in changes || 'searchEveryMin' in changes) syncAlarm();

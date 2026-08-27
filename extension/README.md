@@ -92,6 +92,16 @@ pressé change de libellé, et le panneau compte les pages ; à la fin il affich
 le récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
 la progression là où elle en est.
 
+Fermer le **navigateur**, en revanche, interrompt tout — et la progression
+enregistrée, elle, survit sur le disque. Longtemps, le panneau la relisait au
+lancement suivant et s'ouvrait sur « Import en cours… », boutons verrouillés,
+sans issue : seule une exécution terminée efface cette trace, et un bouton
+verrouillé n'en lance aucune. Deux verrous s'en chargent désormais : au
+démarrage du navigateur toute progression trouvée est effacée — aucune
+exécution ne peut lui avoir survécu — et le panneau ignore de lui-même une
+progression restée muette plus de dix minutes, au cas où le worker serait mort
+seul, sans redémarrage pour balayer derrière lui.
+
 Déclarer ce panneau a un prix, assumé : le navigateur cesse alors d'émettre
 l'événement de clic sur l'icône, donc le clic ouvre le panneau au lieu de
 lancer directement. Le lancement passe par le bouton.

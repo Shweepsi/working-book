@@ -75,9 +75,23 @@ function running(on, which) {
 
 // A run outlives the popup: closing it does not stop anything, and reopening
 // has to pick the progress back up rather than pretend nothing is happening.
+//
+// It does not outlive everything. The worker buries any runState it finds at
+// browser startup, but a service worker can also die alone, mid-walk, with no
+// startup to follow — and nothing would ever erase what it wrote. The stamp on
+// each page settles it: pages are minutes apart at the very worst, so a stamp
+// this old is a walk that died, and the buttons must not stay locked over one.
+const STALE_RUN_MS = 10 * 60 * 1000;
+
 async function restoreProgress() {
   const { runState } = await chrome.storage.local.get({ runState: null });
   if (!runState?.running) return;
+  // No stamp is a runState written before stamps existed — that walk is long
+  // over, whatever else is true of it.
+  if (!runState.at || Date.now() - runState.at > STALE_RUN_MS) {
+    chrome.storage.local.remove('runState');
+    return;
+  }
   running(true, 'run');
   say(`Page ${runState.page} — ${runState.imported} ligne(s) importée(s).`);
 }
