@@ -41,21 +41,12 @@ async function showCriteria() {
       'Adresse du serveur non renseignée.\nClic droit sur l’icône → Options.';
     return;
   }
+  // The server addresses are deliberately not repeated here: the options page
+  // owns them, and this card is read at a glance before pressing, not audited.
   $('criteria').textContent = [
     `${cfg.facility} · ${cfg.workCenter}`,
     `Fenêtre ${windowOf(cfg.fromOffset, cfg.toOffset)}`,
-    // Shown before the run, like the criteria: the page goes to every one of
-    // these, and finding that out afterwards is finding it out too late.
-    `→ ${cfg.apiBases.map(wbHostOf).join(', ')}`,
   ].join('\n');
-}
-
-async function showLastRun() {
-  const { lastRun } = await chrome.storage.local.get({ lastRun: null });
-  if (!lastRun) return;
-  $('when').textContent = new Date(lastRun.at).toLocaleString('fr-FR');
-  $('last').textContent = lastRun.text;
-  $('last').className = lastRun.kind === 'ok' ? 'ok' : lastRun.kind === 'err' ? 'err' : '';
 }
 
 // Two ways to press: prepare the grid, or prepare it and import it. Both walk
@@ -103,11 +94,16 @@ chrome.runtime.onMessage.addListener((msg) => {
   return false;
 });
 
+// publish() writing lastRun is the one signal a walk is over. The panel no
+// longer keeps a record of past runs — the tooltip and the options page do —
+// but it still listens for the signal: the buttons unlock, and the status says
+// how the walk ended instead of staying frozen on its last page count.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if ('lastRun' in changes) {
-    showLastRun();
     running(false);
+    const run = changes.lastRun.newValue;
+    if (run) say(run.text, run.kind === 'ok' ? 'ok' : run.kind === 'err' ? 'err' : '');
   }
 });
 
@@ -121,7 +117,6 @@ async function launch(send) {
     say(`Interrompu : ${err}`, 'err');
   } finally {
     running(false);
-    showLastRun();
   }
 }
 
@@ -137,6 +132,5 @@ $('search').addEventListener('click', () => launch(false));
 // the grid the first one was still driving.
 (async () => {
   await showCriteria();
-  await showLastRun();
   await restoreProgress();
 })();

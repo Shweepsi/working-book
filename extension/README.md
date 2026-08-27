@@ -67,9 +67,11 @@ essai.
 ## Le panneau
 
 Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
-être demandé** : installation, centre de charge, la fenêtre de dates calculée
-pour aujourd'hui, et les serveurs vers lesquels la page partira. Plus la version chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
-dernière build.
+être demandé** : installation, centre de charge, et la fenêtre de dates
+calculée pour aujourd'hui. Plus la version chargée — utile pour savoir d'un
+coup d'œil si le poste tourne bien sur la dernière build. Les adresses des
+serveurs, elles, ne sont pas répétées ici : elles se lisent dans les options,
+qui en sont la source.
 
 Deux boutons, selon ce qu'on veut :
 
@@ -117,9 +119,10 @@ L'enchaînement complet, lui, est inchangé :
 6. **le récapitulatif**.
 
 La pastille sur l'icône suit la même exécution : elle compte les pages, puis
-affiche le nombre de lignes importées. Le récapitulatif se retrouve à trois
-endroits — le panneau, le survol de l'icône, et les options sous **Dernière
-exécution**.
+affiche le nombre de lignes importées. Le récapitulatif se conserve à deux
+endroits — le survol de l'icône et les options sous **Dernière exécution**.
+Le panneau, lui, l'affiche à la fin de l'exécution mais ne garde pas trace
+des précédentes.
 
 Le décompte est celui que le **serveur** a effectivement enregistré, pas le
 nombre de lignes que la grille affichait : les deux diffèrent dès qu'une ligne
