@@ -129,12 +129,10 @@ Clients poll it while the tab is visible and stop entirely when it is hidden
 `POST /api/schedules/ingest` takes a raw Operator Mashup dump instead of a
 parsed report. It runs `parsePMS230` — the same module the paste sheet imports,
 so no route can drift from the others — and merges the result into the shared
-report. Two callers: the "Import direct" bookmarklet the app generates
-(Schedule → *Importer rapport Operator Mashup* → *⇱ Import direct*), which
-reads the operator's clipboard, and the browser extension in `extension/`,
-which reads the M3 grid directly. Both run inside the operator's already
-authenticated session; the Worker never talks to Infor and holds no Infor
-credentials.
+report. One caller: the browser extension in `extension/`, which reads the M3
+grid directly (installed from Schedule → *Importer rapport Operator Mashup* →
+*⇱ Import direct*). It runs inside the operator's already authenticated
+session; the Worker never talks to Infor and holds no Infor credentials.
 
 **Every import adds.** There is no replace and no mode parameter: an operator
 walking a multi-page report, or re-importing after a fresh search, only ever
@@ -148,7 +146,7 @@ A dump that yields no decodable row answers `422 no_records` and leaves the
 stored report alone, so a mis-click on the wrong screen can't damage it.
 
 The reply carries `purged`: how many of the oldest schedules the trim below
-dropped to fit the incoming rows in. The bookmarklet is the one import route with no
+dropped to fit the incoming rows in. The extension is the one import route with no
 screen of its own, so this is the only place it can be said.
 
 ## What keeps the report from growing forever
@@ -181,7 +179,7 @@ the front's paste import, whose merge result is what it then `PUT`s.
 
 There is no auth on it, deliberately: the whole API is unauthenticated, so a
 token on this one endpoint would have locked one door of an open house while
-costing every operator a value to copy into their bookmarklet and extension.
+costing every operator a value to copy into their extension.
 
 One optional setting governs it:
 

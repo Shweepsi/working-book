@@ -55,8 +55,8 @@ personnel**, et non pendant les heures de service.
   tous au nom de l'auteur (cf. `studio-cancelotti-workspace/USER.md`).
 
 Le code ne contient **aucun secret, credential, ni donnée nominative** de
-l'employeur : les imports (bookmarklet, extension) lisent le presse-papiers
-côté poste opérateur ; rien n'est codé en dur.
+l'employeur : les imports (extension, collage manuel) lisent la session déjà
+ouverte côté poste opérateur ; rien n'est codé en dur.
 
 ## 5. Périmètre : hors mission salariale
 

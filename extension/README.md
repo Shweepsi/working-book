@@ -3,26 +3,22 @@
 Envoie le rapport PMS230 vers Working Book **sans copier-coller et sans clic**,
 depuis Mingle.
 
-## Pourquoi une extension et pas seulement le favori
+## Pourquoi une extension
 
 Dans Mingle, la grille M3 est servie par un **autre domaine** que
-`mingle-portal`. La politique d'origine unique interdit à toute page — favori
-compris — de lire le contenu d'un cadre d'un autre domaine. C'est une protection
-du navigateur, pas un défaut de programmation : aucune écriture de favori ne la
-contourne. Le favori se rabat donc sur le presse-papiers.
+`mingle-portal`. La politique d'origine unique interdit à toute page ordinaire
+de lire le contenu d'un cadre d'un autre domaine. C'est une protection du
+navigateur, pas un défaut de programmation : aucune astuce écrite dans la page
+ne la contourne.
 
 Une extension a une capacité que rien d'autre n'a : `all_frames`. Le navigateur
 exécute une copie du script **à l'intérieur** du cadre de la grille, où la
-lecture est légitime. D'où :
+lecture est légitime. D'où : aucune copie manuelle du rapport, un déclenchement
+en un clic ou automatique, et un envoi qui part du service worker, hors de
+portée de la CSP du portail.
 
-| | Favori | Extension |
-| --- | --- | --- |
-| Lire un cadre d'un autre domaine | impossible | oui |
-| Copie manuelle du rapport | nécessaire | non |
-| Déclenchement | clic, à chaque page | un clic, ou automatique |
-| Bloqué par la CSP du portail | possible | non (l'appel part du service worker) |
-
-Le favori reste utile là où les extensions sont interdites.
+Là où les extensions sont interdites, il reste le copier-coller dans Working
+Book → Schedule → **Importer**.
 
 ## Installation
 
