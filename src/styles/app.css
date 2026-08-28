@@ -3555,13 +3555,6 @@ body.is-col-resizing * {
   font-size: var(--fs-md);
   color: var(--ink-soft);
 }
-/* Sits in the footer row, where it fills the space the lone Fermer button left
-   empty. Grows so the button keeps its usual place at the right edge. */
-.sch-portal-fallback {
-  flex: 1;
-  margin: 0;
-  min-width: 220px;
-}
 .sch-portal-steps code {
   padding: 1px 5px;
   border-radius: var(--radius-sm);

@@ -94,13 +94,7 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
         )}
 
         <div className="actions">
-          {/* Fills the row the lone Fermer button used to leave empty, and says
-              what to fall back on where extensions are blocked — the ← Coller
-              button that gets there sits up in the header. */}
-          <p className="faint small sch-portal-fallback">
-            Extensions bloquées sur le poste ? Le collage du rapport reste
-            disponible : <strong>← Coller</strong>, en haut.
-          </p>
+          <span style={{ flex: 1 }} />
           <button className="btn ghost" type="button" onClick={onClose}>Fermer</button>
         </div>
       </div>
