@@ -41,21 +41,12 @@ async function showCriteria() {
       'Adresse du serveur non renseignée.\nClic droit sur l’icône → Options.';
     return;
   }
+  // The server addresses are deliberately not repeated here: the options page
+  // owns them, and this card is read at a glance before pressing, not audited.
   $('criteria').textContent = [
     `${cfg.facility} · ${cfg.workCenter}`,
     `Fenêtre ${windowOf(cfg.fromOffset, cfg.toOffset)}`,
-    // Shown before the run, like the criteria: the page goes to every one of
-    // these, and finding that out afterwards is finding it out too late.
-    `→ ${cfg.apiBases.map(wbHostOf).join(', ')}`,
   ].join('\n');
-}
-
-async function showLastRun() {
-  const { lastRun } = await chrome.storage.local.get({ lastRun: null });
-  if (!lastRun) return;
-  $('when').textContent = new Date(lastRun.at).toLocaleString('fr-FR');
-  $('last').textContent = lastRun.text;
-  $('last').className = lastRun.kind === 'ok' ? 'ok' : lastRun.kind === 'err' ? 'err' : '';
 }
 
 // Two ways to press: prepare the grid, or prepare it and import it. Both walk
@@ -75,9 +66,23 @@ function running(on, which) {
 
 // A run outlives the popup: closing it does not stop anything, and reopening
 // has to pick the progress back up rather than pretend nothing is happening.
+//
+// It does not outlive everything. The worker buries any runState it finds at
+// browser startup, but a service worker can also die alone, mid-walk, with no
+// startup to follow — and nothing would ever erase what it wrote. The stamp on
+// each page settles it: pages are minutes apart at the very worst, so a stamp
+// this old is a walk that died, and the buttons must not stay locked over one.
+const STALE_RUN_MS = 10 * 60 * 1000;
+
 async function restoreProgress() {
   const { runState } = await chrome.storage.local.get({ runState: null });
   if (!runState?.running) return;
+  // No stamp is a runState written before stamps existed — that walk is long
+  // over, whatever else is true of it.
+  if (!runState.at || Date.now() - runState.at > STALE_RUN_MS) {
+    chrome.storage.local.remove('runState');
+    return;
+  }
   running(true, 'run');
   say(`Page ${runState.page} — ${runState.imported} ligne(s) importée(s).`);
 }
@@ -89,11 +94,16 @@ chrome.runtime.onMessage.addListener((msg) => {
   return false;
 });
 
+// publish() writing lastRun is the one signal a walk is over. The panel no
+// longer keeps a record of past runs — the tooltip and the options page do —
+// but it still listens for the signal: the buttons unlock, and the status says
+// how the walk ended instead of staying frozen on its last page count.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if ('lastRun' in changes) {
-    showLastRun();
     running(false);
+    const run = changes.lastRun.newValue;
+    if (run) say(run.text, run.kind === 'ok' ? 'ok' : run.kind === 'err' ? 'err' : '');
   }
 });
 
@@ -107,7 +117,6 @@ async function launch(send) {
     say(`Interrompu : ${err}`, 'err');
   } finally {
     running(false);
-    showLastRun();
   }
 }
 
@@ -123,6 +132,5 @@ $('search').addEventListener('click', () => launch(false));
 // the grid the first one was still driving.
 (async () => {
   await showCriteria();
-  await showLastRun();
   await restoreProgress();
 })();

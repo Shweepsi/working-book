@@ -36,14 +36,9 @@
       button.primary { background: #2e7d32; border-color: #2e7d32; color: #fff; font-weight: 600; }
       button.second { margin-top: 6px; }
       button[disabled] { opacity: 0.55; cursor: default; }
-      h2 { font-size: 12px; margin: 16px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
-      #status, #last { white-space: pre-wrap; font-size: 12px; }
-      #status { min-height: 18px; margin-top: 10px; }
-      #last { opacity: 0.85; }
-      .when { font-size: 11px; opacity: 0.6; }
+      #status { white-space: pre-wrap; font-size: 12px; min-height: 18px; margin-top: 10px; }
       .ok { color: #2e7d32; }
       .err { color: #c62828; }
-      .muted { opacity: 0.6; }
     </style>
   </head>
   <body>
@@ -58,10 +53,6 @@
     <button id="search" class="second" type="button">Lancer la recherche</button>
 
     <div id="status" aria-live="polite"></div>
-
-    <h2>Dernière exécution</h2>
-    <div class="when" id="when"></div>
-    <div id="last" class="muted">Aucune exécution enregistrée.</div>
 
     <script src="config.js"></script>
     <script src="popup.js"></script>

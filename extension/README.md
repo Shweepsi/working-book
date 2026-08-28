@@ -67,9 +67,11 @@ essai.
 ## Le panneau
 
 Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
-être demandé** : installation, centre de charge, la fenêtre de dates calculée
-pour aujourd'hui, et les serveurs vers lesquels la page partira. Plus la version chargée — utile pour savoir d'un coup d'œil si le poste tourne bien sur la
-dernière build.
+être demandé** : installation, centre de charge, et la fenêtre de dates
+calculée pour aujourd'hui. Plus la version chargée — utile pour savoir d'un
+coup d'œil si le poste tourne bien sur la dernière build. Les adresses des
+serveurs, elles, ne sont pas répétées ici : elles se lisent dans les options,
+qui en sont la source.
 
 Deux boutons, selon ce qu'on veut :
 
@@ -92,6 +94,16 @@ pressé change de libellé, et le panneau compte les pages ; à la fin il affich
 le récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
 la progression là où elle en est.
 
+Fermer le **navigateur**, en revanche, interrompt tout — et la progression
+enregistrée, elle, survit sur le disque. Longtemps, le panneau la relisait au
+lancement suivant et s'ouvrait sur « Import en cours… », boutons verrouillés,
+sans issue : seule une exécution terminée efface cette trace, et un bouton
+verrouillé n'en lance aucune. Deux verrous s'en chargent désormais : au
+démarrage du navigateur toute progression trouvée est effacée — aucune
+exécution ne peut lui avoir survécu — et le panneau ignore de lui-même une
+progression restée muette plus de dix minutes, au cas où le worker serait mort
+seul, sans redémarrage pour balayer derrière lui.
+
 Déclarer ce panneau a un prix, assumé : le navigateur cesse alors d'émettre
 l'événement de clic sur l'icône, donc le clic ouvre le panneau au lieu de
 lancer directement. Le lancement passe par le bouton.
@@ -107,9 +119,10 @@ L'enchaînement complet, lui, est inchangé :
 6. **le récapitulatif**.
 
 La pastille sur l'icône suit la même exécution : elle compte les pages, puis
-affiche le nombre de lignes importées. Le récapitulatif se retrouve à trois
-endroits — le panneau, le survol de l'icône, et les options sous **Dernière
-exécution**.
+affiche le nombre de lignes importées. Le récapitulatif se conserve à deux
+endroits — le survol de l'icône et les options sous **Dernière exécution**.
+Le panneau, lui, l'affiche à la fin de l'exécution mais ne garde pas trace
+des précédentes.
 
 Le décompte est celui que le **serveur** a effectivement enregistré, pas le
 nombre de lignes que la grille affichait : les deux diffèrent dès qu'une ligne
