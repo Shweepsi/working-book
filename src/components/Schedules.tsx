@@ -490,7 +490,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     KEY_DATA,
     { domain: 'schedules', params: {} },
     dataInit,
-    // The bookmarklet writes this partition from the Infor portal, so the
+    // The extension writes this partition from the Infor portal, so the
     // report can change without anybody touching this screen. Follow it rather
     // than sitting on whatever was there at mount.
     { live: true },

@@ -8,7 +8,7 @@ export interface Env {
   DB: D1Database;
   ALLOWED_ORIGINS?: string;
   // Extra origins allowed to reach the ingest endpoint. The "Import direct"
-  // bookmarklet runs inside the Infor portal, so its Origin is never the app's
+  // extension runs inside the Infor portal, so its Origin is never the app's
   // own — see DEFAULT_INGEST_ORIGINS.
   INGEST_ORIGINS?: string;
 }
@@ -29,7 +29,7 @@ const SHIFT_RE = /^[MANR]$/;
 
 const INGEST_PATH = '/api/schedules/ingest';
 // Every Infor CloudSuite tenant lives under this domain, portal and embedded
-// M3 host alike, and the bookmarklet may run from either.
+// M3 host alike, and the extension may run from either.
 const DEFAULT_INGEST_ORIGINS = '*.inforcloudsuite.com';
 
 export default {
@@ -451,10 +451,10 @@ async function writeSchedules(env: Env, value: unknown): Promise<number> {
   return now;
 }
 
-// Direct import from the Infor portal. The "Import direct" bookmarklet and the
-// browser extension both post the raw Operator Mashup text here; we run it
-// through the very same parser the paste sheet uses, so no route can drift from
-// the others, and merge the result into the shared report.
+// Direct import from the Infor portal. The "Import direct" browser extension
+// posts the raw Operator Mashup text here; we run it through the very same
+// parser the paste sheet uses, so no route can drift from the others, and merge
+// the result into the shared report.
 //
 // Every import adds. There is no replace: an operator walking a multi-page
 // report, or re-importing after a fresh search, only ever wants more rows —
@@ -491,7 +491,7 @@ async function handleSchedulesIngest(
       records: merged.records.length,
       schedules: merged.schedules.length,
       // Oldest schedules the trim dropped to keep the report under budget.
-      // Reported rather than silent: the bookmarklet is the one import route
+      // Reported rather than silent: the extension is the one import route
       // with no screen of its own, and this is the only place it can be said.
       purged: purged.length,
       warnings: parsed.warnings.length,
