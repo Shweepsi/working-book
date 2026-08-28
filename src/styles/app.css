@@ -3542,21 +3542,25 @@ body.is-col-resizing * {
   color: var(--ink-soft);
 }
 .sch-portal-steps li { margin-bottom: 10px; }
-.sch-portal-drag {
+/* Path and its copy button, side by side until the sheet gets too narrow. */
+.sch-portal-path-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
   margin-top: 8px;
 }
-.sch-portal-way {
-  margin: 0 0 2px;
-  font-size: var(--fs-lg);
-}
 .sch-portal-lead {
-  margin: 0 0 10px;
+  margin: 0 0 16px;
   font-size: var(--fs-md);
   color: var(--ink-soft);
+}
+/* Sits in the footer row, where it fills the space the lone Fermer button left
+   empty. Grows so the button keeps its usual place at the right edge. */
+.sch-portal-fallback {
+  flex: 1;
+  margin: 0;
+  min-width: 220px;
 }
 .sch-portal-steps code {
   padding: 1px 5px;
