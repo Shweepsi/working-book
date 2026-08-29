@@ -3780,6 +3780,21 @@ body.is-col-resizing * {
 /* Pushed right and kept off the name's line-length: the counts are what the
    eye scans down the list. */
 .sch-done-meta { margin-left: auto; flex: none; }
+/* A row is the schedule plus, on the ones that can go back, the button that
+   sends it there. The button sits outside the card so the card keeps its one
+   job — open this schedule — and a tap near the edge can't do both. */
+.sch-done-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+.sch-done-row .sch-done-item { flex: 1 1 auto; min-width: 0; }
+.sch-done-restore {
+  flex: none;
+  align-self: stretch;
+  white-space: nowrap;
+}
+
 /* The "goes somewhere" mark. It only firms up under the pointer — at rest the
    row is already a button, and a column of dark arrows would out-shout the
    numbers beside them. */
@@ -3799,6 +3814,10 @@ body.is-col-resizing * {
    none` kept them from shrinking — the tail ran off the sheet and had to be
    scrolled to. Give the counts a line of their own under the number. */
 @media (max-width: 600px) {
+  /* No room for the button beside a card that already wraps onto two lines:
+     it goes under, full width, where a thumb finds it. */
+  .sch-done-row { flex-wrap: wrap; }
+  .sch-done-restore { flex: 1 1 100%; }
   .sch-done-item {
     flex-wrap: wrap;
     gap: 2px var(--space-4);

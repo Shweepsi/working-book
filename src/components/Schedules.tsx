@@ -84,6 +84,11 @@ interface FinishedSchedule {
   // Rows still to produce. Zero on a finished schedule — the œillet has to be
   // open for the table to show anything at all when one is opened from here.
   planning: number;
+  // Whether taking it back would actually put the card on the rail again. A
+  // retired schedule with no surface left to coat is filtered out by the rail
+  // for the other reason too, so undoing the retirement would move nothing —
+  // and a button that visibly does nothing is worse than no button.
+  restorable: boolean;
 }
 
 interface RailStat {
@@ -934,8 +939,9 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         schedule: s.schedule,
         name: shortItemName(s.itemRoot) || s.itemRoot || '—',
         ...tally.get(s.schedule)!,
+        restorable: !!archives[s.schedule] && (railStats.get(s.schedule)?.m2 ?? 0) > 0,
       }));
-  }, [schedules, visibleSchedules, data]);
+  }, [schedules, visibleSchedules, data, archives, railStats]);
 
   // Only for the sheet's subtitle, which cannot claim "sans reste à produire"
   // over a list where some rows were pulled out with work still in them.
@@ -1021,6 +1027,30 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
         setSelected(snapshotSelected);
         setTableSettings((s) => ({ ...s, ...snapshotFilters }));
+      },
+    });
+  }
+
+  // The way back out of the terminés sheet: a schedule retired by hand returns
+  // to the planning. Only a retirement can be undone this way — a schedule with
+  // nothing left to produce is in that list because the report says so, and no
+  // button here can change what the report says.
+  //
+  // The card comes back where it was in the rail (the order is the report's,
+  // not an arrival order) and the schedule is selected, so the operator lands
+  // on what they just took back rather than having to hunt for it.
+  function handleRestoreSchedule(schedule: string) {
+    if (!archives[schedule]) return;
+    const stamp = archives[schedule];
+    const snapshotSelected = selected;
+    setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
+    selectSchedule(schedule);
+    toast.show({
+      message: `Schedule ${schedule} remis au planning`,
+      ttl: LONG_TOAST_TTL,
+      undo: () => {
+        setArchives((prev) => ({ ...prev, [schedule]: stamp }));
+        setSelected(snapshotSelected);
       },
     });
   }
@@ -1373,6 +1403,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
           retiredCount={retiredCount}
           current={selected}
           onOpen={openFinished}
+          onRestore={handleRestoreSchedule}
           onClose={() => setFinishedOpen(false)}
         />
       )}
@@ -1390,6 +1421,7 @@ function FinishedSheet({
   retiredCount,
   current,
   onOpen,
+  onRestore,
   onClose,
 }: {
   schedules: FinishedSchedule[];
@@ -1399,6 +1431,10 @@ function FinishedSheet({
   // is the only place left to say where they are.
   current: string | null;
   onOpen: (item: FinishedSchedule) => void;
+  // Take a hand-retired schedule back to the planning. Offered per row rather
+  // than as one sheet-wide action: the two populations under this heading are
+  // mixed, and only some rows can go back.
+  onRestore: (schedule: string) => void;
   onClose: () => void;
 }) {
   useEscapeToClose(onClose);
@@ -1428,7 +1464,7 @@ function FinishedSheet({
 
         <ul className="sch-done-list">
           {schedules.map((s) => (
-            <li key={s.schedule}>
+            <li key={s.schedule} className="sch-done-row">
               <button
                 type="button"
                 className={`sch-done-item ${s.schedule === current ? 'is-current' : ''}`}
@@ -1452,6 +1488,19 @@ function FinishedSheet({
                 </span>
                 <span className="sch-done-go" aria-hidden="true" />
               </button>
+              {/* The way back. Only on the rows that were retired by hand and
+                  that have work left in them — on any other row it would
+                  promise a return the rail would refuse. */}
+              {s.restorable && (
+                <button
+                  type="button"
+                  className="btn ghost mini sch-done-restore"
+                  onClick={() => onRestore(s.schedule)}
+                  title={`Remettre le schedule ${s.schedule} dans le planning`}
+                >
+                  ↩ Remettre
+                </button>
+              )}
             </li>
           ))}
         </ul>
