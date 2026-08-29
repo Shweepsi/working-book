@@ -3749,31 +3749,43 @@ body.is-col-resizing * {
   flex-direction: column;
   gap: var(--space-2);
 }
+/* The card is the row. Its frame lives on the <li> rather than on the button
+   inside it, so a schedule and the button that puts it back sit within one
+   outline: the action belongs to this schedule, where a button floating in the
+   4px gap between cards read as a list entry of its own. */
+.sch-done-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+  /* Clips both segments to the rounded corners — neither carries a radius. */
+  overflow: hidden;
+  transition: border-color 120ms ease;
+}
 /* Same shape as a rail card, and the same job: pick a schedule to read. */
 .sch-done-item {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
+  border: 0;
   background: none;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease;
 }
-.sch-done-item:hover {
-  background: var(--paper-2);
-  border-color: var(--line-soft);
-}
+/* Hover lights the segment under the pointer; the frame belongs to the whole
+   card, so it firms up from either half. */
+.sch-done-item:hover { background: var(--paper-2); }
+.sch-done-row:has(.sch-done-item:hover),
+.sch-done-row:has(.sch-done-restore:hover) { border-color: var(--line-soft); }
 /* The one already on screen. It stays a button — clicking it just closes the
    sheet — but it has to look like where you are, not like somewhere to go. */
-.sch-done-item.is-current {
-  border-color: var(--ink-faint);
-  background: var(--paper-2);
-}
+.sch-done-row:has(.sch-done-item.is-current) { border-color: var(--ink-faint); }
+.sch-done-item.is-current { background: var(--paper-2); }
 .sch-done-item.is-current .sch-done-go { visibility: hidden; }
 .sch-done-num { font-weight: 600; }
 .sch-done-name {
@@ -3786,19 +3798,33 @@ body.is-col-resizing * {
 /* Pushed right and kept off the name's line-length: the counts are what the
    eye scans down the list. */
 .sch-done-meta { margin-left: auto; flex: none; }
-/* A row is the schedule plus, on the ones that can go back, the button that
-   sends it there. The button sits outside the card so the card keeps its one
-   job — open this schedule — and a tap near the edge can't do both. */
-.sch-done-row {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-2);
-}
-.sch-done-row .sch-done-item { flex: 1 1 auto; min-width: 0; }
+/* The way back, as a segment of the card rather than a button laid beside it.
+   A hairline tells the two tap targets apart — the same line that says they
+   belong to one schedule. Quiet at rest: the list is opened to be read, and a
+   column of live buttons down its right edge would out-shout the numbers. */
 .sch-done-restore {
   flex: none;
-  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-6);
+  border: 0;
+  border-left: 1px solid var(--line-faint);
+  background: none;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.sch-done-restore:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.sch-done-restore-icon {
+  font-size: var(--fs-lg);
+  line-height: 1;
 }
 
 /* The "goes somewhere" mark. It only firms up under the pointer — at rest the
@@ -3820,10 +3846,19 @@ body.is-col-resizing * {
    none` kept them from shrinking — the tail ran off the sheet and had to be
    scrolled to. Give the counts a line of their own under the number. */
 @media (max-width: 600px) {
-  /* No room for the button beside a card that already wraps onto two lines:
-     it goes under, full width, where a thumb finds it. */
+  /* No column to spare beside a card that already wraps onto two lines, so the
+     action becomes the card's footer: still inside the frame, full width and
+     tall enough for a thumb, with the hairline now separating it from the
+     counts above rather than from the schedule beside it. */
   .sch-done-row { flex-wrap: wrap; }
-  .sch-done-restore { flex: 1 1 100%; }
+  .sch-done-restore {
+    flex: 1 1 100%;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 var(--space-6);
+    border-left: 0;
+    border-top: 1px solid var(--line-faint);
+  }
   .sch-done-item {
     flex-wrap: wrap;
     gap: 2px var(--space-4);

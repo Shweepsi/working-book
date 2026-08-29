@@ -1520,11 +1520,12 @@ function FinishedSheet({
               {s.restorable && (
                 <button
                   type="button"
-                  className="btn ghost mini sch-done-restore"
+                  className="sch-done-restore"
                   onClick={() => setPending(s.schedule)}
                   title={`Remettre le schedule ${s.schedule} dans le planning`}
                 >
-                  ↩ Remettre
+                  <span className="sch-done-restore-icon" aria-hidden="true">↩</span>
+                  Remettre
                 </button>
               )}
             </li>
