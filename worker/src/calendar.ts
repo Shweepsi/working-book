@@ -27,7 +27,10 @@ const CRENEAUX: Record<ShiftKey, Creneau> = {
   // le repeter dans le libelle ne fait que le tronquer dans la vue mois.
   M: { nom: 'Matin', debut: '060000', fin: '140000', finJ1: 0 },
   A: { nom: 'Après-midi', debut: '140000', fin: '220000', finJ1: 0 },
-  N: { nom: 'Nuit', debut: '220000', fin: '060000', finJ1: 1 },
+  // La nuit s'arrete a minuit plutot qu'a 6h : l'evenement tient alors sur une
+  // seule journee au lieu de deborder sur la case du lendemain, ou il masquait
+  // le poste suivant. C'est un choix d'affichage, pas la fin reelle du poste.
+  N: { nom: 'Nuit', debut: '220000', fin: '000000', finJ1: 1 },
   R: { nom: 'Repos', journee: true },
 };
 
