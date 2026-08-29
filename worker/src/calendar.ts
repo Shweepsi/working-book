@@ -23,9 +23,11 @@ interface Creneau {
 }
 
 const CRENEAUX: Record<ShiftKey, Creneau> = {
-  M: { nom: 'Poste Matin (6h-14h)', debut: '060000', fin: '140000', finJ1: 0 },
-  A: { nom: 'Poste Après-midi (14h-22h)', debut: '140000', fin: '220000', finJ1: 0 },
-  N: { nom: 'Poste Nuit (22h-6h)', debut: '220000', fin: '060000', finJ1: 1 },
+  // Titre court et rien d'autre : l'horaire est deja porte par l'evenement,
+  // le repeter dans le libelle ne fait que le tronquer dans la vue mois.
+  M: { nom: 'Matin', debut: '060000', fin: '140000', finJ1: 0 },
+  A: { nom: 'Après-midi', debut: '140000', fin: '220000', finJ1: 0 },
+  N: { nom: 'Nuit', debut: '220000', fin: '060000', finJ1: 1 },
   R: { nom: 'Repos', journee: true },
 };
 
