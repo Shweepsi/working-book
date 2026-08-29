@@ -16,7 +16,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Offsets relative to Poste C, picked so every day all 4 shift types are
 // represented (verified against the 2026 calendar).
 export const POSTES: readonly Poste[] = ['A', 'B', 'C', 'D'];
-const POSTE_OFFSET: Record<Poste, number> = { C: 0, B: 7, A: 14, D: 21 };
+export const POSTE_OFFSET: Record<Poste, number> = { C: 0, B: 7, A: 14, D: 21 };
 
 export const SHIFT_TYPES: Record<ShiftKey, ShiftType> = {
   M: { key: 'M', label: 'Matin',       hours: '06h – 14h', range: [6, 14] },

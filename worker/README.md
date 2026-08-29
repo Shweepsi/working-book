@@ -91,6 +91,7 @@ npm run deploy:prod
 All endpoints accept and return JSON. Keys are positional (no auth).
 
 - `GET  /api/health` — liveness check
+- `GET  /api/calendar.ics[?poste=A|B|C|D&repos=1]` → flux ICS d'abonnement (voir plus bas)
 - `GET  /api/logbook?date=YYYY-MM-DD&poste=A|B|C|D` → `{ data: LogEvent[] | null, updated_at }`
 - `PUT  /api/logbook?date=...&poste=...` body: `LogEvent[]`
 - `GET  /api/prodtest?date=YYYY-MM-DD&shift=M|A|N|R` → `{ data: TestState | null, updated_at }`
@@ -110,6 +111,26 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
+
+## Flux ICS du roulement
+
+`GET /api/calendar.ics` publie le roulement d'un poste au format iCalendar, à
+coller tel quel dans Google Agenda (*Autres agendas → À partir de l'URL*),
+Outlook ou Apple Calendrier. `poste` vaut `C` par défaut ; `repos=1` ajoute les
+jours de repos en journée entière (transparents, ils ne bloquent pas les
+disponibilités).
+
+Les événements sortent de `CYCLE` et `POSTE_OFFSET` (`src/lib/shiftCalendar.ts`),
+la même source que l'app : le calendrier publié ne peut pas diverger de ce que
+l'opérateur lit dans Working Book. Un événement par jour du cycle, répété tous
+les 28 jours (`RRULE:FREQ=DAILY;INTERVAL=28`) — le flux est infini, tient en une
+vingtaine d'événements et ne demande aucune régénération annuelle. Le
+`VTIMEZONE` Europe/Luxembourg est embarqué, donc la nuit reste 22h→6h de part et
+d'autre des changements d'heure.
+
+C'est la seule route qui répond `Access-Control-Allow-Origin: *` : un client
+agenda n'est pas un navigateur sur l'app, et le contenu est un roulement public,
+sans donnée d'exploitation.
 
 ## Change probe
 
