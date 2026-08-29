@@ -3,6 +3,7 @@
 // the Worker is a thin persistence layer.
 
 import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
+import { buildICS, parsePoste } from './calendar';
 
 export interface Env {
   DB: D1Database;
@@ -52,6 +53,8 @@ export default {
 
     try {
       switch (url.pathname) {
+        case '/api/calendar.ics':
+          return calendarResponse(request, url, cors);
         case '/api/health':
           return json({ ok: true }, cors);
         case '/api/logbook':
@@ -112,6 +115,31 @@ function corsHeaders(env: Env, origin: string | null, opts: CorsOptions = {}): R
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
+}
+
+// Flux ICS d'abonnement : lisible par n'importe quel client agenda, donc pas de
+// CORS a exiger et un GET/HEAD seulement.
+function calendarResponse(
+  request: Request,
+  url: URL,
+  cors: Record<string, string>,
+): Response {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return json({ error: 'method_not_allowed' }, cors, 405);
+  }
+  const poste = parsePoste(url.searchParams.get('poste'));
+  const repos = ['1', 'true', 'oui'].includes(
+    (url.searchParams.get('repos') ?? '').toLowerCase(),
+  );
+  return new Response(request.method === 'HEAD' ? null : buildICS(poste, repos), {
+    headers: {
+      ...cors,
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': `inline; filename="postes-${poste}.ics"`,
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
 }
 
 function json(data: unknown, cors: Record<string, string>, status = 200): Response {
