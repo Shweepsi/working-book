@@ -427,6 +427,19 @@ function retireConfirmBody(data: PMS230Result, schedule: string): string {
   );
 }
 
+// The other direction. Says what comes back rather than what is at stake:
+// nothing is at stake — the schedule was only set aside — so the figure worth
+// showing is the work that returns to the planning with it.
+function restoreConfirmBody(item: FinishedSchedule): string {
+  return (
+    (item.planning > 1
+      ? `${item.planning} lignes reviennent au planning`
+      : `${item.planning} ligne revient au planning`)
+    + `, soit ${fmtNum(item.m2, 0)} m² à couvrir. `
+    + 'Le schedule reprend sa place dans le rail et devient la sélection courante.'
+  );
+}
+
 function fmtDate(yyyymmdd: string | null | undefined): string {
   if (!yyyymmdd || yyyymmdd.length !== 8) return '';
   return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}`;
@@ -1044,6 +1057,10 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     const stamp = archives[schedule];
     const snapshotSelected = selected;
     setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
+    // Out of the sheet, like opening a row from it: the schedule has just left
+    // this list for the rail and become the selection, and a list of terminés
+    // still standing over it would hide the very thing that just happened.
+    setFinishedOpen(false);
     selectSchedule(schedule);
     toast.show({
       message: `Schedule ${schedule} remis au planning`,
@@ -1437,7 +1454,16 @@ function FinishedSheet({
   onRestore: (schedule: string) => void;
   onClose: () => void;
 }) {
-  useEscapeToClose(onClose);
+  // The schedule awaiting confirmation, held by number rather than by value:
+  // a sync from another device can take the row out of the list while the
+  // question sits on screen, and the confirmation then has to go with it
+  // instead of quoting counts for a row nobody can act on any more.
+  const [pending, setPending] = useState<string | null>(null);
+  const pendingItem = pending ? schedules.find((s) => s.schedule === pending) ?? null : null;
+
+  // The confirmation is stacked on this sheet, and Escape belongs to whichever
+  // is on top — cancelling the question must not also close the list behind it.
+  useEscapeToClose(onClose, !pendingItem);
 
   const done = schedules.length - retiredCount;
   // Two populations under one heading, so the subtitle has to name whichever
@@ -1449,7 +1475,7 @@ function FinishedSheet({
 
   return (
     <>
-      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet-backdrop" onClick={() => { if (!pendingItem) onClose(); }} />
       <div className="sheet sch-done-sheet" role="dialog" aria-modal="true" aria-label="Schedules terminés">
         <div className="grabber" />
         <div className="sheet-head">
@@ -1495,7 +1521,7 @@ function FinishedSheet({
                 <button
                   type="button"
                   className="btn ghost mini sch-done-restore"
-                  onClick={() => onRestore(s.schedule)}
+                  onClick={() => setPending(s.schedule)}
                   title={`Remettre le schedule ${s.schedule} dans le planning`}
                 >
                   ↩ Remettre
@@ -1505,6 +1531,19 @@ function FinishedSheet({
           ))}
         </ul>
       </div>
+
+      {/* Same stop as in front of the rail gesture, for the same reason: putting
+          a schedule back is as coarse a move as taking it out, and the button
+          sits under a thumb in a list the operator came to read. */}
+      {pendingItem && (
+        <ConfirmSheet
+          title={`Remettre le schedule ${pendingItem.schedule} au planning ?`}
+          body={restoreConfirmBody(pendingItem)}
+          confirmLabel="Remettre"
+          onConfirm={() => { onRestore(pendingItem.schedule); }}
+          onClose={() => setPending(null)}
+        />
+      )}
     </>
   );
 }
@@ -1615,7 +1654,10 @@ function ConfirmSheet({
   useEscapeToClose(onClose);
   return (
     <>
-      <div className="sheet-backdrop" onClick={onClose} />
+      {/* Raised above a plain backdrop: this sheet is the only one that ever
+          opens on top of another (the terminés list), and a backdrop level with
+          it would dim the page but not the sheet it was raised from. */}
+      <div className="sheet-backdrop is-top" onClick={onClose} />
       <div className="sheet sch-confirm" role="dialog" aria-modal="true">
         <div className="grabber" />
         <div className="sheet-head">

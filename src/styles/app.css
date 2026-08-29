@@ -569,6 +569,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 .sheet .grabber { display: none; }
 
+/* One step above the default sheet layer, for the confirmation that can open
+   on top of another sheet. Still below the toast (60), which carries the undo
+   the confirmation leads to. */
+.sheet-backdrop.is-top { z-index: 42; }
+.sheet.sch-confirm { z-index: 43; }
+
 .sheet-head {
   display: flex;
   align-items: center;

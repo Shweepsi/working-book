@@ -1,13 +1,18 @@
 import { useEffect } from 'react';
 
-export function useEscapeToClose(onClose: () => void): void {
+// `enabled` is for a sheet that has another one stacked on top of it: the
+// listener is on the window, so without it Escape over the upper sheet would
+// close both, and the operator cancelling a confirmation would lose the sheet
+// they opened it from as well.
+export function useEscapeToClose(onClose: () => void, enabled = true): void {
   useEffect(() => {
+    if (!enabled) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, enabled]);
 }
 
 export interface KeyBinding {
