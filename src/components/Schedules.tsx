@@ -1063,7 +1063,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     setFinishedOpen(false);
     selectSchedule(schedule);
     toast.show({
-      message: `Schedule ${schedule} remis au planning`,
+      message: `Schedule ${schedule} restauré dans le planning`,
       ttl: LONG_TOAST_TTL,
       undo: () => {
         setArchives((prev) => ({ ...prev, [schedule]: stamp }));
@@ -1522,10 +1522,10 @@ function FinishedSheet({
                   type="button"
                   className="sch-done-restore"
                   onClick={() => setPending(s.schedule)}
-                  title={`Remettre le schedule ${s.schedule} dans le planning`}
+                  title={`Restaurer le schedule ${s.schedule} dans le planning`}
                 >
                   <span className="sch-done-restore-icon" aria-hidden="true">↩</span>
-                  Remettre
+                  Restaurer
                 </button>
               )}
             </li>
@@ -1538,9 +1538,9 @@ function FinishedSheet({
           sits under a thumb in a list the operator came to read. */}
       {pendingItem && (
         <ConfirmSheet
-          title={`Remettre le schedule ${pendingItem.schedule} au planning ?`}
+          title={`Restaurer le schedule ${pendingItem.schedule} dans le planning ?`}
           body={restoreConfirmBody(pendingItem)}
-          confirmLabel="Remettre"
+          confirmLabel="Restaurer"
           onConfirm={() => { onRestore(pendingItem.schedule); }}
           onClose={() => setPending(null)}
         />
