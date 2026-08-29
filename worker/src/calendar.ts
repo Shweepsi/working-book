@@ -81,6 +81,30 @@ export function parsePoste(raw: string | null): Poste {
   return (POSTES as readonly string[]).includes(p) ? (p as Poste) : 'C';
 }
 
+// Les jours consecutifs d'un meme poste sortent en un seul evenement : le cycle
+// se lit en blocs de 2 ou 3 jours, et un agenda qui les affiche un par un
+// remplit la vue mois de repetitions pour la meme information.
+//
+// Le cycle boucle, donc le bloc a cheval sur la fin (il termine et commence par
+// une nuit) doit etre recolle : on part de la premiere frontiere reelle plutot
+// que de l'index 0.
+function blocs(): { debut: number; duree: number }[] {
+  const n = CYCLE.length;
+  let depart = 0;
+  while (depart < n && CYCLE[depart] === CYCLE[(depart - 1 + n) % n]) depart++;
+  if (depart === n) return [{ debut: 0, duree: n }]; // cycle uniforme : theorique
+
+  const out: { debut: number; duree: number }[] = [];
+  for (let k = 0; k < n; ) {
+    const debut = (depart + k) % n;
+    let duree = 1;
+    while (k + duree < n && CYCLE[(depart + k + duree) % n] === CYCLE[debut]) duree++;
+    out.push({ debut, duree });
+    k += duree;
+  }
+  return out;
+}
+
 export function buildICS(poste: Poste, avecRepos: boolean): string {
   // Le poste X vit le cycle de C decale de POSTE_OFFSET[X] jours : le jour J du
   // cycle pour ce poste tombe donc a ANCHOR - offset + J.
@@ -98,26 +122,28 @@ export function buildICS(poste: Poste, avecRepos: boolean): string {
     ...VTIMEZONE,
   ];
 
-  CYCLE.forEach((code, i) => {
-    if (code === 'R' && !avecRepos) return;
+  for (const bloc of blocs()) {
+    const code = CYCLE[bloc.debut]!;
+    if (code === 'R' && !avecRepos) continue;
     const c = CRENEAUX[code];
-    const jour = ajouterJours(ANCHOR, i - offset);
+    const premier = ajouterJours(ANCHOR, bloc.debut - offset);
+    const dernier = ajouterJours(premier, bloc.duree - 1);
     lignes.push('BEGIN:VEVENT');
-    lignes.push(`UID:wb-poste-${poste}-${i}@working-book`);
+    lignes.push(`UID:wb-poste-${poste}-${bloc.debut}@working-book`);
     lignes.push('DTSTAMP:20260101T000000Z');
     lignes.push(plier(`SUMMARY:${c.nom}`));
     if (c.journee) {
-      lignes.push(`DTSTART;VALUE=DATE:${jour}`);
-      lignes.push(`DTEND;VALUE=DATE:${ajouterJours(jour, 1)}`);
+      lignes.push(`DTSTART;VALUE=DATE:${premier}`);
+      lignes.push(`DTEND;VALUE=DATE:${ajouterJours(dernier, 1)}`);
       lignes.push('TRANSP:TRANSPARENT');
     } else {
-      lignes.push(`DTSTART;TZID=${TZ}:${jour}T${c.debut}`);
-      lignes.push(`DTEND;TZID=${TZ}:${ajouterJours(jour, c.finJ1 ?? 0)}T${c.fin}`);
+      lignes.push(`DTSTART;TZID=${TZ}:${premier}T${c.debut}`);
+      lignes.push(`DTEND;TZID=${TZ}:${ajouterJours(dernier, c.finJ1 ?? 0)}T${c.fin}`);
       lignes.push('TRANSP:OPAQUE');
     }
     lignes.push('RRULE:FREQ=DAILY;INTERVAL=28');
     lignes.push('END:VEVENT');
-  });
+  }
 
   lignes.push('END:VCALENDAR');
   return lignes.join('\r\n') + '\r\n';
