@@ -1483,15 +1483,19 @@ function FinishedSheet({
     <>
       <div className="sheet-backdrop" onClick={() => { if (!pendingItem) onClose(); }} />
       <div className="sheet sch-done-sheet" role="dialog" aria-modal="true" aria-label="Schedules terminés">
-        <div className="grabber" />
-        <div className="sheet-head">
-          <div className="sheet-head-titles">
-            <h3>Schedules terminés</h3>
-            <div className="sheet-head-sub">
-              {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
+        {/* Grabber and head as one block so they can stay put together while a
+            long list scrolls under them — see .sch-done-head. */}
+        <div className="sch-done-head">
+          <div className="grabber" />
+          <div className="sheet-head">
+            <div className="sheet-head-titles">
+              <h3>Schedules terminés</h3>
+              <div className="sheet-head-sub">
+                {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
+              </div>
             </div>
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <ul className="sch-done-list">

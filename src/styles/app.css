@@ -549,6 +549,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
      leave the bottom sheet pinned at left:0 with a gutter hanging off the
      right edge — the width has to be declared here, once. */
   --sheet-w: 560px;
+  /* The padding is published as variables because a sticky child (see the
+     terminés sheet) has to bleed back out over it — a hardcoded inset would
+     be wrong on phones, where the sheet is padded more tightly. */
+  --sheet-pad-x: var(--space-10);
+  --sheet-pad-top: var(--space-9);
   position: fixed;
   left: 50%;
   top: 50%;
@@ -556,7 +561,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   width: min(var(--sheet-w), calc(100% - 40px));
   background: var(--paper);
   border-radius: var(--radius-2xl);
-  padding: var(--space-9) var(--space-10) var(--space-10);
+  padding: var(--sheet-pad-top) var(--sheet-pad-x) var(--space-10);
   z-index: 41;
   box-shadow: var(--shadow-sheet);
   animation: pop-in 180ms ease-out;
@@ -1338,7 +1343,9 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
     width: 100%;
     max-width: 100%;
     border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
-    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    --sheet-pad-x: 16px;
+    --sheet-pad-top: 14px;
+    padding: var(--sheet-pad-top) var(--sheet-pad-x) max(14px, env(safe-area-inset-bottom));
     animation: slide-up-phone 220ms ease-out;
     max-height: 92vh;
     max-height: 92dvh;
@@ -1365,7 +1372,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   .sheet {
     max-height: 100dvh;
     border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-    padding-top: 8px;
+    --sheet-pad-top: 8px;
   }
   .sheet h3 { font-size: var(--fs-lg); }
   .sheet .grabber { margin-bottom: 6px; }
@@ -3741,6 +3748,21 @@ body.is-col-resizing * {
 /* Wider than the row sheet: each line carries a schedule number, a name and
    three counts on one row. */
 .sch-done-sheet { --sheet-w: 660px; }
+/* Twenty schedules is an ordinary report here, and the head used to scroll
+   away with them — the title, the counts, and on a phone the ✕ itself, all out
+   of reach at the top of a long list. Grabber and head travel as one sticky
+   block, bled back out over the sheet's padding so the rows pass under it
+   rather than beside it. */
+.sch-done-head {
+  position: sticky;
+  top: calc(var(--sheet-pad-top) * -1);
+  z-index: 1;
+  margin: calc(var(--sheet-pad-top) * -1) calc(var(--sheet-pad-x) * -1) var(--space-6);
+  padding: var(--sheet-pad-top) var(--sheet-pad-x) var(--space-5);
+  background: var(--paper);
+  border-bottom: 1px solid var(--line-faint);
+}
+.sch-done-head .sheet-head { margin-bottom: 0; }
 .sch-done-list {
   list-style: none;
   margin: 0;
@@ -3780,6 +3802,15 @@ body.is-col-resizing * {
 /* Hover lights the segment under the pointer; the frame belongs to the whole
    card, so it firms up from either half. */
 .sch-done-item:hover { background: var(--paper-2); }
+/* Hover never fires on the tablets this is used from, so the press itself has
+   to answer: both segments darken while held, and the keyboard gets the same
+   ring the other clickable rows in the app use. */
+.sch-done-item:active { background: color-mix(in srgb, var(--ink) 6%, var(--paper)); }
+.sch-done-item:focus-visible,
+.sch-done-restore:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 .sch-done-row:has(.sch-done-item:hover),
 .sch-done-row:has(.sch-done-restore:hover) { border-color: var(--line-soft); }
 /* The one already on screen. It stays a button — clicking it just closes the
@@ -3820,6 +3851,10 @@ body.is-col-resizing * {
 }
 .sch-done-restore:hover {
   background: var(--paper-2);
+  color: var(--ink);
+}
+.sch-done-restore:active {
+  background: color-mix(in srgb, var(--ink) 6%, var(--paper));
   color: var(--ink);
 }
 .sch-done-restore-icon {
