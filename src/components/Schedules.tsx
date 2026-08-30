@@ -84,6 +84,11 @@ interface FinishedSchedule {
   // Rows still to produce. Zero on a finished schedule — the œillet has to be
   // open for the table to show anything at all when one is opened from here.
   planning: number;
+  // Whether taking it back would actually put the card on the rail again. A
+  // retired schedule with no surface left to coat is filtered out by the rail
+  // for the other reason too, so undoing the retirement would move nothing —
+  // and a button that visibly does nothing is worse than no button.
+  restorable: boolean;
 }
 
 interface RailStat {
@@ -419,6 +424,19 @@ function retireConfirmBody(data: PMS230Result, schedule: string): string {
       ? `${records} lignes quittent le planning et rejoignent la liste des terminés. `
       : `${records} ligne quitte le planning et rejoint la liste des terminés. `)
     + 'Rien ne sort du rapport : le schedule reste consultable depuis cette liste.'
+  );
+}
+
+// The other direction. Says what comes back rather than what is at stake:
+// nothing is at stake — the schedule was only set aside — so the figure worth
+// showing is the work that returns to the planning with it.
+function restoreConfirmBody(item: FinishedSchedule): string {
+  return (
+    (item.planning > 1
+      ? `${item.planning} lignes reviennent au planning`
+      : `${item.planning} ligne revient au planning`)
+    + `, soit ${fmtNum(item.m2, 0)} m² à couvrir. `
+    + 'Le schedule reprend sa place dans le rail et devient la sélection courante.'
   );
 }
 
@@ -934,8 +952,15 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         schedule: s.schedule,
         name: shortItemName(s.itemRoot) || s.itemRoot || '—',
         ...tally.get(s.schedule)!,
-      }));
-  }, [schedules, visibleSchedules, data]);
+        restorable: !!archives[s.schedule] && (railStats.get(s.schedule)?.m2 ?? 0) > 0,
+      }))
+      // Report order runs oldest schedule first, which is the wrong way round
+      // for a list of what has already left the planning: what just finished —
+      // or was just retired — is what somebody opening this sheet is looking
+      // for, and it was at the bottom of twenty rows. `filter` already gave us
+      // a fresh array, so reversing it in place touches nothing shared.
+      .reverse();
+  }, [schedules, visibleSchedules, data, archives, railStats]);
 
   // Only for the sheet's subtitle, which cannot claim "sans reste à produire"
   // over a list where some rows were pulled out with work still in them.
@@ -1021,6 +1046,34 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
         setSelected(snapshotSelected);
         setTableSettings((s) => ({ ...s, ...snapshotFilters }));
+      },
+    });
+  }
+
+  // The way back out of the terminés sheet: a schedule retired by hand returns
+  // to the planning. Only a retirement can be undone this way — a schedule with
+  // nothing left to produce is in that list because the report says so, and no
+  // button here can change what the report says.
+  //
+  // The card comes back where it was in the rail (the order is the report's,
+  // not an arrival order) and the schedule is selected, so the operator lands
+  // on what they just took back rather than having to hunt for it.
+  function handleRestoreSchedule(schedule: string) {
+    if (!archives[schedule]) return;
+    const stamp = archives[schedule];
+    const snapshotSelected = selected;
+    setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
+    // Out of the sheet, like opening a row from it: the schedule has just left
+    // this list for the rail and become the selection, and a list of terminés
+    // still standing over it would hide the very thing that just happened.
+    setFinishedOpen(false);
+    selectSchedule(schedule);
+    toast.show({
+      message: `Schedule ${schedule} restauré dans le planning`,
+      ttl: LONG_TOAST_TTL,
+      undo: () => {
+        setArchives((prev) => ({ ...prev, [schedule]: stamp }));
+        setSelected(snapshotSelected);
       },
     });
   }
@@ -1373,6 +1426,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
           retiredCount={retiredCount}
           current={selected}
           onOpen={openFinished}
+          onRestore={handleRestoreSchedule}
           onClose={() => setFinishedOpen(false)}
         />
       )}
@@ -1390,6 +1444,7 @@ function FinishedSheet({
   retiredCount,
   current,
   onOpen,
+  onRestore,
   onClose,
 }: {
   schedules: FinishedSchedule[];
@@ -1399,9 +1454,22 @@ function FinishedSheet({
   // is the only place left to say where they are.
   current: string | null;
   onOpen: (item: FinishedSchedule) => void;
+  // Take a hand-retired schedule back to the planning. Offered per row rather
+  // than as one sheet-wide action: the two populations under this heading are
+  // mixed, and only some rows can go back.
+  onRestore: (schedule: string) => void;
   onClose: () => void;
 }) {
-  useEscapeToClose(onClose);
+  // The schedule awaiting confirmation, held by number rather than by value:
+  // a sync from another device can take the row out of the list while the
+  // question sits on screen, and the confirmation then has to go with it
+  // instead of quoting counts for a row nobody can act on any more.
+  const [pending, setPending] = useState<string | null>(null);
+  const pendingItem = pending ? schedules.find((s) => s.schedule === pending) ?? null : null;
+
+  // The confirmation is stacked on this sheet, and Escape belongs to whichever
+  // is on top — cancelling the question must not also close the list behind it.
+  useEscapeToClose(onClose, !pendingItem);
 
   const done = schedules.length - retiredCount;
   // Two populations under one heading, so the subtitle has to name whichever
@@ -1413,22 +1481,26 @@ function FinishedSheet({
 
   return (
     <>
-      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet-backdrop" onClick={() => { if (!pendingItem) onClose(); }} />
       <div className="sheet sch-done-sheet" role="dialog" aria-modal="true" aria-label="Schedules terminés">
-        <div className="grabber" />
-        <div className="sheet-head">
-          <div className="sheet-head-titles">
-            <h3>Schedules terminés</h3>
-            <div className="sheet-head-sub">
-              {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
+        {/* Grabber and head as one block so they can stay put together while a
+            long list scrolls under them — see .sch-done-head. */}
+        <div className="sch-done-head">
+          <div className="grabber" />
+          <div className="sheet-head">
+            <div className="sheet-head-titles">
+              <h3>Schedules terminés</h3>
+              <div className="sheet-head-sub">
+                {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
+              </div>
             </div>
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <ul className="sch-done-list">
           {schedules.map((s) => (
-            <li key={s.schedule}>
+            <li key={s.schedule} className="sch-done-row">
               <button
                 type="button"
                 className={`sch-done-item ${s.schedule === current ? 'is-current' : ''}`}
@@ -1452,10 +1524,37 @@ function FinishedSheet({
                 </span>
                 <span className="sch-done-go" aria-hidden="true" />
               </button>
+              {/* The way back. Only on the rows that were retired by hand and
+                  that have work left in them — on any other row it would
+                  promise a return the rail would refuse. */}
+              {s.restorable && (
+                <button
+                  type="button"
+                  className="sch-done-restore"
+                  onClick={() => setPending(s.schedule)}
+                  title={`Restaurer le schedule ${s.schedule} dans le planning`}
+                >
+                  <span className="sch-done-restore-icon" aria-hidden="true">↩</span>
+                  Restaurer
+                </button>
+              )}
             </li>
           ))}
         </ul>
       </div>
+
+      {/* Same stop as in front of the rail gesture, for the same reason: putting
+          a schedule back is as coarse a move as taking it out, and the button
+          sits under a thumb in a list the operator came to read. */}
+      {pendingItem && (
+        <ConfirmSheet
+          title={`Restaurer le schedule ${pendingItem.schedule} dans le planning ?`}
+          body={restoreConfirmBody(pendingItem)}
+          confirmLabel="Restaurer"
+          onConfirm={() => { onRestore(pendingItem.schedule); }}
+          onClose={() => setPending(null)}
+        />
+      )}
     </>
   );
 }
@@ -1566,7 +1665,10 @@ function ConfirmSheet({
   useEscapeToClose(onClose);
   return (
     <>
-      <div className="sheet-backdrop" onClick={onClose} />
+      {/* Raised above a plain backdrop: this sheet is the only one that ever
+          opens on top of another (the terminés list), and a backdrop level with
+          it would dim the page but not the sheet it was raised from. */}
+      <div className="sheet-backdrop is-top" onClick={onClose} />
       <div className="sheet sch-confirm" role="dialog" aria-modal="true">
         <div className="grabber" />
         <div className="sheet-head">
