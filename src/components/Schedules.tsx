@@ -953,7 +953,13 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         name: shortItemName(s.itemRoot) || s.itemRoot || '—',
         ...tally.get(s.schedule)!,
         restorable: !!archives[s.schedule] && (railStats.get(s.schedule)?.m2 ?? 0) > 0,
-      }));
+      }))
+      // Report order runs oldest schedule first, which is the wrong way round
+      // for a list of what has already left the planning: what just finished —
+      // or was just retired — is what somebody opening this sheet is looking
+      // for, and it was at the bottom of twenty rows. `filter` already gave us
+      // a fresh array, so reversing it in place touches nothing shared.
+      .reverse();
   }, [schedules, visibleSchedules, data, archives, railStats]);
 
   // Only for the sheet's subtitle, which cannot claim "sans reste à produire"
