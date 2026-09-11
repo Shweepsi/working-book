@@ -55,19 +55,43 @@
   const writable = (el) =>
     Boolean(el) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
 
-  // Every element whose own text is exactly one of `names`. Exact match, not
-  // "contains": "From Start Date" would otherwise also match a container that
-  // holds both date labels.
-  function labelElements(names) {
-    const wanted = names.map(key);
-    const out = [];
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (wanted.includes(key(node.nodeValue)) && node.parentElement) {
-        out.push(node.parentElement);
+  // Walks the document's text once and reports, for each wanted name, the first
+  // visible element whose own text is exactly it. Exact match, not "contains":
+  // "From Start Date" would otherwise also match a container that holds both
+  // date labels.
+  //
+  // One walk for all the names, not one per name. The walk reads every
+  // character on the screen — a fifty-row datagrid included — and asking it the
+  // same question four times over read the same report four times over.
+  function firstByText(groups) {
+    // One wording can belong to more than one criterion, so the index holds a
+    // list: searching each name on its own let two of them land on the same
+    // label, and collapsing that here would leave the second reported missing.
+    const wanted = new Map();
+    for (const [name, names] of Object.entries(groups)) {
+      for (const label of names) {
+        const at = key(label);
+        wanted.set(at, [...(wanted.get(at) ?? []), name]);
       }
     }
-    return out.filter(visible);
+    const found = new Map();
+    const total = Object.keys(groups).length;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const names = wanted.get(key(node.nodeValue));
+      if (!names) continue;
+      // A criterion already answered keeps its first match, exactly as taking
+      // the head of the list did.
+      const open = names.filter((name) => !found.has(name));
+      if (!open.length) continue;
+      const el = node.parentElement;
+      // Invisible wording is no label: the screen keeps hidden copies of whole
+      // forms. Measured only here, on the handful of nodes that read right.
+      if (!el || !visible(el)) continue;
+      for (const name of open) found.set(name, el);
+      if (found.size === total) break;
+    }
+    return found;
   }
 
   // A control that is not a plain <input>/<select>. Work Center is one of
@@ -111,15 +135,23 @@
     return deepQueryAll(el, FIELD_SEL).find(reachable) ?? el;
   }
 
+  // The first of `els` that turns out to wrap a real form control. Drilling
+  // crosses shadow roots and is the costliest lookup here: mapping the whole
+  // region through it went on drilling long after the answer was in hand.
+  function firstDrilled(els) {
+    for (const el of els) {
+      const hit = drill(el);
+      if (hit?.matches(FIELD_SEL)) return hit;
+    }
+    return undefined;
+  }
+
   // Each criterion's control lives between its own label and the next one.
   // Bounding the search that way is what keeps a missing control *missing*
   // rather than silently borrowing its neighbour's.
   function labelsInOrder() {
     const found = [];
-    for (const name of Object.keys(LABELS)) {
-      const el = labelElements(LABELS[name])[0];
-      if (el) found.push({ name, el });
-    }
+    for (const [name, el] of firstByText(LABELS)) found.push({ name, el });
     return found.sort((a, b) => (precedes(a.el, b.el) ? -1 : 1));
   }
 
@@ -147,18 +179,28 @@
     };
 
     const ordered = labelsInOrder();
+    // One list of the page's elements, shared by the four criteria. Nothing
+    // below writes to the document, so the same snapshot answers for every
+    // region — and it is in document order, which is what makes a region a
+    // slice rather than a sweep of the whole page.
+    const all = ordered.length ? Array.from(document.querySelectorAll('*')) : [];
+
     ordered.forEach(({ name, el: label }, i) => {
       if (found[name]) return;
       const next = ordered[i + 1]?.el ?? null;
 
-      const usable = (el) => reachable(el) && !claimed.has(el) && !el.closest?.(GRID_SEL);
+      // The same three conditions as ever, ordered by what they cost. Reaching
+      // an element measures it, and measuring is the expensive one: a datagrid
+      // is thousands of cells and not one of them is ever a criterion, so the
+      // grid is ruled out first and only what survives is measured.
+      const usable = (el) => !claimed.has(el) && !el.closest?.(GRID_SEL) && reachable(el);
 
       // `for` is trusted only when it points inside this criterion's own
       // region: on this screen both date labels carry for="endDate", so an
       // unchecked lookup would hand both dates the same element.
       if (label.htmlFor) {
         const byFor = document.getElementById(label.htmlFor);
-        if (byFor && usable(byFor) && inRegion(byFor, label, next)) {
+        if (byFor && inRegion(byFor, label, next) && usable(byFor)) {
           return claim(name, drill(byFor));
         }
       }
@@ -167,15 +209,25 @@
       // Membership is tested on nodes of the main tree only: an element inside
       // a shadow root has no comparable position, so it is reached by drilling
       // into its host instead.
+      //
+      // A region is a contiguous run of the document, so it is found by cutting
+      // the list between the two labels instead of asking every element on the
+      // page where it stands. inRegion keeps the last word — an ancestor of the
+      // next label falls inside the cut and only it can tell — but it is now
+      // asked about a region, not about a screen.
+      const from = all.indexOf(label) + 1;
+      const nextAt = next ? all.indexOf(next) : -1;
+      const to = nextAt < 0 ? all.length : nextAt;
       const local = [];
-      for (const el of document.querySelectorAll('*')) {
-        if (usable(el) && inRegion(el, label, next)) local.push(el);
+      for (let at = from; at < to; at++) {
+        const el = all[at];
+        if (inRegion(el, label, next) && usable(el)) local.push(el);
       }
 
       // A real control if there is one; failing that, a wrapper drilled down to
       // the control it hides; failing that, a combobox that genuinely is a div.
       const direct = local.find((el) => el.matches(FIELD_SEL));
-      const wrapped = direct ? null : local.map(drill).find((el) => el?.matches(FIELD_SEL));
+      const wrapped = direct ? null : firstDrilled(local);
       const combo = direct || wrapped ? null : local.find((el) => el.matches(COMBO_SEL));
       claim(name, direct ?? wrapped ?? combo ?? null);
     });
@@ -183,18 +235,45 @@
     return found;
   }
 
+  const CLICKABLE_SEL = 'button, input[type=button], input[type=submit], a, span, div';
+
+  // Controls whose wording the matcher accepts, reached from the text the way
+  // the labels are rather than by asking every element on the page what its own
+  // text is. Asking is what costs: a datagrid answers that question with its
+  // entire contents, and it was put once per ancestor above every cell. The
+  // walk reads the same characters exactly once.
+  function clickablesByText(matches, sel) {
+    const hits = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!matches(node.nodeValue ?? '')) continue;
+      // The wording may sit in something that is not itself clickable —
+      // `<button><label>Search</label></button>` — so the climb stops at the
+      // nearest element that is.
+      const el = node.parentElement?.closest(sel);
+      if (el && !hits.includes(el)) hits.push(el);
+    }
+    return hits;
+  }
+
+  // A wrapper holds its child's text too. The innermost element is the one that
+  // actually carries the click handler.
+  const innermost = (hits) =>
+    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length)[0] ?? null;
+
   function findSearchButton() {
     const wanted = SEARCH_LABELS.map(key);
-    const matches = Array.from(
-      document.querySelectorAll('button, input[type=button], input[type=submit], a, span, div'),
-    ).filter((el) => {
-      const text = el.tagName === 'INPUT' ? el.value : el.textContent;
-      return wanted.includes(key(text)) && visible(el);
-    });
-    // A wrapper matches on its child's text too. The innermost element is the
-    // one that actually carries the click handler.
-    matches.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
-    return matches[0] ?? null;
+    const shown = innermost(
+      clickablesByText((t) => wanted.includes(key(t)), CLICKABLE_SEL).filter(visible),
+    );
+    if (shown) return shown;
+    // An `<input type=button value="Search">` carries its wording in an
+    // attribute, where no walk over the page's text can find it.
+    return (
+      Array.from(document.querySelectorAll('input[type=button], input[type=submit]')).find(
+        (el) => wanted.includes(key(el.value)) && visible(el),
+      ) ?? null
+    );
   }
 
   // Assigning `.value` moves the pixels but not the framework's state: Angular
@@ -518,11 +597,15 @@
   // per page</button></li>` — and the <li> comes first in document order, so
   // taking the first match clicked the wrapper and the menu never opened.
   function pagerTrigger() {
-    const hits = Array.from(document.querySelectorAll('button, a, [role=button]')).filter(
-      (el) => visible(el) && !inHidden(el) && PAGER_RE.test(el.textContent ?? ''),
+    // Reached from the wording, and measured only once something carries it.
+    // This runs on a poll for as long as the grid takes to come back: asking
+    // every button on the screen for its text, then measuring it, competed with
+    // the very drawing it was waiting for.
+    return innermost(
+      clickablesByText((t) => PAGER_RE.test(t), 'button, a, [role=button]').filter(
+        (el) => !inHidden(el) && visible(el),
+      ),
     );
-    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
-    return hits[0] ?? null;
   }
 
   // The innermost clickable only. Listing `li` alongside `li a` returns each
@@ -648,8 +731,11 @@
   const NEXT_RE = /\b(next|suivant|suivante)\b/i;
   const LAST_RE = /\b(last|dernier|dernière|first|previous|précédent)\b/i;
 
-  function looksLikeNext(el) {
-    const label = `${el.getAttribute?.('aria-label') ?? ''} ${el.getAttribute?.('title') ?? ''} ${norm(el.textContent)}`;
+  // The element's text is handed in: the caller has already read it to rule out
+  // the page-size control, and a datagrid's worth of list items read twice is
+  // the whole page's text read twice.
+  function looksLikeNext(el, text) {
+    const label = `${el.getAttribute?.('aria-label') ?? ''} ${el.getAttribute?.('title') ?? ''} ${norm(text)}`;
     if (LAST_RE.test(label)) return false;
     if (NEXT_RE.test(label)) return true;
     if (NEXT_RE.test(el.className ?? '') && !LAST_RE.test(el.className ?? '')) return true;
@@ -677,14 +763,16 @@
   function firstPageButton() {
     const hits = [];
     for (const el of document.querySelectorAll(NEXT_SEL)) {
-      if (!visible(el) || disabled(el) || inHidden(el)) continue;
-      if (PAGER_RE.test(el.textContent ?? '')) continue;
-      const label = `${el.getAttribute?.('aria-label') ?? ''} ${el.getAttribute?.('title') ?? ''} ${norm(el.textContent)}`;
+      if (disabled(el) || inHidden(el)) continue;
+      const text = el.textContent ?? '';
+      if (PAGER_RE.test(text)) continue;
+      const label = `${el.getAttribute?.('aria-label') ?? ''} ${el.getAttribute?.('title') ?? ''} ${norm(text)}`;
       const icon = el.querySelector?.('use')?.getAttribute('href') ?? '';
-      if (FIRST_RE.test(label) || FIRST_RE.test(icon)) hits.push(el);
+      if (!FIRST_RE.test(label) && !FIRST_RE.test(icon)) continue;
+      // Measured last, for the reason given on the next-page button.
+      if (visible(el)) hits.push(el);
     }
-    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
-    return hits[0] ?? null;
+    return innermost(hits);
   }
 
   // False when there is nothing to go back to — already on page one, and the
@@ -699,16 +787,21 @@
   function nextPageButton() {
     const hits = [];
     for (const el of document.querySelectorAll(NEXT_SEL)) {
-      if (!visible(el) || disabled(el) || inHidden(el)) continue;
+      if (disabled(el) || inHidden(el)) continue;
+      const text = el.textContent ?? '';
       // "Records per page" also lives in the pager; a control that opens a
       // list is not the one that advances.
-      if (PAGER_RE.test(el.textContent ?? '')) continue;
-      if (looksLikeNext(el)) hits.push(el);
+      if (PAGER_RE.test(text)) continue;
+      if (!looksLikeNext(el, text)) continue;
+      // Measured last, and only here. Every list item and every button on the
+      // screen reaches this loop, and measuring each one in turn cost more than
+      // everything above it put together — for a verdict the labels had already
+      // settled for all but one or two of them.
+      if (visible(el)) hits.push(el);
     }
     // Innermost wins: an <li> and the <a> inside it both match, and clicking
     // the wrapper never reaches the handler bound to the anchor.
-    hits.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
-    return hits[0] ?? null;
+    return innermost(hits);
   }
 
   // Returns false when there is no next page to go to — the caller uses that

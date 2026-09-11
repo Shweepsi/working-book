@@ -42,14 +42,18 @@ function badge(text, kind, { ttl } = {}) {
 // One address, one page. Never throws: a server that is down is an outcome to
 // report, and with several addresses in play one refusal must not cancel the
 // posts still in flight to the others.
-async function post(base, text) {
+//
+// Takes the body already serialised, not the report: a page of the grid is
+// tens of kilobytes and every address was encoding its own copy of the same
+// one, twenty times over on a twenty-page walk.
+async function post(base, payload) {
   const target = { base, host: wbHostOf(base) };
   let res;
   try {
     res = await fetch(`${base}/api/schedules/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: payload,
     });
   } catch (err) {
     return { ...target, ok: false, unreachable: true, error: String(err) };
@@ -84,8 +88,9 @@ async function ingest(text) {
 
   // The first address is the reference; the flag travels with the answer so
   // the sweep can tell a mirror's refusal from the reference's own.
+  const payload = JSON.stringify({ text });
   const targets = await Promise.all(
-    cfg.apiBases.map((base, i) => post(base, text).then((t) => ({ ...t, primary: i === 0 }))),
+    cfg.apiBases.map((base, i) => post(base, payload).then((t) => ({ ...t, primary: i === 0 }))),
   );
   const [primary] = targets;
   const refused = targets.filter((t) => !t.ok && !t.primary);
