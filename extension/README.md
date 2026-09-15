@@ -232,6 +232,14 @@ Par **le libellé affiché** (« Facility », « Work Center », « From Start D
 « To Start Date », « Search »), jamais par un identifiant : Infor les génère et
 les change d'une version à l'autre, les libellés non.
 
+La recherche part **du texte** de l'écran et remonte au contrôle qui le porte,
+plutôt que de demander son texte à chaque élément de la page. La différence ne
+se voit pas — les mêmes champs sont trouvés — mais elle se sent : le formulaire
+est re-résolu à chaque écriture et, pendant qu'Angular reconstruit une liste,
+toutes les 150 ms. Fait dans l'autre sens, ce travail occupait plus du tiers du
+fil d'exécution de l'onglet et figeait la grille que l'extension attendait.
+Le détail et les mesures sont dans `docs/audit-performance-extension.md`.
+
 ### Ce que l'extension ne réécrit pas
 
 Un champ qui affiche déjà la bonne valeur est **laissé tel quel**. Ce n'est pas
