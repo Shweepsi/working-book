@@ -237,7 +237,7 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
   // failing on all thirty pages is one thing gone wrong, said once.
   const refused = new Set();
   // One entry per page read: which signals fired, when, and what the pager
-  // said. This is what the test build is for.
+  // said. The options page shows it, for whoever looks into a run.
   const timings = [];
   // Page numbers already read, when the pager gives them. The fingerprint
   // below missed a page shown twice — the screen is never quite in the same
@@ -271,7 +271,7 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
       changeWithin: first ? READY_CEILING_MS : 8000,
     });
     timings.push(ready);
-    console.info('[Working Book] page', pages + 1, ready);
+    console.debug('[Working Book] page', pages + 1, ready);
     if (!ready.ok) {
       if (ready.mode === 'regressed' && restarts < 1) {
         restarts++;
@@ -390,8 +390,8 @@ async function backToFirstPage() {
 // so an eager empty frame would beat the one actually holding the report.
 // Silence everywhere leaves the caller with no responder, which it reads as
 // "nothing found".
-// What the readiness probes read right now, with nothing driven. The debug
-// view for the test build: opened on a PMS230 screen, it shows in one glance
+// What the readiness probes read right now, with nothing driven. Behind the
+// panel's "Sonder" button: opened on a PMS230 screen, it shows in one glance
 // which signals this screen provides and what the pager's wording looks like.
 function probe() {
   const m = globalThis.wbMashup;
@@ -440,6 +440,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     // import what it holds. Everything up to the click is identical, which is
     // why this is a flag rather than a second path.
     const wantsSend = msg.send !== false;
+    const startedAt = performance.now();
     mashup
       .runSearch(criteria)
       .then(async (result) => {
@@ -473,7 +474,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
         // The whole run, in order: what was clicked, what the grid did, what
         // the frame received, what was read. One run's worth of evidence.
         const timeline = mashup.gridEvents?.() ?? null;
-        respond({ found: true, ...result, swept, rewound, maxPages, sent: wantsSend, timeline });
+        respond({
+          found: true,
+          ...result,
+          swept,
+          rewound,
+          maxPages,
+          sent: wantsSend,
+          timeline,
+          ms: Math.round(performance.now() - startedAt),
+        });
       })
       .catch((err) => respond({ found: true, error: String(err) }))
       // The watch started ahead of Search is not left running on an idle

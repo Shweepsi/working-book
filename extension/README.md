@@ -329,12 +329,13 @@ besoin une fois l'écran compris.
     en cours de route — la grille remise en page 1 par une réponse tardive —
     il repart de la page 1 une fois.
   - *Pager illisible* : 2 s sans modification, comme avant.
-  - Le compte-rendu dit, page par page, sur quel signal la lecture a eu lieu
-    (`exacte` / `par n° de page` / `repli` / `plafond`), comment la page 1 a
-    reconnu la réponse, et s'il a fallu repartir ; la page d'options donne le
-    détail par page et la **chronologie** complète (clics, redessins,
-    requêtes, lectures). Le bouton **Sonder la grille** du panneau lit ces
-    mêmes signaux à froid, sans rien lancer.
+  - Le panneau ne dit que l'essentiel : pages parcourues, lignes importées,
+    durée — et une ligne de plus seulement quand une page a été lue sans le
+    signal attendu (plafond, repli, réponse non observée, parcours repris).
+    La page d'options garde, sous **Diagnostic**, l'attente signal par
+    signal, le détail par page et la **chronologie** complète (clics,
+    redessins, requêtes, lectures). Le bouton **Sonder la grille** du panneau
+    lit ces mêmes signaux à froid, sans rien lancer.
 - **Anti-répétition** : au cours d'un parcours, une page dont le contenu répète
   la précédente arrête la boucle — c'est ainsi que la dernière page est
   reconnue.

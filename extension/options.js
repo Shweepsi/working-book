@@ -120,23 +120,34 @@ async function showLastRun() {
   const { lastRun } = await chrome.storage.local.get({ lastRun: null });
   if (!lastRun) return;
   const when = new Date(lastRun.at).toLocaleString('fr-FR');
-  // The per-page detail below the summary: which signal fired when, on each
-  // page. This is what the test build exists to show.
-  const detail = lastRun.timings?.length
-    ? `\n\nDétail par page :\n${lastRun.timings
+  $('lastRun').textContent = `${when}\n${lastRun.text}`;
+
+  // Under a fold: what the walk waited on, page by page, and the run's
+  // timeline. For whoever looks into a run, not for whoever reads its result.
+  const sections = [];
+  if (lastRun.detail) sections.push(lastRun.detail);
+  if (lastRun.timings?.length) {
+    const at = (v) => (v == null ? '—' : `${v} ms`);
+    sections.push(
+      `Par page :\n${lastRun.timings
         .map((t, i) => {
-          const at = (v) => (v == null ? '—' : `${v} ms`);
-          const request = t.request ? `, requête ${t.request.name} finie à ${t.request.end} ms (${t.requests} vue(s))` : t.requests != null && i === 0 ? `, ${t.requests} requête(s) vue(s)` : '';
-          return `${i + 1}. ${t.mode} en ${t.ms} ms — changé ${at(t.changedAt)}, libre ${at(t.idleAt)}, complet ${at(t.fullAt)} (${t.rows ?? '?'}/${t.expected ?? '?'} lignes, ${t.redraws ?? '?'} redessin(s))${request}${t.busy ? `, occupé : ${t.busy}` : ''}`;
+          const request = t.request
+            ? `, requête …${t.request.name.slice(-50)} finie à ${t.request.end} ms`
+            : i === 0 && t.requests != null
+              ? `, ${t.requests} requête(s) vue(s)`
+              : '';
+          return `${i + 1}. ${t.mode} en ${t.ms} ms — changé ${at(t.changedAt)}, libre ${at(t.idleAt)}, complet ${at(t.fullAt)} (${t.rows ?? '?'}/${t.expected ?? '?'} lignes, ${t.redraws ?? '?'} redessinée(s))${request}${t.busy ? `, occupé : ${t.busy}` : ''}`;
         })
-        .join('\n')}\n\n${JSON.stringify(lastRun.timings)}`
-    : '';
-  const timeline = lastRun.timeline?.length
-    ? `\n\nChronologie (ms depuis la pose de l'observateur) :\n${lastRun.timeline
-        .map((e) => `${String(e.t).padStart(6)}  ${e.kind}  ${e.detail ?? ''}`)
-        .join('\n')}`
-    : '';
-  $('lastRun').textContent = `${when}\n${lastRun.text}${detail}${timeline}`;
+        .join('\n')}`,
+    );
+  }
+  if (lastRun.timeline?.length) {
+    sections.push(
+      `Chronologie (ms) :\n${lastRun.timeline.map((e) => `${String(e.t).padStart(6)}  ${e.kind}  ${e.detail ?? ''}`).join('\n')}`,
+    );
+  }
+  $('diagnostic').hidden = sections.length === 0;
+  $('diagnosticText').textContent = sections.join('\n\n');
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {

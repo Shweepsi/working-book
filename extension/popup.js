@@ -127,9 +127,20 @@ async function probe() {
   say('Lecture de la grille…');
   try {
     const seen = await chrome.runtime.sendMessage({ type: 'wb-probe' });
-    if (!seen) return say('Aucune frame avec une grille ne répond.', 'err');
-    const { found, ...rest } = seen;
-    say(JSON.stringify(rest, null, 1));
+    if (!seen) return say('Aucune grille PMS230 à l’écran.', 'err');
+    const p = seen.pager;
+    say(
+      [
+        seen.grid ? `Grille : ${seen.grid}` : 'Grille : aucune',
+        `Lignes affichées : ${seen.rows ?? '?'} (${seen.count} schedules)`,
+        p
+          ? `Pager : page ${p.page ?? '?'} sur ${p.pages ?? '?'}, ${p.pageSize ?? '?'} / page${p.total ? `, ${p.total} résultats` : ''}`
+          : 'Pager : illisible',
+        `Terminés inclus : ${seen.inclCompleted == null ? 'case introuvable' : seen.inclCompleted ? 'oui' : 'non'}`,
+        `Indicateur d’occupation : ${seen.busy ?? 'aucun'}`,
+        `Page suivante : ${seen.nextButton ? 'disponible' : 'absente'}`,
+      ].join('\n'),
+    );
   } catch (err) {
     say(`Interrompu : ${err}`, 'err');
   }
