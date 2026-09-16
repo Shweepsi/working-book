@@ -466,6 +466,10 @@
     const empty = CRITERIA.filter((name) => found[name] && isEmpty(found[name]));
 
     const clicked = Boolean(found.search) && empty.length === 0;
+    // Watched from before the click: the walk must not read the grid until
+    // it has been redrawn by the search this click starts.
+    watchGrid();
+    const gridMark = gridActivity().count;
     if (clicked) click(found.search);
 
     // Only worth doing once a search is on its way: before that there is no
@@ -476,7 +480,7 @@
       ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
       : null;
 
-    return { ...describe(found), filled, kept, failed, empty, clicked, rows, url: location.href };
+    return { ...describe(found), filled, kept, failed, empty, clicked, rows, gridMark, url: location.href };
   }
 
   // The pager sits under the grid and defaults to 5 rows. Since the report is
@@ -909,8 +913,40 @@
     return { pageSize, page, pages, total, text: text.slice(0, 160) };
   }
 
+  // --- Whether the grid has been redrawn since a click ------------------------
+  // The text alone cannot tell. Pressing Search with unchanged criteria draws
+  // the same rows again, and a walk that took the old grid for page one was
+  // already on page two when the fresh results replaced it. Watching the DOM
+  // under the grid's container sees the redraw whatever it contains.
+  const activity = { count: 0, last: 0 };
+  let watcher = null;
+  function watchGrid() {
+    if (watcher) return;
+    let root = gridRoot();
+    watcher = new MutationObserver((list) => {
+      if (!root?.isConnected) root = gridRoot();
+      const scope = root ?? document.body;
+      for (const x of list) {
+        if (scope.contains(x.target)) {
+          activity.count++;
+          activity.last = performance.now();
+          return;
+        }
+      }
+    });
+    watcher.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+  }
+  function unwatchGrid() {
+    watcher?.disconnect();
+    watcher = null;
+  }
+  const gridActivity = () => ({ ...activity });
+
   globalThis.wbMashup = {
     runSearch,
+    watchGrid,
+    unwatchGrid,
+    gridActivity,
     gridRoot,
     gridRows,
     busyIndicator,

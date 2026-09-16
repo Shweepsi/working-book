@@ -295,8 +295,12 @@ besoin une fois l'écran compris.
 
 ## Garde-fous
 
-- **Attente de la page** (version test 2.3.0) : une page n'est lue qu'une fois
-  que le rapport a changé, que la grille n'affiche plus d'indicateur
+- **Attente de la page** (version test 2.3.x) : une page n'est lue qu'une fois
+  que la grille a été **redessinée depuis le clic** (Search ou « suivant » —
+  un observateur de mutations est posé avant le clic, parce qu'une recherche
+  aux critères inchangés redessine le même texte, et lire l'ancienne grille
+  comme page 1 mettait le parcours en page 2 quand les résultats frais la
+  remettaient en page 1), que la grille n'affiche plus d'indicateur
   d'occupation, qu'elle porte autant de lignes que le pager en annonce, et
   qu'elle est restée 300 ms sans mutation. Pas de minuterie : seul un plafond
   de 20 s. Le numéro de page affiché fait foi : le parcours s'arrête avant de
