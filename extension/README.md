@@ -299,7 +299,12 @@ besoin une fois l'écran compris.
   que le rapport a changé, que la grille n'affiche plus d'indicateur
   d'occupation, qu'elle porte autant de lignes que le pager en annonce, et
   qu'elle est restée 300 ms sans mutation. Pas de minuterie : seul un plafond
-  de 20 s. Quand le pager ne se lit pas, l'ancienne règle s'applique — 2 s sans
+  de 20 s. Le numéro de page affiché fait foi : le parcours s'arrête avant de
+  cliquer quand il est sur la dernière page (sur PMS230, « suivant » reste
+  cliquable et repart en page 1), refuse une page qui n'est pas celle
+  demandée, et ne relit jamais un numéro déjà lu. Sur la dernière page, dont
+  le pager ne dit pas le nombre de lignes, le numéro atteint tient lieu de
+  compte. Quand le pager ne se lit pas, l'ancienne règle s'applique — 2 s sans
   modification — pour qu'un écran inconnu coûte ce qu'il a toujours coûté,
   jamais une lecture fausse. Le compte-rendu dit, page par page, sur quel
   signal la lecture a eu lieu (`exacte` / `repli` / `plafond`) et à quel

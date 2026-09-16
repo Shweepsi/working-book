@@ -84,7 +84,14 @@ function expectedRows(p) {
 // quiet: no timer at all, only the ceiling. When it cannot, the old rule
 // applies — SETTLE_MS without change — so an unreadable pager costs what it
 // always cost, never a wrong read.
-function pageReady({ before = null, changeWithin = 8000, ceiling = READY_CEILING_MS } = {}) {
+// `expectPage` is the page number the pager should show once the click has
+// landed. On the real screen "next" is not disabled on the last page: it
+// wraps to page one, and the text fingerprint alone did not recognise it — so
+// the walk read two pages twice. The page number is what settles it: a
+// different number is not the page asked for, however much the rows changed.
+// It also stands in for the row count on the last page, where the pager gives
+// no total to compute one from.
+function pageReady({ before = null, expectPage = null, changeWithin = 8000, ceiling = READY_CEILING_MS } = {}) {
   const m = globalThis.wbMashup;
   const t0 = performance.now();
   const at = () => Math.round(performance.now() - t0);
@@ -129,10 +136,16 @@ function pageReady({ before = null, changeWithin = 8000, ceiling = READY_CEILING
       const elapsed = at();
       const report = readReport();
       const h = hash(report?.text ?? '');
+      const pager = m?.pagerState?.() ?? null;
+      if (pager) log.pager = pager;
+      const pageKnown = expectPage != null && pager?.page != null;
+      const onPage = pageKnown ? pager.page === expectPage : null;
 
-      if (before != null && h === before) {
-        if (elapsed >= changeWithin) return done(false, 'unchanged');
-        return setTimeout(tick, 100);
+      if ((before != null && h === before) || onPage === false) {
+        if (elapsed >= changeWithin) {
+          return done(false, onPage === false && pager.page < expectPage ? 'wrapped' : 'unchanged');
+        }
+        return setTimeout(tick, 150);
       }
       if (log.changedAt == null) log.changedAt = elapsed;
 
@@ -148,27 +161,28 @@ function pageReady({ before = null, changeWithin = 8000, ceiling = READY_CEILING
       const busyBlocks = busy && elapsed - busySince < BUSY_MAX_MS;
       if (busy && !busyBlocks) log.busyIgnored = true;
 
-      const pager = m?.pagerState?.() ?? null;
-      if (pager) log.pager = pager;
       const expected = expectedRows(pager);
       log.expected = expected;
       log.rows = m?.gridRows?.() ?? null;
       log.count = report?.count ?? 0;
       const seen = log.rows || log.count;
-      const full = expected != null && seen >= expected;
+      // With a row count to check against, the page is full when it is met.
+      // Without one but with the page number confirmed, the same render that
+      // wrote the number wrote the rows, so any row at all is the page.
+      const full = expected != null ? seen >= expected : onPage === true && seen > 0;
       log.fullAt = full ? log.fullAt ?? elapsed : null;
 
       const stable = h === lastHash;
       lastHash = h;
       const quietFor = performance.now() - lastMutation;
-      const exact = expected != null;
-      const need = exact ? QUIET_MS : SETTLE_MS;
+      const mode = expected != null ? 'exact' : onPage === true ? 'page' : 'fallback';
+      const need = mode === 'fallback' ? SETTLE_MS : QUIET_MS;
 
-      if (!busyBlocks && stable && quietFor >= need && (full || !exact)) {
-        return done(true, exact ? 'exact' : 'fallback');
+      if (!busyBlocks && stable && quietFor >= need && (full || mode === 'fallback')) {
+        return done(true, mode);
       }
       if (elapsed >= ceiling) return done(true, 'timeout');
-      setTimeout(tick, 100);
+      setTimeout(tick, 150);
     };
     tick();
   });
@@ -190,20 +204,29 @@ async function sweep(maxPages) {
   // One entry per page read: which signals fired, when, and what the pager
   // said. This is what the test build is for.
   const timings = [];
+  // Page numbers already read, when the pager gives them. The fingerprint
+  // below missed a page shown twice — the screen is never quite in the same
+  // state — while the number is exact.
+  const seenPages = new Set();
 
   let before = null;
+  let expectPage = null;
   for (let i = 0; i < maxPages; i++) {
-    // After a click, a report that never changes is the last page, or a
-    // control that only looks like "next". The real pager disables its button
-    // on the last page, so this wait is the fallback for screens that do not —
-    // no reason to make it long.
-    const ready = await pageReady({ before, changeWithin: 8000 });
+    // After a click, a report that never changes, or a page number that is
+    // not the one asked for, is the end of the walk: a "next" that wraps
+    // around, or one that only looks like "next". No reason to wait long.
+    const ready = await pageReady({ before, expectPage, changeWithin: 8000 });
     timings.push(ready);
     console.info('[Working Book] page', pages + 1, ready);
     if (!ready.ok) break;
     const report = readReport();
     if (!report) break;
 
+    const pageNo = ready.pager?.page ?? null;
+    if (pageNo != null) {
+      if (seenPages.has(pageNo)) break;
+      seenPages.add(pageNo);
+    }
     const h = hash(report.text);
     // The same content twice means the click did not actually advance — the
     // last page, or a "next" that is decorative. Either way, stop.
@@ -234,8 +257,13 @@ async function sweep(maxPages) {
     // Checked before advancing, not after: turning a page we have no budget
     // to read leaves the grid parked somewhere nobody asked for.
     if (pages >= maxPages) break;
+    // The pager's word beats the button's: on this screen "next" stays
+    // clickable on the last page and wraps to the first.
+    const { page, pages: pageCount } = ready.pager ?? {};
+    if (page != null && pageCount != null && page >= pageCount) break;
     if (!globalThis.wbMashup?.nextPage()) break;
     before = h;
+    expectPage = pageNo != null ? pageNo + 1 : null;
   }
 
   return { pages, rows, imported, failures, refused: [...refused], timings };
@@ -246,7 +274,7 @@ async function sweep(maxPages) {
 async function backToFirstPage() {
   const before = hash(readReport()?.text ?? '');
   if (!globalThis.wbMashup?.firstPage()) return false;
-  await pageReady({ before, changeWithin: 10000 });
+  await pageReady({ before, expectPage: 1, changeWithin: 10000 });
   return true;
 }
 
