@@ -295,9 +295,18 @@ besoin une fois l'écran compris.
 
 ## Garde-fous
 
-- **Attente de stabilisation** : une page n'est lue qu'après 2 s sans
-  modification, sinon une grille à moitié dessinée serait envoyée pendant que la
-  recherche se résout.
+- **Attente de la page** (version test 2.3.0) : une page n'est lue qu'une fois
+  que le rapport a changé, que la grille n'affiche plus d'indicateur
+  d'occupation, qu'elle porte autant de lignes que le pager en annonce, et
+  qu'elle est restée 300 ms sans mutation. Pas de minuterie : seul un plafond
+  de 20 s. Quand le pager ne se lit pas, l'ancienne règle s'applique — 2 s sans
+  modification — pour qu'un écran inconnu coûte ce qu'il a toujours coûté,
+  jamais une lecture fausse. Le compte-rendu dit, page par page, sur quel
+  signal la lecture a eu lieu (`exacte` / `repli` / `plafond`) et à quel
+  moment chaque signal s'est déclenché ; le détail brut est sur la page
+  d'options, et dans la console de la frame de la grille (`[Working Book]`).
+  Le bouton **Sonder la grille** du panneau lit ces mêmes signaux à froid, sans
+  rien lancer.
 - **Anti-répétition** : au cours d'un parcours, une page dont le contenu répète
   la précédente arrête la boucle — c'est ainsi que la dernière page est
   reconnue.

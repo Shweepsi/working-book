@@ -746,13 +746,23 @@
   const NEXT_SEL = 'button, a, [role=button], li';
 
   function disabled(el) {
-    return (
+    if (
       el.disabled === true ||
       el.getAttribute('aria-disabled') === 'true' ||
       el.classList.contains('is-disabled') ||
       el.classList.contains('disabled') ||
       Boolean(el.closest('[disabled], [aria-disabled=true], .is-disabled, .disabled'))
-    );
+    ) {
+      return true;
+    }
+    // A wrapper is as disabled as what it wraps: an <li> whose only button is
+    // off is not a way forward, and clicking it cost the walk an eight-second
+    // wait for a change that could never come.
+    if (el.tagName === 'LI') {
+      const inner = Array.from(el.querySelectorAll('button, a, [role=button]'));
+      return inner.length > 0 && inner.every(disabled);
+    }
+    return false;
   }
 
   // "First page" is its own control, and the walk ends by pressing it: leaving
@@ -813,8 +823,98 @@
     return true;
   }
 
+  // --- What the grid says about itself ---------------------------------------
+  // The walk used to wait a fixed two seconds before reading a page. These
+  // probes let it wait for the page instead: the pager knows how many rows the
+  // page should hold, the datagrid knows whether it is still loading, and the
+  // rows themselves can be counted. Each one may be missing on a given screen,
+  // so each returns null when it finds nothing, and the caller falls back.
+
+  // The datagrid the operator sees. Hidden lookup grids carry the same markup.
+  function visibleGrid() {
+    for (const el of document.querySelectorAll(GRID_SEL)) {
+      if (inHidden(el) || !visible(el)) continue;
+      return el;
+    }
+    return null;
+  }
+
+  // The container around the grid, where Soho paints its busy indicator and
+  // where every repaint of the report happens. Null when there is no grid yet.
+  function gridRoot() {
+    const grid = visibleGrid();
+    if (!grid) return null;
+    return grid.closest('.datagrid-container, .datagrid-wrapper, .datagrid') ?? grid.parentElement;
+  }
+
+  // Data rows actually drawn. Header, filter and summary rows are not rows of
+  // the report; a datagrid marks its own as `.datagrid-row` when it is Soho,
+  // and as plain <tr> under <tbody> otherwise.
+  function gridRows() {
+    const grid = visibleGrid();
+    if (!grid) return null;
+    let n = 0;
+    for (const tr of grid.querySelectorAll('tbody tr, [role=row]')) {
+      if (tr.querySelector('th')) continue;
+      if (tr.matches('.datagrid-filter-row, .datagrid-summary-row, .datagrid-header-row')) continue;
+      if (!visible(tr)) continue;
+      n++;
+    }
+    return n;
+  }
+
+  const describeEl = (el) => {
+    const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
+    return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls ? `.${cls}` : ''}`;
+  };
+
+  // Soho's busy indicator, or an aria-busy flag, on the grid. Searched under
+  // the grid's own container first: the portal keeps its own spinners around,
+  // and one of those staying visible would stall the walk for nothing.
+  const BUSY_SEL =
+    '[aria-busy=true], .busy-indicator, .busy-indicator-container, .is-loading, [class*=busy i], [class*=spinner i]';
+  function busyIndicator() {
+    const root = gridRoot() ?? document.body;
+    for (const el of root.querySelectorAll(BUSY_SEL)) {
+      if (inHidden(el)) continue;
+      if (el.matches('[aria-busy=true]') || visible(el)) return describeEl(el);
+    }
+    if (root !== document.body && root.matches?.('[aria-busy=true]')) return describeEl(root);
+    return null;
+  }
+
+  // What the pager displays: rows per page, current page, page count, and the
+  // result count when the grid shows one. Read from the same "Records per page"
+  // wording the page-size control is found by, climbing to the toolbar that
+  // holds the page number next to it.
+  const RESULTS_RE = /(\d[\d\s.,]*)\s*(?:results?|résultats?|enregistrements?|records?\b(?!\s+per))/i;
+  function pagerState() {
+    const trigger = pagerTrigger();
+    if (!trigger) return null;
+    let box = trigger.parentElement;
+    for (let i = 0; box && i < 4; i++) {
+      const text = norm(box.textContent);
+      if (/\b(?:of|sur|de)\s+\d+/i.test(text) || box.querySelector('input')) break;
+      box = box.parentElement;
+    }
+    const text = norm(box?.textContent ?? '');
+    const pageSize = Number((norm(trigger.textContent).match(/(\d+)\s*records?\s+per\s+page/i) ?? [])[1]) || null;
+    const input = Array.from(box?.querySelectorAll('input') ?? []).find(
+      (el) => !inHidden(el) && /^\d+$/.test(norm(el.value)),
+    );
+    const page = input ? Number(input.value) : Number((text.match(/\bpage\s+(\d+)/i) ?? [])[1]) || null;
+    const pages = Number((text.match(/\b(?:of|sur|de)\s+(\d+)/i) ?? [])[1]) || null;
+    const around = norm(gridRoot()?.textContent ?? '');
+    const total = Number(((around.match(RESULTS_RE) ?? [])[1] ?? '').replace(/[\s.,]/g, '')) || null;
+    return { pageSize, page, pages, total, text: text.slice(0, 160) };
+  }
+
   globalThis.wbMashup = {
     runSearch,
+    gridRoot,
+    gridRows,
+    busyIndicator,
+    pagerState,
     // runSearch is async, but the "only the frame holding the form answers"
     // rule needs a synchronous verdict: a listener must decide whether to keep
     // the message channel open before it can await anything. locate() gives it

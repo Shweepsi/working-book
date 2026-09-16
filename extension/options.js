@@ -120,7 +120,17 @@ async function showLastRun() {
   const { lastRun } = await chrome.storage.local.get({ lastRun: null });
   if (!lastRun) return;
   const when = new Date(lastRun.at).toLocaleString('fr-FR');
-  $('lastRun').textContent = `${when}\n${lastRun.text}`;
+  // The per-page detail below the summary: which signal fired when, on each
+  // page. This is what the test build exists to show.
+  const detail = lastRun.timings?.length
+    ? `\n\nDétail par page :\n${lastRun.timings
+        .map((t, i) => {
+          const at = (v) => (v == null ? '—' : `${v} ms`);
+          return `${i + 1}. ${t.mode} en ${t.ms} ms — changé ${at(t.changedAt)}, libre ${at(t.idleAt)}, complet ${at(t.fullAt)} (${t.rows ?? '?'}/${t.expected ?? '?'} lignes)${t.busy ? `, occupé : ${t.busy}` : ''}`;
+        })
+        .join('\n')}\n\n${JSON.stringify(lastRun.timings)}`
+    : '';
+  $('lastRun').textContent = `${when}\n${lastRun.text}${detail}`;
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {

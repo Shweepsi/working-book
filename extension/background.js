@@ -132,6 +132,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     runEverything(msg.send !== false).then(respond);
     return true;
   }
+  if (msg?.type === 'wb-probe') {
+    ask({ type: 'wb-probe' }).then(respond);
+    return true;
+  }
   if (msg?.type === 'wb-progress') {
     // Kept alive well past a normal badge: a thirty-page walk must not look
     // like an extension that stopped responding.
@@ -187,6 +191,7 @@ function summarise(reply) {
     // screen — production looks perfectly imported — and the only moment it
     // can be noticed is here.
     if (swept.refused?.length) lines.push(`Serveur secondaire en échec : ${swept.refused.join(', ')}.`);
+    lines.push(...timingLines(swept.timings));
   }
   if (reply.rewound) lines.push('Grille remise en page 1.');
   // Said outright rather than left to be inferred from a missing line: a
@@ -199,7 +204,39 @@ function summarise(reply) {
     badge: reply.sent === false ? '✓' : String(imported || '✓'),
     kind: failed ? 'warn' : 'ok',
     text: lines.join('\n'),
+    // The raw per-page account, kept for the options page: the lines above
+    // summarise it, and the point of the test build is to read the detail.
+    timings: swept?.timings ?? null,
   };
+}
+
+// What the walk waited on, page by page. Each page says whether it was read
+// on the pager's word ("exacte"), on the old two-second rule ("repli"), or at
+// the ceiling — and how long it took. This is how the screen tells us which
+// signals it actually provides.
+function timingLines(timings) {
+  if (!timings?.length) return [];
+  const sec = (ms) => `${(ms / 1000).toFixed(1)} s`;
+  const count = (mode) => timings.filter((t) => t.mode === mode).length;
+  const all = timings.map((t) => t.ms);
+  const avg = all.reduce((a, b) => a + b, 0) / all.length;
+  const lines = [
+    `Attente par page (test) : ${count('exact')} exacte(s), ${count('fallback')} repli 2 s, ${count('timeout')} plafond, ${count('unchanged')} sans changement — moy. ${sec(avg)}, max ${sec(Math.max(...all))}.`,
+  ];
+  const withPager = timings.find((t) => t.pager);
+  if (withPager) {
+    const p = withPager.pager;
+    lines.push(`Pager lu : ${p.pageSize ?? '?'} / page, page ${p.page ?? '?'} sur ${p.pages ?? '?'}, ${p.total ?? '?'} résultat(s).`);
+  } else {
+    lines.push('Pager illisible — repli sur le délai fixe.');
+  }
+  const busy = timings.find((t) => t.busy);
+  if (busy) {
+    lines.push(`Indicateur d’occupation : ${busy.busy}${timings.some((t) => t.busyIgnored) ? ' (ignoré, jamais retombé)' : ''}.`);
+  } else {
+    lines.push('Aucun indicateur d’occupation vu.');
+  }
+  return lines;
 }
 
 // The single place a run's outcome becomes visible: badge, tooltip, and the

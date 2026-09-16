@@ -120,9 +120,25 @@ async function launch(send) {
   }
 }
 
+// Reads the grid's signals without driving anything: what the pager says, how
+// many rows are drawn, whether a busy indicator is up. The way to see in one
+// glance why a page was read on the fallback rather than on the pager's word.
+async function probe() {
+  say('Lecture de la grille…');
+  try {
+    const seen = await chrome.runtime.sendMessage({ type: 'wb-probe' });
+    if (!seen) return say('Aucune frame avec une grille ne répond.', 'err');
+    const { found, ...rest } = seen;
+    say(JSON.stringify(rest, null, 1));
+  } catch (err) {
+    say(`Interrompu : ${err}`, 'err');
+  }
+}
+
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 $('run').addEventListener('click', () => launch(true));
 $('search').addEventListener('click', () => launch(false));
+$('probe').addEventListener('click', probe);
 
 // Awaited in order, not fired together. showCriteria() ends on running(false)
 // and restoreProgress() may follow with running(true) — started in parallel,

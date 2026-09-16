@@ -10,9 +10,10 @@
 
 const ANCHOR = /\b22\d{8}\b/g;
 
-// How long the grid has to stop changing before it is read. The mashup
-// repaints in bursts as a search resolves; reading on the first mutation would
-// ship a half-drawn table.
+// How long the grid has to stop changing before it is read, when nothing
+// better is known. The mashup repaints in bursts as a search resolves; reading
+// on the first mutation would ship a half-drawn table. Only the fallback now:
+// when the pager can be read, the walk waits for the rows it announces instead.
 const SETTLE_MS = 2000;
 
 // djb2 — only ever compared against itself, to tell "the grid actually changed"
@@ -45,41 +46,129 @@ function send(report, trigger) {
   });
 }
 
-// Resolves once the page has stopped changing for `quiet` ms, or when the
-// ceiling is reached. Paging has to wait for the rows to actually arrive:
-// reading straight after the click would capture the page being replaced.
-function settled(quiet = SETTLE_MS, ceiling = 20000) {
-  return new Promise((resolve) => {
-    const deadline = Date.now() + ceiling;
-    let last = null;
-    let quietSince = Date.now();
-    const tick = () => {
-      const now = readReport()?.text ?? '';
-      const h = hash(now);
-      if (h !== last) {
-        last = h;
-        quietSince = Date.now();
-      }
-      if (Date.now() - quietSince >= quiet) return resolve(true);
-      if (Date.now() > deadline) return resolve(false);
-      setTimeout(tick, 250);
-    };
-    tick();
-  });
+// How long the grid has to go without a DOM mutation once every other signal
+// says the page is complete. Not a guard against a half-drawn page — the row
+// count is — but against reading between two frames of the same repaint.
+const QUIET_MS = 300;
+const READY_CEILING_MS = 20000;
+// A busy indicator that never clears is decoration, not a signal; past this it
+// is ignored and reported, rather than stalling every page to the ceiling.
+const BUSY_MAX_MS = 4000;
+
+// Rows the current page should hold, from what the pager displays. Null when
+// the pager does not say — the last page's remainder needs the result count.
+function expectedRows(p) {
+  if (!p?.pageSize) return null;
+  const { pageSize, page, pages, total } = p;
+  if (page && pages && page < pages) return pageSize;
+  if (page && total) {
+    return page * pageSize <= total ? pageSize : Math.max(0, total - (page - 1) * pageSize) || null;
+  }
+  if (pages === 1 && total) return total;
+  return null;
 }
 
-// Resolves once the report's text differs from `before`, or gives up. Waiting
-// for the page to *settle* is not enough after clicking "next": the grid is
-// already still while the request is in flight, so the quiet window elapses,
-// the same page is read again, and the walk stops thinking it reached the end.
-// That is why it gave up after two pages on a thirty-page report.
-function changed(before, timeout = 15000) {
+// Resolves once the grid holds the page that was asked for — or gives up.
+//
+// Four signals, each stamped with the moment it fired so the account of a run
+// shows which ones this screen actually provides:
+//   changed  the report differs from `before` — the click did something.
+//            Without it the walk stopped after two pages on a thirty-page
+//            report: the grid is perfectly still while the request is in
+//            flight, so a quiet window alone reads the same page twice.
+//   idle     no busy indicator on the grid.
+//   full     the grid holds as many rows as the pager says this page has.
+//   quiet    QUIET_MS without a mutation under the grid, and the text stable
+//            across two reads.
+// When the pager can be read, the page is ready at changed ∧ idle ∧ full ∧
+// quiet: no timer at all, only the ceiling. When it cannot, the old rule
+// applies — SETTLE_MS without change — so an unreadable pager costs what it
+// always cost, never a wrong read.
+function pageReady({ before = null, changeWithin = 8000, ceiling = READY_CEILING_MS } = {}) {
+  const m = globalThis.wbMashup;
+  const t0 = performance.now();
+  const at = () => Math.round(performance.now() - t0);
+  const log = {
+    ok: false,
+    mode: null,
+    ms: null,
+    changedAt: before == null ? 0 : null,
+    idleAt: null,
+    fullAt: null,
+    expected: null,
+    rows: null,
+    count: null,
+    busy: null,
+    busyIgnored: false,
+    pager: null,
+  };
+
+  // Mutations are counted only under the grid's container: the portal around
+  // it never stops moving. Observed from body, because the container itself
+  // can be replaced by a repaint.
+  let lastMutation = performance.now();
+  const observer = new MutationObserver((list) => {
+    const root = m?.gridRoot?.() ?? document.body;
+    for (const x of list) {
+      if (root.contains(x.target)) {
+        lastMutation = performance.now();
+        return;
+      }
+    }
+  });
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+
   return new Promise((resolve) => {
-    const deadline = Date.now() + timeout;
+    const done = (ok, mode) => {
+      observer.disconnect();
+      resolve({ ...log, ok, mode, ms: at() });
+    };
+    let lastHash = null;
+    let busySince = null;
     const tick = () => {
-      if (hash(readReport()?.text ?? '') !== before) return resolve(true);
-      if (Date.now() > deadline) return resolve(false);
-      setTimeout(tick, 200);
+      const elapsed = at();
+      const report = readReport();
+      const h = hash(report?.text ?? '');
+
+      if (before != null && h === before) {
+        if (elapsed >= changeWithin) return done(false, 'unchanged');
+        return setTimeout(tick, 100);
+      }
+      if (log.changedAt == null) log.changedAt = elapsed;
+
+      const busy = m?.busyIndicator?.() ?? null;
+      if (busy) {
+        log.busy = busy;
+        busySince ??= elapsed;
+        log.idleAt = null;
+      } else {
+        busySince = null;
+        log.idleAt ??= elapsed;
+      }
+      const busyBlocks = busy && elapsed - busySince < BUSY_MAX_MS;
+      if (busy && !busyBlocks) log.busyIgnored = true;
+
+      const pager = m?.pagerState?.() ?? null;
+      if (pager) log.pager = pager;
+      const expected = expectedRows(pager);
+      log.expected = expected;
+      log.rows = m?.gridRows?.() ?? null;
+      log.count = report?.count ?? 0;
+      const seen = log.rows || log.count;
+      const full = expected != null && seen >= expected;
+      log.fullAt = full ? log.fullAt ?? elapsed : null;
+
+      const stable = h === lastHash;
+      lastHash = h;
+      const quietFor = performance.now() - lastMutation;
+      const exact = expected != null;
+      const need = exact ? QUIET_MS : SETTLE_MS;
+
+      if (!busyBlocks && stable && quietFor >= need && (full || !exact)) {
+        return done(true, exact ? 'exact' : 'fallback');
+      }
+      if (elapsed >= ceiling) return done(true, 'timeout');
+      setTimeout(tick, 100);
     };
     tick();
   });
@@ -98,9 +187,20 @@ async function sweep(maxPages) {
   // Mirrors that refused at least one page. A set, not a list: the same server
   // failing on all thirty pages is one thing gone wrong, said once.
   const refused = new Set();
+  // One entry per page read: which signals fired, when, and what the pager
+  // said. This is what the test build is for.
+  const timings = [];
 
+  let before = null;
   for (let i = 0; i < maxPages; i++) {
-    await settled();
+    // After a click, a report that never changes is the last page, or a
+    // control that only looks like "next". The real pager disables its button
+    // on the last page, so this wait is the fallback for screens that do not —
+    // no reason to make it long.
+    const ready = await pageReady({ before, changeWithin: 8000 });
+    timings.push(ready);
+    console.info('[Working Book] page', pages + 1, ready);
+    if (!ready.ok) break;
     const report = readReport();
     if (!report) break;
 
@@ -135,14 +235,10 @@ async function sweep(maxPages) {
     // to read leaves the grid parked somewhere nobody asked for.
     if (pages >= maxPages) break;
     if (!globalThis.wbMashup?.nextPage()) break;
-    // A click that changes nothing is the last page, or a control that only
-    // looks like "next". Either way there is nowhere left to go. The real
-    // pager disables its button on the last page, so this wait is the
-    // fallback for screens that do not — no reason to make it long.
-    if (!(await changed(h, 8000))) break;
+    before = h;
   }
 
-  return { pages, rows, imported, failures, refused: [...refused] };
+  return { pages, rows, imported, failures, refused: [...refused], timings };
 }
 
 // Puts the grid back on page one and waits for it, so the screen is left as it
@@ -150,8 +246,7 @@ async function sweep(maxPages) {
 async function backToFirstPage() {
   const before = hash(readReport()?.text ?? '');
   if (!globalThis.wbMashup?.firstPage()) return false;
-  await changed(before, 10000);
-  await settled();
+  await pageReady({ before, changeWithin: 10000 });
   return true;
 }
 
@@ -160,7 +255,36 @@ async function backToFirstPage() {
 // so an eager empty frame would beat the one actually holding the report.
 // Silence everywhere leaves the caller with no responder, which it reads as
 // "nothing found".
+// What the readiness probes read right now, with nothing driven. The debug
+// view for the test build: opened on a PMS230 screen, it shows in one glance
+// which signals this screen provides and what the pager's wording looks like.
+function probe() {
+  const m = globalThis.wbMashup;
+  const root = m?.gridRoot?.() ?? null;
+  const report = readReport();
+  const pager = m?.pagerState?.() ?? null;
+  return {
+    frame: location.href,
+    grid: root ? `${root.tagName.toLowerCase()}${root.id ? `#${root.id}` : ''}.${String(root.className).trim().split(/\s+/).slice(0, 3).join('.')}` : null,
+    rows: m?.gridRows?.() ?? null,
+    count: report?.count ?? 0,
+    busy: m?.busyIndicator?.() ?? null,
+    pager,
+    expected: expectedRows(pager),
+    nextButton: Boolean(m?.nextPageButton?.()),
+  };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+  if (msg?.type === 'wb-probe') {
+    // Only the frame that holds a grid or a pager answers, for the same reason
+    // as below: the broadcast keeps the first reply.
+    const m = globalThis.wbMashup;
+    if (!readReport() && !m?.gridRoot?.() && !m?.pagerState?.()) return false;
+    respond({ found: true, ...probe() });
+    return true;
+  }
+
   if (msg?.type === 'wb-scrape') {
     const report = readReport();
     if (!report) return false;
