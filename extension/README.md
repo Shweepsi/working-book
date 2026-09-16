@@ -295,31 +295,39 @@ besoin une fois l'écran compris.
 
 ## Garde-fous
 
-- **Attente de la page** (version test 2.3.x) : une page n'est lue qu'une fois
-  que des **lignes ont été redessinées depuis le clic** (Search ou
-  « suivant » — un observateur de mutations est posé avant le clic, parce
-  qu'une recherche aux critères inchangés redessine le même texte, et lire
-  l'ancienne grille comme page 1 mettait le parcours en page 2 quand les
-  résultats frais la remettaient en page 1 ; seuls les ajouts de `<tr>`
-  comptent, le réglage de la taille de page repeint aussi les anciennes
-  lignes), pour la page 1 que ce redessin soit **postérieur à la réponse de
-  la requête** lancée par le clic Search (les entrées `resource` de la frame
-  se lisent depuis le content script), que la grille n'affiche plus d'indicateur
-  d'occupation, qu'elle porte autant de lignes que le pager en annonce, et
-  qu'elle est restée 300 ms sans mutation. Pas de minuterie : seul un plafond
-  de 20 s. Le numéro de page affiché fait foi : le parcours s'arrête avant de
-  cliquer quand il est sur la dernière page (sur PMS230, « suivant » reste
-  cliquable et repart en page 1), refuse une page qui n'est pas celle
-  demandée, et ne relit jamais un numéro déjà lu. Sur la dernière page, dont
-  le pager ne dit pas le nombre de lignes, le numéro atteint tient lieu de
-  compte. Quand le pager ne se lit pas, l'ancienne règle s'applique — 2 s sans
-  modification — pour qu'un écran inconnu coûte ce qu'il a toujours coûté,
-  jamais une lecture fausse. Le compte-rendu dit, page par page, sur quel
-  signal la lecture a eu lieu (`exacte` / `repli` / `plafond`) et à quel
-  moment chaque signal s'est déclenché ; le détail brut est sur la page
-  d'options, et dans la console de la frame de la grille (`[Working Book]`).
-  Le bouton **Sonder la grille** du panneau lit ces mêmes signaux à froid, sans
-  rien lancer.
+- **Attente de la page** (version test 2.4) : plus de minuterie, une page est
+  lue sur des signaux, avec un seul plafond de 20 s.
+  - *La recherche d'abord.* Relancer Search laisse l'ancienne grille à l'écran,
+    complète en apparence, jusqu'à la réponse — et une recherche aux critères
+    inchangés redessine le même texte. Un observateur est donc posé **avant**
+    le clic : la page 1 n'est lue qu'une fois des lignes (`<tr>`) redessinées
+    depuis ce clic, **après la réponse de la requête** que la frame a envoyée
+    (les entrées `resource` se lisent depuis le content script). Pour que rien
+    d'autre ne repeigne la grille entre-temps, la taille de page est réglée
+    **avant** Search quand un pager est déjà là, et jamais re-cliquée si elle
+    est déjà bonne.
+  - *Sans requête visible* (canal de données invisible depuis la frame), le
+    redessin seul est cru, sous l'ancienne règle des 2 s de calme ; et le
+    parcours n'est déclaré fini que 6 s après le clic : un redessin ou une
+    page 1 qui ne se lit plus comme celle importée d'ici là, c'est la réponse
+    arrivée en retard, et le parcours est refait.
+  - *Chaque page* : lignes redessinées depuis le clic « suivant », numéro de
+    page attendu affiché, pas d'indicateur d'occupation, autant de lignes que
+    le pager en annonce (sur la dernière page, dont le pager ne dit pas le
+    nombre de lignes, le numéro atteint tient lieu de compte), 300 ms sans
+    mutation structurelle (le survol de la souris ne compte pas).
+  - *Le numéro de page fait foi* : le parcours s'arrête avant de cliquer sur
+    la dernière page (sur PMS230, « suivant » reste cliquable et repart en
+    page 1), ne relit jamais un numéro déjà lu, et si le numéro **régresse**
+    en cours de route — la grille remise en page 1 par une réponse tardive —
+    il repart de la page 1 une fois.
+  - *Pager illisible* : 2 s sans modification, comme avant.
+  - Le compte-rendu dit, page par page, sur quel signal la lecture a eu lieu
+    (`exacte` / `par n° de page` / `repli` / `plafond`), comment la page 1 a
+    reconnu la réponse, et s'il a fallu repartir ; la page d'options donne le
+    détail par page et la **chronologie** complète (clics, redessins,
+    requêtes, lectures). Le bouton **Sonder la grille** du panneau lit ces
+    mêmes signaux à froid, sans rien lancer.
 - **Anti-répétition** : au cours d'un parcours, une page dont le contenu répète
   la précédente arrête la boucle — c'est ainsi que la dernière page est
   reconnue.

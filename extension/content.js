@@ -99,11 +99,14 @@ function expectedRows(p) {
 // `first` is the page right after Search: a grid that is never redrawn is
 // read as it stands once the ceiling passes — the old behaviour — instead of
 // ending the walk with nothing, since a slow server is not a missing page.
+// `clicked` false means nothing was pressed: the page on screen is taken as
+// it is, once quiet — the walk restarting on a grid already back on page one.
 function pageReady({
   mark = { rows: 0, at: 0 },
   before = null,
   expectPage = null,
   first = false,
+  clicked = true,
   changeWithin = 8000,
   ceiling = READY_CEILING_MS,
 } = {}) {
@@ -126,6 +129,7 @@ function pageReady({
     redraws: 0,
     requests: 0,
     request: null,
+    via: null,
   };
 
   return new Promise((resolve) => {
@@ -141,24 +145,40 @@ function pageReady({
       const pageKnown = expectPage != null && pager?.page != null;
       const onPage = pageKnown ? pager.page === expectPage : null;
       const activity = m?.gridActivity?.() ?? null;
-      let redrawn = activity ? activity.rows > mark.rows : true;
+      let redrawn = !clicked || (activity ? activity.rows > mark.rows : true);
       log.redraws = activity ? activity.rows - mark.rows : null;
-      if (activity && first) {
-        // The search is the first request this frame sent after the click,
-        // and the grid is not the search's answer until rows were drawn after
-        // that answer came back. Re-applying the page size redraws the old
-        // rows too, and that is not it.
+      // How the first page's answer is told from the old grid. With a request
+      // in sight — the first this frame sent after the click — the rows must
+      // have been drawn after it came back. Without one, the redraw alone is
+      // trusted, but under the old two-second rule: nothing else we do
+      // repaints the grid after Search any more, so a redraw is the answer,
+      // and the longer quiet covers a grid that repaints in two steps.
+      let via = 'redraw';
+      if (activity && first && clicked) {
         const since = activity.requests.filter((r) => r.start >= mark.at);
         const search = since[0] ?? null;
         log.requests = since.length;
         log.request = search ? { name: search.name, end: Math.round(search.end - mark.at) } : null;
-        redrawn = redrawn && Boolean(search) && activity.rowsAt > search.end;
+        if (search) {
+          via = 'request';
+          redrawn = redrawn && activity.rowsAt > search.end;
+        }
+      }
+      log.via = first ? via : null;
+
+      // A page number below the one before the click is not a page on its way:
+      // the grid was put back to page one under the walk — by the search's
+      // answer landing late, or by a "next" that wraps around. Said at once,
+      // so the walk can start over instead of waiting for a page that will
+      // never come.
+      if (clicked && onPage === false && pager.page < expectPage - 1) {
+        return done(false, 'regressed');
       }
 
       if (!redrawn || (before != null && h === before) || onPage === false) {
         if (elapsed >= changeWithin) {
           if (first) return done(true, 'stale');
-          return done(false, onPage === false && pager.page < expectPage ? 'wrapped' : 'unchanged');
+          return done(false, onPage === false && pager.page < expectPage ? 'regressed' : 'unchanged');
         }
         return setTimeout(tick, 150);
       }
@@ -191,7 +211,7 @@ function pageReady({
       lastHash = h;
       const quietFor = activity ? performance.now() - activity.last : Infinity;
       const mode = expected != null ? 'exact' : onPage === true ? 'page' : 'fallback';
-      const need = mode === 'fallback' ? SETTLE_MS : QUIET_MS;
+      const need = mode === 'fallback' || (first && via !== 'request') ? SETTLE_MS : QUIET_MS;
 
       if (!busyBlocks && stable && quietFor >= need && (full || mode === 'fallback')) {
         return done(true, mode);
@@ -207,7 +227,7 @@ function pageReady({
 // whatever Infor chose to list; paging has no such ceiling. Every import adds
 // to the report and a row seen twice is updated rather than duplicated, so an
 // overlapping or repeated page costs nothing.
-async function sweep(maxPages, mark = { rows: 0, at: 0 }) {
+async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = {}) {
   const seen = new Set();
   let pages = 0;
   let rows = 0;
@@ -223,25 +243,59 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }) {
   // below missed a page shown twice — the screen is never quite in the same
   // state — while the number is exact.
   const seenPages = new Set();
+  // The grid can be put back to page one under the walk: a search whose answer
+  // lands after the walk has started turning pages resets it. Everything read
+  // before that was the old grid. The walk starts over from the page one now
+  // on screen — once; a second time is a screen that keeps resetting, and the
+  // pages already sent were updated, not duplicated, so nothing is lost.
+  let restarts = 0;
 
   let before = null;
   let expectPage = null;
+  // `settled`: the page on screen is already the one to read — a walk run
+  // again after the answer landed late — so nothing was clicked for it.
+  let first = !settled;
+  let clicked = !settled;
+  let firstHash = null;
   for (let i = 0; i < maxPages; i++) {
     // After a click, a report that never changes, or a page number that is
     // not the one asked for, is the end of the walk: a "next" that wraps
     // around, or one that only looks like "next". No reason to wait long.
     // The first page is the exception: it waits for the search itself.
-    const first = i === 0;
     const ready = await pageReady({
       mark,
       before,
       expectPage,
       first,
+      clicked,
       changeWithin: first ? READY_CEILING_MS : 8000,
     });
     timings.push(ready);
     console.info('[Working Book] page', pages + 1, ready);
-    if (!ready.ok) break;
+    if (!ready.ok) {
+      if (ready.mode === 'regressed' && restarts < 1) {
+        restarts++;
+        globalThis.wbMashup?.note?.('restart', `page ${ready.pager?.page ?? '?'} instead of ${expectPage}`);
+        seen.clear();
+        seenPages.clear();
+        firstHash = null;
+        // The count starts over too: the pages sent so far were the old
+        // grid, and "six pages" of a four-page report is the confusion this
+        // restart exists to remove. They were updated by the fresh pass.
+        pages = 0;
+        rows = 0;
+        imported = 0;
+        failures.length = 0;
+        before = null;
+        expectPage = ready.pager?.page ?? null;
+        first = false;
+        clicked = false;
+        continue;
+      }
+      break;
+    }
+    first = false;
+    clicked = true;
     const report = readReport();
     if (!report) break;
 
@@ -250,11 +304,13 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }) {
       if (seenPages.has(pageNo)) break;
       seenPages.add(pageNo);
     }
+    globalThis.wbMashup?.note?.('read', `page ${pageNo ?? '?'} ${ready.mode} ${ready.ms} ms`);
     const h = hash(report.text);
     // The same content twice means the click did not actually advance — the
     // last page, or a "next" that is decorative. Either way, stop.
     if (seen.has(h)) break;
     seen.add(h);
+    firstHash ??= h;
 
     const result = await send(report, 'sweep');
     pages++;
@@ -290,7 +346,33 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }) {
     expectPage = pageNo != null ? pageNo + 1 : null;
   }
 
-  return { pages, rows, imported, failures, refused: [...refused], timings };
+  return { pages, rows, imported, failures, refused: [...refused], timings, restarts, firstHash };
+}
+
+// With no request in sight, the first page was taken on a redraw and two
+// seconds of quiet — and an answer slower than that lands after the walk,
+// resetting a grid nobody is reading any more. So the walk is not over until
+// this much time has passed since Search was pressed: any redraw in the
+// meantime, or a page one that no longer reads as the one imported, means the
+// import was the old grid and the walk runs again.
+const ANSWER_GRACE_MS = 6000;
+
+async function lateAnswer(clickedAt, firstHash) {
+  const m = globalThis.wbMashup;
+  const until = clickedAt + ANSWER_GRACE_MS;
+  const rowsAtStart = m?.gridActivity?.().rows ?? 0;
+  while (performance.now() < until) {
+    await new Promise((r) => setTimeout(r, 150));
+    const a = m?.gridActivity?.();
+    if (a && a.rows > rowsAtStart) {
+      // Let the redraw finish before reading anything from it.
+      while (performance.now() - (m?.gridActivity?.().last ?? 0) < QUIET_MS) await new Promise((r) => setTimeout(r, 100));
+      return 'redraw';
+    }
+  }
+  const page = m?.pagerState?.()?.page ?? null;
+  if ((page == null || page === 1) && firstHash != null && hash(readReport()?.text ?? '') !== firstHash) return 'changed';
+  return null;
 }
 
 // Puts the grid back on page one and waits for it, so the screen is left as it
@@ -364,12 +446,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
         // that, always at least one page: a ceiling of 1 means "do not turn
         // pages", not "send nothing".
         const maxPages = Math.max(1, Number(criteria.maxPages) || 1);
-        const swept = wantsSend && result?.clicked ? await sweep(maxPages, result.gridMark ?? { rows: 0, at: 0 }) : null;
+        const mark = result?.gridMark ?? { rows: 0, at: 0 };
+        let swept = wantsSend && result?.clicked ? await sweep(maxPages, mark) : null;
 
         // A single page never left page one, so there is nothing to undo.
-        const rewound = swept && swept.pages > 1 ? await backToFirstPage() : false;
+        let rewound = swept && swept.pages > 1 ? await backToFirstPage() : false;
 
-        respond({ found: true, ...result, swept, rewound, maxPages, sent: wantsSend });
+        // Only when the answer could not be seen arriving: with a request in
+        // sight the first page was read after it, and a walk that already
+        // started over did so because the answer landed — either way there is
+        // nothing late left to come.
+        let reruns = 0;
+        if (swept && swept.timings[0]?.via === 'redraw' && !swept.restarts) {
+          const late = await lateAnswer(mark.at, swept.firstHash);
+          if (late) {
+            mashup.note?.('rerun', late);
+            const again = await sweep(maxPages, mark, { settled: true });
+            rewound = again.pages > 1 ? await backToFirstPage() : rewound;
+            swept = { ...again, timings: [...swept.timings, ...again.timings], restarts: swept.restarts + again.restarts };
+            reruns = 1;
+          }
+        }
+        if (swept) swept.reruns = reruns;
+
+        // The whole run, in order: what was clicked, what the grid did, what
+        // the frame received, what was read. One run's worth of evidence.
+        const timeline = mashup.gridEvents?.() ?? null;
+        respond({ found: true, ...result, swept, rewound, maxPages, sent: wantsSend, timeline });
       })
       .catch((err) => respond({ found: true, error: String(err) }))
       // The watch started ahead of Search is not left running on an idle

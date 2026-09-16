@@ -131,7 +131,12 @@ async function showLastRun() {
         })
         .join('\n')}\n\n${JSON.stringify(lastRun.timings)}`
     : '';
-  $('lastRun').textContent = `${when}\n${lastRun.text}${detail}`;
+  const timeline = lastRun.timeline?.length
+    ? `\n\nChronologie (ms depuis la pose de l'observateur) :\n${lastRun.timeline
+        .map((e) => `${String(e.t).padStart(6)}  ${e.kind}  ${e.detail ?? ''}`)
+        .join('\n')}`
+    : '';
+  $('lastRun').textContent = `${when}\n${lastRun.text}${detail}${timeline}`;
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {

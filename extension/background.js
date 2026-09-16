@@ -186,6 +186,8 @@ function summarise(reply) {
   if (reply.rows?.rows) lines.push(`Lignes par page : ${reply.rows.rows}.`);
   if (swept) {
     lines.push(`${swept.pages} page(s) parcourue(s), ${swept.imported} ligne(s) importée(s).`);
+    if (swept.restarts) lines.push(`Grille remise en page 1 en cours de parcours : reparti du début (${swept.restarts} fois).`);
+    if (swept.reruns) lines.push('Réponse de la recherche arrivée après le parcours : parcours refait.');
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it
@@ -204,9 +206,11 @@ function summarise(reply) {
     badge: reply.sent === false ? '✓' : String(imported || '✓'),
     kind: failed ? 'warn' : 'ok',
     text: lines.join('\n'),
-    // The raw per-page account, kept for the options page: the lines above
-    // summarise it, and the point of the test build is to read the detail.
+    // The raw per-page account and the run's timeline, kept for the options
+    // page: the lines above summarise them, and the point of the test build
+    // is to read the detail.
     timings: swept?.timings ?? null,
+    timeline: reply.timeline ?? null,
   };
 }
 
@@ -232,9 +236,9 @@ function timingLines(timings) {
   }
   const [firstPage] = timings;
   if (firstPage?.request) {
-    lines.push(`Recherche : réponse à ${(firstPage.request.end / 1000).toFixed(1)} s (…${firstPage.request.name.slice(-40)}), ${firstPage.redraws ?? '?'} redessin(s) de la grille.`);
+    lines.push(`Recherche : réponse à ${(firstPage.request.end / 1000).toFixed(1)} s (…${firstPage.request.name.slice(-40)}), ${firstPage.redraws ?? '?'} ligne(s) redessinée(s).`);
   } else if (firstPage) {
-    lines.push(`Recherche : aucune requête vue depuis le clic, ${firstPage.redraws ?? '?'} redessin(s) de la grille.`);
+    lines.push(`Recherche : aucune requête vue depuis le clic, ${firstPage.redraws ?? '?'} ligne(s) redessinée(s), lue sur ${firstPage.via === 'redraw' ? 'le redessin + 2 s de calme' : 'le plafond'}.`);
   }
   const busy = timings.find((t) => t.busy);
   if (busy) {

@@ -469,16 +469,33 @@
     // Watched from before the click: the walk must not read the grid until
     // it has been redrawn by the search this click starts.
     watchGrid();
-    const mark = gridMark();
-    if (clicked) click(found.search);
 
-    // Only worth doing once a search is on its way: before that there is no
-    // grid, hence no pager to widen.
+    // The page size is set *before* Search whenever there is already a pager
+    // to set it on. Changing it repaints the grid, and a repaint that lands
+    // after the click cannot be told from the search's own answer — the walk
+    // took one for the other and read the old rows as page one.
     // 0 means "leave the grid as it is"; anything else goes through the pager,
     // with a negative value standing for "the largest the menu offers".
-    const rows = clicked && criteria.rowsPerPage !== 0
-      ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
-      : null;
+    const wantRows = clicked && criteria.rowsPerPage !== 0;
+    let rows = null;
+    if (wantRows && (pagerTrigger() ?? pagerSelect())) {
+      note('pagesize', 'before search');
+      rows = await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage);
+      await repaintOver();
+    }
+
+    const mark = gridMark();
+    if (clicked) {
+      note('click', 'search');
+      click(found.search);
+    }
+
+    // No pager before the search means no grid either: it comes with the
+    // answer, and so does the pager to widen.
+    if (wantRows && !rows) {
+      note('pagesize', 'after search');
+      rows = await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage);
+    }
 
     return { ...describe(found), filled, kept, failed, empty, clicked, rows, gridMark: mark, url: location.href };
   }
@@ -638,6 +655,14 @@
     const trigger = pagerTrigger();
     if (!trigger || !opensMenu(trigger)) return null;
 
+    // Already showing the size asked for: nothing to click. Re-picking the
+    // same entry is not free — Soho repaints the whole grid for it.
+    const showing = Number((norm(trigger.textContent).match(/(\d+)\s*records?\s+per\s+page/i) ?? [])[1]) || 0;
+    if (showing && Number(target) > 0 && showing === Number(target)) {
+      return { changed: false, rows: showing, wanted: Number(target), via: 'menu', reason: 'already' };
+    }
+
+    note('click', 'page size menu');
     click(trigger);
     const menu = await waitFor(
       () =>
@@ -659,6 +684,7 @@
       items.find(({ n }) => n === wanted) ??
       items.reduce((a, b) => (b.n > a.n ? b : a));
 
+    note('click', `page size ${pick.n}`);
     click(pick.el);
     await delay(800);
     return {
@@ -794,6 +820,7 @@
   function firstPage() {
     const btn = firstPageButton();
     if (!btn) return false;
+    note('click', 'first page');
     click(btn);
     return true;
   }
@@ -823,6 +850,7 @@
   function nextPage() {
     const btn = nextPageButton();
     if (!btn) return false;
+    note('click', 'next page');
     click(btn);
     return true;
   }
@@ -929,40 +957,66 @@
   // this frame sends, and its answer is what redraws the grid. Resource
   // timing is per document and readable from the content script, so the walk
   // can require the redraw to come after that answer, not before it.
-  const activity = { count: 0, last: 0, rows: 0, rowsAt: 0, requests: [] };
+  //
+  // `last` counts structural mutations only — nodes and text, not attributes.
+  // Hovering the grid flips classes on rows for as long as the mouse moves,
+  // and a quiet window that listened to those never closed.
+  //
+  // `events` is the run's timeline: clicks, redraws, answers. It is what the
+  // account of a run shows when the walk did something unexpected, so that
+  // one run tells the whole story instead of one symptom.
+  const activity = { count: 0, last: 0, rows: 0, rowsAt: 0, requests: [], events: [] };
   let watcher = null;
   let requests = null;
-  const addsRows = (record) =>
-    record.type === 'childList' &&
-    Array.from(record.addedNodes).some(
-      (n) => n.nodeType === 1 && (n.matches('tr, tbody, table') || n.querySelector('tr')),
-    );
+  let t0 = 0;
+  function note(kind, detail) {
+    if (activity.events.length >= 400) activity.events.shift();
+    activity.events.push({ t: Math.round(performance.now() - t0), kind, detail });
+  }
+  const addedRows = (record) => {
+    if (record.type !== 'childList') return 0;
+    let n = 0;
+    for (const node of record.addedNodes) {
+      if (node.nodeType !== 1) continue;
+      if (node.matches('tr')) n++;
+      else n += node.querySelectorAll('tr').length;
+    }
+    return n;
+  };
   function watchGrid() {
     if (watcher) return;
+    t0 = performance.now();
+    activity.events.length = 0;
+    activity.requests.length = 0;
     let root = gridRoot();
     watcher = new MutationObserver((list) => {
       if (!root?.isConnected) root = gridRoot();
       const scope = root ?? document.body;
-      let touched = false;
+      let structural = false;
+      let rows = 0;
       for (const x of list) {
         if (!scope.contains(x.target)) continue;
-        touched = true;
-        if (addsRows(x)) {
-          activity.rows++;
-          activity.rowsAt = performance.now();
-        }
+        if (x.type === 'attributes') continue;
+        structural = true;
+        rows += addedRows(x);
       }
-      if (touched) {
+      if (rows) {
+        activity.rows += rows;
+        activity.rowsAt = performance.now();
+        note('rows', rows);
+      }
+      if (structural) {
         activity.count++;
         activity.last = performance.now();
       }
     });
-    watcher.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+    watcher.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: false });
     if (typeof PerformanceObserver === 'function') {
       requests = new PerformanceObserver((list) => {
         for (const e of list.getEntries()) {
           if (e.initiatorType !== 'xmlhttprequest' && e.initiatorType !== 'fetch') continue;
           activity.requests.push({ name: e.name.slice(-90), start: e.startTime, end: e.responseEnd });
+          note('request', `${e.name.slice(-60)} ${Math.round(e.startTime - t0)}→${Math.round(e.responseEnd - t0)}`);
         }
       });
       requests.observe({ type: 'resource' });
@@ -974,16 +1028,31 @@
     requests?.disconnect();
     requests = null;
   }
-  const gridActivity = () => ({ ...activity, requests: activity.requests.slice() });
+  const gridActivity = () => ({ ...activity, requests: activity.requests.slice(), events: undefined });
+  const gridEvents = () => activity.events.slice();
   // The moment before a click: what the walk compares the grid against.
   const gridMark = () => ({ rows: activity.rows, at: performance.now() });
+
+  // Waits for the grid to hold still after something we did to it — a page
+  // size change repaints it — so that the repaint is over before the next
+  // step marks the grid and clicks.
+  async function repaintOver(quiet = 500, ceiling = 5000) {
+    const start = performance.now();
+    while (performance.now() - start < ceiling) {
+      if (performance.now() - activity.last >= quiet) return true;
+      await delay(100);
+    }
+    return false;
+  }
 
   globalThis.wbMashup = {
     runSearch,
     watchGrid,
     unwatchGrid,
     gridActivity,
+    gridEvents,
     gridMark,
+    note,
     gridRoot,
     gridRows,
     busyIndicator,
