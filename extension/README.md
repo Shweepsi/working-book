@@ -223,6 +223,12 @@ en permanence la semaine écoulée et les deux à venir. Une date en dur
 serait juste le premier jour et fausse tous les suivants, sans que personne s'en
 aperçoive. Un critère laissé vide n'est pas écrit : l'écran garde sa valeur.
 
+**« Incl. Completed » est coché avant chaque recherche** : le rapport couvre
+toute la fenêtre, schedules terminés compris, quel que soit l'état dans lequel
+le dernier opérateur a laissé la case. Le compte-rendu le dit à chaque
+exécution (« Terminés inclus », ou en avertissement si la case n'a pas été
+trouvée ou n'a pas pu être cochée).
+
 L'onglet Mingle doit rester ouvert et la session Infor valide — l'extension
 pilote la page de l'opérateur, elle ne se connecte pas à Infor.
 
@@ -295,9 +301,40 @@ besoin une fois l'écran compris.
 
 ## Garde-fous
 
-- **Attente de stabilisation** : une page n'est lue qu'après 2 s sans
-  modification, sinon une grille à moitié dessinée serait envoyée pendant que la
-  recherche se résout.
+- **Attente de la page** (depuis 2.4) : plus de minuterie, une page est lue
+  sur des signaux, avec un seul plafond de 20 s. Mesuré sur PMS230 : 4 pages
+  en ~7 s, contre ~13 s avec l'ancienne attente fixe de 2 s par page.
+  - *La recherche d'abord.* Relancer Search laisse l'ancienne grille à l'écran,
+    complète en apparence, jusqu'à la réponse — et une recherche aux critères
+    inchangés redessine le même texte. Un observateur est donc posé **avant**
+    le clic : la page 1 n'est lue qu'une fois des lignes (`<tr>`) redessinées
+    depuis ce clic, **après la réponse de la requête** que la frame a envoyée
+    (les entrées `resource` se lisent depuis le content script). Pour que rien
+    d'autre ne repeigne la grille entre-temps, la taille de page est réglée
+    **avant** Search quand un pager est déjà là, et jamais re-cliquée si elle
+    est déjà bonne.
+  - *Sans requête visible* (canal de données invisible depuis la frame), le
+    redessin seul est cru, sous l'ancienne règle des 2 s de calme ; et le
+    parcours n'est déclaré fini que 6 s après le clic : un redessin ou une
+    page 1 qui ne se lit plus comme celle importée d'ici là, c'est la réponse
+    arrivée en retard, et le parcours est refait.
+  - *Chaque page* : lignes redessinées depuis le clic « suivant », numéro de
+    page attendu affiché, pas d'indicateur d'occupation, autant de lignes que
+    le pager en annonce (sur la dernière page, dont le pager ne dit pas le
+    nombre de lignes, le numéro atteint tient lieu de compte), 300 ms sans
+    mutation structurelle (le survol de la souris ne compte pas).
+  - *Le numéro de page fait foi* : le parcours s'arrête avant de cliquer sur
+    la dernière page (sur PMS230, « suivant » reste cliquable et repart en
+    page 1), ne relit jamais un numéro déjà lu, et si le numéro **régresse**
+    en cours de route — la grille remise en page 1 par une réponse tardive —
+    il repart de la page 1 une fois.
+  - *Pager illisible* : 2 s sans modification, comme avant.
+  - Le panneau ne dit que l'essentiel : pages parcourues, lignes importées,
+    durée — et une ligne de plus seulement quand une page a été lue sans le
+    signal attendu (plafond, repli, réponse non observée, parcours repris).
+    La page d'options garde, sous **Diagnostic**, l'attente signal par
+    signal, le détail par page et la **chronologie** complète (clics,
+    redessins, requêtes, lectures).
 - **Anti-répétition** : au cours d'un parcours, une page dont le contenu répète
   la précédente arrête la boucle — c'est ainsi que la dernière page est
   reconnue.

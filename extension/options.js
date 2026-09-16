@@ -121,6 +121,33 @@ async function showLastRun() {
   if (!lastRun) return;
   const when = new Date(lastRun.at).toLocaleString('fr-FR');
   $('lastRun').textContent = `${when}\n${lastRun.text}`;
+
+  // Under a fold: what the walk waited on, page by page, and the run's
+  // timeline. For whoever looks into a run, not for whoever reads its result.
+  const sections = [];
+  if (lastRun.detail) sections.push(lastRun.detail);
+  if (lastRun.timings?.length) {
+    const at = (v) => (v == null ? '—' : `${v} ms`);
+    sections.push(
+      `Par page :\n${lastRun.timings
+        .map((t, i) => {
+          const request = t.request
+            ? `, requête …${t.request.name.slice(-50)} finie à ${t.request.end} ms`
+            : i === 0 && t.requests != null
+              ? `, ${t.requests} requête(s) vue(s)`
+              : '';
+          return `${i + 1}. ${t.mode} en ${t.ms} ms — changé ${at(t.changedAt)}, libre ${at(t.idleAt)}, complet ${at(t.fullAt)} (${t.rows ?? '?'}/${t.expected ?? '?'} lignes, ${t.redraws ?? '?'} redessinée(s))${request}${t.busy ? `, occupé : ${t.busy}` : ''}`;
+        })
+        .join('\n')}`,
+    );
+  }
+  if (lastRun.timeline?.length) {
+    sections.push(
+      `Chronologie (ms) :\n${lastRun.timeline.map((e) => `${String(e.t).padStart(6)}  ${e.kind}  ${e.detail ?? ''}`).join('\n')}`,
+    );
+  }
+  $('diagnostic').hidden = sections.length === 0;
+  $('diagnosticText').textContent = sections.join('\n\n');
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {

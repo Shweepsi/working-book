@@ -409,6 +409,52 @@
     return found;
   }
 
+  // "Incl. Completed" is a checkbox, which the resolver above deliberately
+  // leaves out — a checkbox next to a date label is not that date's control.
+  // It is found on its own, from its wording, like everything else here.
+  const COMPLETED_LABELS = ['Incl. Completed', 'Incl Completed', 'Include Completed', 'Incl. terminés'];
+
+  function completedBox() {
+    const label = firstByText({ completed: COMPLETED_LABELS }).get('completed');
+    if (!label) return null;
+    const byFor = label.htmlFor ? document.getElementById(label.htmlFor) : null;
+    if (byFor?.type === 'checkbox') return { box: byFor, label };
+    const inside = label.querySelector?.('input[type=checkbox]');
+    if (inside) return { box: inside, label };
+    // Soho: <input type=checkbox><label>, the input right before its label.
+    let prev = label.previousElementSibling;
+    while (prev && !(prev.tagName === 'INPUT' && prev.type === 'checkbox')) prev = prev.previousElementSibling;
+    if (prev) return { box: prev, label };
+    const near = (label.closest('.checkbox, .field, li, div') ?? label.parentElement)?.querySelector('input[type=checkbox]');
+    return near ? { box: near, label } : null;
+  }
+
+  // Puts the box in the state asked for, when it is not already: the report
+  // must not depend on what the screen kept from the last operator. The label
+  // is what Soho paints and listens to; the native input is what says whether
+  // the click worked, and the fallbacks are for a screen that wires it
+  // otherwise. `wanted` null only reads.
+  async function includeCompleted(wanted) {
+    const hit = completedBox();
+    if (!hit) return { found: false, wanted };
+    const { box, label } = hit;
+    const was = box.checked;
+    if (wanted == null || was === wanted) return { found: true, wanted, was, now: was };
+    note('click', `incl. completed → ${wanted}`);
+    click(label);
+    await delay(150);
+    if (box.checked !== wanted) {
+      box.click();
+      await delay(150);
+    }
+    if (box.checked !== wanted) {
+      box.checked = wanted;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      await delay(150);
+    }
+    return { found: true, wanted, was, now: box.checked };
+  }
+
   function describe(found) {
     return {
       resolved: PARTS.filter((n) => found[n]),
@@ -459,6 +505,7 @@
     await apply('workCenter', criteria.workCenter);
     await apply('dateFrom', dateFor('dateFrom', criteria.fromOffset));
     await apply('dateTo', dateFor('dateTo', criteria.toOffset));
+    const completed = await includeCompleted(criteria.includeCompleted ?? null);
 
     // Last look at the real form rather than at what we believe we wrote: a
     // cascade can still have blanked a field after the fact.
@@ -466,17 +513,38 @@
     const empty = CRITERIA.filter((name) => found[name] && isEmpty(found[name]));
 
     const clicked = Boolean(found.search) && empty.length === 0;
-    if (clicked) click(found.search);
+    // Watched from before the click: the walk must not read the grid until
+    // it has been redrawn by the search this click starts.
+    watchGrid();
 
-    // Only worth doing once a search is on its way: before that there is no
-    // grid, hence no pager to widen.
+    // The page size is set *before* Search whenever there is already a pager
+    // to set it on. Changing it repaints the grid, and a repaint that lands
+    // after the click cannot be told from the search's own answer — the walk
+    // took one for the other and read the old rows as page one.
     // 0 means "leave the grid as it is"; anything else goes through the pager,
     // with a negative value standing for "the largest the menu offers".
-    const rows = clicked && criteria.rowsPerPage !== 0
-      ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
-      : null;
+    const wantRows = clicked && criteria.rowsPerPage !== 0;
+    let rows = null;
+    if (wantRows && (pagerTrigger() ?? pagerSelect())) {
+      note('pagesize', 'before search');
+      rows = await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage);
+      await repaintOver();
+    }
 
-    return { ...describe(found), filled, kept, failed, empty, clicked, rows, url: location.href };
+    const mark = gridMark();
+    if (clicked) {
+      note('click', 'search');
+      click(found.search);
+    }
+
+    // No pager before the search means no grid either: it comes with the
+    // answer, and so does the pager to widen.
+    if (wantRows && !rows) {
+      note('pagesize', 'after search');
+      rows = await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage);
+    }
+
+    return { ...describe(found), filled, kept, failed, empty, completed, clicked, rows, gridMark: mark, url: location.href };
   }
 
   // The pager sits under the grid and defaults to 5 rows. Since the report is
@@ -634,6 +702,25 @@
     const trigger = pagerTrigger();
     if (!trigger || !opensMenu(trigger)) return null;
 
+    // Already showing the size asked for: nothing to click. Re-picking the
+    // same entry is not free — Soho repaints the whole grid for it, and the
+    // wait for that repaint cost close to a second before every search.
+    // "The largest the menu offers" is read off the menu's own entries,
+    // which sit in the page whether the menu is open or not.
+    const showing = Number((norm(trigger.textContent).match(/(\d+)\s*records?\s+per\s+page/i) ?? [])[1]) || 0;
+    const entriesSel = MENU_SEL.split(',')
+      .map((s) => s.trim())
+      .flatMap((s) => [`${s} li`, `${s} [role=menuitem]`, `${s} [role=option]`])
+      .join(', ');
+    const listed = Array.from((trigger.closest('li, div') ?? trigger.parentElement)?.querySelectorAll(entriesSel) ?? [])
+      .map((el) => Number(norm(el.textContent)))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const wantedNow = Number(target) > 0 ? Number(target) : listed.length ? Math.max(...listed) : 0;
+    if (showing && wantedNow && showing === wantedNow) {
+      return { changed: false, rows: showing, wanted: wantedNow, via: 'menu', options: listed.map(String), reason: 'already' };
+    }
+
+    note('click', 'page size menu');
     click(trigger);
     const menu = await waitFor(
       () =>
@@ -655,6 +742,7 @@
       items.find(({ n }) => n === wanted) ??
       items.reduce((a, b) => (b.n > a.n ? b : a));
 
+    note('click', `page size ${pick.n}`);
     click(pick.el);
     await delay(800);
     return {
@@ -746,13 +834,23 @@
   const NEXT_SEL = 'button, a, [role=button], li';
 
   function disabled(el) {
-    return (
+    if (
       el.disabled === true ||
       el.getAttribute('aria-disabled') === 'true' ||
       el.classList.contains('is-disabled') ||
       el.classList.contains('disabled') ||
       Boolean(el.closest('[disabled], [aria-disabled=true], .is-disabled, .disabled'))
-    );
+    ) {
+      return true;
+    }
+    // A wrapper is as disabled as what it wraps: an <li> whose only button is
+    // off is not a way forward, and clicking it cost the walk an eight-second
+    // wait for a change that could never come.
+    if (el.tagName === 'LI') {
+      const inner = Array.from(el.querySelectorAll('button, a, [role=button]'));
+      return inner.length > 0 && inner.every(disabled);
+    }
+    return false;
   }
 
   // "First page" is its own control, and the walk ends by pressing it: leaving
@@ -780,6 +878,7 @@
   function firstPage() {
     const btn = firstPageButton();
     if (!btn) return false;
+    note('click', 'first page');
     click(btn);
     return true;
   }
@@ -809,12 +908,213 @@
   function nextPage() {
     const btn = nextPageButton();
     if (!btn) return false;
+    note('click', 'next page');
     click(btn);
     return true;
   }
 
+  // --- What the grid says about itself ---------------------------------------
+  // The walk used to wait a fixed two seconds before reading a page. These
+  // probes let it wait for the page instead: the pager knows how many rows the
+  // page should hold, the datagrid knows whether it is still loading, and the
+  // rows themselves can be counted. Each one may be missing on a given screen,
+  // so each returns null when it finds nothing, and the caller falls back.
+
+  // The datagrid the operator sees. Hidden lookup grids carry the same markup.
+  function visibleGrid() {
+    for (const el of document.querySelectorAll(GRID_SEL)) {
+      if (inHidden(el) || !visible(el)) continue;
+      return el;
+    }
+    return null;
+  }
+
+  // The container around the grid, where Soho paints its busy indicator and
+  // where every repaint of the report happens. Null when there is no grid yet.
+  function gridRoot() {
+    const grid = visibleGrid();
+    if (!grid) return null;
+    return grid.closest('.datagrid-container, .datagrid-wrapper, .datagrid') ?? grid.parentElement;
+  }
+
+  // Data rows actually drawn. Header, filter and summary rows are not rows of
+  // the report; a datagrid marks its own as `.datagrid-row` when it is Soho,
+  // and as plain <tr> under <tbody> otherwise.
+  function gridRows() {
+    const grid = visibleGrid();
+    if (!grid) return null;
+    let n = 0;
+    for (const tr of grid.querySelectorAll('tbody tr, [role=row]')) {
+      if (tr.querySelector('th')) continue;
+      if (tr.matches('.datagrid-filter-row, .datagrid-summary-row, .datagrid-header-row')) continue;
+      if (!visible(tr)) continue;
+      n++;
+    }
+    return n;
+  }
+
+  const describeEl = (el) => {
+    const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
+    return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls ? `.${cls}` : ''}`;
+  };
+
+  // Soho's busy indicator, or an aria-busy flag, on the grid. Searched under
+  // the grid's own container first: the portal keeps its own spinners around,
+  // and one of those staying visible would stall the walk for nothing.
+  const BUSY_SEL =
+    '[aria-busy=true], .busy-indicator, .busy-indicator-container, .is-loading, [class*=busy i], [class*=spinner i]';
+  function busyIndicator() {
+    const root = gridRoot() ?? document.body;
+    for (const el of root.querySelectorAll(BUSY_SEL)) {
+      if (inHidden(el)) continue;
+      if (el.matches('[aria-busy=true]') || visible(el)) return describeEl(el);
+    }
+    if (root !== document.body && root.matches?.('[aria-busy=true]')) return describeEl(root);
+    return null;
+  }
+
+  // What the pager displays: rows per page, current page, page count, and the
+  // result count when the grid shows one. Read from the same "Records per page"
+  // wording the page-size control is found by, climbing to the toolbar that
+  // holds the page number next to it.
+  const RESULTS_RE = /(\d[\d\s.,]*)\s*(?:results?|résultats?|enregistrements?|records?\b(?!\s+per))/i;
+  function pagerState() {
+    const trigger = pagerTrigger();
+    if (!trigger) return null;
+    let box = trigger.parentElement;
+    for (let i = 0; box && i < 4; i++) {
+      const text = norm(box.textContent);
+      if (/\b(?:of|sur|de)\s+\d+/i.test(text) || box.querySelector('input')) break;
+      box = box.parentElement;
+    }
+    const text = norm(box?.textContent ?? '');
+    const pageSize = Number((norm(trigger.textContent).match(/(\d+)\s*records?\s+per\s+page/i) ?? [])[1]) || null;
+    const input = Array.from(box?.querySelectorAll('input') ?? []).find(
+      (el) => !inHidden(el) && /^\d+$/.test(norm(el.value)),
+    );
+    const page = input ? Number(input.value) : Number((text.match(/\bpage\s+(\d+)/i) ?? [])[1]) || null;
+    const pages = Number((text.match(/\b(?:of|sur|de)\s+(\d+)/i) ?? [])[1]) || null;
+    const around = norm(gridRoot()?.textContent ?? '');
+    const total = Number(((around.match(RESULTS_RE) ?? [])[1] ?? '').replace(/[\s.,]/g, '')) || null;
+    return { pageSize, page, pages, total, text: text.slice(0, 160) };
+  }
+
+  // --- Whether the grid has been redrawn since a click ------------------------
+  // The text alone cannot tell. Pressing Search with unchanged criteria draws
+  // the same rows again, and a walk that took the old grid for page one was
+  // already on page two when the fresh results replaced it. Watching the DOM
+  // under the grid's container sees the redraw whatever it contains.
+  //
+  // Not every mutation is a redraw. Re-applying the page size repaints the
+  // grid too, and an attribute flip is nothing at all: the walk took either
+  // for the search's answer and read the old rows. Only rows being added
+  // count as a redraw (`rows`, stamped in `rowsAt`); `last` still records
+  // any mutation, for the quiet window.
+  //
+  // The frame's own requests are watched alongside: the search is a request
+  // this frame sends, and its answer is what redraws the grid. Resource
+  // timing is per document and readable from the content script, so the walk
+  // can require the redraw to come after that answer, not before it.
+  //
+  // `last` counts structural mutations only — nodes and text, not attributes.
+  // Hovering the grid flips classes on rows for as long as the mouse moves,
+  // and a quiet window that listened to those never closed.
+  //
+  // `events` is the run's timeline: clicks, redraws, answers. It is what the
+  // account of a run shows when the walk did something unexpected, so that
+  // one run tells the whole story instead of one symptom.
+  const activity = { count: 0, last: 0, rows: 0, rowsAt: 0, requests: [], events: [] };
+  let watcher = null;
+  let requests = null;
+  let t0 = 0;
+  function note(kind, detail) {
+    if (activity.events.length >= 400) activity.events.shift();
+    activity.events.push({ t: Math.round(performance.now() - t0), kind, detail });
+  }
+  const addedRows = (record) => {
+    if (record.type !== 'childList') return 0;
+    let n = 0;
+    for (const node of record.addedNodes) {
+      if (node.nodeType !== 1) continue;
+      if (node.matches('tr')) n++;
+      else n += node.querySelectorAll('tr').length;
+    }
+    return n;
+  };
+  function watchGrid() {
+    if (watcher) return;
+    t0 = performance.now();
+    activity.events.length = 0;
+    activity.requests.length = 0;
+    let root = gridRoot();
+    watcher = new MutationObserver((list) => {
+      if (!root?.isConnected) root = gridRoot();
+      const scope = root ?? document.body;
+      let structural = false;
+      let rows = 0;
+      for (const x of list) {
+        if (!scope.contains(x.target)) continue;
+        if (x.type === 'attributes') continue;
+        structural = true;
+        rows += addedRows(x);
+      }
+      if (rows) {
+        activity.rows += rows;
+        activity.rowsAt = performance.now();
+        note('rows', rows);
+      }
+      if (structural) {
+        activity.count++;
+        activity.last = performance.now();
+      }
+    });
+    watcher.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: false });
+    if (typeof PerformanceObserver === 'function') {
+      requests = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          if (e.initiatorType !== 'xmlhttprequest' && e.initiatorType !== 'fetch') continue;
+          activity.requests.push({ name: e.name.slice(-90), start: e.startTime, end: e.responseEnd });
+          note('request', `${e.name.slice(-60)} ${Math.round(e.startTime - t0)}→${Math.round(e.responseEnd - t0)}`);
+        }
+      });
+      requests.observe({ type: 'resource' });
+    }
+  }
+  function unwatchGrid() {
+    watcher?.disconnect();
+    watcher = null;
+    requests?.disconnect();
+    requests = null;
+  }
+  const gridActivity = () => ({ ...activity, requests: activity.requests.slice(), events: undefined });
+  const gridEvents = () => activity.events.slice();
+  // The moment before a click: what the walk compares the grid against.
+  const gridMark = () => ({ rows: activity.rows, at: performance.now() });
+
+  // Waits for the grid to hold still after something we did to it — a page
+  // size change repaints it — so that the repaint is over before the next
+  // step marks the grid and clicks.
+  async function repaintOver(quiet = 500, ceiling = 5000) {
+    const start = performance.now();
+    while (performance.now() - start < ceiling) {
+      if (performance.now() - activity.last >= quiet) return true;
+      await delay(100);
+    }
+    return false;
+  }
+
   globalThis.wbMashup = {
     runSearch,
+    watchGrid,
+    unwatchGrid,
+    gridActivity,
+    gridEvents,
+    gridMark,
+    note,
+    gridRoot,
+    gridRows,
+    busyIndicator,
+    pagerState,
     // runSearch is async, but the "only the frame holding the form answers"
     // rule needs a synchronous verdict: a listener must decide whether to keep
     // the message channel open before it can await anything. locate() gives it

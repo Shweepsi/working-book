@@ -203,6 +203,19 @@ le README rappelle qu'il a été réglé contre l'écran réel. Le raccourcir su
 La marche est lente parce qu'elle attend, pas parce qu'elle calcule — et
 l'attente, elle, ne coûte rien à personne.
 
+**Actionné ensuite, en 2.4.** L'attente fixe a été remplacée par des signaux
+— redessin des lignes après la réponse de la requête M3 que la frame envoie,
+numéro de page affiché par le pager, nombre de lignes annoncé, 300 ms sans
+mutation structurelle — avec un seul plafond de 20 s et l'ancienne règle des
+2 s en repli quand le pager ne se lit pas. Le piège rencontré en chemin :
+relancer Search laisse l'ancienne grille affichée, complète en apparence,
+jusqu'à la réponse ; tout ce qui la repeint entre-temps (le réglage de la
+taille de page, notamment) passait pour cette réponse. D'où la taille de page
+réglée *avant* Search, la page 1 lue seulement après la requête, et un
+redémarrage du parcours si le numéro de page régresse. Mesuré sur PMS230 :
+**4 pages en ~7 s** (page 1 à 3,0 s après le clic, les suivantes à ~0,35 s),
+contre 13,2 s ici. Le détail est dans `extension/README.md`, « Garde-fous ».
+
 ---
 
 ## Corrections

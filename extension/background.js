@@ -13,6 +13,10 @@ importScripts('config.js');
 // a stale value that broke an import.
 const ROWS_PER_PAGE = -1;
 const MAX_PAGES = 20;
+// "Incl. Completed" is ticked before every search: the report is the whole
+// window, finished schedules included, whatever the screen kept from the
+// last operator.
+const INCLUDE_COMPLETED = true;
 
 const SEARCH_ALARM = 'wb-search';
 const INFOR_TABS = { url: 'https://*.inforcloudsuite.com/*' };
@@ -150,7 +154,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 
 function criteriaOf(cfg) {
   const { facility, workCenter, fromOffset, toOffset } = cfg;
-  return { facility, workCenter, fromOffset, toOffset, maxPages: MAX_PAGES, rowsPerPage: ROWS_PER_PAGE };
+  return {
+    facility,
+    workCenter,
+    fromOffset,
+    toOffset,
+    maxPages: MAX_PAGES,
+    rowsPerPage: ROWS_PER_PAGE,
+    includeCompleted: INCLUDE_COMPLETED,
+  };
 }
 
 // Broadcast to every Infor tab: the operator may have the mashup in a
@@ -179,14 +191,34 @@ function summarise(reply) {
   const swept = reply.swept;
   const lines = [];
   lines.push(reply.filled?.length ? `Critères écrits : ${reply.filled.join(', ')}.` : 'Critères déjà à jour.');
-  if (reply.rows?.rows) lines.push(`Lignes par page : ${reply.rows.rows}.`);
+  // Said every time, because it changes what the report contains and nothing
+  // on the imported rows shows which way the box was.
+  const completed = reply.completed;
+  let completedOff = false;
+  if (completed?.found) {
+    if (completed.now) lines.push('Terminés inclus.');
+    else {
+      lines.push('Terminés exclus — la case « Incl. Completed » n’a pas pu être cochée.');
+      completedOff = true;
+    }
+  } else if (completed) {
+    lines.push('Case « Incl. Completed » introuvable — terminés selon l’écran.');
+    completedOff = true;
+  }
+  const perPage = reply.rows?.rows ? ` de ${reply.rows.rows} lignes` : '';
   if (swept) {
-    lines.push(`${swept.pages} page(s) parcourue(s), ${swept.imported} ligne(s) importée(s).`);
+    const took = reply.ms ? ` en ${(reply.ms / 1000).toFixed(1).replace('.', ',')} s` : '';
+    lines.push(`${swept.pages} page(s)${perPage} parcourue(s), ${swept.imported} ligne(s) importée(s)${took}.`);
+    if (swept.restarts) lines.push('Grille remise en page 1 en cours de parcours : reparti du début.');
+    if (swept.reruns) lines.push('Réponse de la recherche arrivée après le parcours : parcours refait.');
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it
     // can be noticed is here.
     if (swept.refused?.length) lines.push(`Serveur secondaire en échec : ${swept.refused.join(', ')}.`);
+    lines.push(...anomalyLines(swept.timings));
+  } else if (perPage) {
+    lines.push(`Lignes par page : ${reply.rows.rows}.`);
   }
   if (reply.rewound) lines.push('Grille remise en page 1.');
   // Said outright rather than left to be inferred from a missing line: a
@@ -197,9 +229,64 @@ function summarise(reply) {
   const failed = (swept?.failures?.length ?? 0) + (swept?.refused?.length ?? 0);
   return {
     badge: reply.sent === false ? '✓' : String(imported || '✓'),
-    kind: failed ? 'warn' : 'ok',
+    kind: failed || completedOff ? 'warn' : 'ok',
     text: lines.join('\n'),
+    // What the walk waited on, and the run's timeline: for the options page,
+    // where someone looking into a run wants it, not in the panel.
+    detail: swept ? timingLines(swept.timings).join('\n') : '',
+    timings: swept?.timings ?? null,
+    timeline: reply.timeline ?? null,
   };
+}
+
+// Only what an operator should hear about: a page read without the signal it
+// should have had, or without any. A run where every page was read on the
+// pager's word says nothing here.
+function anomalyLines(timings) {
+  if (!timings?.length) return [];
+  const count = (...modes) => timings.filter((t) => modes.includes(t.mode)).length;
+  const lines = [];
+  const ceiling = count('timeout', 'stale');
+  if (ceiling) lines.push(`${ceiling} page(s) lue(s) au plafond de 20 s.`);
+  const fallback = count('fallback');
+  if (fallback) lines.push(`${fallback} page(s) lue(s) après 2 s de calme, pager illisible.`);
+  if (timings[0]?.via === 'redraw') lines.push('Réponse de la recherche non observée : page 1 lue sur le redessin.');
+  return lines;
+}
+
+// What the walk waited on, page by page. Each page says whether it was read
+// on the pager's word ("exacte"), on the old two-second rule ("repli"), or at
+// the ceiling — and how long it took. This is how the screen tells us which
+// signals it actually provides.
+function timingLines(timings) {
+  if (!timings?.length) return [];
+  const sec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
+  const count = (mode) => timings.filter((t) => t.mode === mode).length;
+  const all = timings.map((t) => t.ms);
+  const avg = all.reduce((a, b) => a + b, 0) / all.length;
+  const lines = [
+    `Attente par page : ${count('exact')} exacte(s), ${count('page')} par n° de page, ${count('fallback')} repli 2 s, ${count('timeout') + count('stale')} plafond, ${count('unchanged') + count('wrapped')} sans changement — moy. ${sec(avg)}, max ${sec(Math.max(...all))}.`,
+  ];
+  const withPager = timings.find((t) => t.pager);
+  if (withPager) {
+    const p = withPager.pager;
+    lines.push(`Pager lu : ${p.pageSize ?? '?'} / page, page ${p.page ?? '?'} sur ${p.pages ?? '?'}, ${p.total ?? '?'} résultat(s).`);
+  } else {
+    lines.push('Pager illisible — repli sur le délai fixe.');
+  }
+  const [firstPage] = timings;
+  if (firstPage?.request) {
+    lines.push(`Recherche : réponse à ${(firstPage.request.end / 1000).toFixed(1).replace('.', ',')} s (…${firstPage.request.name.slice(-40)}), ${firstPage.redraws ?? '?'} ligne(s) redessinée(s).`);
+  } else if (firstPage) {
+    lines.push(`Recherche : aucune requête vue depuis le clic, ${firstPage.redraws ?? '?'} ligne(s) redessinée(s), lue sur ${firstPage.via === 'redraw' ? 'le redessin + 2 s de calme' : 'le plafond'}.`);
+  }
+  const busy = timings.find((t) => t.busy);
+  if (busy) {
+    lines.push(`Indicateur d’occupation : ${busy.busy}${timings.some((t) => t.busyIgnored) ? ' (ignoré, jamais retombé)' : ''}.`);
+  } else {
+    lines.push('Aucun indicateur d’occupation vu.');
+  }
+  return lines;
 }
 
 // The single place a run's outcome becomes visible: badge, tooltip, and the
