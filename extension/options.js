@@ -126,7 +126,8 @@ async function showLastRun() {
     ? `\n\nDétail par page :\n${lastRun.timings
         .map((t, i) => {
           const at = (v) => (v == null ? '—' : `${v} ms`);
-          return `${i + 1}. ${t.mode} en ${t.ms} ms — changé ${at(t.changedAt)}, libre ${at(t.idleAt)}, complet ${at(t.fullAt)} (${t.rows ?? '?'}/${t.expected ?? '?'} lignes)${t.busy ? `, occupé : ${t.busy}` : ''}`;
+          const request = t.request ? `, requête ${t.request.name} finie à ${t.request.end} ms (${t.requests} vue(s))` : t.requests != null && i === 0 ? `, ${t.requests} requête(s) vue(s)` : '';
+          return `${i + 1}. ${t.mode} en ${t.ms} ms — changé ${at(t.changedAt)}, libre ${at(t.idleAt)}, complet ${at(t.fullAt)} (${t.rows ?? '?'}/${t.expected ?? '?'} lignes, ${t.redraws ?? '?'} redessin(s))${request}${t.busy ? `, occupé : ${t.busy}` : ''}`;
         })
         .join('\n')}\n\n${JSON.stringify(lastRun.timings)}`
     : '';

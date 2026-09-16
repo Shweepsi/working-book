@@ -230,6 +230,12 @@ function timingLines(timings) {
   } else {
     lines.push('Pager illisible — repli sur le délai fixe.');
   }
+  const [firstPage] = timings;
+  if (firstPage?.request) {
+    lines.push(`Recherche : réponse à ${(firstPage.request.end / 1000).toFixed(1)} s (…${firstPage.request.name.slice(-40)}), ${firstPage.redraws ?? '?'} redessin(s) de la grille.`);
+  } else if (firstPage) {
+    lines.push(`Recherche : aucune requête vue depuis le clic, ${firstPage.redraws ?? '?'} redessin(s) de la grille.`);
+  }
   const busy = timings.find((t) => t.busy);
   if (busy) {
     lines.push(`Indicateur d’occupation : ${busy.busy}${timings.some((t) => t.busyIgnored) ? ' (ignoré, jamais retombé)' : ''}.`);

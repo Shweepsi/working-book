@@ -100,7 +100,7 @@ function expectedRows(p) {
 // read as it stands once the ceiling passes — the old behaviour — instead of
 // ending the walk with nothing, since a slow server is not a missing page.
 function pageReady({
-  mark = 0,
+  mark = { rows: 0, at: 0 },
   before = null,
   expectPage = null,
   first = false,
@@ -124,6 +124,8 @@ function pageReady({
     busyIgnored: false,
     pager: null,
     redraws: 0,
+    requests: 0,
+    request: null,
   };
 
   return new Promise((resolve) => {
@@ -139,8 +141,19 @@ function pageReady({
       const pageKnown = expectPage != null && pager?.page != null;
       const onPage = pageKnown ? pager.page === expectPage : null;
       const activity = m?.gridActivity?.() ?? null;
-      const redrawn = activity ? activity.count > mark : true;
-      log.redraws = activity ? activity.count - mark : null;
+      let redrawn = activity ? activity.rows > mark.rows : true;
+      log.redraws = activity ? activity.rows - mark.rows : null;
+      if (activity && first) {
+        // The search is the first request this frame sent after the click,
+        // and the grid is not the search's answer until rows were drawn after
+        // that answer came back. Re-applying the page size redraws the old
+        // rows too, and that is not it.
+        const since = activity.requests.filter((r) => r.start >= mark.at);
+        const search = since[0] ?? null;
+        log.requests = since.length;
+        log.request = search ? { name: search.name, end: Math.round(search.end - mark.at) } : null;
+        redrawn = redrawn && Boolean(search) && activity.rowsAt > search.end;
+      }
 
       if (!redrawn || (before != null && h === before) || onPage === false) {
         if (elapsed >= changeWithin) {
@@ -194,7 +207,7 @@ function pageReady({
 // whatever Infor chose to list; paging has no such ceiling. Every import adds
 // to the report and a row seen twice is updated rather than duplicated, so an
 // overlapping or repeated page costs nothing.
-async function sweep(maxPages, mark = 0) {
+async function sweep(maxPages, mark = { rows: 0, at: 0 }) {
   const seen = new Set();
   let pages = 0;
   let rows = 0;
@@ -271,7 +284,7 @@ async function sweep(maxPages, mark = 0) {
     // clickable on the last page and wraps to the first.
     const { page, pages: pageCount } = ready.pager ?? {};
     if (page != null && pageCount != null && page >= pageCount) break;
-    mark = globalThis.wbMashup?.gridActivity?.().count ?? 0;
+    mark = globalThis.wbMashup?.gridMark?.() ?? mark;
     if (!globalThis.wbMashup?.nextPage()) break;
     before = h;
     expectPage = pageNo != null ? pageNo + 1 : null;
@@ -284,7 +297,7 @@ async function sweep(maxPages, mark = 0) {
 // was found and the next run does not start midway through the report.
 async function backToFirstPage() {
   const before = hash(readReport()?.text ?? '');
-  const mark = globalThis.wbMashup?.gridActivity?.().count ?? 0;
+  const mark = globalThis.wbMashup?.gridMark?.() ?? { rows: 0, at: 0 };
   if (!globalThis.wbMashup?.firstPage()) return false;
   await pageReady({ mark, before, expectPage: 1, changeWithin: 10000 });
   return true;
@@ -351,7 +364,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
         // that, always at least one page: a ceiling of 1 means "do not turn
         // pages", not "send nothing".
         const maxPages = Math.max(1, Number(criteria.maxPages) || 1);
-        const swept = wantsSend && result?.clicked ? await sweep(maxPages, result.gridMark ?? 0) : null;
+        const swept = wantsSend && result?.clicked ? await sweep(maxPages, result.gridMark ?? { rows: 0, at: 0 }) : null;
 
         // A single page never left page one, so there is nothing to undo.
         const rewound = swept && swept.pages > 1 ? await backToFirstPage() : false;

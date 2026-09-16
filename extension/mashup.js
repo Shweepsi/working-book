@@ -469,7 +469,7 @@
     // Watched from before the click: the walk must not read the grid until
     // it has been redrawn by the search this click starts.
     watchGrid();
-    const gridMark = gridActivity().count;
+    const mark = gridMark();
     if (clicked) click(found.search);
 
     // Only worth doing once a search is on its way: before that there is no
@@ -480,7 +480,7 @@
       ? await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage)
       : null;
 
-    return { ...describe(found), filled, kept, failed, empty, clicked, rows, gridMark, url: location.href };
+    return { ...describe(found), filled, kept, failed, empty, clicked, rows, gridMark: mark, url: location.href };
   }
 
   // The pager sits under the grid and defaults to 5 rows. Since the report is
@@ -918,35 +918,72 @@
   // the same rows again, and a walk that took the old grid for page one was
   // already on page two when the fresh results replaced it. Watching the DOM
   // under the grid's container sees the redraw whatever it contains.
-  const activity = { count: 0, last: 0 };
+  //
+  // Not every mutation is a redraw. Re-applying the page size repaints the
+  // grid too, and an attribute flip is nothing at all: the walk took either
+  // for the search's answer and read the old rows. Only rows being added
+  // count as a redraw (`rows`, stamped in `rowsAt`); `last` still records
+  // any mutation, for the quiet window.
+  //
+  // The frame's own requests are watched alongside: the search is a request
+  // this frame sends, and its answer is what redraws the grid. Resource
+  // timing is per document and readable from the content script, so the walk
+  // can require the redraw to come after that answer, not before it.
+  const activity = { count: 0, last: 0, rows: 0, rowsAt: 0, requests: [] };
   let watcher = null;
+  let requests = null;
+  const addsRows = (record) =>
+    record.type === 'childList' &&
+    Array.from(record.addedNodes).some(
+      (n) => n.nodeType === 1 && (n.matches('tr, tbody, table') || n.querySelector('tr')),
+    );
   function watchGrid() {
     if (watcher) return;
     let root = gridRoot();
     watcher = new MutationObserver((list) => {
       if (!root?.isConnected) root = gridRoot();
       const scope = root ?? document.body;
+      let touched = false;
       for (const x of list) {
-        if (scope.contains(x.target)) {
-          activity.count++;
-          activity.last = performance.now();
-          return;
+        if (!scope.contains(x.target)) continue;
+        touched = true;
+        if (addsRows(x)) {
+          activity.rows++;
+          activity.rowsAt = performance.now();
         }
+      }
+      if (touched) {
+        activity.count++;
+        activity.last = performance.now();
       }
     });
     watcher.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+    if (typeof PerformanceObserver === 'function') {
+      requests = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          if (e.initiatorType !== 'xmlhttprequest' && e.initiatorType !== 'fetch') continue;
+          activity.requests.push({ name: e.name.slice(-90), start: e.startTime, end: e.responseEnd });
+        }
+      });
+      requests.observe({ type: 'resource' });
+    }
   }
   function unwatchGrid() {
     watcher?.disconnect();
     watcher = null;
+    requests?.disconnect();
+    requests = null;
   }
-  const gridActivity = () => ({ ...activity });
+  const gridActivity = () => ({ ...activity, requests: activity.requests.slice() });
+  // The moment before a click: what the walk compares the grid against.
+  const gridMark = () => ({ rows: activity.rows, at: performance.now() });
 
   globalThis.wbMashup = {
     runSearch,
     watchGrid,
     unwatchGrid,
     gridActivity,
+    gridMark,
     gridRoot,
     gridRows,
     busyIndicator,
