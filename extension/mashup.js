@@ -409,6 +409,54 @@
     return found;
   }
 
+  // "Incl. Completed" is a checkbox, which the resolver above deliberately
+  // leaves out — a checkbox next to a date label is not that date's control.
+  // It is found on its own, from its wording, like everything else here.
+  const COMPLETED_LABELS = ['Incl. Completed', 'Incl Completed', 'Include Completed', 'Incl. terminés'];
+
+  function completedBox() {
+    const label = firstByText({ completed: COMPLETED_LABELS }).get('completed');
+    if (!label) return null;
+    const byFor = label.htmlFor ? document.getElementById(label.htmlFor) : null;
+    if (byFor?.type === 'checkbox') return { box: byFor, label };
+    const inside = label.querySelector?.('input[type=checkbox]');
+    if (inside) return { box: inside, label };
+    // Soho: <input type=checkbox><label>, the input right before its label.
+    let prev = label.previousElementSibling;
+    while (prev && !(prev.tagName === 'INPUT' && prev.type === 'checkbox')) prev = prev.previousElementSibling;
+    if (prev) return { box: prev, label };
+    const near = (label.closest('.checkbox, .field, li, div') ?? label.parentElement)?.querySelector('input[type=checkbox]');
+    return near ? { box: near, label } : null;
+  }
+
+  const completedState = () => completedBox()?.box.checked ?? null;
+
+  // Puts the box in the state asked for, when it is not already: the report
+  // must not depend on what the screen kept from the last operator. The label
+  // is what Soho paints and listens to; the native input is what says whether
+  // the click worked, and the fallbacks are for a screen that wires it
+  // otherwise. `wanted` null only reads.
+  async function includeCompleted(wanted) {
+    const hit = completedBox();
+    if (!hit) return { found: false, wanted };
+    const { box, label } = hit;
+    const was = box.checked;
+    if (wanted == null || was === wanted) return { found: true, wanted, was, now: was };
+    note('click', `incl. completed → ${wanted}`);
+    click(label);
+    await delay(150);
+    if (box.checked !== wanted) {
+      box.click();
+      await delay(150);
+    }
+    if (box.checked !== wanted) {
+      box.checked = wanted;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      await delay(150);
+    }
+    return { found: true, wanted, was, now: box.checked };
+  }
+
   function describe(found) {
     return {
       resolved: PARTS.filter((n) => found[n]),
@@ -459,6 +507,7 @@
     await apply('workCenter', criteria.workCenter);
     await apply('dateFrom', dateFor('dateFrom', criteria.fromOffset));
     await apply('dateTo', dateFor('dateTo', criteria.toOffset));
+    const completed = await includeCompleted(criteria.includeCompleted ?? null);
 
     // Last look at the real form rather than at what we believe we wrote: a
     // cascade can still have blanked a field after the fact.
@@ -497,7 +546,7 @@
       rows = await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage);
     }
 
-    return { ...describe(found), filled, kept, failed, empty, clicked, rows, gridMark: mark, url: location.href };
+    return { ...describe(found), filled, kept, failed, empty, completed, clicked, rows, gridMark: mark, url: location.href };
   }
 
   // The pager sits under the grid and defaults to 5 rows. Since the report is
@@ -661,9 +710,11 @@
     // "The largest the menu offers" is read off the menu's own entries,
     // which sit in the page whether the menu is open or not.
     const showing = Number((norm(trigger.textContent).match(/(\d+)\s*records?\s+per\s+page/i) ?? [])[1]) || 0;
-    const listed = Array.from(
-      (trigger.closest('li, div') ?? trigger.parentElement)?.querySelectorAll(`${MENU_SEL} li, ${MENU_SEL} [role=menuitem], ${MENU_SEL} [role=option]`) ?? [],
-    )
+    const entriesSel = MENU_SEL.split(',')
+      .map((s) => s.trim())
+      .flatMap((s) => [`${s} li`, `${s} [role=menuitem]`, `${s} [role=option]`])
+      .join(', ');
+    const listed = Array.from((trigger.closest('li, div') ?? trigger.parentElement)?.querySelectorAll(entriesSel) ?? [])
       .map((el) => Number(norm(el.textContent)))
       .filter((n) => Number.isFinite(n) && n > 0);
     const wantedNow = Number(target) > 0 ? Number(target) : listed.length ? Math.max(...listed) : 0;
@@ -1072,6 +1123,7 @@
     // that, and returns the resolved controls themselves — which is what the
     // resolver's tests check against.
     locate,
+    completedState,
     maximiseRows,
     nextPage,
     nextPageButton,

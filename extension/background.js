@@ -13,6 +13,10 @@ importScripts('config.js');
 // a stale value that broke an import.
 const ROWS_PER_PAGE = -1;
 const MAX_PAGES = 20;
+// "Incl. Completed" is ticked before every search: the report is the whole
+// window, finished schedules included, whatever the screen kept from the
+// last operator.
+const INCLUDE_COMPLETED = true;
 
 const SEARCH_ALARM = 'wb-search';
 const INFOR_TABS = { url: 'https://*.inforcloudsuite.com/*' };
@@ -154,7 +158,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 
 function criteriaOf(cfg) {
   const { facility, workCenter, fromOffset, toOffset } = cfg;
-  return { facility, workCenter, fromOffset, toOffset, maxPages: MAX_PAGES, rowsPerPage: ROWS_PER_PAGE };
+  return {
+    facility,
+    workCenter,
+    fromOffset,
+    toOffset,
+    maxPages: MAX_PAGES,
+    rowsPerPage: ROWS_PER_PAGE,
+    includeCompleted: INCLUDE_COMPLETED,
+  };
 }
 
 // Broadcast to every Infor tab: the operator may have the mashup in a
@@ -183,6 +195,20 @@ function summarise(reply) {
   const swept = reply.swept;
   const lines = [];
   lines.push(reply.filled?.length ? `Critères écrits : ${reply.filled.join(', ')}.` : 'Critères déjà à jour.');
+  // Said every time, because it changes what the report contains and nothing
+  // on the imported rows shows which way the box was.
+  const completed = reply.completed;
+  let completedOff = false;
+  if (completed?.found) {
+    if (completed.now) lines.push(`Terminés inclus${completed.was ? '' : ' (case cochée)'}.`);
+    else {
+      lines.push('Terminés exclus — la case « Incl. Completed » n’a pas pu être cochée.');
+      completedOff = true;
+    }
+  } else if (completed) {
+    lines.push('Case « Incl. Completed » introuvable — terminés selon l’écran.');
+    completedOff = true;
+  }
   if (reply.rows?.rows) lines.push(`Lignes par page : ${reply.rows.rows}.`);
   if (swept) {
     lines.push(`${swept.pages} page(s) parcourue(s), ${swept.imported} ligne(s) importée(s).`);
@@ -204,7 +230,7 @@ function summarise(reply) {
   const failed = (swept?.failures?.length ?? 0) + (swept?.refused?.length ?? 0);
   return {
     badge: reply.sent === false ? '✓' : String(imported || '✓'),
-    kind: failed ? 'warn' : 'ok',
+    kind: failed || completedOff ? 'warn' : 'ok',
     text: lines.join('\n'),
     // The raw per-page account and the run's timeline, kept for the options
     // page: the lines above summarise them, and the point of the test build

@@ -407,6 +407,7 @@ function probe() {
     pager,
     expected: expectedRows(pager),
     nextButton: Boolean(m?.nextPageButton?.()),
+    inclCompleted: m?.completedState?.() ?? null,
   };
 }
 

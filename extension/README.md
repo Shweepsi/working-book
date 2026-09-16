@@ -223,6 +223,12 @@ en permanence la semaine écoulée et les deux à venir. Une date en dur
 serait juste le premier jour et fausse tous les suivants, sans que personne s'en
 aperçoive. Un critère laissé vide n'est pas écrit : l'écran garde sa valeur.
 
+**« Incl. Completed » est coché avant chaque recherche** : le rapport couvre
+toute la fenêtre, schedules terminés compris, quel que soit l'état dans lequel
+le dernier opérateur a laissé la case. Le compte-rendu le dit à chaque
+exécution (« Terminés inclus », ou en avertissement si la case n'a pas été
+trouvée ou n'a pas pu être cochée), et la sonde affiche son état.
+
 L'onglet Mingle doit rester ouvert et la session Infor valide — l'extension
 pilote la page de l'opérateur, elle ne se connecte pas à Infor.
 
