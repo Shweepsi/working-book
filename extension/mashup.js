@@ -429,8 +429,6 @@
     return near ? { box: near, label } : null;
   }
 
-  const completedState = () => completedBox()?.box.checked ?? null;
-
   // Puts the box in the state asked for, when it is not already: the report
   // must not depend on what the screen kept from the last operator. The label
   // is what Soho paints and listens to; the native input is what says whether
@@ -1123,7 +1121,6 @@
     // that, and returns the resolved controls themselves — which is what the
     // resolver's tests check against.
     locate,
-    completedState,
     maximiseRows,
     nextPage,
     nextPageButton,

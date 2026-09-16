@@ -136,10 +136,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     runEverything(msg.send !== false).then(respond);
     return true;
   }
-  if (msg?.type === 'wb-probe') {
-    ask({ type: 'wb-probe' }).then(respond);
-    return true;
-  }
   if (msg?.type === 'wb-progress') {
     // Kept alive well past a normal badge: a thirty-page walk must not look
     // like an extension that stopped responding.

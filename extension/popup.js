@@ -120,36 +120,9 @@ async function launch(send) {
   }
 }
 
-// Reads the grid's signals without driving anything: what the pager says, how
-// many rows are drawn, whether a busy indicator is up. The way to see in one
-// glance why a page was read on the fallback rather than on the pager's word.
-async function probe() {
-  say('Lecture de la grille…');
-  try {
-    const seen = await chrome.runtime.sendMessage({ type: 'wb-probe' });
-    if (!seen) return say('Aucune grille PMS230 à l’écran.', 'err');
-    const p = seen.pager;
-    say(
-      [
-        seen.grid ? `Grille : ${seen.grid}` : 'Grille : aucune',
-        `Lignes affichées : ${seen.rows ?? '?'} (${seen.count} schedules)`,
-        p
-          ? `Pager : page ${p.page ?? '?'} sur ${p.pages ?? '?'}, ${p.pageSize ?? '?'} / page${p.total ? `, ${p.total} résultats` : ''}`
-          : 'Pager : illisible',
-        `Terminés inclus : ${seen.inclCompleted == null ? 'case introuvable' : seen.inclCompleted ? 'oui' : 'non'}`,
-        `Indicateur d’occupation : ${seen.busy ?? 'aucun'}`,
-        `Page suivante : ${seen.nextButton ? 'disponible' : 'absente'}`,
-      ].join('\n'),
-    );
-  } catch (err) {
-    say(`Interrompu : ${err}`, 'err');
-  }
-}
-
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 $('run').addEventListener('click', () => launch(true));
 $('search').addEventListener('click', () => launch(false));
-$('probe').addEventListener('click', probe);
 
 // Awaited in order, not fired together. showCriteria() ends on running(false)
 // and restoreProgress() may follow with running(true) — started in parallel,

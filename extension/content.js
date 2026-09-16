@@ -390,37 +390,7 @@ async function backToFirstPage() {
 // so an eager empty frame would beat the one actually holding the report.
 // Silence everywhere leaves the caller with no responder, which it reads as
 // "nothing found".
-// What the readiness probes read right now, with nothing driven. Behind the
-// panel's "Sonder" button: opened on a PMS230 screen, it shows in one glance
-// which signals this screen provides and what the pager's wording looks like.
-function probe() {
-  const m = globalThis.wbMashup;
-  const root = m?.gridRoot?.() ?? null;
-  const report = readReport();
-  const pager = m?.pagerState?.() ?? null;
-  return {
-    frame: location.href,
-    grid: root ? `${root.tagName.toLowerCase()}${root.id ? `#${root.id}` : ''}.${String(root.className).trim().split(/\s+/).slice(0, 3).join('.')}` : null,
-    rows: m?.gridRows?.() ?? null,
-    count: report?.count ?? 0,
-    busy: m?.busyIndicator?.() ?? null,
-    pager,
-    expected: expectedRows(pager),
-    nextButton: Boolean(m?.nextPageButton?.()),
-    inclCompleted: m?.completedState?.() ?? null,
-  };
-}
-
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
-  if (msg?.type === 'wb-probe') {
-    // Only the frame that holds a grid or a pager answers, for the same reason
-    // as below: the broadcast keeps the first reply.
-    const m = globalThis.wbMashup;
-    if (!readReport() && !m?.gridRoot?.() && !m?.pagerState?.()) return false;
-    respond({ found: true, ...probe() });
-    return true;
-  }
-
   if (msg?.type === 'wb-scrape') {
     const report = readReport();
     if (!report) return false;

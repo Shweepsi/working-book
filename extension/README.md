@@ -227,7 +227,7 @@ aperçoive. Un critère laissé vide n'est pas écrit : l'écran garde sa valeur
 toute la fenêtre, schedules terminés compris, quel que soit l'état dans lequel
 le dernier opérateur a laissé la case. Le compte-rendu le dit à chaque
 exécution (« Terminés inclus », ou en avertissement si la case n'a pas été
-trouvée ou n'a pas pu être cochée), et la sonde affiche son état.
+trouvée ou n'a pas pu être cochée).
 
 L'onglet Mingle doit rester ouvert et la session Infor valide — l'extension
 pilote la page de l'opérateur, elle ne se connecte pas à Infor.
@@ -334,8 +334,7 @@ besoin une fois l'écran compris.
     signal attendu (plafond, repli, réponse non observée, parcours repris).
     La page d'options garde, sous **Diagnostic**, l'attente signal par
     signal, le détail par page et la **chronologie** complète (clics,
-    redessins, requêtes, lectures). Le bouton **Sonder la grille** du panneau
-    lit ces mêmes signaux à froid, sans rien lancer.
+    redessins, requêtes, lectures).
 - **Anti-répétition** : au cours d'un parcours, une page dont le contenu répète
   la précédente arrête la boucle — c'est ainsi que la dernière page est
   reconnue.
