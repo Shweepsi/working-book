@@ -295,8 +295,9 @@ besoin une fois l'écran compris.
 
 ## Garde-fous
 
-- **Attente de la page** (version test 2.4) : plus de minuterie, une page est
-  lue sur des signaux, avec un seul plafond de 20 s.
+- **Attente de la page** (depuis 2.4) : plus de minuterie, une page est lue
+  sur des signaux, avec un seul plafond de 20 s. Mesuré sur PMS230 : 4 pages
+  en ~7 s, contre ~13 s avec l'ancienne attente fixe de 2 s par page.
   - *La recherche d'abord.* Relancer Search laisse l'ancienne grille à l'écran,
     complète en apparence, jusqu'à la réponse — et une recherche aux critères
     inchangés redessine le même texte. Un observateur est donc posé **avant**

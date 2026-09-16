@@ -656,10 +656,19 @@
     if (!trigger || !opensMenu(trigger)) return null;
 
     // Already showing the size asked for: nothing to click. Re-picking the
-    // same entry is not free — Soho repaints the whole grid for it.
+    // same entry is not free — Soho repaints the whole grid for it, and the
+    // wait for that repaint cost close to a second before every search.
+    // "The largest the menu offers" is read off the menu's own entries,
+    // which sit in the page whether the menu is open or not.
     const showing = Number((norm(trigger.textContent).match(/(\d+)\s*records?\s+per\s+page/i) ?? [])[1]) || 0;
-    if (showing && Number(target) > 0 && showing === Number(target)) {
-      return { changed: false, rows: showing, wanted: Number(target), via: 'menu', reason: 'already' };
+    const listed = Array.from(
+      (trigger.closest('li, div') ?? trigger.parentElement)?.querySelectorAll(`${MENU_SEL} li, ${MENU_SEL} [role=menuitem], ${MENU_SEL} [role=option]`) ?? [],
+    )
+      .map((el) => Number(norm(el.textContent)))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const wantedNow = Number(target) > 0 ? Number(target) : listed.length ? Math.max(...listed) : 0;
+    if (showing && wantedNow && showing === wantedNow) {
+      return { changed: false, rows: showing, wanted: wantedNow, via: 'menu', options: listed.map(String), reason: 'already' };
     }
 
     note('click', 'page size menu');

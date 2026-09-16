@@ -225,7 +225,7 @@ function timingLines(timings) {
   const all = timings.map((t) => t.ms);
   const avg = all.reduce((a, b) => a + b, 0) / all.length;
   const lines = [
-    `Attente par page (test) : ${count('exact')} exacte(s), ${count('page')} par n° de page, ${count('fallback')} repli 2 s, ${count('timeout') + count('stale')} plafond, ${count('unchanged') + count('wrapped')} sans changement — moy. ${sec(avg)}, max ${sec(Math.max(...all))}.`,
+    `Attente par page : ${count('exact')} exacte(s), ${count('page')} par n° de page, ${count('fallback')} repli 2 s, ${count('timeout') + count('stale')} plafond, ${count('unchanged') + count('wrapped')} sans changement — moy. ${sec(avg)}, max ${sec(Math.max(...all))}.`,
   ];
   const withPager = timings.find((t) => t.pager);
   if (withPager) {
