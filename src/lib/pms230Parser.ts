@@ -156,6 +156,70 @@ function findScheduleAnchors(tokens: string[]): number[] {
   return anchors;
 }
 
+// Where the MO may sit at the latest: schedule, suffix, three op steps, work
+// center, four start/end cells, Date Départ — the full head, nothing missing.
+const HEAD_MAX = 11;
+const TIME_RE = /^\d{1,2}:\d{2}$/;
+
+type HeadFields = Pick<
+  DecodedRecord,
+  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart'
+>;
+
+// Reads the cells between the schedule and the MO by what they look like. Op
+// steps are always two digits and the suffix one, so neither needs its slot;
+// the work center is the one word; dates and times then fill start date, start
+// time, end date, end time and Date Départ in that order, each cell taking the
+// next slot of its own kind. A missing start time therefore leaves that slot
+// empty instead of pushing a date into it.
+function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null {
+  let mo = -1;
+  for (let k = 1; k <= HEAD_MAX && k < slice.length; k++) {
+    if (MO_RE.test(slice[k]!)) { mo = k; break; }
+  }
+  if (mo < 0) return null;
+
+  const fields: HeadFields = {
+    schedSuffix: '0',
+    opSteps: '',
+    opStepD: 0,
+    workCenter: '',
+    startDate: '',
+    startTime: '',
+    endDate: '',
+    endTime: '',
+    dateDepart: null,
+  };
+  const ops: string[] = [];
+  const slots = [
+    { key: 'startDate', re: DATE_RE },
+    { key: 'startTime', re: TIME_RE },
+    { key: 'endDate', re: DATE_RE },
+    { key: 'endTime', re: TIME_RE },
+    { key: 'dateDepart', re: DATE_RE },
+  ] as const;
+  let slot = 0;
+
+  for (let k = 1; k < mo; k++) {
+    const t = slice[k]!;
+    if (!fields.workCenter && SHORT_INT_RE.test(t)) {
+      if (k === 1 && t.length === 1) fields.schedSuffix = t;
+      else ops.push(t);
+      continue;
+    }
+    if (!fields.workCenter && !DATE_RE.test(t) && !TIME_RE.test(t)) {
+      fields.workCenter = t;
+      continue;
+    }
+    while (slot < slots.length && !slots[slot]!.re.test(t)) slot++;
+    if (slot < slots.length) fields[slots[slot++]!.key] = t;
+  }
+
+  fields.opSteps = ops.slice(0, 3).join('/');
+  fields.opStepD = Number(ops[1]) || 0; // second op-step; the planner's Excel filters on D!=90
+  return { fields, mo };
+}
+
 function decodeRecord(slice: string[], warnings: string[], recordIdx: number): DecodedRecord | null {
   // Return null for unrecoverable rows; the caller will skip them.
   if (slice.length < 13) {
@@ -163,17 +227,21 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
     return null;
   }
 
+  // The head — suffix, op steps, work center, start/end, Date Départ — is read
+  // by type up to the MO, not by position. The extension reads the grid through
+  // `innerText`, where an empty cell leaves no line at all: a row with no start
+  // time slid every later field up one slot, and the MO was then looked for
+  // where the product sat. The row was dropped, import after import, while its
+  // neighbours went through (sched 2213000828, September 2026).
+  const head = decodeHead(slice);
+  if (!head) {
+    warnings.push(`Record ${recordIdx} (sched ${slice[0]}): no MO in the first ${HEAD_MAX + 1} fields`);
+    return null;
+  }
+
   const r: DecodedRecord = {
     schedule: slice[0]!,
-    schedSuffix: slice[1] ?? '0',
-    opSteps: [slice[2], slice[3], slice[4]].filter(Boolean).join('/'),
-    opStepD: Number(slice[3]) || 0, // second op-step; the planner's Excel filters on D!=90
-    workCenter: slice[5] ?? '',
-    startDate: slice[6] ?? '',
-    startTime: slice[7] ?? '',
-    endDate: slice[8] ?? '',
-    endTime: slice[9] ?? '',
-    dateDepart: null,
+    ...head.fields,
     mo: '',
     product: '',
     itemName: '',
@@ -194,19 +262,7 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
     customer: '',
   };
 
-  let i = 10;
-
-  // Optional Date Départ — present if it's an 8-digit date AND the *next* token
-  // is an MO (10-digit starting with 1). Otherwise the next token is the MO itself.
-  if (DATE_RE.test(slice[i] ?? '') && MO_RE.test(slice[i + 1] ?? '')) {
-    r.dateDepart = slice[i]!;
-    i++;
-  }
-
-  if (!MO_RE.test(slice[i] ?? '')) {
-    warnings.push(`Record ${recordIdx} (sched ${r.schedule}): expected MO at position ${i}, got "${slice[i]}"`);
-    return null;
-  }
+  let i = head.mo;
   r.mo = slice[i++]!;
 
   if (!PRODUCT_RE.test(slice[i] ?? '')) {
