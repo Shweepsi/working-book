@@ -37,8 +37,28 @@
       button.second { margin-top: 6px; }
       button[disabled] { opacity: 0.55; cursor: default; }
       #status { white-space: pre-wrap; font-size: 12px; min-height: 18px; margin-top: 10px; }
-      .ok { color: #2e7d32; }
-      .err { color: #c62828; }
+      #status:empty { display: none; }
+      .result {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        border-left: 4px solid var(--tone);
+        background: color-mix(in srgb, var(--tone) 10%, transparent);
+      }
+      .result[hidden] { display: none; }
+      .result.ok { --tone: #2e7d32; }
+      .result.warn { --tone: #ed6c02; }
+      .result.err { --tone: #c62828; }
+      @media (prefers-color-scheme: dark) {
+        .result.ok { --tone: #66bb6a; }
+        .result.warn { --tone: #ffa726; }
+        .result.err { --tone: #ef5350; }
+      }
+      .verdict { font-weight: 600; font-size: 14px; color: var(--tone); }
+      .headline { margin-top: 2px; }
+      .reasons { margin: 6px 0 0; padding-left: 18px; font-size: 12px; }
+      .reasons:empty { display: none; }
+      .more { margin-top: 6px; font-size: 11px; opacity: 0.6; }
     </style>
   </head>
   <body>
@@ -53,6 +73,13 @@
     <button id="search" class="second" type="button">Lancer la recherche</button>
 
     <div id="status" aria-live="polite"></div>
+
+    <div id="result" class="result" hidden aria-live="polite">
+      <div class="verdict" id="verdict"></div>
+      <div class="headline" id="headline"></div>
+      <ul class="reasons" id="reasons"></ul>
+      <div class="more">Détail complet : clic droit sur l’icône → Options.</div>
+    </div>
 
     <script src="config.js"></script>
     <script src="popup.js"></script>

@@ -8,9 +8,30 @@
 
 const $ = (id) => document.getElementById(id);
 
-function say(message, kind) {
+// Progress while a run is in flight. Plain text: the verdict below replaces it
+// once the run is over.
+function say(message) {
   $('status').textContent = message;
-  $('status').className = kind ?? '';
+  $('result').hidden = true;
+}
+
+// How a run ended, in three words an operator can read across the room. The
+// details — criteria written, timings, pager — stay in the tooltip and the
+// options page, where someone looking into a run goes for them.
+const VERDICTS = { ok: 'Terminé OK', warn: 'Terminé — avertissement', err: 'NOK' };
+
+function verdict(summary) {
+  const kind = VERDICTS[summary?.kind] ? summary.kind : 'err';
+  // A summary stored before `headline` existed still has its first line.
+  const headline = summary?.headline ?? String(summary?.text ?? '').split('\n')[0];
+  $('status').textContent = '';
+  $('result').className = `result ${kind}`;
+  $('verdict').textContent = VERDICTS[kind];
+  $('headline').textContent = headline;
+  $('reasons').replaceChildren(
+    ...(summary?.reasons ?? []).map((r) => Object.assign(document.createElement('li'), { textContent: r })),
+  );
+  $('result').hidden = false;
 }
 
 function pad(n) {
@@ -103,7 +124,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if ('lastRun' in changes) {
     running(false);
     const run = changes.lastRun.newValue;
-    if (run) say(run.text, run.kind === 'ok' ? 'ok' : run.kind === 'err' ? 'err' : '');
+    if (run) verdict(run);
   }
 });
 
@@ -112,9 +133,9 @@ async function launch(send) {
   say(send ? 'Recherche en cours…' : 'Remplissage des critères…');
   try {
     const summary = await chrome.runtime.sendMessage({ type: 'wb-run-all', send });
-    say(summary?.text ?? 'Terminé.', summary?.kind === 'ok' ? 'ok' : 'err');
+    verdict(summary ?? { kind: 'err', headline: 'Aucune réponse de l’extension' });
   } catch (err) {
-    say(`Interrompu : ${err}`, 'err');
+    verdict({ kind: 'err', headline: 'Interrompu', reasons: [String(err)] });
   } finally {
     running(false);
   }

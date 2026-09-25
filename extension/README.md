@@ -87,7 +87,17 @@ vu.
 
 Pendant l'exécution les deux boutons se verrouillent, seul celui qui a été
 pressé change de libellé, et le panneau compte les pages ; à la fin il affiche
-le récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
+un **verdict**, pas le récapitulatif :
+
+- **Terminé OK** — suivi d'une ligne : « 651 ligne(s) importée(s) · 4 page(s) » ;
+- **Terminé — avertissement** — l'import a eu lieu, mais quelque chose mérite
+  un regard : pages refusées par le serveur, serveur secondaire en échec,
+  terminés non inclus. Les raisons suivent, en quelques mots ;
+- **NOK** — rien n'a atteint le rapport : écran PMS230 absent, recherche non
+  lancée, toutes les pages refusées, exécution interrompue.
+
+Le détail (critères écrits, pager, attentes page par page) n'a rien à faire
+dans un coup d'œil : il reste dans l'infobulle et dans les options. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
 la progression là où elle en est.
 
 Fermer le **navigateur**, en revanche, interrompt tout — et la progression
@@ -117,8 +127,8 @@ L'enchaînement complet, lui, est inchangé :
 La pastille sur l'icône suit la même exécution : elle compte les pages, puis
 affiche le nombre de lignes importées. Le récapitulatif se conserve à deux
 endroits — le survol de l'icône et les options sous **Dernière exécution**.
-Le panneau, lui, l'affiche à la fin de l'exécution mais ne garde pas trace
-des précédentes.
+Le panneau, lui, n'en montre que le verdict à la fin de l'exécution et ne
+garde pas trace des précédentes.
 
 Le décompte est celui que le **serveur** a effectivement enregistré, pas le
 nombre de lignes que la grille affichait : les deux diffèrent dès qu'une ligne
