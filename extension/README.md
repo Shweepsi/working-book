@@ -71,9 +71,9 @@ qui en sont la source.
 
 Deux boutons, selon ce qu'on veut :
 
-- **Rapport auto** enchaîne tout, jusqu'à l'envoi ;
 - **Lancer la recherche** s'arrête après avoir préparé la grille — critères
-  remplis, Search pressé, pagination élargie — et **n'envoie rien**.
+  remplis, Search pressé, pagination élargie — et **n'envoie rien** ;
+- **Rapport auto**, en dessous, enchaîne tout, jusqu'à l'envoi.
 
 Le second n'est pas une exécution amputée : le chemin est le même, seul l'envoi
 est retenu. C'est aussi le seul des deux qui reste disponible sans adresse de
