@@ -55,16 +55,51 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
-// The same arithmetic the run itself does, shown before it runs: an operator
-// should be able to see which window is about to be asked for, not discover it
-// afterwards in the report.
-function windowOf(fromOffset, toOffset) {
-  const at = (days) => {
-    const d = new Date();
-    d.setDate(d.getDate() + Number(days || 0));
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
-  };
-  return `${at(fromOffset)} → ${at(toOffset)}`;
+// The window is stored as offsets from today, never as dates: a stored
+// 20260718 would silently go stale the next morning. The panel shows and takes
+// real dates — that is what an operator thinks in — and turns whatever is
+// picked back into offsets, so a window chosen today still slides tomorrow.
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayAt(offset) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); // noon: a DST change can't push the day over an edge
+  d.setDate(d.getDate() + Number(offset || 0));
+  return d;
+}
+
+function isoOf(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function offsetOf(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return Math.round((new Date(y, m - 1, d, 12) - dayAt(0)) / DAY_MS);
+}
+
+function relative(offset) {
+  if (!offset) return 'J';
+  return `J${offset > 0 ? '+' : '−'}${Math.abs(offset)}`;
+}
+
+function showWindow(fromOffset, toOffset) {
+  $('from').value = isoOf(dayAt(fromOffset));
+  $('to').value = isoOf(dayAt(toOffset));
+  $('relative').textContent = `${relative(fromOffset)} → ${relative(toOffset)}`;
+}
+
+// A start past the end is not refused, it drags the other bound along: the
+// field being edited is the one the operator means.
+async function saveWindow(changed) {
+  if (!$('from').value || !$('to').value) return;
+  let fromOffset = offsetOf($('from').value);
+  let toOffset = offsetOf($('to').value);
+  if (fromOffset > toOffset) {
+    if (changed === 'from') toOffset = fromOffset;
+    else fromOffset = toOffset;
+  }
+  showWindow(fromOffset, toOffset);
+  await chrome.storage.sync.set({ fromOffset, toOffset });
 }
 
 async function showCriteria() {
@@ -72,25 +107,11 @@ async function showCriteria() {
   // A search touches nothing but the Mingle screen, so it stays available even
   // with no server configured; only the import has anywhere to send to.
   configured = cfg.apiBases.length > 0;
+  showWindow(cfg.fromOffset, cfg.toOffset);
+  // No button leads to the server settings any more, so the way back has to be
+  // spelled out. The window stays editable: a search needs no server.
+  $('unconfigured').hidden = configured;
   running(false);
-  if (!configured) {
-    // No button leads here any more, so the way back has to be spelled out.
-    $('criteria').replaceChildren(
-      el('span', {
-        className: 'note',
-        textContent: 'Adresse du serveur non renseignée.\nClic droit sur l’icône → Options.',
-      }),
-    );
-    return;
-  }
-  // The server addresses are deliberately not repeated here: the options page
-  // owns them, and this card is read at a glance before pressing, not audited.
-  const row = (label, value) => [el('dt', { textContent: label }), el('dd', { textContent: value })];
-  $('criteria').replaceChildren(
-    el('dl', {}, [
-      ...row('Fenêtre', windowOf(cfg.fromOffset, cfg.toOffset)),
-    ]),
-  );
 }
 
 // Two ways to press: prepare the grid, or prepare it and import it. Both walk
@@ -108,6 +129,10 @@ function running(on, which) {
     $(id).textContent = busy ? BUSY[id] : LABELS[id];
     $(id).setAttribute('aria-busy', String(busy));
   }
+  // The walk reads the window once, at the start; changing it mid-run would
+  // show a window the run in flight is not using.
+  $('from').disabled = on;
+  $('to').disabled = on;
 }
 
 // A run outlives the popup: closing it does not stop anything, and reopening
@@ -172,6 +197,8 @@ async function launch(send) {
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 $('run').addEventListener('click', () => launch(true));
 $('search').addEventListener('click', () => launch(false));
+$('from').addEventListener('change', () => saveWindow('from'));
+$('to').addEventListener('change', () => saveWindow('to'));
 
 // Awaited in order, not fired together. showCriteria() ends on running(false)
 // and restoreProgress() may follow with running(true) — started in parallel,

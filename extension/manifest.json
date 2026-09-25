@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Working Book — import Operator Mashup",
-  "version": "2.7.3",
+  "version": "2.8.0",
   "description": "Envoie le rapport PMS230 de l'Operator Mashup vers Working Book, sans copier-coller.",
   "permissions": ["storage", "alarms"],
   "host_permissions": [

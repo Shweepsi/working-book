@@ -63,8 +63,14 @@ essai.
 ## Le panneau
 
 Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **la fenêtre de
-dates** calculée pour aujourd'hui. L'installation et le centre de charge ne
-changent jamais : ils se lisent dans les options. Plus la version chargée — utile pour savoir d'un
+dates** calculée pour aujourd'hui, et permet de la changer sur place : deux
+champs de date, début et fin. Ce qui est choisi est enregistré en décalage par
+rapport à aujourd'hui — « J−5 → J+30 », affiché à côté — et non en dates : la
+fenêtre glisse d'un jour à l'autre comme celle réglée dans les options, qui
+est la même. Un début placé après la fin entraîne la fin avec lui, et
+inversement. Les champs sont verrouillés pendant une exécution.
+L'installation et le centre de charge ne changent jamais : ils se lisent dans
+les options. Plus la version chargée — utile pour savoir d'un
 coup d'œil si le poste tourne bien sur la dernière build. Les adresses des
 serveurs, elles, ne sont pas répétées ici : elles se lisent dans les options,
 qui en sont la source.
