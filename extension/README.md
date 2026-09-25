@@ -86,10 +86,12 @@ donc l'empreinte du rapport **sans l'envoyer**, ce qui le fait passer pour déj�
 vu.
 
 Pendant l'exécution les deux boutons se verrouillent, seul celui qui a été
-pressé change de libellé, et le panneau compte les pages ; à la fin il affiche
+pressé change de libellé et tourne, et le panneau compte les pages et les
+lignes ; à la fin il affiche
 un **verdict**, pas le récapitulatif :
 
-- **Terminé OK** — suivi d'une ligne : « 651 ligne(s) importée(s) · 4 page(s) » ;
+- **Terminé OK** — suivi du résultat, « 651 lignes importées », puis du nombre
+  de pages et de l'heure ;
 - **Terminé — avertissement** — l'import a eu lieu, mais quelque chose mérite
   un regard : pages refusées par le serveur, serveur secondaire en échec,
   terminés non inclus. Les raisons suivent, en quelques mots ;

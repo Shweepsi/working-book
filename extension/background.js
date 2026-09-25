@@ -177,6 +177,11 @@ async function driveSearch(send = true) {
   return ask({ type: 'wb-search', criteria: criteriaOf(cfg), send });
 }
 
+// « 1 ligne », « 651 lignes » — French puts 0 and 1 in the singular.
+function plural(n, one, many) {
+  return `${n} ${n > 1 ? many : one}`;
+}
+
 // A run that went nowhere. `headline` is what the panel shows under its
 // verdict; `text` is the full account, for the tooltip and the options page.
 function failure(badgeText, headline, reasons = []) {
@@ -236,15 +241,18 @@ function summarise(reply) {
   const imported = swept?.imported ?? 0;
   const pageFailures = swept?.failures?.length ?? 0;
   const reasons = [];
-  if (pageFailures) reasons.push(`${pageFailures} page(s) refusée(s) par le serveur`);
-  if (swept?.refused?.length) reasons.push(`Serveur secondaire en échec : ${swept.refused.join(', ')}`);
+  if (pageFailures) reasons.push(`${plural(pageFailures, 'page refusée', 'pages refusées')} par le serveur`);
+  // The first label is enough to tell dev from prod; the full host stays in `text`.
+  if (swept?.refused?.length) {
+    reasons.push(`Serveur secondaire en échec (${swept.refused.map((h) => h.split('.')[0]).join(', ')})`);
+  }
   if (completedOff) reasons.push('Terminés non inclus');
 
   const headline =
     reply.sent === false
       ? 'Grille prête, rien n’a été envoyé'
       : swept
-        ? `${imported} ligne(s) importée(s) · ${swept.pages} page(s)`
+        ? plural(imported, 'ligne importée', 'lignes importées')
         : 'Aucune page lue';
   // Every page refused, or nothing read at all, is not a run with a warning:
   // nothing reached the report.
@@ -253,6 +261,7 @@ function summarise(reply) {
     badge: reply.sent === false ? '✓' : String(imported || (sank ? '!' : '✓')),
     kind: sank ? 'err' : reasons.length ? 'warn' : 'ok',
     headline,
+    meta: swept ? plural(swept.pages, 'page', 'pages') : '',
     reasons,
     text: lines.join('\n'),
     // What the walk waited on, and the run's timeline: for the options page,
@@ -408,7 +417,7 @@ async function walk(send) {
   if (!send) return record(null);
   const scraped = await ask({ type: 'wb-scrape' });
   if (scraped?.found) {
-    const headline = `${scraped.count} ligne(s) envoyée(s) depuis l’écran affiché`;
+    const headline = `${plural(scraped.count, 'ligne envoyée', 'lignes envoyées')} depuis l’écran affiché`;
     return publish({ badge: String(scraped.count), kind: 'ok', headline, reasons: [], text: `${headline}.` });
   }
   return record(null);

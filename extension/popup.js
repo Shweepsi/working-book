@@ -8,11 +8,28 @@
 
 const $ = (id) => document.getElementById(id);
 
-// Progress while a run is in flight. Plain text: the verdict below replaces it
-// once the run is over.
-function say(message) {
-  $('status').textContent = message;
+// Progress while a run is in flight: what the walk is doing, and how far it
+// has got. The verdict replaces it once the run is over.
+function say(title, detail = '') {
+  $('statusTitle').textContent = title;
+  $('statusDetail').textContent = detail;
+  $('status').hidden = false;
   $('result').hidden = true;
+}
+
+function plural(n, one, many) {
+  return `${n} ${n > 1 ? many : one}`;
+}
+
+// The pressed button already says what is running; this says how far.
+function sayPage(page, imported) {
+  say(`Page ${page}`, plural(Number(imported) || 0, 'ligne importée', 'lignes importées'));
+}
+
+function el(tag, props = {}, children = []) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
 }
 
 // How a run ended, in three words an operator can read across the room. The
@@ -24,13 +41,13 @@ function verdict(summary) {
   const kind = VERDICTS[summary?.kind] ? summary.kind : 'err';
   // A summary stored before `headline` existed still has its first line.
   const headline = summary?.headline ?? String(summary?.text ?? '').split('\n')[0];
-  $('status').textContent = '';
+  const at = summary?.at ? new Date(summary.at) : new Date();
+  $('status').hidden = true;
   $('result').className = `result ${kind}`;
   $('verdict').textContent = VERDICTS[kind];
+  $('meta').textContent = [summary?.meta, `${pad(at.getHours())}:${pad(at.getMinutes())}`].filter(Boolean).join(' · ');
   $('headline').textContent = headline;
-  $('reasons').replaceChildren(
-    ...(summary?.reasons ?? []).map((r) => Object.assign(document.createElement('li'), { textContent: r })),
-  );
+  $('reasons').replaceChildren(...(summary?.reasons ?? []).map((r) => el('li', { textContent: r })));
   $('result').hidden = false;
 }
 
@@ -58,16 +75,23 @@ async function showCriteria() {
   running(false);
   if (!configured) {
     // No button leads here any more, so the way back has to be spelled out.
-    $('criteria').textContent =
-      'Adresse du serveur non renseignée.\nClic droit sur l’icône → Options.';
+    $('criteria').replaceChildren(
+      el('span', {
+        className: 'note',
+        textContent: 'Adresse du serveur non renseignée.\nClic droit sur l’icône → Options.',
+      }),
+    );
     return;
   }
   // The server addresses are deliberately not repeated here: the options page
   // owns them, and this card is read at a glance before pressing, not audited.
-  $('criteria').textContent = [
-    `${cfg.facility} · ${cfg.workCenter}`,
-    `Fenêtre ${windowOf(cfg.fromOffset, cfg.toOffset)}`,
-  ].join('\n');
+  const row = (label, value) => [el('dt', { textContent: label }), el('dd', { textContent: value })];
+  $('criteria').replaceChildren(
+    el('dl', {}, [
+      ...row('Installation', `${cfg.facility} · ${cfg.workCenter}`),
+      ...row('Fenêtre', windowOf(cfg.fromOffset, cfg.toOffset)),
+    ]),
+  );
 }
 
 // Two ways to press: prepare the grid, or prepare it and import it. Both walk
@@ -80,8 +104,10 @@ let configured = true;
 
 function running(on, which) {
   for (const id of Object.keys(LABELS)) {
+    const busy = on && id === which;
     $(id).disabled = on || (id === 'run' && !configured);
-    $(id).textContent = on && id === which ? BUSY[id] : LABELS[id];
+    $(id).textContent = busy ? BUSY[id] : LABELS[id];
+    $(id).setAttribute('aria-busy', String(busy));
   }
 }
 
@@ -105,13 +131,13 @@ async function restoreProgress() {
     return;
   }
   running(true, 'run');
-  say(`Page ${runState.page} — ${runState.imported} ligne(s) importée(s).`);
+  sayPage(runState.page, runState.imported);
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type !== 'wb-progress') return false;
   running(true, 'run');
-  say(`Page ${msg.page} — ${msg.imported} ligne(s) importée(s).`);
+  sayPage(msg.page, msg.imported);
   return false;
 });
 
@@ -129,8 +155,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 async function launch(send) {
+  // The pressed button carries the spinner and says what is running; the
+  // card below only appears once there are pages to count.
   running(true, send ? 'run' : 'search');
-  say(send ? 'Recherche en cours…' : 'Remplissage des critères…');
+  $('status').hidden = true;
+  $('result').hidden = true;
   try {
     const summary = await chrome.runtime.sendMessage({ type: 'wb-run-all', send });
     verdict(summary ?? { kind: 'err', headline: 'Aucune réponse de l’extension' });
