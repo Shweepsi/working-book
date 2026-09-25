@@ -88,7 +88,6 @@ async function showCriteria() {
   const row = (label, value) => [el('dt', { textContent: label }), el('dd', { textContent: value })];
   $('criteria').replaceChildren(
     el('dl', {}, [
-      ...row('Installation', `${cfg.facility} · ${cfg.workCenter}`),
       ...row('Fenêtre', windowOf(cfg.fromOffset, cfg.toOffset)),
     ]),
   );
