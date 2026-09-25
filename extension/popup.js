@@ -41,11 +41,10 @@ function verdict(summary) {
   const kind = VERDICTS[summary?.kind] ? summary.kind : 'err';
   // A summary stored before `headline` existed still has its first line.
   const headline = summary?.headline ?? String(summary?.text ?? '').split('\n')[0];
-  const at = summary?.at ? new Date(summary.at) : new Date();
   $('status').hidden = true;
   $('result').className = `result ${kind}`;
   $('verdict').textContent = VERDICTS[kind];
-  $('meta').textContent = [summary?.meta, `${pad(at.getHours())}:${pad(at.getMinutes())}`].filter(Boolean).join(' · ');
+  $('meta').textContent = summary?.meta ?? '';
   $('headline').textContent = headline;
   $('reasons').replaceChildren(...(summary?.reasons ?? []).map((r) => el('li', { textContent: r })));
   $('result').hidden = false;
