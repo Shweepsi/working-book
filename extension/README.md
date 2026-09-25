@@ -62,9 +62,9 @@ essai.
 
 ## Le panneau
 
-Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
-être demandé** : installation, centre de charge, et la fenêtre de dates
-calculée pour aujourd'hui. Plus la version chargée — utile pour savoir d'un
+Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **la fenêtre de
+dates** calculée pour aujourd'hui. L'installation et le centre de charge ne
+changent jamais : ils se lisent dans les options. Plus la version chargée — utile pour savoir d'un
 coup d'œil si le poste tourne bien sur la dernière build. Les adresses des
 serveurs, elles, ne sont pas répétées ici : elles se lisent dans les options,
 qui en sont la source.
