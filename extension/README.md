@@ -91,7 +91,7 @@ lignes ; à la fin il affiche
 un **verdict**, pas le récapitulatif :
 
 - **Terminé OK** — suivi du résultat, « 651 lignes importées », puis du nombre
-  de pages ;
+  de pages, sur la même ligne ;
 - **Terminé — avertissement** — l'import a eu lieu, mais quelque chose mérite
   un regard : pages refusées par le serveur, serveur secondaire en échec,
   terminés non inclus. Les raisons suivent, en quelques mots ;

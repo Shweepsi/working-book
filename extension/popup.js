@@ -44,8 +44,8 @@ function verdict(summary) {
   $('status').hidden = true;
   $('result').className = `result ${kind}`;
   $('verdict').textContent = VERDICTS[kind];
-  $('meta').textContent = summary?.meta ?? '';
-  $('headline').textContent = headline;
+  // One line: « 651 lignes importées · 4 pages ».
+  $('headline').textContent = [headline, summary?.meta].filter(Boolean).join(' · ');
   $('reasons').replaceChildren(...(summary?.reasons ?? []).map((r) => el('li', { textContent: r })));
   $('result').hidden = false;
 }
