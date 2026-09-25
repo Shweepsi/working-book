@@ -63,25 +63,10 @@
         border: 1px solid var(--line-faint);
         border-radius: 8px;
       }
-      .window-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
-      .window-head .label { color: var(--ink-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-      .window-head .relative { font: 11px var(--mono); color: var(--ink-soft); }
-      .window-dates { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; color: var(--ink-faint); }
-      .window-dates input {
-        min-width: 0;
-        width: 100%;
-        padding: 5px 6px;
-        border: 1px solid var(--line-soft);
-        border-radius: 6px;
-        background: Field;
-        color: FieldText;
-        font: inherit;
-        font-variant-numeric: tabular-nums;
-      }
-      .window-dates input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-      .window-dates input[disabled] { opacity: 0.55; }
-      .criteria .note { margin: 8px 0 0; color: var(--ink-soft); font-size: 12px; }
-      .criteria .note[hidden] { display: none; }
+      .criteria dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+      .criteria dt { color: var(--ink-faint); font-size: 11px; line-height: 19px; text-transform: uppercase; letter-spacing: 0.04em; }
+      .criteria dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+      .criteria .note { color: var(--ink-soft); font-size: 12px; white-space: pre-wrap; }
 
       .actions { display: grid; gap: 8px; }
       button {
@@ -198,18 +183,7 @@
       <span class="version" id="version"></span>
     </header>
 
-    <div class="criteria" id="criteria">
-      <div class="window-head">
-        <span class="label" id="windowLabel">Fenêtre</span>
-        <span class="relative" id="relative" title="Gardée par rapport à aujourd’hui : elle glisse d’un jour à l’autre."></span>
-      </div>
-      <div class="window-dates" role="group" aria-labelledby="windowLabel">
-        <input id="from" type="date" aria-label="Du" />
-        <span aria-hidden="true">→</span>
-        <input id="to" type="date" aria-label="Au" />
-      </div>
-      <p class="note" id="unconfigured" hidden>Adresse du serveur non renseignée.<br />Clic droit sur l’icône → Options.</p>
-    </div>
+    <div class="criteria" id="criteria"><span class="note">Chargement des réglages…</span></div>
 
     <div class="actions">
       <button id="search" type="button">Lancer la recherche</button>
