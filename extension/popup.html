@@ -120,9 +120,9 @@
       .result {
         display: grid;
         grid-template-columns: auto 1fr;
-        gap: 2px 10px;
+        gap: 0 10px;
         margin-top: 14px;
-        padding: 10px 12px;
+        padding: 10px 12px 11px;
         border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--line-faint));
         border-radius: 8px;
         background: color-mix(in srgb, var(--tone) 9%, var(--paper));
@@ -137,7 +137,6 @@
         place-items: center;
         width: 24px;
         height: 24px;
-        margin-top: 1px;
         border-radius: 50%;
         background: var(--tone);
         color: var(--paper);
@@ -146,22 +145,33 @@
       .result.ok .icon .i-ok,
       .result.warn .icon .i-warn,
       .result.err .icon .i-err { display: block; }
-      .verdict { font-weight: 600; font-size: 14px; color: var(--tone); }
+      .verdict { font-weight: 600; font-size: 14px; line-height: 24px; color: var(--tone); }
       .headline { font-variant-numeric: tabular-nums; }
-      .meta { font: 11px/1.6 var(--mono); color: var(--ink-soft); }
+      .meta { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
       .meta:empty { display: none; }
-      .reasons { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--ink-soft); }
+      /* The reasons are the fine print: there to be read when wanted, not to
+         compete with the verdict. */
+      .reasons {
+        margin: 6px 0 0;
+        padding: 6px 0 0;
+        border-top: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
+        list-style: none;
+        font-size: 11px;
+        line-height: 1.4;
+        color: var(--ink-faint);
+      }
       .reasons:empty { display: none; }
-      .reasons li { position: relative; padding-left: 12px; }
+      .reasons li { position: relative; padding-left: 10px; }
+      .reasons li + li { margin-top: 2px; }
       .reasons li::before {
         content: '';
         position: absolute;
-        left: 2px;
-        top: 0.6em;
-        width: 4px;
-        height: 4px;
+        left: 1px;
+        top: 0.62em;
+        width: 3px;
+        height: 3px;
         border-radius: 50%;
-        background: var(--tone);
+        background: currentColor;
       }
 
       @keyframes spin { to { transform: rotate(360deg); } }

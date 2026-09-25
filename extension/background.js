@@ -242,9 +242,15 @@ function summarise(reply) {
   const pageFailures = swept?.failures?.length ?? 0;
   const reasons = [];
   if (pageFailures) reasons.push(`${plural(pageFailures, 'page refusée', 'pages refusées')} par le serveur`);
-  // The first label is enough to tell dev from prod; the full host stays in `text`.
+  // A short name is enough to tell which mirror: « dev » for the shipped
+  // working-book-api-dev, the first label of any other host. The full host
+  // stays in `text`.
   if (swept?.refused?.length) {
-    reasons.push(`Serveur secondaire en échec (${swept.refused.map((h) => h.split('.')[0]).join(', ')})`);
+    const short = (h) => {
+      const label = h.split('.')[0];
+      return label.startsWith('working-book-api-') ? label.slice('working-book-api-'.length) : label;
+    };
+    reasons.push(`Serveur ${swept.refused.map(short).join(', ')} en échec`);
   }
   if (completedOff) reasons.push('Terminés non inclus');
 
