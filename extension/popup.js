@@ -88,7 +88,7 @@ async function showCriteria() {
   const row = (label, value) => [el('dt', { textContent: label }), el('dd', { textContent: value })];
   $('criteria').replaceChildren(
     el('dl', {}, [
-      ...row('Fenêtre', windowOf(cfg.fromOffset, cfg.toOffset)),
+      ...row('Dates', windowOf(cfg.fromOffset, cfg.toOffset)),
     ]),
   );
 }
