@@ -177,15 +177,28 @@ async function driveSearch(send = true) {
   return ask({ type: 'wb-search', criteria: criteriaOf(cfg), send });
 }
 
-// Human-readable account of a run, for the toolbar tooltip and the options
-// page. The counts that matter are what the server stored, not what the grid
-// appeared to show.
+// « 1 ligne », « 651 lignes » — French puts 0 and 1 in the singular.
+function plural(n, one, many) {
+  return `${n} ${n > 1 ? many : one}`;
+}
+
+// A run that went nowhere. `headline` is what the panel shows under its
+// verdict; `text` is the full account, for the tooltip and the options page.
+function failure(badgeText, headline, reasons = []) {
+  return { badge: badgeText, kind: 'err', headline, reasons, text: [headline, ...reasons].join('\n') };
+}
+
+// Account of a run, at two lengths. The panel gets a verdict — `kind` ok, warn
+// or err, read there as « Terminé OK », « Terminé — avertissement », « NOK » —
+// with one line of result and, when it is not OK, the reasons in a few words.
+// The tooltip and the options page keep the full account. The counts that
+// matter are what the server stored, not what the grid appeared to show.
 function summarise(reply) {
-  if (!reply) return { badge: 'form', kind: 'warn', text: 'Aucun écran PMS230 ouvert.' };
-  if (reply.error) return { badge: '!', kind: 'err', text: `Interrompu : ${reply.error}` };
+  if (!reply) return failure('form', 'Aucun écran PMS230 ouvert');
+  if (reply.error) return failure('!', 'Interrompu', [String(reply.error)]);
   if (!reply.clicked) {
     const missing = (reply.empty ?? []).concat(reply.failed ?? []).join(', ') || 'un critère';
-    return { badge: 'crit.', kind: 'warn', text: `Recherche non lancée — ${missing} vide.` };
+    return failure('crit.', 'Recherche non lancée', [`${missing} vide`]);
   }
 
   const swept = reply.swept;
@@ -226,10 +239,36 @@ function summarise(reply) {
   if (reply.sent === false) lines.push('Grille prête — rien n’a été envoyé.');
 
   const imported = swept?.imported ?? 0;
-  const failed = (swept?.failures?.length ?? 0) + (swept?.refused?.length ?? 0);
+  const pageFailures = swept?.failures?.length ?? 0;
+  const reasons = [];
+  if (pageFailures) reasons.push(`${plural(pageFailures, 'page refusée', 'pages refusées')} par le serveur`);
+  // A short name is enough to tell which mirror: « dev » for the shipped
+  // working-book-api-dev, the first label of any other host. The full host
+  // stays in `text`.
+  if (swept?.refused?.length) {
+    const short = (h) => {
+      const label = h.split('.')[0];
+      return label.startsWith('working-book-api-') ? label.slice('working-book-api-'.length) : label;
+    };
+    reasons.push(`Serveur ${swept.refused.map(short).join(', ')} en échec`);
+  }
+  if (completedOff) reasons.push('Terminés non inclus');
+
+  const headline =
+    reply.sent === false
+      ? 'Grille prête, rien n’a été envoyé'
+      : swept
+        ? plural(imported, 'ligne importée', 'lignes importées')
+        : 'Aucune page lue';
+  // Every page refused, or nothing read at all, is not a run with a warning:
+  // nothing reached the report.
+  const sank = reply.sent !== false && (!swept || (pageFailures > 0 && imported === 0));
   return {
-    badge: reply.sent === false ? '✓' : String(imported || '✓'),
-    kind: failed || completedOff ? 'warn' : 'ok',
+    badge: reply.sent === false ? '✓' : String(imported || (sank ? '!' : '✓')),
+    kind: sank ? 'err' : reasons.length ? 'warn' : 'ok',
+    headline,
+    meta: swept ? plural(swept.pages, 'page', 'pages') : '',
+    reasons,
     text: lines.join('\n'),
     // What the walk waited on, and the run's timeline: for the options page,
     // where someone looking into a run wants it, not in the panel.
@@ -317,7 +356,7 @@ async function runSearch() {
   } catch (err) {
     // A sweep that got far enough to report progress has already set runState;
     // leaving it behind would strand the popup on a walk that is over.
-    return publish({ badge: '!', kind: 'err', text: `Interrompu : ${err}` });
+    return publish(failure('!', 'Interrompu', [String(err)]));
   }
   if (!reply) return null;
   await record(reply);
@@ -369,7 +408,7 @@ async function runEverything(send = true) {
     // there left the popup showing a walk in progress for good — reopening it
     // never cleared, and no button could end it. An interrupted run has to be
     // reported as one.
-    return publish({ badge: '!', kind: 'err', text: `Interrompu : ${err}` });
+    return publish(failure('!', 'Interrompu', [String(err)]));
   }
 }
 
@@ -384,11 +423,8 @@ async function walk(send) {
   if (!send) return record(null);
   const scraped = await ask({ type: 'wb-scrape' });
   if (scraped?.found) {
-    return publish({
-      badge: String(scraped.count),
-      kind: 'ok',
-      text: `${scraped.count} ligne(s) envoyée(s) depuis l’écran affiché.`,
-    });
+    const headline = `${plural(scraped.count, 'ligne envoyée', 'lignes envoyées')} depuis l’écran affiché`;
+    return publish({ badge: String(scraped.count), kind: 'ok', headline, reasons: [], text: `${headline}.` });
   }
   return record(null);
 }

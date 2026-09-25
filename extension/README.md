@@ -62,18 +62,18 @@ essai.
 
 ## Le panneau
 
-Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **ce qui va
-être demandé** : installation, centre de charge, et la fenêtre de dates
-calculée pour aujourd'hui. Plus la version chargée — utile pour savoir d'un
+Cliquer l'icône ouvre un panneau qui affiche, avant tout lancement, **la fenêtre de
+dates** calculée pour aujourd'hui. L'installation et le centre de charge ne
+changent jamais : ils se lisent dans les options. Plus la version chargée — utile pour savoir d'un
 coup d'œil si le poste tourne bien sur la dernière build. Les adresses des
 serveurs, elles, ne sont pas répétées ici : elles se lisent dans les options,
 qui en sont la source.
 
 Deux boutons, selon ce qu'on veut :
 
-- **Rapport auto** enchaîne tout, jusqu'à l'envoi ;
 - **Lancer la recherche** s'arrête après avoir préparé la grille — critères
-  remplis, Search pressé, pagination élargie — et **n'envoie rien**.
+  remplis, Search pressé, pagination élargie — et **n'envoie rien** ;
+- **Rapport auto**, en dessous, enchaîne tout, jusqu'à l'envoi.
 
 Le second n'est pas une exécution amputée : le chemin est le même, seul l'envoi
 est retenu. C'est aussi le seul des deux qui reste disponible sans adresse de
@@ -86,8 +86,20 @@ donc l'empreinte du rapport **sans l'envoyer**, ce qui le fait passer pour déj�
 vu.
 
 Pendant l'exécution les deux boutons se verrouillent, seul celui qui a été
-pressé change de libellé, et le panneau compte les pages ; à la fin il affiche
-le récapitulatif. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
+pressé change de libellé et tourne, et le panneau compte les pages et les
+lignes ; à la fin il affiche
+un **verdict**, pas le récapitulatif :
+
+- **Terminé OK** — suivi du résultat, « 651 lignes importées », puis du nombre
+  de pages ;
+- **Terminé — avertissement** — l'import a eu lieu, mais quelque chose mérite
+  un regard : pages refusées par le serveur, serveur secondaire en échec,
+  terminés non inclus. Les raisons suivent, en quelques mots ;
+- **NOK** — rien n'a atteint le rapport : écran PMS230 absent, recherche non
+  lancée, toutes les pages refusées, exécution interrompue.
+
+Le détail (critères écrits, pager, attentes page par page) n'a rien à faire
+dans un coup d'œil : il reste dans l'infobulle et dans les options. Fermer le panneau **n'interrompt rien** : le rouvrir reprend
 la progression là où elle en est.
 
 Fermer le **navigateur**, en revanche, interrompt tout — et la progression
@@ -117,8 +129,8 @@ L'enchaînement complet, lui, est inchangé :
 La pastille sur l'icône suit la même exécution : elle compte les pages, puis
 affiche le nombre de lignes importées. Le récapitulatif se conserve à deux
 endroits — le survol de l'icône et les options sous **Dernière exécution**.
-Le panneau, lui, l'affiche à la fin de l'exécution mais ne garde pas trace
-des précédentes.
+Le panneau, lui, n'en montre que le verdict à la fin de l'exécution et ne
+garde pas trace des précédentes.
 
 Le décompte est celui que le **serveur** a effectivement enregistré, pas le
 nombre de lignes que la grille affichait : les deux diffèrent dès qu'une ligne

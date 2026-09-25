@@ -4,55 +4,219 @@
     <meta charset="utf-8" />
     <title>Working Book</title>
     <style>
-      :root { color-scheme: light dark; }
+      /* The browser's own colours. System colours are resolved by Chrome or
+         Edge themselves, light or dark: Canvas and CanvasText for surface and
+         text, the greys mixed from those two, and SelectedItem — the browser's
+         selection blue — as the accent. No extension can read the user's theme,
+         so this is as close to the browser's palette as a page can get. The
+         three verdict tones are Chrome's own green, amber and red. */
+      :root {
+        color-scheme: light dark;
+        --ink: CanvasText;
+        --ink-soft: color-mix(in srgb, CanvasText 72%, Canvas);
+        --ink-faint: color-mix(in srgb, CanvasText 55%, Canvas);
+        --line-soft: color-mix(in srgb, CanvasText 26%, Canvas);
+        --line-faint: color-mix(in srgb, CanvasText 13%, Canvas);
+        --paper: Canvas;
+        --paper-2: color-mix(in srgb, CanvasText 5%, Canvas);
+        --accent: SelectedItem;
+        --accent-ink: SelectedItemText;
+        --ok: #188038;
+        --warn: #b06000;
+        --err: #d93025;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ok: #81c995;
+          --warn: #fdd663;
+          --err: #f28b82;
+        }
+      }
+
+      * { box-sizing: border-box; }
       body {
         width: 320px;
         margin: 0;
         padding: 14px 16px 16px;
-        font: 13px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+        background: var(--paper);
+        color: var(--ink);
+        font: 13px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
-      header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-      h1 { font-size: 14px; margin: 0; }
-      .version { font-size: 11px; opacity: 0.55; }
+
+      header { display: flex; align-items: center; gap: 8px; }
+      header svg { flex: none; }
+      h1 { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; margin: 0; flex: 1; }
+      .version {
+        font: 11px/1 var(--mono);
+        color: var(--ink-faint);
+        padding: 3px 6px;
+        border: 1px solid var(--line-faint);
+        border-radius: 999px;
+      }
+
       .criteria {
-        margin: 10px 0 12px;
+        margin: 12px 0 14px;
         padding: 8px 10px;
-        border: 1px solid rgba(128, 128, 128, 0.35);
-        border-radius: 6px;
-        font-size: 12px;
-        opacity: 0.85;
-        white-space: pre-wrap;
+        background: var(--paper-2);
+        border: 1px solid var(--line-faint);
+        border-radius: 8px;
       }
+      .criteria dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+      .criteria dt { color: var(--ink-faint); font-size: 11px; line-height: 19px; text-transform: uppercase; letter-spacing: 0.04em; }
+      .criteria dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+      .criteria .note { color: var(--ink-soft); font-size: 12px; white-space: pre-wrap; }
+
+      .actions { display: grid; gap: 8px; }
       button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
         width: 100%;
-        padding: 9px 12px;
-        border: 1px solid rgba(128, 128, 128, 0.5);
-        border-radius: 6px;
-        background: transparent;
-        color: inherit;
+        min-height: 36px;
+        padding: 8px 12px;
+        border: 1px solid var(--line-soft);
+        border-radius: 8px;
+        background: var(--paper);
+        color: var(--ink);
         font: inherit;
         cursor: pointer;
+        transition: background 120ms ease, border-color 120ms ease, filter 120ms ease;
       }
+      button:hover:not([disabled]) { background: var(--paper-2); border-color: var(--ink-faint); }
+      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      /* The one colour kept from before: the import button has always been green. */
       button.primary { background: #2e7d32; border-color: #2e7d32; color: #fff; font-weight: 600; }
-      button.second { margin-top: 6px; }
-      button[disabled] { opacity: 0.55; cursor: default; }
-      #status { white-space: pre-wrap; font-size: 12px; min-height: 18px; margin-top: 10px; }
-      .ok { color: #2e7d32; }
-      .err { color: #c62828; }
+      button.primary:hover:not([disabled]) { background: #2e7d32; border-color: #2e7d32; filter: brightness(1.08); }
+      button[disabled] { cursor: default; opacity: 0.5; }
+      button[aria-busy='true'] { opacity: 0.85; }
+      button[aria-busy='true']::before {
+        content: '';
+        width: 12px;
+        height: 12px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 700ms linear infinite;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 10px 12px;
+        background: var(--paper-2);
+        border-radius: 8px;
+      }
+      .status[hidden] { display: none; }
+      .status { justify-content: space-between; }
+      .status strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+      .status span { color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+      .status span:empty { display: none; }
+
+      .result {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0 10px;
+        margin-top: 14px;
+        padding: 10px 12px 11px;
+        border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--line-faint));
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--tone) 9%, var(--paper));
+      }
+      .result[hidden] { display: none; }
+      .result.ok { --tone: var(--ok); }
+      .result.warn { --tone: var(--warn); }
+      .result.err { --tone: var(--err); }
+      .result .icon {
+        grid-row: span 4;
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--tone);
+        color: var(--paper);
+      }
+      .result .icon svg { display: none; }
+      .result.ok .icon .i-ok,
+      .result.warn .icon .i-warn,
+      .result.err .icon .i-err { display: block; }
+      .verdict { font-weight: 600; font-size: 14px; line-height: 24px; color: var(--tone); }
+      .headline { font-variant-numeric: tabular-nums; }
+      .meta { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+      .meta:empty { display: none; }
+      /* The reasons are the fine print: there to be read when wanted, not to
+         compete with the verdict. */
+      .reasons {
+        margin: 6px 0 0;
+        padding: 6px 0 0;
+        border-top: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
+        list-style: none;
+        font-size: 11px;
+        line-height: 1.4;
+        color: var(--ink-faint);
+      }
+      .reasons:empty { display: none; }
+      .reasons li { position: relative; padding-left: 10px; }
+      .reasons li + li { margin-top: 2px; }
+      .reasons li::before {
+        content: '';
+        position: absolute;
+        left: 1px;
+        top: 0.62em;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        button[aria-busy='true']::before { animation-duration: 2.4s; }
+      }
     </style>
   </head>
   <body>
     <header>
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="1" y="1" width="18" height="18" rx="4" fill="var(--paper-2)" stroke="var(--ink)" stroke-width="1.4" />
+        <line x1="1" y1="6" x2="19" y2="6" stroke="var(--ink)" stroke-width="1.4" />
+        <rect x="4" y="8.5" width="8" height="2" rx="0.6" fill="var(--ink-faint)" />
+        <rect x="4" y="11.5" width="11" height="2" rx="0.6" fill="var(--ink-faint)" />
+        <rect x="4" y="14.5" width="7" height="2" rx="0.6" fill="var(--ink-faint)" />
+        <circle cx="15.5" cy="3.5" r="1.4" fill="var(--accent)" />
+      </svg>
       <h1>Working Book</h1>
       <span class="version" id="version"></span>
     </header>
 
-    <div class="criteria" id="criteria">Chargement des réglages…</div>
+    <div class="criteria" id="criteria"><span class="note">Chargement des réglages…</span></div>
 
-    <button id="run" class="primary" type="button">Rapport auto</button>
-    <button id="search" class="second" type="button">Lancer la recherche</button>
+    <div class="actions">
+      <button id="search" type="button">Lancer la recherche</button>
+      <button id="run" class="primary" type="button">Rapport auto</button>
+    </div>
 
-    <div id="status" aria-live="polite"></div>
+    <div id="status" class="status" hidden aria-live="polite">
+      <strong id="statusTitle"></strong>
+      <span id="statusDetail"></span>
+    </div>
+
+    <div id="result" class="result" hidden aria-live="polite">
+      <div class="icon" aria-hidden="true">
+        <svg class="i-ok" width="14" height="14" viewBox="0 0 14 14"><path d="M3 7.4 5.8 10 11 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <svg class="i-warn" width="14" height="14" viewBox="0 0 14 14"><path d="M7 3.2v4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><circle cx="7" cy="10.6" r="1.2" fill="currentColor" /></svg>
+        <svg class="i-err" width="14" height="14" viewBox="0 0 14 14"><path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+      </div>
+      <div class="verdict" id="verdict"></div>
+      <div class="headline" id="headline"></div>
+      <div class="meta" id="meta"></div>
+      <ul class="reasons" id="reasons"></ul>
+    </div>
 
     <script src="config.js"></script>
     <script src="popup.js"></script>
