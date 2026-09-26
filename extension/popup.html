@@ -132,7 +132,7 @@
       .result.warn { --tone: var(--warn); }
       .result.err { --tone: var(--err); }
       .result .icon {
-        grid-row: span 4;
+        grid-row: span 3;
         display: grid;
         place-items: center;
         width: 24px;
@@ -147,8 +147,6 @@
       .result.err .icon .i-err { display: block; }
       .verdict { font-weight: 600; font-size: 14px; line-height: 24px; color: var(--tone); }
       .headline { font-variant-numeric: tabular-nums; }
-      .meta { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-      .meta:empty { display: none; }
       /* The reasons are the fine print: there to be read when wanted, not to
          compete with the verdict. */
       .reasons {
@@ -214,7 +212,6 @@
       </div>
       <div class="verdict" id="verdict"></div>
       <div class="headline" id="headline"></div>
-      <div class="meta" id="meta"></div>
       <ul class="reasons" id="reasons"></ul>
     </div>
 
