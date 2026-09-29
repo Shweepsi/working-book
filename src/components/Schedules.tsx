@@ -1097,7 +1097,10 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       message: `Ligne ${row.mo} supprimée du schedule ${row.schedule}`,
       undo: () => {
         setData((prev) => {
-          if (!prev || prev.records.some((r) => r.id === id)) return prev;
+          // A re-import in the meantime may have brought the line back under
+          // the same schedule|MO — restoring it too would show it twice.
+          if (!prev || prev.records.some((r) => r.id === id
+            || (r.schedule === row.schedule && r.mo === row.mo))) return prev;
           const records = [...prev.records];
           records.splice(Math.min(idx, records.length), 0, row);
           return { ...prev, records, schedules: summariseSchedules(records) };
