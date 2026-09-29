@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, shortItemName, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, shortItemName, summariseSchedules, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -1078,6 +1078,34 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     });
   }
 
+  // Drop one line from the report — a line the planner knows will not run, or
+  // one Infor still lists by mistake. Per-row edit, so no confirmation: it acts
+  // at once and offers Annuler. A re-import that still carries the line
+  // (same schedule|MO) brings it back.
+  function handleDeleteRow(id: string) {
+    if (!data) return;
+    const idx = data.records.findIndex((r) => r.id === id);
+    if (idx < 0) return;
+    const row = data.records[idx];
+    setOpenRowId(null);
+    setData((prev) => {
+      if (!prev) return prev;
+      const records = prev.records.filter((r) => r.id !== id);
+      return { ...prev, records, schedules: summariseSchedules(records) };
+    });
+    toast.show({
+      message: `Ligne ${row.mo} supprimée du schedule ${row.schedule}`,
+      undo: () => {
+        setData((prev) => {
+          if (!prev || prev.records.some((r) => r.id === id)) return prev;
+          const records = [...prev.records];
+          records.splice(Math.min(idx, records.length), 0, row);
+          return { ...prev, records, schedules: summariseSchedules(records) };
+        });
+      },
+    });
+  }
+
   function handlePms230Confirm(parsed: PMS230Result) {
     // Every import adds, whichever route it came in by. `mergePMS230` keys on
     // schedule|MO, so re-importing a page updates its rows rather than
@@ -1417,6 +1445,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
           row={openRow}
           mtoMts={policy?.map?.[openRow.product] ?? '?'}
           onClose={() => setOpenRowId(null)}
+          onDelete={() => handleDeleteRow(openRow.id)}
         />
       )}
 
@@ -2557,6 +2586,7 @@ interface RowDetailSheetProps {
   row: PMS230Record;
   mtoMts: string;
   onClose: () => void;
+  onDelete: () => void;
 }
 
 function fmtDateLong(yyyymmdd: string | null | undefined): string {
@@ -2570,7 +2600,7 @@ function fmtTime(hhmm: string | null | undefined): string {
   return hhmm;
 }
 
-function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
+function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps) {
   useEscapeToClose(onClose);
 
   const short = shortItemName(row.itemName);
@@ -2654,6 +2684,13 @@ function RowDetailSheet({ row, mtoMts, onClose }: RowDetailSheetProps) {
             {row.formatCode && <Stat label="Code format" value={<span className="mono">{row.formatCode}</span>} />}
             <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
           </div>
+        </div>
+
+        <div className="actions">
+          <span style={{ flex: 1 }} />
+          <button className="btn destructive" type="button" onClick={onDelete}>
+            Supprimer la ligne
+          </button>
         </div>
       </div>
     </>
