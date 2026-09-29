@@ -468,7 +468,7 @@ function dominantItemRoot(records: PMS230Record[]): string {
   return best || shortItemName(records[0]?.itemName ?? '') || '';
 }
 
-function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
+export function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
   const groups = new Map<string, PMS230Record[]>();
   for (const r of records) {
     if (!r) continue;
