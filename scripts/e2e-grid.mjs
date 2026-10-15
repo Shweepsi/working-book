@@ -51,16 +51,15 @@ async function tablet(name) {
   return page;
 }
 
-// Suivi sheet cell centres in page coordinates (see screenshots).
-const COL = { B: 118, C: 206, D: 266, J: 637, K: 697 };
-const ROW = { 3: 224, 4: 246, 5: 267 };
+// Cells are reached from the keyboard (Ctrl+Home, then arrows), whatever the
+// template's column widths, zoom or the frame's chrome: the frame has focus
+// from the moment the workbook opens.
 async function typeAt(page, col, row, text) {
   await page.bringToFront();
-  const x = COL[col], y = ROW[row];
-  await page.mouse.move(x - 25, y - 12); await page.waitForTimeout(100);
-  await page.mouse.move(x, y, { steps: 5 }); await page.waitForTimeout(100);
-  await page.mouse.down(); await page.waitForTimeout(100); await page.mouse.up();
-  await page.waitForTimeout(500);
+  await page.keyboard.press('Control+Home');
+  for (let i = 0; i < col.charCodeAt(0) - 65; i++) await page.keyboard.press('ArrowRight');
+  for (let i = 1; i < row; i++) await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(200);
   await page.keyboard.type(text, { delay: 110 });
   await page.keyboard.press('Enter');
   await page.waitForTimeout(400);
