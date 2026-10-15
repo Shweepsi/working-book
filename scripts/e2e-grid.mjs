@@ -9,9 +9,8 @@
 // Needs Playwright's Chromium with fonts available (a font-less container
 // crashes the renderer: set FONTCONFIG_FILE) and WebGL (SwiftShader is enough).
 // Pick a DATE no one has used: each run fills that day's workbook.
-// GridCraft up to v0.7.0-shared shows the template's import warnings in a
-// message box that takes the first click and keystrokes, hence the priming
-// below (harmless once the build keeps them in the info bar only).
+// No priming click: the very first click and keystrokes after opening must
+// land (GridCraft before v0.7.0-shared.2 lost them to an import message box).
 import { createRequire } from 'node:module';
 const require = createRequire(process.env.PLAYWRIGHT_DIR ?? import.meta.url);
 const { chromium } = require('playwright');
@@ -54,7 +53,7 @@ async function tablet(name) {
 
 // Suivi sheet cell centres in page coordinates (see screenshots).
 const COL = { B: 118, C: 206, D: 266, J: 637, K: 697 };
-const ROW = { 3: 414, 4: 436, 5: 457 };
+const ROW = { 3: 391, 4: 413, 5: 434 };
 async function typeAt(page, col, row, text) {
   await page.bringToFront();
   const x = COL[col], y = ROW[row];
@@ -81,14 +80,6 @@ const poste = (await A.evaluate(() => document.querySelector('.shift-chip.active
 log('poste', poste, 'date', DATE);
 
 // 1. First edit on A goes through (frame focused on open).
-// Priming: whatever the import message box leaves of a click and a key, then
-// Escape (no edit).
-for (const P of [A, B]) {
-  await P.bringToFront();
-  await P.mouse.move(44, 351, { steps: 3 }); await P.mouse.down(); await P.mouse.up(); await P.waitForTimeout(400);
-  await P.keyboard.type('x', { delay: 100 }); await P.waitForTimeout(300);
-  await P.keyboard.press('Escape'); await P.waitForTimeout(400);
-}
 await typeAt(A, 'C', 4, '50');
 await A.screenshot({ path: `${OUT}/A-first.png` });
 await A.waitForTimeout(1500);
