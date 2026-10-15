@@ -12,9 +12,9 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import {
-  SharedGrid,
   listTemplates,
   moveToTemplate,
+  sharedGrid as grid,
   uploadTemplate,
   type GridStatus,
   type TemplateInfo,
@@ -41,14 +41,13 @@ function fmtDay(ts: number): string {
 }
 
 export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
-  const [grid] = useState(() => new SharedGrid());
   useEffect(() => {
     grid.connect();
     return () => grid.dispose();
-  }, [grid]);
+  }, []);
   const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
   // Stable, so React doesn't detach and reattach the frame on every render.
-  const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), [grid]);
+  const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [busy, setBusy] = useState(false);
@@ -68,7 +67,7 @@ export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
 
   useEffect(() => {
     grid.open(poste ? { date, poste } : null, fileName);
-  }, [grid, date, poste, fileName]);
+  }, [date, poste, fileName]);
 
   // The template list changes when this shift was just pinned to the newest one.
   useEffect(() => {

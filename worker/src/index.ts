@@ -13,6 +13,9 @@ export interface Env {
   // extension runs inside the Infor portal, so its Origin is never the app's
   // own — see DEFAULT_INGEST_ORIGINS.
   INGEST_ORIGINS?: string;
+  // "on" where the GridCraft shared workbooks are served. Dev only for now:
+  // like every route here they have no auth, and they take the biggest writes.
+  GRID?: string;
 }
 
 const MAX_BODY_BYTES = 512 * 1024;
@@ -55,7 +58,7 @@ export default {
     }
 
     try {
-      if (url.pathname.startsWith('/api/grid/')) return await handleGrid(request, url, env, cors);
+      if (url.pathname.startsWith('/api/grid/') && env.GRID === 'on') return await handleGrid(request, url, env, cors);
       switch (url.pathname) {
         case '/api/calendar.ics':
           return calendarResponse(request, url, cors);

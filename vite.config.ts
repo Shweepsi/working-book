@@ -87,6 +87,26 @@ export default defineConfig(({ command }) => ({
         globIgnores: ['gridcraft/**'],
         navigateFallbackDenylist: [/^\/gridcraft\//],
         runtimeCaching: [
+          // GridCraft is cached the first time the tab opens rather than
+          // precached: its hashed files for good, its page (inside the iframe)
+          // network first. With the shift's template, the workbook then opens
+          // without network too.
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/gridcraft/gridcraft-'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'gridcraft-app', expiration: { maxEntries: 6 } },
+          },
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/gridcraft\/(index\.html)?$/.test(url.pathname),
+            handler: 'NetworkFirst',
+            options: { cacheName: 'gridcraft-page', networkTimeoutSeconds: 4 },
+          },
+          {
+            // A template never changes under its id.
+            urlPattern: ({ url }) => url.pathname === '/api/grid/template',
+            handler: 'CacheFirst',
+            options: { cacheName: 'gridcraft-templates', expiration: { maxEntries: 10 } },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
             handler: 'StaleWhileRevalidate',

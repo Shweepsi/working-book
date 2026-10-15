@@ -9,8 +9,9 @@
 // Needs Playwright's Chromium with fonts available (a font-less container
 // crashes the renderer: set FONTCONFIG_FILE) and WebGL (SwiftShader is enough).
 // Pick a DATE no one has used: each run fills that day's workbook.
-// Known: the first click into the frame after it loads is not taken by
-// GridCraft in headless Chromium, hence the priming click below.
+// GridCraft up to v0.7.0-shared shows the template's import warnings in a
+// message box that takes the first click and keystrokes, hence the priming
+// below (harmless once the build keeps them in the info bar only).
 import { createRequire } from 'node:module';
 const require = createRequire(process.env.PLAYWRIGHT_DIR ?? import.meta.url);
 const { chromium } = require('playwright');
@@ -80,7 +81,8 @@ const poste = (await A.evaluate(() => document.querySelector('.shift-chip.active
 log('poste', poste, 'date', DATE);
 
 // 1. First edit on A goes through (frame focused on open).
-// Priming: click a header cell, start typing, cancel with Escape (no edit).
+// Priming: whatever the import message box leaves of a click and a key, then
+// Escape (no edit).
 for (const P of [A, B]) {
   await P.bringToFront();
   await P.mouse.move(44, 351, { steps: 3 }); await P.mouse.down(); await P.mouse.up(); await P.waitForTimeout(400);

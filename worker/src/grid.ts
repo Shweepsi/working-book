@@ -8,7 +8,7 @@
 //   POST /api/grid/templates?name=…           ← the .xlsx bytes → { id }
 //   GET  /api/grid/template?id=…              → the .xlsx bytes (immutable, cached for good)
 //   GET  /api/grid/doc?date&poste[&since=n]   → { template_id, seq, changes }
-//   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs }
+//   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
 
 export interface GridEnv {
@@ -24,6 +24,9 @@ const POSTE_RE = /^[ABCD]$/;
 const CELL_RE = /^[A-Z]{1,3}[1-9]\d{0,6}$/;
 // D1 holds a value up to 2 000 000 bytes; a template is one value.
 const MAX_TEMPLATE_BYTES = 1_900_000;
+// Templates are never deleted (a shift keeps the one it started from), so the
+// table only grows: an upload past this is refused.
+const MAX_TEMPLATES = 30;
 // A batch is what one edit changed: typing is a cell, a sort or a fill can be
 // thousands. Past this the client splits it.
 const MAX_CHANGES = 5_000;
@@ -79,6 +82,8 @@ async function uploadTemplate(request: Request, url: URL, env: GridEnv, cors: Co
   if (bytes.byteLength > MAX_TEMPLATE_BYTES) return json({ error: 'template_too_large', max: MAX_TEMPLATE_BYTES }, cors, 413);
   // An .xlsx is a zip: refuse anything else before it becomes every new shift's workbook.
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return json({ error: 'not_xlsx' }, cors, 400);
+  const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM grid_templates').first<{ n: number }>();
+  if ((count?.n ?? 0) >= MAX_TEMPLATES) return json({ error: 'too_many_templates', max: MAX_TEMPLATES }, cors, 409);
   const row = await env.DB.prepare(
     'INSERT INTO grid_templates (name, bytes, size, created_at) VALUES (?1, ?2, ?3, ?4) RETURNING id',
   )
@@ -145,10 +150,21 @@ async function getDoc(url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   return json({ template_id: doc?.template_id ?? null, seq, changes, more: changes.length === PAGE }, cors);
 }
 
-function validChange(x: unknown): x is Change {
-  if (!x || typeof x !== 'object') return false;
-  const { sheet, cell } = x as Change;
-  return typeof sheet === 'string' && sheet.length > 0 && sheet.length <= 64 && typeof cell === 'string' && CELL_RE.test(cell);
+const CONTENT_KEYS = new Set(['f', 'a', 'v', 's']);
+
+/** The change as stored (its content JSON, null for an emptied cell), or
+ * undefined when it isn't one GridCraft could have sent. */
+function storedContent(x: unknown): string | null | undefined {
+  if (!x || typeof x !== 'object') return undefined;
+  const { sheet, cell, c } = x as Change;
+  if (typeof sheet !== 'string' || sheet.length === 0 || sheet.length > 64) return undefined;
+  if (typeof cell !== 'string' || !CELL_RE.test(cell)) return undefined;
+  if (c === null || c === undefined) return null;
+  // Every device replays what is stored here: a content GridCraft can't read
+  // must not reach them.
+  if (typeof c !== 'object' || Array.isArray(c) || !Object.keys(c).every((k) => CONTENT_KEYS.has(k))) return undefined;
+  const content = JSON.stringify(c);
+  return content.length > MAX_CONTENT_BYTES ? undefined : content;
 }
 
 async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
@@ -161,8 +177,6 @@ async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Pr
   const client = body.client.slice(0, 64);
   const changes = body.changes;
   if (changes.length > MAX_CHANGES) return json({ error: 'too_many_changes', max: MAX_CHANGES }, cors, 413);
-  if (!changes.every(validChange)) return json({ error: 'invalid_change' }, cors, 400);
-  if (changes.length === 0) return json({ seqs: [] }, cors);
 
   const now = Date.now();
   // One statement per cell, in one batch: D1 runs a batch as a transaction and
@@ -176,14 +190,23 @@ async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Pr
        content = excluded.content, seq = excluded.seq, client = excluded.client, updated_at = excluded.updated_at
      RETURNING seq`,
   );
-  const statements = [];
-  for (const ch of changes as Change[]) {
-    const content = ch.c === null || ch.c === undefined ? null : JSON.stringify(ch.c);
-    if (content !== null && content.length > MAX_CONTENT_BYTES) return json({ error: 'cell_too_large' }, cors, 413);
-    statements.push(stmt.bind(p.date, p.poste, ch.sheet, ch.cell, content, client, now));
+  // A cell refused gets a null seq and the others are stored: one bad cell
+  // never holds back the rest of an edit.
+  const statements: D1PreparedStatement[] = [];
+  const at: number[] = [];
+  changes.forEach((ch, i) => {
+    const content = storedContent(ch);
+    if (content === undefined) return;
+    const { sheet, cell } = ch as Change;
+    statements.push(stmt.bind(p.date, p.poste, sheet, cell, content, client, now));
+    at.push(i);
+  });
+  const seqs: (number | null)[] = changes.map(() => null);
+  if (statements.length) {
+    const results = await env.DB.batch<{ seq: number }>(statements);
+    results.forEach((r, j) => (seqs[at[j]] = r.results[0]?.seq ?? null));
   }
-  const results = await env.DB.batch<{ seq: number }>(statements);
-  return json({ seqs: results.map((r) => r.results[0]?.seq ?? null) }, cors);
+  return json({ seqs }, cors);
 }
 
 async function putDocTemplate(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
