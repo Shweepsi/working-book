@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
-# Drops the GridCraft web build (storytold/gridcraft, MIT OR Apache-2.0) into
-# public/gridcraft/, where the GridCraft tab embeds it in an iframe.
+# Drops the GridCraft web build into public/gridcraft/, where the GridCraft tab
+# embeds it in an iframe.
+#
+# The build comes from Shweepsi/gridcraft, a fork of storytold/gridcraft
+# (MIT OR Apache-2.0) whose `shared-cells` branch adds cell-by-cell sharing to
+# the `?host=parent` bridge (gridcraft:changes / gridcraft:apply). To follow an
+# upstream release: rebase shared-cells onto its tag, build, publish
+# v<version>-shared on the fork, then bump TAG and SHA256 here.
 #
 # Fetched, not committed: the wasm alone is ~18 Mo, and only dev-channel builds
 # ship the tab — CI runs this on every branch but main, so production neither
-# downloads nor serves it. Pinned to a release and checked against its
-# SHA256SUMS, so a re-tagged upstream asset fails the build instead of shipping.
-#
-# To bump: change VERSION and SHA256 (the gridcraft-web-<v>.zip line of the
-# release's SHA256SUMS.txt).
+# downloads nor serves it. Pinned to a release and checked against its SHA256,
+# so a re-uploaded asset fails the build instead of shipping.
 set -euo pipefail
 
-VERSION=0.7.0
-SHA256=ad10af2baf9c7ed4ccbd81e32b37698f5075cdf4f26b726fee7fc7938a3a8d27
+TAG=v0.7.0-shared
+ASSET=gridcraft-web-0.7.0-shared.zip
+SHA256=9a03db401049cd30079fd2c4e33bb11242a005b8e5dabb07b26460d5e385f440
+REPO=Shweepsi/gridcraft
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DEST="$ROOT/public/gridcraft"
 STAMP="$DEST/.version"
 
-if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$VERSION" ]; then
-  echo "gridcraft $VERSION already in public/gridcraft"
+if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$TAG" ]; then
+  echo "gridcraft $TAG already in public/gridcraft"
   exit 0
 fi
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-URL="https://github.com/storytold/gridcraft/releases/download/v$VERSION/gridcraft-web-$VERSION.zip"
-curl -fsSL --retry 3 -o "$TMP/web.zip" "$URL"
+curl -fsSL --retry 3 -o "$TMP/web.zip" "https://github.com/$REPO/releases/download/$TAG/$ASSET"
 echo "$SHA256  $TMP/web.zip" | sha256sum -c --quiet -
 
 mkdir -p "$TMP/x"
@@ -39,10 +43,14 @@ else
   (cd "$TMP/x" && jar xf "$TMP/web.zip")
 fi
 
+# The site sits at the zip's root or one folder down, depending on how it was zipped.
+SRC=$(dirname "$(find "$TMP/x" -name index.html | head -n 1)")
+
 rm -rf "$DEST"
 mkdir -p "$DEST"
-SRC="$TMP/x/gridcraft-web-$VERSION"
-# The app and its licences; the sample server configs and docs stay behind.
-cp "$SRC"/index.html "$SRC"/*.js "$SRC"/*.wasm "$SRC"/*.ico "$SRC"/LICENSE-* "$DEST"/
-echo "$VERSION" > "$STAMP"
-echo "gridcraft $VERSION → public/gridcraft ($(du -sh "$DEST" | cut -f1))"
+cp "$SRC"/index.html "$SRC"/*.js "$SRC"/*.wasm "$SRC"/*.ico "$DEST"/
+for lic in LICENSE-MIT LICENSE-APACHE; do
+  curl -fsSL --retry 3 -o "$DEST/$lic" "https://raw.githubusercontent.com/$REPO/$TAG/$lic"
+done
+echo "$TAG" > "$STAMP"
+echo "gridcraft $TAG → public/gridcraft ($(du -sh "$DEST" | cut -f1))"

@@ -4,6 +4,7 @@
 
 import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
+import { GRID_METHODS, handleGrid } from './grid';
 
 export interface Env {
   DB: D1Database;
@@ -45,13 +46,16 @@ export default {
             extraOrigins: splitPatterns(env.INGEST_ORIGINS ?? DEFAULT_INGEST_ORIGINS),
             methods: 'POST, OPTIONS',
           })
-        : corsHeaders(env, origin);
+        : url.pathname.startsWith('/api/grid/')
+          ? corsHeaders(env, origin, { methods: GRID_METHODS })
+          : corsHeaders(env, origin);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
 
     try {
+      if (url.pathname.startsWith('/api/grid/')) return await handleGrid(request, url, env, cors);
       switch (url.pathname) {
         case '/api/calendar.ics':
           return calendarResponse(request, url, cors);
