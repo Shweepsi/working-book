@@ -8,15 +8,15 @@
 // it open — see lib/sharedGrid.ts. Templates are managed outside the app,
 // through the Worker's /api/grid/templates and /api/grid/doc/template: shifts
 // not started yet take the newest one, shifts already filled keep theirs until
-// they're moved over. The device holding the template editor's key gets an
-// « Modifier le modèle » bar (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
+// they're moved over. Preview builds also get a « Modifier le modèle » bar
+// (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
 // already says which shift is open. It follows Working Book's theme, not the
 // system's.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
-import { uploadTemplate, useTemplateEditor } from '../lib/gridEditor';
+import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
@@ -46,7 +46,6 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
   // Stable, so React doesn't detach and reattach the frame on every render.
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
-  const isEditor = useTemplateEditor();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -109,7 +108,7 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
 
   return (
     <div className="gc">
-      {isEditor && current && (
+      {CAN_EDIT_TEMPLATE && current && (
         <div className="gc-editor-bar no-print">
           <span className="gc-editor-title">
             Modèle <strong>{current.name}</strong>
@@ -127,7 +126,7 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
       ) : snap.status === 'no-template' ? (
         <div className="gc-empty">
           <p>Aucun modèle de classeur pour l’instant.</p>
-          {isEditor && (
+          {CAN_EDIT_TEMPLATE && (
             <>
               <button type="button" className="btn primary" onClick={() => fileRef.current?.click()} disabled={importing}>
                 Importer un modèle .xlsx

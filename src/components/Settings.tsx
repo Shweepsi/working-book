@@ -3,8 +3,6 @@ import type { Density, Theme } from '../types';
 import { fmtStamp } from '../lib/format';
 import { applyUpdate, checkForUpdate, useUpdateWaiting } from '../lib/pwa';
 import { useToast } from '../lib/toast';
-import { IS_DEV_CHANNEL } from '../lib/channel';
-import { lockTemplateEditor, unlockTemplateEditor, useTemplateEditor } from '../lib/gridEditor';
 
 // The build stamp, formatted once: it is a compile-time constant, and the
 // popover re-renders on every theme or density press. Empty when the build had
@@ -81,23 +79,6 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
     };
   }, [open, onOpenChange]);
 
-  const isEditor = useTemplateEditor();
-  const [editorKey, setEditorKey] = useState('');
-  const [unlocking, setUnlocking] = useState(false);
-
-  async function unlock() {
-    setUnlocking(true);
-    try {
-      const ok = await unlockTemplateEditor(editorKey.trim());
-      toast.show({ message: ok ? 'Édition du modèle déverrouillée sur cet appareil' : 'Clé refusée' });
-      if (ok) setEditorKey('');
-    } catch (e) {
-      toast.show({ message: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setUnlocking(false);
-    }
-  }
-
   const densityHelp = DENSITIES.find((d) => d.key === density)?.help;
 
   return (
@@ -148,39 +129,6 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
             </div>
             {densityHelp && <div className="popover-help">{densityHelp}</div>}
           </div>
-          {IS_DEV_CHANNEL && (
-            <div>
-              <h4>Modèle du Suivi</h4>
-              {isEditor ? (
-                <>
-                  <div className="popover-help">Cet appareil peut modifier le modèle (onglet Suivi).</div>
-                  <button type="button" className="btn popover-action" onClick={lockTemplateEditor}>
-                    Verrouiller
-                  </button>
-                </>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (editorKey.trim()) void unlock();
-                  }}
-                >
-                  <input
-                    type="password"
-                    className="popover-input"
-                    placeholder="Clé d’édition"
-                    autoComplete="off"
-                    value={editorKey}
-                    onChange={(e) => setEditorKey(e.target.value)}
-                    aria-label="Clé d’édition du modèle"
-                  />
-                  <button type="submit" className="btn popover-action" disabled={unlocking || !editorKey.trim()}>
-                    {unlocking ? 'Vérification…' : 'Déverrouiller'}
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
           <div>
             <h4>Version</h4>
             <div className="popover-help popover-version mono">

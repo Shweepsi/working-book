@@ -1,6 +1,6 @@
-// Editing the Suivi template, for the device that holds the editor's key (see
-// lib/gridEditor.ts). The template opens in its own GridCraft frame, full
-// ribbon and not shared: nothing reaches the operators until it is published.
+// Editing the Suivi template (preview builds only, see lib/gridEditor.ts). The
+// template opens in its own GridCraft frame, full ribbon and not shared:
+// nothing reaches the operators until it is published.
 // GridCraft's Save (Ctrl+S, File › Save) publishes it as a new template, and an
 // .xlsx made in Excel can be published the same way. Shifts not started yet
 // take the newest template; the shift on screen can be moved to it at once.

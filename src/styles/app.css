@@ -3929,7 +3929,7 @@ body.is-col-resizing * {
   .gc-loading-glyph { animation: none; }
 }
 .gc iframe { flex: 1; width: 100%; border: 0; min-height: 420px; }
-/* Only on the device holding the template editor's key. */
+/* Template editing (preview builds). */
 .gc-editor-bar {
   display: flex;
   align-items: center;
@@ -5542,15 +5542,4 @@ button.as-row:focus-visible {
   padding: 10pt 5pt;
   color: var(--print-ink);
   font-style: italic;
-}
-
-/* Settings: the template editor's key. */
-.popover-input {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: var(--fs-sm);
 }
