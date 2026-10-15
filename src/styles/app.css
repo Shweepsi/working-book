@@ -3910,6 +3910,11 @@ body.is-col-resizing * {
 .app-main:has(.sch),
 .app-main:has(.sv) { max-width: none; }
 
+/* GridCraft: the embedded spreadsheet takes the whole area under the header. */
+.app-main:has(.gc) { max-width: none; padding: 0; display: flex; }
+.gc { flex: 1; display: flex; min-height: 480px; }
+.gc iframe { flex: 1; width: 100%; border: 0; }
+
 /* Tablet / phone — schedule navigator moves on top of the detail rather
    than sitting in a side rail, since the detail table itself is wide
    (min-width 1206px) and tablets in landscape don't have room for both. */

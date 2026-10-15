@@ -68,6 +68,12 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // GridCraft (dev channel only) is ~18 Mo of wasm with its own hashed
+        // names: not something to precache onto every tablet. And its page is
+        // a navigation inside the iframe, which the SPA fallback would
+        // otherwise answer with Working Book's own shell.
+        globIgnores: ['gridcraft/**'],
+        navigateFallbackDenylist: [/^\/gridcraft\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,

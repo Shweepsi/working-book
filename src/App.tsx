@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
@@ -21,7 +22,7 @@ import {
 } from './lib/shiftCalendar';
 import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
-type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
+type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid';
 
 interface TabDef {
   key: TabKey;
@@ -39,6 +40,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'test', label: 'Test', preview: true, shiftScoped: true },
   { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
+  { key: 'grid', label: 'GridCraft', preview: true },
 ];
 
 const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
@@ -416,6 +418,7 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
+        {tab === 'grid' && <Gridcraft />}
       </main>
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}

@@ -133,6 +133,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # The GridCraft tab is dev-channel only (see VITE_CHANNEL below), so
+      # production neither downloads nor serves its ~18 Mo of wasm.
+      - name: Fetch GridCraft web build (dev channel)
+        if: github.ref != 'refs/heads/main'
+        run: npm run fetch:gridcraft
       - run: npm run build
         env:
           # main → prod Worker + D1 prod; any branch/PR → dev Worker + D1 dev.

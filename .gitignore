@@ -3,3 +3,5 @@ dist/
 .vite/
 *.log
 .DS_Store
+# GridCraft web build, fetched by scripts/fetch-gridcraft.sh
+public/gridcraft/
