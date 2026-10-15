@@ -9,7 +9,7 @@ export default function Gridcraft() {
   return (
     <div className="gc">
       <iframe
-        src="/gridcraft/index.html"
+        src="/gridcraft/"
         title="GridCraft — tableur"
         allow="fullscreen; clipboard-read; clipboard-write"
         allowFullScreen
