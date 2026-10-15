@@ -238,11 +238,6 @@ class SharedGrid {
     if (p) void this.load(p);
   }
 
-  /** Re-reads the shift, e.g. after it was moved to another template. */
-  reload(): void {
-    if (this.wanted) void this.load(this.wanted);
-  }
-
   private async load(p: Partition): Promise<void> {
     if (!SYNC_ENABLED) return;
     const token = ++this.loadToken;
@@ -636,30 +631,4 @@ export async function listTemplates(): Promise<TemplateInfo[]> {
   const r = await fetch(`${API_BASE}/api/grid/templates`);
   if (!r.ok) throw new Error(`templates ${r.status}`);
   return ((await r.json()) as { data: TemplateInfo[] }).data;
-}
-
-export async function uploadTemplate(file: File): Promise<number> {
-  const r = await fetch(`${API_BASE}/api/grid/templates?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
-  const body = (await r.json().catch(() => ({}))) as { id?: number; error?: string; max?: number };
-  if (!r.ok || !body.id) {
-    throw new Error(
-      body.error === 'not_xlsx'
-        ? 'Ce fichier n’est pas un classeur .xlsx.'
-        : body.error === 'template_too_large'
-          ? 'Modèle trop lourd (1,9 Mo maximum).'
-          : body.error === 'too_many_templates'
-            ? `Trop de modèles enregistrés (${body.max ?? 30} maximum).`
-            : `Envoi refusé (${r.status}).`,
-    );
-  }
-  return body.id;
-}
-
-export async function moveToTemplate(p: Partition, templateId: number): Promise<void> {
-  const r = await fetch(`${API_BASE}/api/grid/doc/template?${qs(p)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ template_id: templateId }),
-  });
-  if (!r.ok) throw new Error(`PUT ${r.status}`);
 }

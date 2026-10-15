@@ -364,7 +364,7 @@ export default function App() {
         )}
 
         <div className="shift-meta">
-          <SyncIndicator />
+          <SyncIndicator grid={tab === 'grid' && poste !== null} />
           {/* Sits in the header rather than behind the settings cog: checking
               the paper layout is a recurring gesture, not a preference. */}
           <button

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { sharedGrid, type GridSnapshot } from '../lib/sharedGrid';
 import { useSyncStatus, type SyncStatus } from '../lib/sync';
 
 interface Descriptor {
@@ -16,6 +17,28 @@ const DESCRIPTORS: Record<SyncStatus, Descriptor> = {
   disabled: { cls: 'is-disabled', glyph: '○', short: 'Local' },
 };
 
+// Worst first: the chip shows the state that most needs a look.
+const RANK: Record<SyncStatus, number> = { error: 4, offline: 3, queued: 2, syncing: 1, idle: 0, disabled: -1 };
+
+// The shift's GridCraft workbook syncs on its own channel (lib/sharedGrid.ts),
+// cell by cell, apart from the queue the other tabs go through.
+function gridState(g: GridSnapshot): { status: SyncStatus; title: string } | null {
+  switch (g.status) {
+    case 'ready':
+      return { status: 'idle', title: 'partagé avec les autres appareils ouverts sur ce poste' };
+    case 'loading':
+      return { status: 'syncing', title: 'chargement…' };
+    case 'syncing':
+      return { status: 'syncing', title: `envoi en cours… (${g.pending})` };
+    case 'offline':
+      return { status: 'offline', title: 'hors ligne — les cellules seront envoyées au retour de la connexion' };
+    case 'error':
+      return { status: 'error', title: g.error ?? 'échec' };
+    default:
+      return null;
+  }
+}
+
 function relTime(ts: number, now: number): string {
   const sec = Math.max(0, Math.round((now - ts) / 1000));
   if (sec < 5) return 'à l’instant';
@@ -27,8 +50,14 @@ function relTime(ts: number, now: number): string {
   return `il y a ${Math.round(h / 24)} j`;
 }
 
-export default function SyncIndicator() {
+interface SyncIndicatorProps {
+  /** Also reflect the shift's shared GridCraft workbook (on its tab). */
+  grid?: boolean;
+}
+
+export default function SyncIndicator({ grid = false }: SyncIndicatorProps) {
   const snap = useSyncStatus();
+  const gridSnap = useSyncExternalStore(sharedGrid.subscribe, sharedGrid.getSnapshot);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -38,7 +67,10 @@ export default function SyncIndicator() {
 
   if (snap.status === 'disabled') return null;
 
-  const d = DESCRIPTORS[snap.status];
+  const g = grid ? gridState(gridSnap) : null;
+  const status = g && RANK[g.status] > RANK[snap.status] ? g.status : snap.status;
+  const pending = snap.pending + (g ? gridSnap.pending : 0);
+  const d = DESCRIPTORS[status];
   const lastTs = snap.status === 'error' ? snap.lastErrorAt : snap.lastSuccessAt;
   const lastLabel = lastTs ? relTime(lastTs, now) : null;
 
@@ -48,6 +80,7 @@ export default function SyncIndicator() {
   else if (snap.status === 'queued') title = `${snap.pending} mutation${snap.pending > 1 ? 's' : ''} en attente`;
   else if (snap.status === 'offline') title = 'Hors ligne — les modifications seront envoyées au retour de la connexion';
   else title = `Échec de synchronisation${lastLabel ? ` · ${lastLabel}` : ''} (${snap.pending} en attente)`;
+  if (g) title = `Saisies : ${title}\nClasseur du poste : ${g.title}`;
 
   return (
     <div
@@ -58,7 +91,7 @@ export default function SyncIndicator() {
     >
       <span className="sync-glyph" aria-hidden="true">{d.glyph}</span>
       <span className="sync-label">{d.short}</span>
-      {snap.pending > 0 && <span className="sync-count mono">{snap.pending}</span>}
+      {pending > 0 && <span className="sync-count mono">{pending}</span>}
     </div>
   );
 }
