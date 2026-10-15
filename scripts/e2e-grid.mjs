@@ -42,9 +42,9 @@ async function tablet(name) {
   page.on('pageerror', (e) => log(name, 'pageerror', e.message));
   page.on('crash', () => log(name, 'CRASH'));
   await page.goto(APP);
+  // Open once GridCraft says the shift's workbook is the one it shows.
   for (let i = 0; i < 90; i++) {
-    const st = await page.evaluate(() => document.querySelector('.gc .sync-label')?.textContent ?? 'none');
-    if (st === 'Partagé') break;
+    if (await page.evaluate(() => window.__msgs.some((m) => m.type === 'gridcraft:opened'))) break;
     await page.waitForTimeout(1000);
   }
   await page.waitForTimeout(Number(process.env.SETTLE ?? 2500));
@@ -53,7 +53,7 @@ async function tablet(name) {
 
 // Suivi sheet cell centres in page coordinates (see screenshots).
 const COL = { B: 118, C: 206, D: 266, J: 637, K: 697 };
-const ROW = { 3: 391, 4: 413, 5: 434 };
+const ROW = { 3: 224, 4: 246, 5: 267 };
 async function typeAt(page, col, row, text) {
   await page.bringToFront();
   const x = COL[col], y = ROW[row];
