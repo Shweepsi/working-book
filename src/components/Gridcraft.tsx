@@ -8,7 +8,9 @@
 // it open — see lib/sharedGrid.ts. Templates are managed outside the app,
 // through the Worker's /api/grid/templates and /api/grid/doc/template: shifts
 // not started yet take the newest one, shifts already filled keep theirs until
-// they're moved over. The sharing status shows in the header's sync chip.
+// they're moved over. The sharing status shows in the header's sync chip, and
+// GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
+// already says which shift is open.
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
@@ -29,7 +31,7 @@ export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
   // Stable, so React doesn't detach and reattach the frame on every render.
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
-  // Only for the file name GridCraft shows: the template's name.
+  // Only for the name of a copy saved from GridCraft: the template's name.
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const refreshTemplates = useCallback(() => {
     if (!SYNC_ENABLED) return;
@@ -62,7 +64,7 @@ export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
       ) : (
         <iframe
           ref={attachFrame}
-          src="/gridcraft/?host=parent"
+          src="/gridcraft/?host=parent&titlebar=0"
           title="GridCraft — classeur partagé du poste"
           allow="fullscreen; clipboard-read; clipboard-write"
           allowFullScreen
