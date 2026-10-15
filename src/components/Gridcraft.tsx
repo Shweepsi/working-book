@@ -10,24 +10,36 @@
 // not started yet take the newest one, shifts already filled keep theirs until
 // they're moved over. The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
-// already says which shift is open.
+// already says which shift is open. It follows Working Book's theme, not the
+// system's.
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
-import { listTemplates, sharedGrid as grid, type TemplateInfo } from '../lib/sharedGrid';
-import type { Poste, ShiftMeta } from '../types';
+import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
+import type { Poste, ShiftMeta, Theme } from '../types';
 
 interface GridcraftProps {
   poste: Poste | null;
   shiftMeta: ShiftMeta;
+  theme: Theme;
 }
 
-export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
+const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', dark: 'dark' };
+
+// What a line operator uses: the rest of the ribbon (drawing, page layout,
+// macros…) only crowds a tablet. Folded until a tab is touched.
+const FRAME_SRC = '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view';
+
+export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
   useEffect(() => {
     grid.connect();
     return () => grid.dispose();
   }, []);
   const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
+  // The theme the frame starts in; later changes go over postMessage, since a
+  // new URL would reload it.
+  const [src] = useState(() => `${FRAME_SRC}&theme=${GRID_THEME[theme]}`);
+  useEffect(() => grid.setTheme(GRID_THEME[theme]), [theme]);
   // Stable, so React doesn't detach and reattach the frame on every render.
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
@@ -62,13 +74,23 @@ export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
       ) : snap.status === 'no-template' ? (
         <div className="gc-empty">Aucun modèle de classeur pour l’instant.</div>
       ) : (
-        <iframe
-          ref={attachFrame}
-          src="/gridcraft/?host=parent&titlebar=0"
-          title="GridCraft — classeur partagé du poste"
-          allow="fullscreen; clipboard-read; clipboard-write"
-          allowFullScreen
-        />
+        <>
+          <iframe
+            ref={attachFrame}
+            src={src}
+            title="Suivi — classeur partagé du poste"
+            allow="fullscreen; clipboard-read; clipboard-write"
+            allowFullScreen
+          />
+          {/* Over GridCraft's own grey « Loading GridCraft… » page and the
+              empty workbook it shows until the shift's arrives. */}
+          {snap.status === 'loading' && (
+            <div className="gc-loading" role="status">
+              <span className="gc-loading-glyph" aria-hidden="true">↻</span>
+              Chargement du classeur…
+            </div>
+          )}
+        </>
       )}
     </div>
   );

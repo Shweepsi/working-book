@@ -40,7 +40,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'test', label: 'Test', preview: true, shiftScoped: true },
   { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
-  { key: 'grid', label: 'GridCraft', preview: true, shiftScoped: true },
+  { key: 'grid', label: 'Suivi', preview: true, shiftScoped: true },
 ];
 
 const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
@@ -418,7 +418,7 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
-        {tab === 'grid' && <Gridcraft poste={poste} shiftMeta={shiftMeta} />}
+        {tab === 'grid' && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} />}
       </main>
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}

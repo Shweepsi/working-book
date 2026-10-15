@@ -41,6 +41,8 @@ interface DocPage {
   more?: boolean;
 }
 
+export type GridTheme = 'light' | 'dark' | 'system';
+
 export type GridStatus = 'loading' | 'no-template' | 'ready' | 'syncing' | 'offline' | 'error' | 'disabled';
 
 export interface GridSnapshot {
@@ -176,6 +178,7 @@ class SharedGrid {
   private listeners = new Set<() => void>();
   private snap: GridSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, templateId: null, error: null };
   private fileName = 'classeur.xlsx';
+  private theme: GridTheme = 'system';
 
   /** Starts listening; paired with `dispose` (both safe to repeat, as React's
    * StrictMode runs effects twice in development). */
@@ -363,6 +366,13 @@ class SharedGrid {
 
   // --- Frame messages --------------------------------------------------------
 
+  /** The page's theme for GridCraft to follow (`light`, `dark` or `system`). */
+  setTheme(mode: GridTheme): void {
+    if (mode === this.theme) return;
+    this.theme = mode;
+    if (this.frameReady) this.post({ type: 'gridcraft:theme', mode });
+  }
+
   private post(msg: unknown, transfer: Transferable[] = []): void {
     this.frame?.contentWindow?.postMessage(msg, window.location.origin, transfer);
   }
@@ -377,6 +387,8 @@ class SharedGrid {
     switch (data?.type) {
       case 'gridcraft:ready':
         this.frameReady = true;
+        // The frame took its theme from its URL, which may have changed since.
+        this.post({ type: 'gridcraft:theme', mode: this.theme });
         if (this.pendingOpen) this.sendOpen();
         else if (this.shown) {
           // The frame (re)started under an open shift: show it again.
