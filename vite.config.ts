@@ -41,6 +41,18 @@ export default defineConfig(({ command }) => ({
   },
   plugins: [
     react(),
+    {
+      // Cloudflare Pages serves public/gridcraft/index.html for /gridcraft/;
+      // the dev server would answer with the app's own SPA fallback instead,
+      // and the GridCraft tab would frame Working Book inside itself.
+      name: 'gridcraft-dev-index',
+      configureServer(server) {
+        server.middlewares.use((req, _res, next) => {
+          if (req.url && /^\/gridcraft\/?(\?|$)/.test(req.url)) req.url = req.url.replace(/^\/gridcraft\/?/, '/gridcraft/index.html');
+          next();
+        });
+      },
+    },
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'icon.svg'],

@@ -42,7 +42,10 @@ function fmtDay(ts: number): string {
 
 export default function Gridcraft({ poste, shiftMeta }: GridcraftProps) {
   const [grid] = useState(() => new SharedGrid());
-  useEffect(() => () => grid.dispose(), [grid]);
+  useEffect(() => {
+    grid.connect();
+    return () => grid.dispose();
+  }, [grid]);
   const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
   // Stable, so React doesn't detach and reattach the frame on every render.
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), [grid]);

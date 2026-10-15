@@ -97,10 +97,13 @@ export class SharedGrid {
   private snap: GridSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, templateId: null, error: null };
   private fileName = 'classeur.xlsx';
 
-  constructor() {
+  /** Starts listening; paired with `dispose` (both safe to repeat, as React's
+   * StrictMode runs effects twice in development). */
+  connect(): void {
     window.addEventListener('message', this.onMessage);
     document.addEventListener('visibilitychange', this.onVisibility);
     window.addEventListener('online', this.onOnline);
+    if (this.shown && !this.pendingOpen) this.schedulePoll(0);
   }
 
   dispose(): void {
@@ -215,6 +218,12 @@ export class SharedGrid {
     this.initial = [];
     this.apply([...base, ...this.outbox]);
     this.set({ status: 'ready' });
+    // Without focus, the first tap in the frame only focuses it and the edit
+    // the operator meant is lost.
+    // eframe listens on its canvas, so that's what takes focus (same origin).
+    this.frame?.focus();
+    this.frame?.contentWindow?.focus();
+    this.frame?.contentDocument?.querySelector('canvas')?.focus();
     this.flush();
     this.schedulePoll(POLL_MS);
   }
