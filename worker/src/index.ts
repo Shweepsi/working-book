@@ -4,7 +4,7 @@
 
 import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
-import { GRID_METHODS, handleGrid } from './grid';
+import { GRID_HEADERS, GRID_METHODS, handleGrid } from './grid';
 
 export interface Env {
   DB: D1Database;
@@ -16,6 +16,8 @@ export interface Env {
   // "on" where the GridCraft shared workbooks are served. Dev only for now:
   // like every route here they have no auth, and they take the biggest writes.
   GRID?: string;
+  // Secret (wrangler secret put): the key that lets a device change templates.
+  GRID_ADMIN_KEY?: string;
 }
 
 const MAX_BODY_BYTES = 512 * 1024;
@@ -50,7 +52,7 @@ export default {
             methods: 'POST, OPTIONS',
           })
         : url.pathname.startsWith('/api/grid/')
-          ? corsHeaders(env, origin, { methods: GRID_METHODS })
+          ? corsHeaders(env, origin, { methods: GRID_METHODS, headers: GRID_HEADERS })
           : corsHeaders(env, origin);
 
     if (request.method === 'OPTIONS') {

@@ -17,6 +17,7 @@
 // frame but not the edits still on their way.
 
 import { API_BASE, SYNC_ENABLED } from './api';
+import { shiftContext } from './shiftContext';
 
 export interface Partition {
   date: string;
@@ -154,6 +155,8 @@ class SharedGrid {
   // Bumped by every load: replies to requests made before it are stale.
   private loadToken = 0;
   private initial: CellChange[] = [];
+  // The shift's date and poste in the template's named cells (lib/shiftContext.ts).
+  private context: CellChange[] = [];
   private cursor = 0;
   // The shown shift's cells as the Worker has them up to `cursor`.
   private server = new Map<string, CellChange>();
@@ -241,6 +244,11 @@ class SharedGrid {
     if (p) void this.load(p);
   }
 
+  /** Re-reads the shift, e.g. after it was moved to another template. */
+  reload(): void {
+    if (this.wanted) void this.load(this.wanted);
+  }
+
   private async load(p: Partition): Promise<void> {
     if (!SYNC_ENABLED) return;
     const token = ++this.loadToken;
@@ -285,7 +293,9 @@ class SharedGrid {
       const t = await fetch(`${API_BASE}/api/grid/template?id=${templateId}`);
       if (!t.ok) throw new HttpError(t.status);
       const bytes = await t.arrayBuffer();
+      const context = await shiftContext(bytes, p);
       if (token !== this.loadToken) return;
+      this.context = context;
       this.loadAttempts = 0;
       this.cursor = since;
       this.server = cells;
@@ -351,7 +361,7 @@ class SharedGrid {
     const pendingKeys = new Set(pending.map(keyOf));
     const base = this.initial.filter((ch) => !pendingKeys.has(keyOf(ch)));
     this.initial = [];
-    this.apply([...base, ...pending]);
+    this.apply([...base, ...pending, ...this.context]);
     this.lastActivity = Date.now();
     this.set({ status: this.openedOffline ? 'offline' : 'ready', error: null });
     // Without focus, the first tap in the frame only focuses it and the edit

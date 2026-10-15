@@ -3929,6 +3929,23 @@ body.is-col-resizing * {
   .gc-loading-glyph { animation: none; }
 }
 .gc iframe { flex: 1; width: 100%; border: 0; min-height: 420px; }
+/* Only on the device holding the template editor's key. */
+.gc-editor-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+.gc-editing .gc-editor-bar { background: color-mix(in srgb, var(--accent) 10%, var(--paper)); }
+.gc-editor-title strong { color: var(--ink); font-weight: 600; }
+.gc-editor-hint { color: var(--ink-faint); }
+.gc-notice { color: var(--ink); }
+.gc-spacer { flex: 1; }
 .gc-empty {
   flex: 1;
   display: flex;
@@ -5525,4 +5542,15 @@ button.as-row:focus-visible {
   padding: 10pt 5pt;
   color: var(--print-ink);
   font-style: italic;
+}
+
+/* Settings: the template editor's key. */
+.popover-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-sm);
 }

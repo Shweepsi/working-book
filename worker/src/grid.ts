@@ -10,14 +10,21 @@
 //   GET  /api/grid/doc?date&poste[&since=n]   → { template_id, seq, changes }
 //   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
+//   GET  /api/grid/admin                      → 204 when X-Grid-Key is the editor's key
+//
+// Changing templates (uploading one, moving a shift to another) takes the
+// template editor's key in X-Grid-Key: the GRID_ADMIN_KEY secret. Without
+// that secret set, nobody can.
 
 export interface GridEnv {
   DB: D1Database;
+  GRID_ADMIN_KEY?: string;
 }
 
 type Cors = Record<string, string>;
 
 export const GRID_METHODS = 'GET, POST, PUT, OPTIONS';
+export const GRID_HEADERS = 'Content-Type, X-Grid-Key';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const POSTE_RE = /^[ABCD]$/;
@@ -226,9 +233,26 @@ async function putDocTemplate(request: Request, url: URL, env: GridEnv, cors: Co
   return json({ template_id: id }, cors);
 }
 
+/** Whether the request carries the template editor's key. */
+async function isEditor(request: Request, env: GridEnv): Promise<boolean> {
+  const given = request.headers.get('X-Grid-Key') ?? '';
+  if (!env.GRID_ADMIN_KEY || !given) return false;
+  // Compare digests, so the time taken says nothing about the key.
+  const digest = async (v: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  const [a, b] = await Promise.all([digest(given), digest(env.GRID_ADMIN_KEY)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
 export async function handleGrid(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   const route = `${request.method} ${url.pathname}`;
+  if (route === 'GET /api/grid/admin' || route === 'POST /api/grid/templates' || route === 'PUT /api/grid/doc/template') {
+    if (!(await isEditor(request, env))) return json({ error: 'forbidden' }, cors, 403);
+  }
   switch (route) {
+    case 'GET /api/grid/admin':
+      return new Response(null, { status: 204, headers: cors });
     case 'GET /api/grid/templates':
       return listTemplates(env, cors);
     case 'POST /api/grid/templates':

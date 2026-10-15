@@ -8,13 +8,16 @@
 // it open — see lib/sharedGrid.ts. Templates are managed outside the app,
 // through the Worker's /api/grid/templates and /api/grid/doc/template: shifts
 // not started yet take the newest one, shifts already filled keep theirs until
-// they're moved over. The sharing status shows in the header's sync chip, and
+// they're moved over. The device holding the template editor's key gets an
+// « Modifier le modèle » bar (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
 // already says which shift is open. It follows Working Book's theme, not the
 // system's.
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
+import { uploadTemplate, useTemplateEditor } from '../lib/gridEditor';
+import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
 
@@ -43,7 +46,13 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
   // Stable, so React doesn't detach and reattach the frame on every render.
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
-  // Only for the name of a copy saved from GridCraft: the template's name.
+  const isEditor = useTemplateEditor();
+  const [editing, setEditing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // The template's name, for copies saved from GridCraft and for the editor.
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const refreshTemplates = useCallback(() => {
     if (!SYNC_ENABLED) return;
@@ -65,14 +74,79 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
     if (snap.templateId !== null && !templates.some((t) => t.id === snap.templateId)) refreshTemplates();
   }, [snap.templateId, templates, refreshTemplates]);
 
+  async function importFirst(file: File) {
+    setImporting(true);
+    setImportError(null);
+    try {
+      await uploadTemplate(file, file.name);
+      refreshTemplates();
+      grid.reload();
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  if (editing && current) {
+    return (
+      <TemplateEditor
+        template={current}
+        date={date}
+        dateLabel={shiftMeta.dateLabel}
+        poste={poste}
+        theme={GRID_THEME[theme]}
+        onClose={(published) => {
+          setEditing(false);
+          if (published) {
+            refreshTemplates();
+            grid.reload();
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="gc">
+      {isEditor && current && (
+        <div className="gc-editor-bar no-print">
+          <span className="gc-editor-title">
+            Modèle <strong>{current.name}</strong>
+          </span>
+          <span className="gc-spacer" />
+          <button type="button" className="btn ghost mini" onClick={() => setEditing(true)}>
+            Modifier le modèle
+          </button>
+        </div>
+      )}
       {!SYNC_ENABLED ? (
         <div className="gc-empty">Pas de serveur configuré : le classeur partagé a besoin du Worker.</div>
       ) : !poste ? (
         <div className="gc-empty">Choisis un shift dans l’en-tête : chaque poste a son classeur.</div>
       ) : snap.status === 'no-template' ? (
-        <div className="gc-empty">Aucun modèle de classeur pour l’instant.</div>
+        <div className="gc-empty">
+          <p>Aucun modèle de classeur pour l’instant.</p>
+          {isEditor && (
+            <>
+              <button type="button" className="btn primary" onClick={() => fileRef.current?.click()} disabled={importing}>
+                Importer un modèle .xlsx
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void importFirst(f);
+                }}
+              />
+              {importError && <p className="gc-notice">{importError}</p>}
+            </>
+          )}
+        </div>
       ) : (
         <>
           <iframe
