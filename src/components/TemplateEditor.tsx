@@ -16,11 +16,12 @@ interface TemplateEditorProps {
   dateLabel: string;
   poste: Poste | null;
   theme: GridTheme;
+  hidden: boolean;
   /** Closes the editor; `published` when a new template was stored. */
   onClose: (published: boolean) => void;
 }
 
-export default function TemplateEditor({ template, date, dateLabel, poste, theme, onClose }: TemplateEditorProps) {
+export default function TemplateEditor({ template, date, dateLabel, poste, theme, hidden, onClose }: TemplateEditorProps) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [src] = useState(() => `/gridcraft/?host=parent&titlebar=0&theme=${theme}`);
@@ -130,7 +131,7 @@ export default function TemplateEditor({ template, date, dateLabel, poste, theme
   }
 
   return (
-    <div className="gc gc-editing">
+    <div className={hidden ? 'gc gc-editing gc-hidden' : 'gc gc-editing'}>
       <div className="gc-editor-bar no-print">
         <span className="gc-editor-title">
           Modèle <strong>{template.name}</strong> — en édition, pas encore visible des postes

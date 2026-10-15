@@ -3911,8 +3911,11 @@ body.is-col-resizing * {
 .app-main:has(.sv) { max-width: none; }
 
 /* GridCraft: the shift's shared workbook takes the whole area under the header. */
-.app-main:has(.gc) { max-width: none; padding: 0; display: flex; }
+.app-main:has(.gc:not(.gc-hidden)) { max-width: none; padding: 0; display: flex; }
 .gc { flex: 1; display: flex; flex-direction: column; min-height: 480px; position: relative; }
+/* Another tab is showing: the workbook stays alive, laid out at full size
+   (so GridCraft keeps its canvas) but invisible and untouchable. */
+.gc-hidden { position: fixed; inset: 0; z-index: -1; visibility: hidden; pointer-events: none; }
 .gc-loading {
   position: absolute;
   inset: 0;

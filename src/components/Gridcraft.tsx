@@ -25,6 +25,8 @@ interface GridcraftProps {
   poste: Poste | null;
   shiftMeta: ShiftMeta;
   theme: Theme;
+  /** Another tab is showing: kept mounted, off screen, polling paused. */
+  hidden: boolean;
 }
 
 const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', dark: 'dark' };
@@ -33,11 +35,13 @@ const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', d
 // macros…) only crowds a tablet. Folded until a tab is touched.
 const FRAME_SRC = '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view';
 
-export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
+export default function Gridcraft({ poste, shiftMeta, theme, hidden }: GridcraftProps) {
   useEffect(() => {
     grid.connect();
     return () => grid.dispose();
   }, []);
+  useEffect(() => grid.setVisible(!hidden), [hidden]);
+  const cls = hidden ? 'gc gc-hidden' : 'gc';
   const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
   // The theme the frame starts in; later changes go over postMessage, since a
   // new URL would reload it.
@@ -95,6 +99,7 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
         dateLabel={shiftMeta.dateLabel}
         poste={poste}
         theme={GRID_THEME[theme]}
+        hidden={hidden}
         onClose={(published) => {
           setEditing(false);
           if (published) {
@@ -107,7 +112,7 @@ export default function Gridcraft({ poste, shiftMeta, theme }: GridcraftProps) {
   }
 
   return (
-    <div className="gc">
+    <div className={cls}>
       {CAN_EDIT_TEMPLATE && current && (
         <div className="gc-editor-bar no-print">
           <span className="gc-editor-title">

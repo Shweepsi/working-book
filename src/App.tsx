@@ -6,9 +6,11 @@ import Schedules from './components/Schedules';
 import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
+import { SYNC_ENABLED } from './lib/api';
 import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
+import { prefetchGridcraft } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import {
@@ -117,6 +119,18 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
+  // Once opened, the Suivi workbook stays mounted (hidden behind the other
+  // tabs): coming back is instant, with no wasm to start again and no cells
+  // to replay. Its files are fetched ahead, so the first open is quick too.
+  const [gridSeen, setGridSeen] = useState(false);
+  useEffect(() => {
+    if (tab === 'grid') setGridSeen(true);
+  }, [tab]);
+  useEffect(() => {
+    if (!IS_DEV_CHANNEL || !SYNC_ENABLED) return;
+    const t = setTimeout(() => void prefetchGridcraft(), 4000);
+    return () => clearTimeout(t);
+  }, []);
   // Which paper layout the Schedule view prints as. Kept here, next to the
   // `@page` rule and the aperçu bar, so the orientation has a single owner.
   // Persisted like the other paper-adjacent preferences: an operator who
@@ -418,7 +432,7 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
-        {tab === 'grid' && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} />}
+        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
       </main>
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}

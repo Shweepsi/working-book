@@ -148,6 +148,8 @@ class SharedGrid {
   private frame: HTMLIFrameElement | null = null;
   private frameReady = false;
   private connected = false;
+  // False while another tab covers the frame: nothing to read there meanwhile.
+  private visible = true;
   // The shift asked for, and the one the frame is showing (they differ while
   // a switch is under way: edits still arriving belong to the old one).
   private wanted: Partition | null = null;
@@ -222,6 +224,30 @@ class SharedGrid {
   private set(patch: Partial<GridSnapshot>): void {
     this.snap = { ...this.snap, ...patch, pending: this.outbox.size + this.inflight.length };
     this.listeners.forEach((l) => l());
+  }
+
+  /** The frame is on screen or not. Off screen, polling pauses (edits still
+   * go out); back on screen, it resumes at once and the frame takes focus. */
+  setVisible(visible: boolean): void {
+    if (visible === this.visible) return;
+    this.visible = visible;
+    if (!visible) {
+      clearTimeout(this.pollTimer);
+      return;
+    }
+    if (this.shown && !this.pendingOpen) {
+      this.focusFrame();
+      this.schedulePoll(0);
+    }
+  }
+
+  // Without focus, the first tap in the frame only focuses it and the edit
+  // the operator meant is lost. eframe listens on its canvas, so that's what
+  // takes focus (same origin).
+  private focusFrame(): void {
+    this.frame?.focus();
+    this.frame?.contentWindow?.focus();
+    this.frame?.contentDocument?.querySelector('canvas')?.focus();
   }
 
   attach(frame: HTMLIFrameElement | null): void {
@@ -364,12 +390,8 @@ class SharedGrid {
     this.apply([...base, ...pending, ...this.context]);
     this.lastActivity = Date.now();
     this.set({ status: this.openedOffline ? 'offline' : 'ready', error: null });
-    // Without focus, the first tap in the frame only focuses it and the edit
-    // the operator meant is lost.
-    // eframe listens on its canvas, so that's what takes focus (same origin).
-    this.frame?.focus();
-    this.frame?.contentWindow?.focus();
-    this.frame?.contentDocument?.querySelector('canvas')?.focus();
+    // Not when another tab is showing: the operator is typing there.
+    if (this.visible) this.focusFrame();
     void this.flush();
     this.schedulePoll(this.openedOffline ? 0 : POLL_MS);
   }
@@ -552,7 +574,7 @@ class SharedGrid {
 
   private schedulePoll(ms: number): void {
     clearTimeout(this.pollTimer);
-    if (!this.connected || document.visibilityState === 'hidden') return;
+    if (!this.connected || !this.visible || document.visibilityState === 'hidden') return;
     this.pollDelay = ms;
     this.pollTimer = setTimeout(() => void this.poll(), ms);
   }
@@ -630,6 +652,27 @@ class SharedGrid {
 
 /** The page's one shared-workbook controller. */
 export const sharedGrid = new SharedGrid();
+
+/** Fetches GridCraft's files and the newest template before the tab is first
+ * opened, so the service worker (or the HTTP cache) already holds them: about
+ * 7 Mo, once per device. Best effort, and not on a data-saver connection. */
+export async function prefetchGridcraft(): Promise<void> {
+  if ((navigator as { connection?: { saveData?: boolean } }).connection?.saveData) return;
+  try {
+    const page = await fetch('/gridcraft/', { priority: 'low' });
+    if (!page.ok) return;
+    const html = await page.text();
+    const files = new Set([...html.matchAll(/['"(]\.\/(gridcraft-web-[^'")]+)/g)].map((m) => `/gridcraft/${m[1]}`));
+    for (const url of files) {
+      const r = await fetch(url, { priority: 'low' });
+      if (r.ok) await r.blob();
+    }
+    const [latest] = await listTemplates();
+    if (latest) await (await fetch(`${API_BASE}/api/grid/template?id=${latest.id}`, { priority: 'low' })).blob();
+  } catch {
+    // Nothing lost: the files come when the tab opens.
+  }
+}
 
 function download(name: string, bytes: ArrayBuffer): void {
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
