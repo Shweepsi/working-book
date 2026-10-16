@@ -11,6 +11,7 @@ import {
   type StackAxis,
   type YabAxis,
 } from '../data/productionTest';
+import { todayISO } from '../lib/shiftCalendar';
 import { fmtHM } from '../lib/time';
 import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
@@ -97,7 +98,7 @@ function emptyTest(): Test {
     header: {
       testNo: '',
       operator: '',
-      date: now.toISOString().slice(0, 10),
+      date: todayISO(now),
       hour: fmtHM(now),
       product: HEADER_DEFAULTS.product,
       speed: HEADER_DEFAULTS.speed,
@@ -219,7 +220,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
       header: {
         ...t.header,
         hour: fmtHM(now),
-        date: now.toISOString().slice(0, 10),
+        date: todayISO(now),
       },
     }));
   }

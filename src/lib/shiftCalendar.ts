@@ -57,8 +57,12 @@ export function dateFromISO(iso: string): Date {
   return parseISODate(iso);
 }
 
+// The local calendar day, not the UTC one: from midnight to 02h in summer
+// (01h in winter) the UTC date is still yesterday's, which put the live shift
+// a day early (15/10's night instead of 16/10's at 01h40 on the 17th).
 export function todayISO(now: Date = new Date()): string {
-  return isoDate(now);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
 }
 
 // Pick the poste currently working a given clock-time on a given date.
