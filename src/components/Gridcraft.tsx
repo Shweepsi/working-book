@@ -33,8 +33,11 @@ interface GridcraftProps {
 const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', dark: 'dark' };
 
 // What a line operator uses: the rest of the ribbon (drawing, page layout,
-// macros…) only crowds a tablet. Folded until a tab is touched.
-const FRAME_SRC = '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view';
+// macros…) only crowds a tablet. Folded until a tab is touched. In French
+// whatever the tablet's language, and without animations (the selection
+// outline and the zoom jump instead of gliding; Affichage › Animations brings
+// them back until the page reloads).
+const FRAME_SRC = '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view&lang=fr&animations=0';
 
 export default function Gridcraft({ poste, shiftMeta, theme, hidden }: GridcraftProps) {
   useEffect(() => {

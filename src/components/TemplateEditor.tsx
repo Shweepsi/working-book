@@ -24,7 +24,7 @@ interface TemplateEditorProps {
 export default function TemplateEditor({ template, date, dateLabel, poste, theme, hidden, onClose }: TemplateEditorProps) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [src] = useState(() => `/gridcraft/?host=parent&titlebar=0&theme=${theme}`);
+  const [src] = useState(() => `/gridcraft/?host=parent&titlebar=0&lang=fr&animations=0&theme=${theme}`);
   const [bytes, setBytes] = useState<ArrayBuffer | null>(null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
