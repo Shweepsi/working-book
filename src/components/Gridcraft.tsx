@@ -36,8 +36,11 @@ const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', d
 // macros…) only crowds a tablet. Folded until a tab is touched. In French
 // whatever the tablet's language, and without animations (the selection
 // outline and the zoom jump instead of gliding; Affichage › Animations brings
-// them back until the page reloads).
-const FRAME_SRC = '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view&lang=fr&animations=0';
+// them back until the page reloads). No formula bar, gridlines or headings
+// either: the template draws its own borders, and an operator types values,
+// not formulas (Affichage brings each back, on this tablet only).
+const FRAME_SRC =
+  '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view&lang=fr&animations=0&formulabar=0&gridlines=0&headings=0';
 
 export default function Gridcraft({ poste, shiftMeta, theme, hidden }: GridcraftProps) {
   useEffect(() => {
