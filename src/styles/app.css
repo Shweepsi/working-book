@@ -4035,46 +4035,6 @@ body.is-col-resizing * {
 .gca-before { color: var(--ink-faint); }
 .gca-item.is-off:not(.is-remark) .gca-item-values { color: var(--ink-faint); }
 .gca-item-note { font-size: var(--fs-sm); color: var(--ink-soft); }
-.gca-count {
-  display: inline-block;
-  min-width: 18px;
-  margin-left: var(--space-2);
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: var(--fs-2xs);
-  line-height: 18px;
-}
-.gca-rule {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
-  color: var(--ink);
-  font-size: var(--fs-sm);
-}
-.gca-lexicon { display: flex; flex-direction: column; gap: var(--space-4); }
-.gca-lexicon section { display: flex; flex-direction: column; gap: var(--space-2); }
-.gca-lexicon h4 { margin: 0; }
-.gca-rule-item { align-items: center; }
-.gca-rule-item .gca-item-body { flex: 1; }
-.gca-rule-actions { display: flex; flex: none; gap: var(--space-2); }
-.gca-rule-input {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-sm);
-  background: var(--paper);
-  color: var(--ink);
-}
-.gca-rule-input:focus { outline: none; border-color: var(--accent); }
-@media (max-width: 600px) {
-  .gca-rule-item { flex-wrap: wrap; }
-  .gca-rule-actions { width: 100%; justify-content: flex-end; }
-}
 
 /* Tablet / phone — schedule navigator moves on top of the detail rather
    than sitting in a side rail, since the detail table itself is wide

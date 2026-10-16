@@ -38,8 +38,6 @@ export interface AssistReply {
   error?: string;
   /** This exchange, in the shift's memory: what the app reports back about (AssistFeedback). */
   id?: string;
-  /** A vocabulary rule Claude proposed (lexicon.ts), now waiting for validation. */
-  rule?: string;
   /** saisie, controle: one sentence; bilan: the whole text. */
   text?: string;
   /** saisie: Claude needs to know more before proposing anything. */

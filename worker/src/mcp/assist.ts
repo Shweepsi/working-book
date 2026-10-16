@@ -15,7 +15,7 @@
 // through tools: one request per question, a few seconds on a tablet. It also
 // gets the shift's last exchanges with it (kept by the shift's session, so
 // "pareil sur la suivante" or "annule la dernière" make sense) and the
-// workshop's validated vocabulary (lexicon.ts), which it proposes rules for.
+// workshop's vocabulary (lexicon.ts), which it learns by itself.
 
 import type { AssistItem, AssistMode, AssistReply } from '../assistTypes';
 import type { CellChange, Workbook } from './engine';
@@ -72,7 +72,7 @@ export interface Exchange {
 
 export interface Memory {
   history: Exchange[];
-  /** The workshop's validated rules. */
+  /** The workshop's vocabulary it learned. */
   lexicon: string[];
 }
 
@@ -385,13 +385,13 @@ const TASKS: Record<AssistMode, string> = {
   saisie: `Ta tâche : traduire la demande de l'opérateur en cellules à remplir.
 - Une nouvelle plaque va sur la première ligne libre du côté concerné (donnée dans l'état du classeur), sauf si l'opérateur désigne une ligne existante : par son numéro, son N° TAG, ou « la dernière ».
 - Le côté se déduit de ce qui est dit : défauts, quantités rejetées, frame → FL ; consommées, sens, polishing, origine → DL. Lites, dimension, épaisseur, TAG : le côté dont parle l'opérateur.
-- Des défauts ou des quantités sans plaque désignée (ni ligne, ni TAG, ni « la dernière », ni données d'une nouvelle plaque) : ne devine pas, demande sur quelle plaque en proposant la dernière plaque FL (sa ligne et son TAG).
+- Ce que tu proposes est écrit aussitôt (l'opérateur peut annuler) : ne demande pas de confirmation. Des défauts ou des quantités sans plaque désignée vont sur la dernière plaque FL (la dernière ligne avec un N° TAG numérique côté FL), dans le premier emplacement de défaut libre ; dis-le dans le résumé. Si ce défaut est déjà sur la plaque, ajoute à sa quantité (6 + 3 → 9) au lieu d'occuper un autre emplacement.
 - Une nouvelle couleur (« on passe en premium 2 ») s'écrit seule sur la première ligne libre, en N° TAG du côté concerné, sauf si ce bloc est déjà le dernier ouvert de ce côté.
 - Valeurs exactes : défauts et couleurs tels que dans les listes, nombres sans unité, dates en jj/mm/aa. Le jour seul ou jour et mois suffisent pour une date : « 15 » ou « 15/10 ».
-- N'invente rien. Si la demande est ambiguë (quelle ligne, quel côté, quel défaut ?), ne propose aucune cellule et pose une question courte dans « question ». Sinon « question » reste vide.
-- « resume » : une phrase simple qui dit ce qui sera saisi, par exemple « Ligne 14 FL : 3 Flaking et 2 Scratches ».
+- N'invente rien, mais choisis l'interprétation la plus probable plutôt que de demander. Pose une question courte dans « question » (sans aucune cellule) seulement si rien ne permet de trancher : un défaut qui correspond à plusieurs entrées de la liste, une plaque qu'aucune ligne ne peut porter. Sinon « question » reste vide.
+- « resume » : une phrase simple qui dit ce qui est saisi, par exemple « Ligne 14 FL : 3 Flaking et 2 Scratches ».
 - Les échanges précédents de ce poste te sont donnés : « pareil », « la même », « la suivante », « encore », « annule la dernière » y renvoient. Une proposition écrite est déjà dans le classeur. Pour défaire une saisie écrite, propose de remettre les valeurs d'avant ; une valeur vide efface la cellule.
-- « regle » : si l'opérateur te demande de retenir quelque chose (« retiens que… », « chez nous on dit… »), ou si sa demande corrige ta compréhension d'un mot ou d'une habitude de l'atelier (pas un simple numéro de ligne ou une quantité), écris la règle générale en une phrase courte, par exemple « "chariot" désigne la colonne Frame (FL). » Un responsable la validera avant qu'elle serve. Sinon laisse vide. Une demande qui n'est qu'une règle à retenir ne propose aucune cellule.`,
+- « regle » : si l'opérateur te demande de retenir quelque chose (« retiens que… », « chez nous on dit… »), ou si sa demande corrige ta compréhension d'un mot ou d'une habitude de l'atelier (pas un simple numéro de ligne ou une quantité), écris la règle générale en une phrase courte, par exemple « "chariot" désigne la colonne Frame (FL). » Elle s'appliquera aussitôt à toutes les tablettes, sans relecture : seulement une règle sûre, générale et durable, jamais une supposition. Si elle contredit une règle du lexique, écris la nouvelle : la plus récente l'emporte. Sinon laisse vide. Une demande qui n'est qu'une règle à retenir ne propose aucune cellule.`,
   controle: `Ta tâche : vérifier le poste avant la relève. Signale seulement de vrais problèmes, chacun sur sa cellule :
 - un nombre ou une date tapés comme du texte (valeur entre guillemets dans une colonne de nombres ou de dates) ;
 - un défaut sans quantité, une quantité sans défaut, plus de plaques rejetées que de lites sur la ligne ;
@@ -458,7 +458,7 @@ async function claude(env: AssistEnv, mode: AssistMode, s: Sheet, ask: string, l
       { type: 'text', text: ABOUT },
       {
         type: 'text',
-        text: `Liste des défauts : ${s.defects.map((d) => `« ${d} »`).join(', ')}.\n\n${lexicon.length ? `Lexique de l'atelier (règles validées, à appliquer) :\n${lexicon.map((r) => `- ${r}`).join('\n')}\n\n` : ''}${TASKS[mode]}`,
+        text: `Liste des défauts : ${s.defects.map((d) => `« ${d} »`).join(', ')}.\n\n${lexicon.length ? `Lexique de l'atelier (appris des opérateurs, du plus ancien au plus récent ; en cas de contradiction, le plus récent l'emporte) :\n${lexicon.map((r) => `- ${r}`).join('\n')}\n\n` : ''}${TASKS[mode]}`,
         cache_control: { type: 'ephemeral' },
       },
     ],
@@ -509,7 +509,7 @@ function jsonOf(reply: ClaudeReply): Record<string, unknown> {
 }
 
 /** One question to the assistant, on the shift's workbook as it stands. */
-export async function assist(env: AssistEnv, book: Workbook, part: { date: string; poste: string }, mode: AssistMode, text: string, memory: Memory): Promise<AssistReply> {
+export async function assist(env: AssistEnv, book: Workbook, part: { date: string; poste: string }, mode: AssistMode, text: string, memory: Memory): Promise<AssistReply & { rule?: string }> {
   const s = snapshot(book, part);
   const ask = (q: string) => claude(env, mode, s, q, memory.lexicon);
   if (mode === 'bilan') {

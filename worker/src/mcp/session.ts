@@ -25,7 +25,7 @@ import {
   type StoredChange,
 } from '../grid';
 import type { AssistFeedback, AssistReply, AssistRequest } from '../assistTypes';
-import { activeRules, proposeRule } from '../lexicon';
+import { activeRules, learnRule } from '../lexicon';
 import { assist, AssistError, MAX_TEXT, type AssistEnv, type Exchange } from './assist';
 import { shiftContext } from './context';
 import { engineTools, isTrap, Workbook, type CellChange } from './engine';
@@ -218,8 +218,9 @@ export class McpSession extends DurableObject<McpEnv> {
         await this.ctx.storage.put('assist-history', [...history, exchange].slice(-ASSIST_HISTORY));
         await this.ctx.storage.setAlarm(now + ASSIST_FORGET_MS);
         reply.id = exchange.id;
-        // A rule already known, refused before, or past the queue: nothing to say.
-        if (reply.rule && (await proposeRule(this.env, reply.rule, text).catch(() => null)) === null) delete reply.rule;
+        // A rule learned stays internal: the vocabulary, not the operator's reply.
+        if (reply.rule) await learnRule(this.env, reply.rule, text).catch(() => null);
+        delete reply.rule;
         return reply;
       } catch (e) {
         if (e instanceof AssistError || e instanceof UserError) return { ok: false, error: e.message };

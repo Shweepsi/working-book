@@ -12,10 +12,8 @@
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
 //   POST /api/grid/assist?date&poste          ← { mode, text? } → the assistant's reply (assistTypes.ts)
 //                                             ← { mode: 'retour', id, outcome, cells? } → what became of a proposal
-//   /api/grid/assist/lexicon                  the assistant's vocabulary (lexicon.ts)
 
 import type { AssistService } from './assistTypes';
-import { handleLexicon } from './lexicon';
 
 export interface GridEnv {
   DB: D1Database;
@@ -331,10 +329,6 @@ export async function handleGrid(request: Request, url: URL, env: GridEnv, cors:
       return putDocTemplate(request, url, env, cors);
     case 'POST /api/grid/assist':
       return postAssist(request, url, env, cors);
-    case 'GET /api/grid/assist/lexicon':
-    case 'POST /api/grid/assist/lexicon':
-    case 'PUT /api/grid/assist/lexicon':
-      return handleLexicon(request, url, env, cors);
     default:
       return json({ error: url.pathname.startsWith('/api/grid/') ? 'method_not_allowed' : 'not_found' }, cors, 405);
   }

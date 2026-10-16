@@ -3,8 +3,7 @@
 // /api/grid/assist). It proposes; the operator accepts; the cells it proposed
 // are written here as this device's own edits (sharedGrid.write), and the
 // shift's session hears what became of them (reportAssistant), so that
-// « pareil sur la suivante » or « annule la dernière » make sense to it. Its
-// workshop vocabulary (worker/src/lexicon.ts) is managed here too.
+// « pareil sur la suivante » or « annule la dernière » make sense to it.
 
 import { API_BASE } from './api';
 import type { CellChange, Partition } from './sharedGrid';
@@ -26,8 +25,6 @@ export interface AssistReply {
   error?: string;
   /** This exchange, for reportAssistant. */
   id?: string;
-  /** A vocabulary rule Claude proposed, waiting for validation. */
-  rule?: string;
   text?: string;
   question?: string;
   items?: AssistItem[];
@@ -65,38 +62,4 @@ export function reportAssistant(p: Partition, id: string | undefined, outcome: '
     body: JSON.stringify({ mode: 'retour', id, outcome, cells }),
     keepalive: true,
   }).catch(() => undefined);
-}
-
-// --- The workshop's vocabulary -----------------------------------------------------
-
-export interface Rule {
-  id: number;
-  rule: string;
-  source: string;
-  status: 'pending' | 'active' | 'rejected';
-  created_at: number;
-}
-
-const LEXICON = () => `${API_BASE}/api/grid/assist/lexicon`;
-
-async function lexiconCall(url: string, init?: RequestInit): Promise<unknown> {
-  const r = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
-  const body = (await r.json().catch(() => null)) as { error?: string } | null;
-  if (!r.ok) {
-    const why: Record<string, string> = { too_many_rules: 'Trop de règles actives : retires-en une d’abord.', already_known: 'Cette règle existe déjà.', empty_rule: 'La règle est vide.' };
-    throw new Error(why[body?.error ?? ''] ?? `Le serveur a répondu ${r.status}.`);
-  }
-  return body;
-}
-
-export async function listRules(): Promise<Rule[]> {
-  return ((await lexiconCall(LEXICON())) as { data: Rule[] }).data;
-}
-
-export async function addRule(rule: string): Promise<void> {
-  await lexiconCall(LEXICON(), { method: 'POST', body: JSON.stringify({ rule }) });
-}
-
-export async function updateRule(id: number, patch: { status?: Rule['status']; rule?: string }): Promise<void> {
-  await lexiconCall(`${LEXICON()}?id=${id}`, { method: 'PUT', body: JSON.stringify(patch) });
 }
