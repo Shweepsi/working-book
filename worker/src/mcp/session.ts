@@ -24,8 +24,9 @@ import {
   type Partition,
   type StoredChange,
 } from '../grid';
-import type { AssistReply, AssistRequest } from '../assistTypes';
-import { assist, AssistError, MAX_TEXT, type AssistEnv } from './assist';
+import type { AssistFeedback, AssistReply, AssistRequest } from '../assistTypes';
+import { activeRules, proposeRule } from '../lexicon';
+import { assist, AssistError, MAX_TEXT, type AssistEnv, type Exchange } from './assist';
 import { shiftContext } from './context';
 import { engineTools, isTrap, Workbook, type CellChange } from './engine';
 
@@ -56,6 +57,9 @@ const LARGE = 2_000;
 const CHUNK = 4_000;
 // The assistant's questions per shift and per hour: each one is paid for.
 const ASSIST_PER_HOUR = 40;
+// The shift's exchanges the assistant remembers, and for how long after the last one.
+const ASSIST_HISTORY = 8;
+const ASSIST_FORGET_MS = 3 * 24 * 3600_000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const POSTE_RE = /^[ABCD]$/;
 // Tools that would leave the shared workbook: files are the app's business.
@@ -163,11 +167,29 @@ export class McpSession extends DurableObject<McpEnv> {
     return true;
   }
 
+  /** What became of one of the assistant's proposals, for its memory of the shift. */
+  async assistFeedback(f: AssistFeedback): Promise<{ ok: boolean }> {
+    const run = async () => {
+      const history = (await this.ctx.storage.get<Exchange[]>('assist-history')) ?? [];
+      const x = history.find((e) => e.id === f.id);
+      if (!x) return { ok: false };
+      x.outcome = f.outcome;
+      if (f.outcome === 'valide' && f.cells && f.cells.length < x.cells.length) x.kept = f.cells.filter((c) => x.cells.some((k) => k.cell === c));
+      await this.ctx.storage.put('assist-history', history);
+      return { ok: true };
+    };
+    const next = this.queue.then(run, run);
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
   /**
    * One question to the Suivi assistant (assist.ts). Its sessions are one per
    * shift, named after it: the workbook stays open between questions, caught
-   * up with the tablets before each. Nothing is stored from here — the app
-   * writes the cells the operator accepts.
+   * up with the tablets before each, and the shift's last exchanges are kept
+   * here (storage, forgotten 3 days after the last one). No cell is stored
+   * from here — the app writes the cells the operator accepts, and says so
+   * (assistFeedback).
    */
   async assist(req: AssistRequest): Promise<AssistReply> {
     const run = async (): Promise<AssistReply> => {
@@ -179,7 +201,26 @@ export class McpSession extends DurableObject<McpEnv> {
       try {
         if (!this.book || !this.part || this.part.date !== p.date || this.part.poste !== p.poste) await this.load(p);
         else await this.pull(this.book, []);
-        return await assist(this.env, this.book as Workbook, p, req.mode, (req.text ?? '').slice(0, MAX_TEXT));
+        const text = (req.text ?? '').slice(0, MAX_TEXT);
+        const history = (await this.ctx.storage.get<Exchange[]>('assist-history')) ?? [];
+        const lexicon = await activeRules(this.env).catch(() => [] as string[]);
+        const reply = await assist(this.env, this.book as Workbook, p, req.mode, text, { history, lexicon });
+        if (!reply.ok || req.mode === 'bilan') return reply;
+        const exchange: Exchange = {
+          id: crypto.randomUUID().slice(0, 8),
+          at: now,
+          mode: req.mode,
+          ask: req.mode === 'saisie' ? text.slice(-400) : '',
+          ...(reply.question ? { question: reply.question } : {}),
+          cells: (reply.items ?? []).filter((i) => i.ok).map((i) => ({ cell: i.cell, before: i.before, after: i.after ?? '' })),
+          outcome: 'propose',
+        };
+        await this.ctx.storage.put('assist-history', [...history, exchange].slice(-ASSIST_HISTORY));
+        await this.ctx.storage.setAlarm(now + ASSIST_FORGET_MS);
+        reply.id = exchange.id;
+        // A rule already known, refused before, or past the queue: nothing to say.
+        if (reply.rule && (await proposeRule(this.env, reply.rule, text).catch(() => null)) === null) delete reply.rule;
+        return reply;
       } catch (e) {
         if (e instanceof AssistError || e instanceof UserError) return { ok: false, error: e.message };
         if (isTrap(e)) {

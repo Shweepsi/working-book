@@ -2,10 +2,24 @@
 // the operator types or dictates, checks the shift before the handover, and
 // writes its summary. Nothing reaches the workbook until the operator accepts
 // the cells it proposes; they are then written as this tablet's own edits, and
-// the toast takes them back.
+// the toast takes them back. Where the template can be edited, a fourth tab
+// manages the workshop's vocabulary: the rules Claude proposed wait there
+// until someone validates them.
 
-import { useEffect, useRef, useState } from 'react';
-import { askAssistant, cellKey, type AssistItem, type AssistMode, type AssistReply } from '../lib/assist';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  addRule,
+  askAssistant,
+  cellKey,
+  listRules,
+  reportAssistant,
+  updateRule,
+  type AssistItem,
+  type AssistMode,
+  type AssistReply,
+  type Rule,
+} from '../lib/assist';
+import { CAN_EDIT_TEMPLATE } from '../lib/gridEditor';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
 import { useToast } from '../lib/toast';
 
@@ -14,10 +28,13 @@ interface GridAssistantProps {
   onClose: () => void;
 }
 
-const MODES: { key: AssistMode; label: string; busy: string }[] = [
+type Tab = AssistMode | 'lexique';
+
+const MODES: { key: Tab; label: string; busy: string }[] = [
   { key: 'saisie', label: 'Saisir', busy: 'Claude prépare la saisie…' },
   { key: 'controle', label: 'Vérifier', busy: 'Claude relit le poste…' },
   { key: 'bilan', label: 'Bilan', busy: 'Claude rédige le bilan…' },
+  ...(CAN_EDIT_TEMPLATE ? [{ key: 'lexique' as const, label: 'Lexique', busy: '' }] : []),
 ];
 
 // The Web Speech API: Chrome on Android tablets has it (prefixed), Firefox not.
@@ -38,7 +55,7 @@ const dayLabel = (iso: string) => iso.split('-').reverse().join('/');
 
 export default function GridAssistant({ part, onClose }: GridAssistantProps) {
   const toast = useToast();
-  const [mode, setMode] = useState<AssistMode>('saisie');
+  const [mode, setMode] = useState<Tab>('saisie');
   const [text, setText] = useState('');
   // Claude asked something about the request: the answer goes with both.
   const [asked, setAsked] = useState<{ request: string; question: string } | null>(null);
@@ -50,6 +67,12 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
   const abortRef = useRef<AbortController | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  // The vocabulary, where it can be managed: its pending rules show on the tab.
+  const [rules, setRules] = useState<Rule[] | null>(null);
+  const loadRules = useCallback(() => {
+    if (CAN_EDIT_TEMPLATE) listRules().then(setRules, () => undefined);
+  }, []);
+  useEffect(loadRules, [loadRules]);
 
   useEffect(
     () => () => {
@@ -66,7 +89,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  function switchMode(m: AssistMode) {
+  function switchMode(m: Tab) {
     if (busy || m === mode) return;
     setMode(m);
     setReply(null);
@@ -89,6 +112,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
       }
       setReply(r);
       setPicked(new Set((r.items ?? []).filter((i) => i.ok).map((i) => i.cell)));
+      if (r.rule) loadRules();
       return r;
     } catch {
       return null; // Closed or asked again meanwhile.
@@ -124,7 +148,15 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
     }
     const n = changes.length;
     const done = mode === 'controle' ? 'corrigée' : 'saisie';
-    toast.show({ message: `${n} cellule${n > 1 ? 's' : ''} ${done}${n > 1 ? 's' : ''} par l’assistant`, undo: () => grid.write(part, undo) });
+    const kept = changes.map(cellKey);
+    reportAssistant(part, reply.id, 'valide', kept);
+    toast.show({
+      message: `${n} cellule${n > 1 ? 's' : ''} ${done}${n > 1 ? 's' : ''} par l’assistant`,
+      undo: () => {
+        grid.write(part, undo);
+        reportAssistant(part, reply.id, 'annule');
+      },
+    });
     onClose();
   }
 
@@ -175,6 +207,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
   const current = MODES.find((m) => m.key === mode) ?? MODES[0];
   const items = reply?.items ?? [];
   const writable = items.filter((i) => i.ok && picked.has(i.cell)).length;
+  const pending = rules?.filter((r) => r.status === 'pending').length ?? 0;
 
   return (
     <>
@@ -197,6 +230,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
           {MODES.map((m) => (
             <button key={m.key} type="button" className={m.key === mode ? 'active' : ''} aria-pressed={m.key === mode} onClick={() => switchMode(m.key)}>
               {m.label}
+              {m.key === 'lexique' && pending > 0 && <span className="gca-count">{pending}</span>}
             </button>
           ))}
         </div>
@@ -248,7 +282,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
           </div>
         )}
 
-        {mode !== 'saisie' && !reply && !busy && (
+        {(mode === 'controle' || mode === 'bilan') && !reply && !busy && (
           <div className="gca-start">
             <p className="gca-hint">
               {mode === 'controle'
@@ -286,9 +320,14 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
           </div>
         )}
 
-        {reply && mode !== 'bilan' && !(mode === 'saisie' && asked) && (
+        {reply && (mode === 'saisie' || mode === 'controle') && !(mode === 'saisie' && asked) && (
           <div className="gca-result">
             {reply.text && <p className="gca-summary">{reply.text}</p>}
+            {reply.rule && (
+              <p className="gca-rule">
+                Règle proposée pour le lexique : « {reply.rule} ». Elle servira une fois validée{CAN_EDIT_TEMPLATE ? ', dans le volet Lexique' : ''}.
+              </p>
+            )}
             {items.length > 0 ? (
               <ul className="gca-items">
                 {items.map((it) => (
@@ -296,7 +335,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
                 ))}
               </ul>
             ) : (
-              mode === 'controle' && <p className="gca-hint">Rien à signaler.</p>
+              mode === 'controle' && !reply.text && <p className="gca-hint">Rien à signaler.</p>
             )}
             <div className="gca-actions">
               {mode === 'controle' && (
@@ -312,8 +351,112 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
             </div>
           </div>
         )}
+
+        {mode === 'lexique' && <LexiconPanel rules={rules} reload={loadRules} />}
       </div>
     </>
+  );
+}
+
+/** The workshop's vocabulary: rules Claude proposed (to validate, reword or refuse) and the ones in use. */
+function LexiconPanel({ rules, reload }: { rules: Rule[] | null; reload: () => void }) {
+  const [draft, setDraft] = useState('');
+  const [edits, setEdits] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(job: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await job();
+      reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!rules) return <p className="gca-hint">Chargement du lexique…</p>;
+  const pending = rules.filter((r) => r.status === 'pending');
+  const active = rules.filter((r) => r.status === 'active');
+  return (
+    <div className="gca-lexicon">
+      <p className="gca-hint">Les règles validées servent à l’assistant sur toutes les tablettes. Celles que Claude propose attendent ici.</p>
+      {error && <p className="gca-error">⚠ {error}</p>}
+      {pending.length > 0 && (
+        <section>
+          <h4 className="section-label">À valider ({pending.length})</h4>
+          <ul className="gca-items">
+            {pending.map((r) => (
+              <li key={r.id} className="gca-item gca-rule-item">
+                <div className="gca-item-body">
+                  <input
+                    className="gca-rule-input"
+                    value={edits[r.id] ?? r.rule}
+                    onChange={(e) => setEdits((x) => ({ ...x, [r.id]: e.target.value }))}
+                    aria-label="Règle proposée"
+                  />
+                  {r.source && <span className="gca-item-note">D’après « {r.source.length > 140 ? `…${r.source.slice(-140)}` : r.source} »</span>}
+                </div>
+                <div className="gca-rule-actions">
+                  <button type="button" className="btn ghost mini" disabled={busy} onClick={() => void run(() => updateRule(r.id, { status: 'rejected' }))}>
+                    Refuser
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary mini"
+                    disabled={busy}
+                    onClick={() => void run(() => updateRule(r.id, { status: 'active', ...(edits[r.id] && edits[r.id] !== r.rule ? { rule: edits[r.id] } : {}) }))}
+                  >
+                    Valider
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <section>
+        <h4 className="section-label">En service ({active.length})</h4>
+        {active.length ? (
+          <ul className="gca-items">
+            {active.map((r) => (
+              <li key={r.id} className="gca-item gca-rule-item">
+                <div className="gca-item-body">
+                  <span>{r.rule}</span>
+                </div>
+                <div className="gca-rule-actions">
+                  <button type="button" className="btn ghost mini" disabled={busy} onClick={() => void run(() => updateRule(r.id, { status: 'rejected' }))}>
+                    Retirer
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="gca-hint">Aucune règle pour l’instant.</p>
+        )}
+      </section>
+      <form
+        className="gca-input"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const rule = draft.trim();
+          if (rule)
+            void run(async () => {
+              await addRule(rule);
+              setDraft('');
+            });
+        }}
+      >
+        <input className="gca-rule-input" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ajouter une règle, ex. : « chariot » désigne la colonne Frame (FL)." aria-label="Nouvelle règle" />
+        <button type="submit" className="btn primary" disabled={busy || !draft.trim()}>
+          Ajouter
+        </button>
+      </form>
+    </div>
   );
 }
 

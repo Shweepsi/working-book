@@ -11,8 +11,11 @@
 //   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
 //   POST /api/grid/assist?date&poste          ← { mode, text? } → the assistant's reply (assistTypes.ts)
+//                                             ← { mode: 'retour', id, outcome, cells? } → what became of a proposal
+//   /api/grid/assist/lexicon                  the assistant's vocabulary (lexicon.ts)
 
 import type { AssistService } from './assistTypes';
+import { handleLexicon } from './lexicon';
 
 export interface GridEnv {
   DB: D1Database;
@@ -297,10 +300,16 @@ async function putDocTemplate(request: Request, url: URL, env: GridEnv, cors: Co
 async function postAssist(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   const p = partition(url);
   if (!p) return json({ error: 'invalid_params' }, cors, 400);
-  const body = (await readJson(request)) as { mode?: unknown; text?: unknown } | undefined;
+  const body = (await readJson(request)) as { mode?: unknown; text?: unknown; id?: unknown; outcome?: unknown; cells?: unknown } | undefined;
   const mode = body?.mode;
-  if (mode !== 'saisie' && mode !== 'controle' && mode !== 'bilan') return json({ error: 'invalid_mode' }, cors, 400);
+  if (mode !== 'saisie' && mode !== 'controle' && mode !== 'bilan' && mode !== 'retour') return json({ error: 'invalid_mode' }, cors, 400);
   if (!env.ASSIST) return json({ ok: false, error: 'L’assistant n’est pas disponible sur ce serveur.' }, cors, 503);
+  if (mode === 'retour') {
+    const outcome = body?.outcome;
+    if (typeof body?.id !== 'string' || (outcome !== 'valide' && outcome !== 'annule')) return json({ error: 'invalid_feedback' }, cors, 400);
+    const cells = Array.isArray(body.cells) ? body.cells.filter((c): c is string => typeof c === 'string').slice(0, 100) : undefined;
+    return json(await env.ASSIST.feedback({ ...p, id: body.id.slice(0, 40), outcome, cells }), cors);
+  }
   const text = typeof body?.text === 'string' ? body.text.slice(0, 2_000) : undefined;
   return json(await env.ASSIST.run({ ...p, mode, text }), cors);
 }
@@ -322,6 +331,10 @@ export async function handleGrid(request: Request, url: URL, env: GridEnv, cors:
       return putDocTemplate(request, url, env, cors);
     case 'POST /api/grid/assist':
       return postAssist(request, url, env, cors);
+    case 'GET /api/grid/assist/lexicon':
+    case 'POST /api/grid/assist/lexicon':
+    case 'PUT /api/grid/assist/lexicon':
+      return handleLexicon(request, url, env, cors);
     default:
       return json({ error: url.pathname.startsWith('/api/grid/') ? 'method_not_allowed' : 'not_found' }, cors, 405);
   }

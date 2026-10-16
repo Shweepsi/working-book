@@ -17,7 +17,7 @@
 
 import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import type { AssistReply, AssistRequest } from '../assistTypes';
+import type { AssistFeedback, AssistReply, AssistRequest } from '../assistTypes';
 import { authorize, USER_ID, type AuthEnv } from './authorize';
 import { McpSession, type McpEnv } from './session';
 
@@ -39,6 +39,13 @@ export class Assist extends WorkerEntrypoint<Env> {
     if (!(await budget.spend(ASSIST_PER_DAY))) return { ok: false, error: `L’assistant a répondu ${ASSIST_PER_DAY} fois aujourd’hui, sa limite : il revient demain.` };
     const session = this.env.SESSIONS.get(this.env.SESSIONS.idFromName(`assist:${req.date}:${req.poste}`));
     return (await session.assist({ date: req.date, poste: req.poste, mode: req.mode, text: req.text })) as AssistReply;
+  }
+
+  /** What the operator did with a proposal: the shift's session remembers it. */
+  async feedback(f: AssistFeedback): Promise<{ ok: boolean }> {
+    if (!f || !DATE_RE.test(String(f.date)) || !POSTE_RE.test(String(f.poste)) || typeof f.id !== 'string') return { ok: false };
+    const session = this.env.SESSIONS.get(this.env.SESSIONS.idFromName(`assist:${f.date}:${f.poste}`));
+    return (await session.assistFeedback({ date: f.date, poste: f.poste, id: f.id, outcome: f.outcome, cells: f.cells })) as { ok: boolean };
   }
 }
 

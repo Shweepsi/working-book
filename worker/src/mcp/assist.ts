@@ -12,7 +12,10 @@
 //   bilan     the shift's summary for the next team, from Rapport's results.
 //
 // Claude sees the workbook as this module writes it out (snapshot), not
-// through tools: one request per question, a few seconds on a tablet.
+// through tools: one request per question, a few seconds on a tablet. It also
+// gets the shift's last exchanges with it (kept by the shift's session, so
+// "pareil sur la suivante" or "annule la dernière" make sense) and the
+// workshop's validated vocabulary (lexicon.ts), which it proposes rules for.
 
 import type { AssistItem, AssistMode, AssistReply } from '../assistTypes';
 import type { CellChange, Workbook } from './engine';
@@ -53,6 +56,47 @@ const DEFECT_COLS = new Set(['S', 'V', 'Y']);
 const DEFECT_FROM = 18; // S
 
 export class AssistError extends Error {}
+
+/** One exchange of the shift with the assistant, kept by its session (session.ts). */
+export interface Exchange {
+  id: string;
+  at: number;
+  mode: AssistMode;
+  ask: string;
+  question?: string;
+  cells: { cell: string; before: string; after: string }[];
+  /** propose: shown, not written (yet); valide: written (`kept`: the cells kept, when not all); annule: written, then taken back. */
+  outcome: 'propose' | 'valide' | 'annule';
+  kept?: string[];
+}
+
+export interface Memory {
+  history: Exchange[];
+  /** The workshop's validated rules. */
+  lexicon: string[];
+}
+
+const clock = (t: number) => new Date(t).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+
+/** The shift's last exchanges, as Claude reads them. */
+function historyText(history: Exchange[]): string {
+  if (!history.length) return 'Aucun échange précédent avec toi sur ce poste.';
+  const lines = history.map((x) => {
+    const head = `- ${clock(x.at)}, ${x.mode === 'controle' ? 'vérification du poste' : `demande « ${x.ask} »`}`;
+    if (x.question && !x.cells.length) return `${head} → tu as demandé : « ${x.question} »`;
+    const cells = x.cells.map((c) => `${c.cell} ${c.before ? `« ${c.before} »` : 'vide'} → ${c.after ? `« ${c.after} »` : 'vide'}`).join(', ');
+    const fate =
+      x.outcome === 'valide'
+        ? x.kept && x.kept.length < x.cells.length
+          ? `écrit en partie (${x.kept.join(', ')})`
+          : 'écrit dans le classeur'
+        : x.outcome === 'annule'
+          ? 'écrit puis annulé par l’opérateur'
+          : 'pas écrit (l’opérateur n’a pas validé)';
+    return `${head} → proposé : ${cells || 'rien'} → ${fate}.`;
+  });
+  return `Échanges précédents de ce poste avec toi, du plus ancien au plus récent :\n${lines.join('\n')}`;
+}
 
 // --- The engine ------------------------------------------------------------
 
@@ -345,7 +389,9 @@ const TASKS: Record<AssistMode, string> = {
 - Une nouvelle couleur (« on passe en premium 2 ») s'écrit seule sur la première ligne libre, en N° TAG du côté concerné, sauf si ce bloc est déjà le dernier ouvert de ce côté.
 - Valeurs exactes : défauts et couleurs tels que dans les listes, nombres sans unité, dates en jj/mm/aa. Le jour seul ou jour et mois suffisent pour une date : « 15 » ou « 15/10 ».
 - N'invente rien. Si la demande est ambiguë (quelle ligne, quel côté, quel défaut ?), ne propose aucune cellule et pose une question courte dans « question ». Sinon « question » reste vide.
-- « resume » : une phrase simple qui dit ce qui sera saisi, par exemple « Ligne 14 FL : 3 Flaking et 2 Scratches ».`,
+- « resume » : une phrase simple qui dit ce qui sera saisi, par exemple « Ligne 14 FL : 3 Flaking et 2 Scratches ».
+- Les échanges précédents de ce poste te sont donnés : « pareil », « la même », « la suivante », « encore », « annule la dernière » y renvoient. Une proposition écrite est déjà dans le classeur. Pour défaire une saisie écrite, propose de remettre les valeurs d'avant ; une valeur vide efface la cellule.
+- « regle » : si l'opérateur te demande de retenir quelque chose (« retiens que… », « chez nous on dit… »), ou si sa demande corrige ta compréhension d'un mot ou d'une habitude de l'atelier (pas un simple numéro de ligne ou une quantité), écris la règle générale en une phrase courte, par exemple « "chariot" désigne la colonne Frame (FL). » Un responsable la validera avant qu'elle serve. Sinon laisse vide. Une demande qui n'est qu'une règle à retenir ne propose aucune cellule.`,
   controle: `Ta tâche : vérifier le poste avant la relève. Signale seulement de vrais problèmes, chacun sur sa cellule :
 - un nombre ou une date tapés comme du texte (valeur entre guillemets dans une colonne de nombres ou de dates) ;
 - un défaut sans quantité, une quantité sans défaut, plus de plaques rejetées que de lites sur la ligne ;
@@ -370,12 +416,13 @@ const SCHEMAS = {
     properties: {
       resume: { type: 'string', description: 'Ce qui sera saisi, en une phrase.' },
       question: { type: 'string', description: 'Si la demande est ambiguë, la question à poser (alors aucune cellule) ; sinon vide.' },
+      regle: { type: 'string', description: 'Une règle de vocabulaire ou d’usage de l’atelier à retenir, seulement si l’opérateur le demande ou corrige ta compréhension ; sinon vide.' },
       cellules: arrayOf({
         cellule: { type: 'string', description: 'Adresse, par exemple "S14" pour Suivi ou "Rapport!C2".' },
         valeur: { type: 'string', description: 'Ce qui s’écrit dans la cellule, tel que dans les listes.' },
       }),
     },
-    required: ['resume', 'question', 'cellules'],
+    required: ['resume', 'question', 'regle', 'cellules'],
     additionalProperties: false,
   },
   controle: {
@@ -399,7 +446,7 @@ interface ClaudeReply {
   usage?: Record<string, number>;
 }
 
-async function claude(env: AssistEnv, mode: AssistMode, s: Sheet, ask: string): Promise<ClaudeReply> {
+async function claude(env: AssistEnv, mode: AssistMode, s: Sheet, ask: string, lexicon: string[]): Promise<ClaudeReply> {
   if (!env.ANTHROPIC_API_KEY) throw new AssistError('L’assistant n’est pas encore configuré (clé API manquante sur le serveur).');
   const model = mode === 'saisie' ? env.ASSIST_MODEL_SAISIE || DEFAULT_MODEL_SAISIE : env.ASSIST_MODEL || DEFAULT_MODEL;
   const body = {
@@ -409,7 +456,11 @@ async function claude(env: AssistEnv, mode: AssistMode, s: Sheet, ask: string): 
     // The part that doesn't change from one question to the next, cached.
     system: [
       { type: 'text', text: ABOUT },
-      { type: 'text', text: `Liste des défauts : ${s.defects.map((d) => `« ${d} »`).join(', ')}.\n\n${TASKS[mode]}`, cache_control: { type: 'ephemeral' } },
+      {
+        type: 'text',
+        text: `Liste des défauts : ${s.defects.map((d) => `« ${d} »`).join(', ')}.\n\n${lexicon.length ? `Lexique de l'atelier (règles validées, à appliquer) :\n${lexicon.map((r) => `- ${r}`).join('\n')}\n\n` : ''}${TASKS[mode]}`,
+        cache_control: { type: 'ephemeral' },
+      },
     ],
     messages: [{ role: 'user', content: `État du classeur :\n${s.text}\n\n${ask}` }],
     output_config: {
@@ -458,23 +509,26 @@ function jsonOf(reply: ClaudeReply): Record<string, unknown> {
 }
 
 /** One question to the assistant, on the shift's workbook as it stands. */
-export async function assist(env: AssistEnv, book: Workbook, part: { date: string; poste: string }, mode: AssistMode, text: string): Promise<AssistReply> {
+export async function assist(env: AssistEnv, book: Workbook, part: { date: string; poste: string }, mode: AssistMode, text: string, memory: Memory): Promise<AssistReply> {
   const s = snapshot(book, part);
+  const ask = (q: string) => claude(env, mode, s, q, memory.lexicon);
   if (mode === 'bilan') {
-    const reply = await claude(env, mode, s, 'Rédige le bilan du poste.');
+    const reply = await ask('Rédige le bilan du poste.');
     const out = textOf(reply);
     return { ok: true, text: out || 'Rien à dire sur ce poste.' };
   }
   if (mode === 'saisie') {
-    const reply = await claude(env, mode, s, `Demande de l'opérateur : ${text}`);
+    const reply = await ask(`${historyText(memory.history)}\n\nDemande de l'opérateur : ${text}`);
     const input = jsonOf(reply);
     const question = typeof input.question === 'string' && input.question.trim() ? input.question.trim() : undefined;
+    const rule = typeof input.regle === 'string' && input.regle.trim() ? input.regle.trim() : undefined;
     const cells = Array.isArray(input.cellules) ? (input.cellules as { cellule?: unknown; valeur?: unknown }[]) : [];
-    if (question && !cells.length) return { ok: true, question, items: [] };
+    const summary = typeof input.resume === 'string' && input.resume.trim() ? input.resume.trim() : undefined;
+    if (!cells.length) return { ok: true, ...(question ? { question } : { text: summary }), ...(rule ? { rule } : {}), items: [] };
     const out = writeOut(book, s, cells);
-    return { ok: true, text: typeof input.resume === 'string' ? input.resume : undefined, ...(question ? { question } : {}), ...out };
+    return { ok: true, text: summary, ...(question ? { question } : {}), ...(rule ? { rule } : {}), ...out };
   }
-  const reply = await claude(env, mode, s, 'Vérifie le poste.');
+  const reply = await ask('Vérifie le poste.');
   const input = jsonOf(reply);
   const found = Array.isArray(input.problemes) ? (input.problemes as { cellule?: unknown; message?: unknown; correction?: unknown }[]) : [];
   const fixes = found.filter((p) => typeof p.correction === 'string' && p.correction.trim());

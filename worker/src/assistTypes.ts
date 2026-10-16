@@ -36,6 +36,10 @@ export interface AssistCell {
 export interface AssistReply {
   ok: boolean;
   error?: string;
+  /** This exchange, in the shift's memory: what the app reports back about (AssistFeedback). */
+  id?: string;
+  /** A vocabulary rule Claude proposed (lexicon.ts), now waiting for validation. */
+  rule?: string;
   /** saisie, controle: one sentence; bilan: the whole text. */
   text?: string;
   /** saisie: Claude needs to know more before proposing anything. */
@@ -47,6 +51,16 @@ export interface AssistReply {
   undo?: AssistCell[];
 }
 
+/** What became of a proposal: the operator wrote it (`cells`, those they kept) or took it back. */
+export interface AssistFeedback {
+  date: string;
+  poste: string;
+  id: string;
+  outcome: 'valide' | 'annule';
+  cells?: string[];
+}
+
 export interface AssistService {
   run(req: AssistRequest): Promise<AssistReply>;
+  feedback(f: AssistFeedback): Promise<{ ok: boolean }>;
 }
