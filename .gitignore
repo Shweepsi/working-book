@@ -5,3 +5,5 @@ dist/
 .DS_Store
 # GridCraft web build, fetched by scripts/fetch-gridcraft.sh
 public/gridcraft/
+# GridCraft engine for the MCP Worker, fetched by worker/scripts/fetch-engine.sh
+worker/src/mcp/engine/

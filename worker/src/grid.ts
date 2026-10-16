@@ -29,7 +29,7 @@ const MAX_TEMPLATE_BYTES = 1_900_000;
 const MAX_TEMPLATES = 30;
 // A batch is what one edit changed: typing is a cell, a sort or a fill can be
 // thousands. Past this the client splits it.
-const MAX_CHANGES = 5_000;
+export const MAX_CHANGES = 5_000;
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_CONTENT_BYTES = 32 * 1024;
 // One reply's worth of changes when catching up; the client asks again.
@@ -63,7 +63,21 @@ async function readJson(request: Request): Promise<unknown> {
   }
 }
 
-async function latestTemplateId(env: GridEnv): Promise<number | null> {
+export interface Partition {
+  date: string;
+  poste: string;
+}
+
+/** A stored cell write, in the order every device applies them (`seq`). */
+export interface StoredChange {
+  sheet: string;
+  cell: string;
+  c: unknown;
+  seq: number;
+  client: string;
+}
+
+export async function latestTemplateId(env: GridEnv): Promise<number | null> {
   const row = await env.DB.prepare('SELECT id FROM grid_templates ORDER BY id DESC LIMIT 1').first<{ id: number }>();
   return row?.id ?? null;
 }
@@ -112,27 +126,29 @@ async function getTemplate(url: URL, env: GridEnv, cors: Cors): Promise<Response
   });
 }
 
-async function getDoc(url: URL, env: GridEnv, cors: Cors): Promise<Response> {
-  const p = partition(url);
-  if (!p) return json({ error: 'invalid_params' }, cors, 400);
-  const since = Math.max(0, Number(url.searchParams.get('since') ?? 0) || 0);
-
-  let doc = await env.DB.prepare('SELECT template_id FROM grid_docs WHERE date = ?1 AND poste = ?2')
+/** The template a shift's workbook was started from, or null before its first open. */
+export async function docTemplateId(env: GridEnv, p: Partition): Promise<number | null> {
+  const doc = await env.DB.prepare('SELECT template_id FROM grid_docs WHERE date = ?1 AND poste = ?2')
     .bind(p.date, p.poste)
     .first<{ template_id: number }>();
-  if (!doc) {
-    // First open of this shift's workbook: it starts from the newest template
-    // and keeps it. `OR IGNORE` because two tablets can open it at once.
-    const latest = await latestTemplateId(env);
-    if (latest === null) return json({ template_id: null, seq: 0, changes: [] }, cors);
-    await env.DB.prepare('INSERT OR IGNORE INTO grid_docs (date, poste, template_id, created_at) VALUES (?1, ?2, ?3, ?4)')
-      .bind(p.date, p.poste, latest, Date.now())
-      .run();
-    doc = await env.DB.prepare('SELECT template_id FROM grid_docs WHERE date = ?1 AND poste = ?2')
-      .bind(p.date, p.poste)
-      .first<{ template_id: number }>();
-  }
+  return doc?.template_id ?? null;
+}
 
+/** Pins a shift to `templateId` unless it already has one; returns the one it has. */
+export async function pinDoc(env: GridEnv, p: Partition, templateId: number): Promise<number> {
+  // `OR IGNORE` because two tablets can open it at once.
+  await env.DB.prepare('INSERT OR IGNORE INTO grid_docs (date, poste, template_id, created_at) VALUES (?1, ?2, ?3, ?4)')
+    .bind(p.date, p.poste, templateId, Date.now())
+    .run();
+  return (await docTemplateId(env, p)) ?? templateId;
+}
+
+/** One page of a shift's writes after `since`, oldest first. */
+export async function changesSince(
+  env: GridEnv,
+  p: Partition,
+  since: number,
+): Promise<{ seq: number; changes: StoredChange[]; more: boolean }> {
   const { results } = await env.DB.prepare(
     `SELECT sheet, cell, content, seq, client FROM grid_cells
      WHERE date = ?1 AND poste = ?2 AND seq > ?3 ORDER BY seq LIMIT ${PAGE}`,
@@ -147,7 +163,24 @@ async function getDoc(url: URL, env: GridEnv, cors: Cors): Promise<Response> {
     client: r.client,
   }));
   const seq = changes.length ? changes[changes.length - 1].seq : since;
-  return json({ template_id: doc?.template_id ?? null, seq, changes, more: changes.length === PAGE }, cors);
+  return { seq, changes, more: changes.length === PAGE };
+}
+
+async function getDoc(url: URL, env: GridEnv, cors: Cors): Promise<Response> {
+  const p = partition(url);
+  if (!p) return json({ error: 'invalid_params' }, cors, 400);
+  const since = Math.max(0, Number(url.searchParams.get('since') ?? 0) || 0);
+
+  let templateId = await docTemplateId(env, p);
+  if (templateId === null) {
+    // First open of this shift's workbook: it starts from the newest template
+    // and keeps it.
+    const latest = await latestTemplateId(env);
+    if (latest === null) return json({ template_id: null, seq: 0, changes: [] }, cors);
+    templateId = await pinDoc(env, p, latest);
+  }
+  const page = await changesSince(env, p, since);
+  return json({ template_id: templateId, ...page }, cors);
 }
 
 const CONTENT_KEYS = new Set(['f', 'a', 'v', 's']);
@@ -174,10 +207,13 @@ async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Pr
   if (!body || typeof body.client !== 'string' || !Array.isArray(body.changes)) {
     return json({ error: 'expected_client_and_changes' }, cors, 400);
   }
-  const client = body.client.slice(0, 64);
-  const changes = body.changes;
-  if (changes.length > MAX_CHANGES) return json({ error: 'too_many_changes', max: MAX_CHANGES }, cors, 413);
+  if (body.changes.length > MAX_CHANGES) return json({ error: 'too_many_changes', max: MAX_CHANGES }, cors, 413);
+  return json({ seqs: await storeChanges(env, p, body.client.slice(0, 64), body.changes) }, cors);
+}
 
+/** Stores one batch of cell writes (at most MAX_CHANGES); each one's seq, null
+ * for a cell refused. */
+export async function storeChanges(env: GridEnv, p: Partition, client: string, changes: unknown[]): Promise<(number | null)[]> {
   const now = Date.now();
   // One statement per cell, in one batch: D1 runs a batch as a transaction and
   // writers one at a time, so each statement's MAX(seq)+1 is a fresh, strictly
@@ -206,7 +242,33 @@ async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Pr
     const results = await env.DB.batch<{ seq: number }>(statements);
     results.forEach((r, j) => (seqs[at[j]] = r.results[0]?.seq ?? null));
   }
-  return json({ seqs }, cors);
+  return seqs;
+}
+
+/** A stored template: its name and bytes. */
+export async function templateFile(env: GridEnv, id: number): Promise<{ name: string; bytes: Uint8Array } | null> {
+  const row = await env.DB.prepare('SELECT name, bytes FROM grid_templates WHERE id = ?1')
+    .bind(id)
+    .first<{ name: string; bytes: ArrayBuffer | number[] }>();
+  if (!row) return null;
+  return { name: row.name, bytes: new Uint8Array(row.bytes) };
+}
+
+/** The shifts opened between two days (YYYY-MM-DD, both included), newest first. */
+export async function listDocs(
+  env: GridEnv,
+  from: string,
+  to: string,
+): Promise<{ date: string; poste: string; template_id: number; cells: number; updated_at: number | null }[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT d.date, d.poste, d.template_id,
+       (SELECT COUNT(*) FROM grid_cells c WHERE c.date = d.date AND c.poste = d.poste) AS cells,
+       (SELECT MAX(updated_at) FROM grid_cells c WHERE c.date = d.date AND c.poste = d.poste) AS updated_at
+     FROM grid_docs d WHERE d.date BETWEEN ?1 AND ?2 ORDER BY d.date DESC, d.poste LIMIT 200`,
+  )
+    .bind(from, to)
+    .all<{ date: string; poste: string; template_id: number; cells: number; updated_at: number | null }>();
+  return results;
 }
 
 async function putDocTemplate(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
