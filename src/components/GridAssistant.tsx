@@ -325,7 +325,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
             {reply.text && <p className="gca-summary">{reply.text}</p>}
             {reply.rule && (
               <p className="gca-rule">
-                Règle proposée pour le lexique : « {reply.rule} ». Elle servira une fois validée{CAN_EDIT_TEMPLATE ? ', dans le volet Lexique' : ''}.
+                Règle proposée pour le lexique : {reply.rule.replace(/[.\s]+$/, '')}. Elle servira une fois validée{CAN_EDIT_TEMPLATE ? ', dans le volet Lexique' : ''}.
               </p>
             )}
             {items.length > 0 ? (
