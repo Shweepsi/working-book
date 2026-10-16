@@ -61,7 +61,8 @@ const INSTRUCTIONS = `Ce serveur donne accès aux classeurs « Suivi » partagé
 1. shift_list liste les postes ouverts ; shift_open {date, poste} ouvre celui sur lequel travailler.
 2. Ensuite, tous les outils GridCraft (inspect_workbook, read_range, get_cell, evaluate_formula, set_cell, write_range, sort_range, execute_command…) travaillent sur ce classeur, avec les vrais résultats des formules.
 3. Chaque modification est enregistrée aussitôt et apparaît sur les tablettes en quelques secondes. Avant chaque outil, le classeur reprend les saisies des tablettes.
-Règles : seules les cellules sont partagées. Ajouter ou renommer une feuille, changer une largeur, fusionner, modifier une mise en forme conditionnelle… est refusé. Les cellules Date et Poste sont remplies par l'application. Une modification qui touche une cellule qu'une tablette vient de changer est refusée : relis la cellule puis recommence si c'est toujours voulu. Les feuilles Rapport et Setup sont protégées. Plus de ${LARGE} cellules modifiées d'un coup demandent shift_allow_large.`;
+Règles : seules les cellules sont partagées. Ajouter ou renommer une feuille, changer une largeur, fusionner, modifier une mise en forme conditionnelle… est refusé. Une modification qui touche une cellule qu'une tablette vient de changer est refusée : relis la cellule puis recommence si c'est toujours voulu. Plus de ${LARGE} cellules modifiées d'un coup demandent shift_allow_large.
+Le classeur : Suivi est la saisie (à gauche Début de Ligne, colonnes B à L ; à droite Fin de Ligne, colonnes N à AA ; une ligne dont le N° TAG est un texte, comme une couleur, ouvre un bloc de cette couleur). Rapport, protégée, calcule tout : la couleur étudiée se saisit en Rapport!C2, la colonne DEFAUT (B3:B24) est aussi la liste des défauts des listes déroulantes de Suivi.`;
 
 const SHIFT_TOOLS = [
   {
