@@ -14,9 +14,9 @@
 # so a re-uploaded asset fails the build instead of shipping.
 set -euo pipefail
 
-TAG=v0.7.0-shared.11
-ASSET=gridcraft-web-0.7.0-shared.11-glow.zip
-SHA256=f8aaeb245bfa530ce0b59889e2e15c0a44b1a8dd1c410fc80d4c34aad645ee41
+TAG=v0.7.0-shared.12
+ASSET=gridcraft-web-0.7.0-shared.12-glow.zip
+SHA256=f01f80af1b2df0fa0a7d1d04da5b7eb27d637efed91b9e676784675bc2bdb8ba
 REPO=Shweepsi/gridcraft
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -49,6 +49,8 @@ SRC=$(dirname "$(find "$TMP/x" -name index.html | head -n 1)")
 rm -rf "$DEST"
 mkdir -p "$DEST"
 cp "$SRC"/index.html "$SRC"/*.js "$SRC"/*.wasm "$SRC"/*.ico "$DEST"/
+# The cell fonts (Carlito, OFL) GridCraft fetches before starting.
+cp -R "$SRC"/fonts "$DEST"/
 for lic in LICENSE-MIT LICENSE-APACHE; do
   curl -fsSL --retry 3 -o "$DEST/$lic" "https://raw.githubusercontent.com/$REPO/$TAG/$lic"
 done
