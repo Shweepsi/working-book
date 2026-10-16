@@ -10,9 +10,14 @@
 //   GET  /api/grid/doc?date&poste[&since=n]   → { template_id, seq, changes }
 //   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
+//   POST /api/grid/assist?date&poste          ← { mode, text? } → the assistant's reply (assistTypes.ts)
+
+import type { AssistService } from './assistTypes';
 
 export interface GridEnv {
   DB: D1Database;
+  /** The Suivi assistant, in the MCP server's Worker (worker/src/mcp/assist.ts). */
+  ASSIST?: AssistService;
 }
 
 type Cors = Record<string, string>;
@@ -288,6 +293,18 @@ async function putDocTemplate(request: Request, url: URL, env: GridEnv, cors: Co
   return json({ template_id: id }, cors);
 }
 
+/** A question to the Suivi assistant, passed on to the MCP server's Worker. */
+async function postAssist(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
+  const p = partition(url);
+  if (!p) return json({ error: 'invalid_params' }, cors, 400);
+  const body = (await readJson(request)) as { mode?: unknown; text?: unknown } | undefined;
+  const mode = body?.mode;
+  if (mode !== 'saisie' && mode !== 'controle' && mode !== 'bilan') return json({ error: 'invalid_mode' }, cors, 400);
+  if (!env.ASSIST) return json({ ok: false, error: 'L’assistant n’est pas disponible sur ce serveur.' }, cors, 503);
+  const text = typeof body?.text === 'string' ? body.text.slice(0, 2_000) : undefined;
+  return json(await env.ASSIST.run({ ...p, mode, text }), cors);
+}
+
 export async function handleGrid(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   const route = `${request.method} ${url.pathname}`;
   switch (route) {
@@ -303,6 +320,8 @@ export async function handleGrid(request: Request, url: URL, env: GridEnv, cors:
       return postDoc(request, url, env, cors);
     case 'PUT /api/grid/doc/template':
       return putDocTemplate(request, url, env, cors);
+    case 'POST /api/grid/assist':
+      return postAssist(request, url, env, cors);
     default:
       return json({ error: url.pathname.startsWith('/api/grid/') ? 'method_not_allowed' : 'not_found' }, cors, 405);
   }

@@ -10,12 +10,37 @@
 //
 // Each MCP session (Mcp-Session-Id) is a Durable Object holding the open
 // shift's workbook (session.ts).
+//
+// The Suivi assistant (assist.ts) lives here too, for the engine: the API's
+// Worker reaches it through the `Assist` entrypoint, over a service binding
+// that no URL leads to.
 
 import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
+import { WorkerEntrypoint } from 'cloudflare:workers';
+import type { AssistReply, AssistRequest } from '../assistTypes';
 import { authorize, USER_ID, type AuthEnv } from './authorize';
 import { McpSession, type McpEnv } from './session';
 
 export { McpSession };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const POSTE_RE = /^[ABCD]$/;
+const MODES = new Set(['saisie', 'controle', 'bilan']);
+// All shifts together: the routes have no auth yet, and a runaway shouldn't
+// spend the month's credits in a day. Each shift also has its own hourly cap.
+const ASSIST_PER_DAY = 300;
+
+export class Assist extends WorkerEntrypoint<Env> {
+  /** One question to the assistant, answered by the shift's own session. */
+  async run(req: AssistRequest): Promise<AssistReply> {
+    if (!req || !DATE_RE.test(String(req.date)) || !POSTE_RE.test(String(req.poste)) || !MODES.has(req.mode)) return { ok: false, error: 'Demande invalide.' };
+    if (req.mode === 'saisie' && !req.text?.trim()) return { ok: false, error: 'Rien à saisir : écris ou dicte ce qu’il faut remplir.' };
+    const budget = this.env.SESSIONS.get(this.env.SESSIONS.idFromName('assist:budget'));
+    if (!(await budget.spend(ASSIST_PER_DAY))) return { ok: false, error: `L’assistant a répondu ${ASSIST_PER_DAY} fois aujourd’hui, sa limite : il revient demain.` };
+    const session = this.env.SESSIONS.get(this.env.SESSIONS.idFromName(`assist:${req.date}:${req.poste}`));
+    return (await session.assist({ date: req.date, poste: req.poste, mode: req.mode, text: req.text })) as AssistReply;
+  }
+}
 
 interface Env extends McpEnv, AuthEnv {
   OAUTH_KV: KVNamespace;

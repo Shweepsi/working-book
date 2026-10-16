@@ -413,6 +413,16 @@ class SharedGrid {
     if (changes.length) this.post({ type: 'gridcraft:apply', changes });
   }
 
+  /** Cells written on this device as if typed here — the Suivi assistant's,
+   * once the operator accepts them: shown at once, then sent like any edit
+   * made here. False when `p` isn't the shift on screen. */
+  write(p: Partition, changes: CellChange[]): boolean {
+    if (!changes.length || !this.shown || this.pendingOpen || partKey(this.shown) !== partKey(p)) return false;
+    this.apply(changes);
+    this.queue(changes);
+    return true;
+  }
+
   private onMessage = (e: MessageEvent): void => {
     if (e.origin !== window.location.origin || !this.frame || e.source !== this.frame.contentWindow) return;
     const data = e.data as { type?: string; changes?: CellChange[]; name?: string; bytes?: ArrayBuffer; error?: string };

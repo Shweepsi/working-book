@@ -12,11 +12,12 @@
 // (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
 // already says which shift is open. It follows Working Book's theme, not the
-// system's.
+// system's. The bar above it opens the Suivi assistant (GridAssistant.tsx).
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
+import GridAssistant from './GridAssistant';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
@@ -51,6 +52,8 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
   const [editing, setEditing] = useState(false);
+  const [assisting, setAssisting] = useState(false);
+  const closeAssistant = useCallback(() => setAssisting(false), []);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -70,6 +73,9 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
   useEffect(() => {
     grid.open(poste ? { date, poste } : null, fileName);
   }, [date, poste, fileName]);
+  // Another tab, or another shift: the assistant's sheet was about this one.
+  useEffect(() => setAssisting(false), [hidden, date, poste]);
+  const canAssist = SYNC_ENABLED && !!poste && snap.templateId !== null && snap.status !== 'no-template';
 
   // A template added since the list was fetched: this shift may have just been
   // started on it.
@@ -113,17 +119,27 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
 
   return (
     <div className={cls}>
-      {CAN_EDIT_TEMPLATE && current && (
+      {((CAN_EDIT_TEMPLATE && current) || canAssist) && (
         <div className="gc-editor-bar no-print">
-          <span className="gc-editor-title">
-            Modèle <strong>{current.name}</strong>
-          </span>
+          {CAN_EDIT_TEMPLATE && current && (
+            <span className="gc-editor-title">
+              Modèle <strong>{current.name}</strong>
+            </span>
+          )}
           <span className="gc-spacer" />
-          <button type="button" className="btn ghost mini" onClick={() => setEditing(true)}>
-            Modifier le modèle
-          </button>
+          {CAN_EDIT_TEMPLATE && current && (
+            <button type="button" className="btn ghost mini" onClick={() => setEditing(true)}>
+              Modifier le modèle
+            </button>
+          )}
+          {canAssist && (
+            <button type="button" className="btn primary mini gc-assist-btn" onClick={() => setAssisting(true)} disabled={snap.status === 'loading'}>
+              <span aria-hidden="true">✦</span> Assistant
+            </button>
+          )}
         </div>
       )}
+      {assisting && poste && <GridAssistant part={{ date, poste }} onClose={closeAssistant} />}
       {!SYNC_ENABLED ? (
         <div className="gc-empty">Pas de serveur configuré : le classeur partagé a besoin du Worker.</div>
       ) : !poste ? (

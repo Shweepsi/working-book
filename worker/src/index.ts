@@ -3,6 +3,7 @@
 // the Worker is a thin persistence layer.
 
 import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
+import type { AssistService } from './assistTypes';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 
@@ -16,6 +17,9 @@ export interface Env {
   // "on" where the GridCraft shared workbooks are served. Dev only for now:
   // like every route here they have no auth, and they take the biggest writes.
   GRID?: string;
+  // The Suivi assistant (POST /api/grid/assist), a service binding to the MCP
+  // server's Worker. Dev only, with GRID.
+  ASSIST?: AssistService;
 }
 
 const MAX_BODY_BYTES = 512 * 1024;

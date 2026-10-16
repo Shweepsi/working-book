@@ -24,10 +24,12 @@ import {
   type Partition,
   type StoredChange,
 } from '../grid';
+import type { AssistReply, AssistRequest } from '../assistTypes';
+import { assist, AssistError, MAX_TEXT, type AssistEnv } from './assist';
 import { shiftContext } from './context';
 import { engineTools, isTrap, Workbook, type CellChange } from './engine';
 
-export interface McpEnv extends GridEnv {
+export interface McpEnv extends GridEnv, AssistEnv {
   SESSIONS: DurableObjectNamespace<McpSession>;
   /** "on": Claude's edits are stored. Anything else: read only. */
   MCP_WRITE?: string;
@@ -52,6 +54,8 @@ const IDLE_MS = 7 * 24 * 3600_000;
 // of the whole sheet is thousands of D1 writes.
 const LARGE = 2_000;
 const CHUNK = 4_000;
+// The assistant's questions per shift and per hour: each one is paid for.
+const ASSIST_PER_HOUR = 40;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const POSTE_RE = /^[ABCD]$/;
 // Tools that would leave the shared workbook: files are the app's business.
@@ -143,6 +147,52 @@ export class McpSession extends DurableObject<McpEnv> {
   private outbox: CellChange[] = [];
   private allowLarge = 0;
   private queue: Promise<unknown> = Promise.resolve();
+  /** When the assistant was asked about this shift in the last hour. */
+  private asked: number[] = [];
+
+  /**
+   * Counts one more question to the assistant today, all shifts together:
+   * false past `limit`. Only on the one object named for it.
+   */
+  async spend(limit: number): Promise<boolean> {
+    const day = new Date().toISOString().slice(0, 10);
+    const seen = await this.ctx.storage.get<{ day: string; n: number }>('assist-day');
+    const n = seen?.day === day ? seen.n : 0;
+    if (n >= limit) return false;
+    await this.ctx.storage.put('assist-day', { day, n: n + 1 });
+    return true;
+  }
+
+  /**
+   * One question to the Suivi assistant (assist.ts). Its sessions are one per
+   * shift, named after it: the workbook stays open between questions, caught
+   * up with the tablets before each. Nothing is stored from here — the app
+   * writes the cells the operator accepts.
+   */
+  async assist(req: AssistRequest): Promise<AssistReply> {
+    const run = async (): Promise<AssistReply> => {
+      const now = Date.now();
+      this.asked = this.asked.filter((t) => now - t < 3_600_000);
+      if (this.asked.length >= ASSIST_PER_HOUR) return { ok: false, error: `L’assistant a déjà répondu ${ASSIST_PER_HOUR} fois pour ce poste dans l’heure : réessaie plus tard.` };
+      this.asked.push(now);
+      const p: Partition = { date: req.date, poste: req.poste };
+      try {
+        if (!this.book || !this.part || this.part.date !== p.date || this.part.poste !== p.poste) await this.load(p);
+        else await this.pull(this.book, []);
+        return await assist(this.env, this.book as Workbook, p, req.mode, (req.text ?? '').slice(0, MAX_TEXT));
+      } catch (e) {
+        if (e instanceof AssistError || e instanceof UserError) return { ok: false, error: e.message };
+        if (isTrap(e)) {
+          this.book = null;
+          this.ctx.abort('GridCraft engine trapped');
+        }
+        return { ok: false, error: `Erreur du classeur : ${e instanceof Error ? e.message : String(e)}` };
+      }
+    };
+    const next = this.queue.then(run, run);
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
 
   /** One HTTP request's messages; null when the session doesn't exist (the client starts a new one). */
   async handle(messages: JsonRpc[], init: { create: boolean; userId: string }): Promise<unknown[] | null> {

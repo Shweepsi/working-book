@@ -23,6 +23,14 @@ database_name = "working-book-dev"
 database_id = "67d3ea83-4067-495e-97e0-02dd46f18cbe"
 migrations_dir = "migrations"
 
+# The Suivi assistant (POST /api/grid/assist): an RPC entrypoint of the MCP
+# server's Worker (wrangler.mcp.toml), which has GridCraft's engine and the
+# Claude API key. Not on the internet: only this binding reaches it.
+[[env.dev.services]]
+binding = "ASSIST"
+service = "working-book-mcp-dev"
+entrypoint = "Assist"
+
 [env.production]
 name = "working-book-api"
 

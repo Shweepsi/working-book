@@ -3,7 +3,9 @@
 # (wrangler.toml) never loads the engine. Dev only, like the Suivi tab.
 #
 # The engine is fetched into src/mcp/engine/ first: scripts/fetch-engine.sh.
-# Secret: MCP_PASSPHRASE (the passphrase on the /authorize page).
+# Secrets: MCP_PASSPHRASE (the passphrase on the /authorize page) and
+# ANTHROPIC_API_KEY (the Suivi assistant, src/mcp/assist.ts: the Max plan's
+# monthly API credits), both set in the Cloudflare dashboard.
 name = "working-book-mcp"
 main = "src/mcp/index.ts"
 compatibility_date = "2025-03-01"
@@ -20,6 +22,8 @@ workers_dev = true
 MCP_RESOURCE = "https://working-book-mcp-dev.loic-cancelotti.workers.dev/mcp"
 # "on": Claude's edits are stored and reach the tablets. Anything else: read only.
 MCP_WRITE = "on"
+# The Suivi assistant's model.
+ASSIST_MODEL = "claude-sonnet-5-5"
 
 [[env.dev.d1_databases]]
 binding = "DB"

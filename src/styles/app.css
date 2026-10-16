@@ -3960,6 +3960,81 @@ body.is-col-resizing * {
   color: var(--ink-soft);
   text-align: center;
 }
+/* The Suivi assistant (GridAssistant.tsx): a sheet over the workbook. */
+.gc-assist-btn { display: inline-flex; align-items: center; gap: var(--space-2); }
+.sheet.gca { --sheet-w: 640px; display: flex; flex-direction: column; gap: var(--space-5); }
+.sheet.gca .sheet-head { margin-bottom: 0; }
+.gca-ask,
+.gca-start,
+.gca-result { display: flex; flex-direction: column; gap: var(--space-4); }
+.gca-start { align-items: flex-start; }
+.gca-question {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+  color: var(--ink);
+}
+.gca-input { display: flex; gap: var(--space-2); align-items: stretch; }
+.gca-input textarea {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+  font: inherit;
+  font-size: var(--fs-md);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+}
+.gca-input textarea:focus { outline: none; border-color: var(--accent); }
+.gca-mic { min-width: 52px; font-size: 20px; }
+.gca-mic.is-on { color: var(--accent); border-color: var(--accent); animation: gca-pulse 1.2s ease-in-out infinite; }
+@keyframes gca-pulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  .gca-mic.is-on { animation: none; }
+}
+.gca-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-3); }
+.gca-hint { margin: 0; color: var(--ink-soft); }
+.gca-busy { display: flex; align-items: center; gap: var(--space-3); color: var(--ink-soft); }
+.gca-error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hl-red) 60%, var(--paper));
+  color: var(--flag-unsched-fg);
+  border: 1px solid var(--flag-unsched-bd);
+}
+.gca-summary { margin: 0; color: var(--ink); font-weight: 600; }
+.gca-bilan {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  padding: var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
+  background: var(--paper-2);
+  user-select: text;
+}
+.gca-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
+}
+.gca-item { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.gca-item + .gca-item { border-top: 1px solid var(--line-faint); }
+.gca-item input[type='checkbox'] { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--accent); }
+.gca-item-glyph { flex: none; width: 22px; text-align: center; color: var(--ink-faint); }
+.gca-item.is-remark .gca-item-glyph { color: var(--accent); }
+.gca-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gca-item-label { font-size: var(--fs-sm); color: var(--ink-soft); }
+.gca-item-values { overflow-wrap: anywhere; }
+.gca-before { color: var(--ink-faint); }
+.gca-item.is-off:not(.is-remark) .gca-item-values { color: var(--ink-faint); }
+.gca-item-note { font-size: var(--fs-sm); color: var(--ink-soft); }
 
 /* Tablet / phone — schedule navigator moves on top of the detail rather
    than sitting in a side rail, since the detail table itself is wide
