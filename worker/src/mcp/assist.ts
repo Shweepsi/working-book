@@ -19,8 +19,10 @@ import type { CellChange, Workbook } from './engine';
 
 export interface AssistEnv {
   ANTHROPIC_API_KEY?: string;
-  /** Defaults to Claude Sonnet 5.5. */
+  /** Vérifier and Bilan (Claude Sonnet 5.5 by default). */
   ASSIST_MODEL?: string;
+  /** Saisir (Claude Haiku 5.5 by default): short, frequent, cheap. */
+  ASSIST_MODEL_SAISIE?: string;
   /** low, medium, high… (DEFAULT_EFFORT otherwise). */
   ASSIST_EFFORT?: string;
   /** The `thinking` type, e.g. "between_tools"; the model's default otherwise. */
@@ -29,6 +31,7 @@ export interface AssistEnv {
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const DEFAULT_MODEL_SAISIE = 'claude-haiku-5-5';
 const DEFAULT_EFFORT = 'medium';
 // $ per million tokens: input, output, cache read, cache write. For the log only.
 const PRICES: Record<string, [number, number, number, number]> = {
@@ -398,7 +401,7 @@ interface ClaudeReply {
 
 async function claude(env: AssistEnv, mode: AssistMode, s: Sheet, ask: string): Promise<ClaudeReply> {
   if (!env.ANTHROPIC_API_KEY) throw new AssistError('L’assistant n’est pas encore configuré (clé API manquante sur le serveur).');
-  const model = env.ASSIST_MODEL || DEFAULT_MODEL;
+  const model = mode === 'saisie' ? env.ASSIST_MODEL_SAISIE || DEFAULT_MODEL_SAISIE : env.ASSIST_MODEL || DEFAULT_MODEL;
   const body = {
     model,
     // Thinking counts in it, when the model thinks before answering.
