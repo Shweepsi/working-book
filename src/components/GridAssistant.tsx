@@ -229,7 +229,14 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
                   aria-label={listening ? 'Arrêter la dictée' : 'Dicter'}
                   title={listening ? 'Arrêter la dictée' : 'Dicter'}
                 >
-                  {listening ? '■' : '🎤'}
+                  {listening ? (
+                    '■'
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="9" y="3" width="6" height="11" rx="3" />
+                      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                    </svg>
+                  )}
                 </button>
               )}
             </div>
