@@ -8,6 +8,7 @@
 //   POST /api/grid/templates?name=…           ← the .xlsx bytes → { id }
 //   GET  /api/grid/template?id=…              → the .xlsx bytes (immutable, cached for good)
 //   GET  /api/grid/doc?date&poste[&since=n]   → { template_id, seq, changes }
+//        …&peek=1: a shift nobody opened yet stays so (template_id null)
 //   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
 
@@ -172,6 +173,9 @@ async function getDoc(url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   const since = Math.max(0, Number(url.searchParams.get('since') ?? 0) || 0);
 
   let templateId = await docTemplateId(env, p);
+  // A look at a shift (the app's day bilan reading the day's other shifts)
+  // doesn't start it: it would keep today's template until it is worked.
+  if (templateId === null && url.searchParams.get('peek') === '1') return json({ template_id: null, seq: 0, changes: [] }, cors);
   if (templateId === null) {
     // First open of this shift's workbook: it starts from the newest template
     // and keeps it.

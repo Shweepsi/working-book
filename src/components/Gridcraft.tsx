@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
-import { BilanButton, BilanPrint, BilanSheet } from './SuiviBilan';
+import { BilanButton, BilanPrint, BilanSheet, type BilanScope } from './SuiviBilan';
 import SuiviCalculs from './SuiviCalculs';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
@@ -64,6 +64,8 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
   // The sheet open over the workbook, if any.
   const [panel, setPanel] = useState<'bilan' | 'calculs' | null>(null);
   const closePanel = useCallback(() => setPanel(null), []);
+  // The shift's bilan or its day's: what the sheet shows and what printing gives.
+  const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -147,9 +149,11 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
         </button>
         {canBilan && poste && <BilanButton part={{ date, poste }} onClick={() => setPanel('bilan')} disabled={snap.status === 'loading'} />}
       </div>
-      {panel === 'bilan' && poste && <BilanSheet part={{ date, poste }} shiftLabel={shiftMeta.shift.label} onClose={closePanel} />}
+      {panel === 'bilan' && poste && (
+        <BilanSheet part={{ date, poste }} shiftLabel={shiftMeta.shift.label} scope={bilanScope} onScope={setBilanScope} onClose={closePanel} />
+      )}
       {panel === 'calculs' && <SuiviCalculs onClose={closePanel} />}
-      {!hidden && canBilan && poste && <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} />}
+      {!hidden && canBilan && poste && <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />}
       {!SYNC_ENABLED ? (
         <div className="gc-empty">Pas de serveur configuré : le classeur partagé a besoin du Worker.</div>
       ) : !poste ? (

@@ -373,3 +373,45 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
     empty,
   };
 }
+
+/**
+ * Several shifts' bilans as one (the day's, 06:00 to 06:00): totals added up,
+ * the same colour's figures put together, rejects merged by defect and by
+ * dimension. A plate loaded at Début de Ligne on one shift and unloaded on
+ * the next leaves each shift's delta off and the day's right.
+ */
+export function mergeBilans(bilans: SuiviBilan[]): SuiviBilan {
+  const sum = (ts: BilanTotals[]) => {
+    const t = emptyTotals();
+    for (const x of ts) for (const k of ['dl', 'fl', 'rejets', 'dlM2', 'flM2', 'rejetsM2'] as const) t[k] += x[k];
+    return closeTotals(t);
+  };
+  const toAcc = (r: BilanRejects): RejectAcc => ({
+    defects: new Map(r.defects.map((d) => [d.defect, { ...d, byDim: { ...d.byDim } }])),
+    dims: new Map(r.dims.map((d) => [d.dim, { ...d }])),
+  });
+  const mergeRejects = (rs: BilanRejects[]) =>
+    closeRejects(
+      rs.map(toAcc),
+      rs.reduce((n, r) => n + r.m2, 0),
+    );
+  const byName = new Map<string, BilanColour[]>();
+  for (const b of bilans) for (const c of b.colours) byName.set(c.name, [...(byName.get(c.name) ?? []), c]);
+  const colours: BilanColour[] = [...byName.values()].map((cs) => ({
+    name: cs[0].name,
+    none: cs[0].none,
+    inDl: cs.some((c) => c.inDl),
+    inFl: cs.some((c) => c.inFl),
+    totals: sum(cs.map((c) => c.totals)),
+    rejects: mergeRejects(cs.map((c) => c.rejects)),
+    checks: cs.flatMap((c) => c.checks),
+  }));
+  colours.sort((a, b) => Number(a.none) - Number(b.none));
+  return {
+    totals: sum(bilans.map((b) => b.totals)),
+    rejects: mergeRejects(bilans.map((b) => b.rejects)),
+    checks: bilans.flatMap((b) => b.checks),
+    colours,
+    empty: bilans.every((b) => b.empty),
+  };
+}

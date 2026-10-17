@@ -1,8 +1,8 @@
 // The shift's bilan (lib/suiviBilan.ts), computed from the cells on screen and
-// up to date as they change: a sheet over the workbook (BilanSheet), the same
-// content laid out for paper (BilanPrint, what printing from the Suivi tab
-// gives), and the bar's button with the count of rows to look at
-// (BilanButton).
+// up to date as they change, or the day's, 06:00 to 06:00 (lib/dayBilan.ts):
+// a sheet over the workbook (BilanSheet), the same content laid out for paper
+// (BilanPrint, what printing from the Suivi tab gives), and the bar's button
+// with the count of rows to look at (BilanButton).
 //
 // The rejects say three things, in that order: how much (rejected lites
 // against what went through Fin de Ligne), what (the defects, largest first),
@@ -10,7 +10,12 @@
 
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
+import { refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import { addDaysISO } from '../lib/shiftCalendar';
 import { computeBilan, type BilanCheck, type BilanColour, type BilanRejects, type BilanTotals, type SuiviBilan } from '../lib/suiviBilan';
+
+/** What the bilan covers: the shift on screen, or its whole day. */
+export type BilanScope = 'poste' | 'jour';
 
 const fmt = (v: number, digits = 3) => v.toLocaleString('fr-FR', { maximumFractionDigits: digits });
 const m2 = (v: number) => fmt(v, 2);
@@ -208,18 +213,116 @@ function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; reje
 }
 
 const dayLabel = (iso: string) => iso.split('-').reverse().join('/');
+const shortDay = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/');
 const ALL = -1;
+
+/** 06:00 on `date` to 06:00 the next day. */
+const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
+
+/** The figures on top, then a tab per colour after the whole (when there are several). */
+function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; children?: ReactNode }) {
+  const [tab, setTab] = useState(ALL);
+  const colours = bilan.colours;
+  const several = colours.length > 1;
+  const current = several && tab !== ALL ? colours[Math.min(tab, colours.length - 1)] : undefined;
+  return (
+    <>
+      <Kpis t={bilan.totals} />
+      {children}
+      {several && (
+        <div className="sb-tabs" role="tablist" aria-label="Couleurs">
+          <button type="button" role="tab" aria-selected={!current} className={!current ? 'active' : ''} onClick={() => setTab(ALL)}>
+            {allLabel}
+          </button>
+          {colours.map((c, i) => (
+            <button
+              key={c.name}
+              type="button"
+              role="tab"
+              aria-selected={c === current}
+              className={[c === current && 'active', c.inDl && c.inFl && c.totals.delta && 'is-bad', c.none && 'is-none'].filter(Boolean).join(' ')}
+              onClick={() => setTab(i)}
+            >
+              {c.name}
+              {showChecks && c.checks.length > 0 && (
+                <span className="sb-count" aria-label={`${c.checks.length} à vérifier`}>
+                  {c.checks.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      <div role={several ? 'tabpanel' : undefined} className="sb-panel" key={current?.name ?? 'all'}>
+        {current ? (
+          <Panel colour={current} rejects={current.rejects} checks={showChecks ? current.checks : undefined} onPick={onPick} />
+        ) : (
+          <Panel rejects={bilan.rejects} checks={showChecks ? bilan.checks : undefined} onPick={onPick} />
+        )}
+      </div>
+    </>
+  );
+}
+
+/** The day's three shifts side by side: who worked, what went through, the gap each left. */
+function ShiftsTable({ day, live }: { day: DayBilan; live?: string }) {
+  return (
+    <Section title="Par poste">
+      <div className="sb-scroll">
+        <table className="sb-table sb-shifts">
+          <thead>
+            <tr>
+              <th>Poste</th>
+              <th>Début</th>
+              <th>Fin</th>
+              <th>Rejets</th>
+              <th>Taux</th>
+              <th>Delta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {day.shifts.map((s) => {
+              const t = s.bilan?.totals;
+              return (
+                <tr key={s.key} className={s.poste === live ? 'is-live' : ''}>
+                  <th>
+                    {s.label} · {s.poste}
+                    <span className="sb-shift-hours">{s.hours}</span>
+                  </th>
+                  {!t || s.bilan?.empty ? (
+                    <td colSpan={5} className="sb-shift-none">
+                      {!s.started ? (day.status === 'loading' ? 'lecture…' : 'pas encore ouvert') : 'aucune ligne remplie'}
+                    </td>
+                  ) : (
+                    <>
+                      <td>{fmt(t.dl)}</td>
+                      <td>{fmt(t.fl)}</td>
+                      <td>{fmt(t.rejets)}</td>
+                      <td>{pct(t.rejets, t.fl + t.rejets)}</td>
+                      <td className={t.delta ? 'is-bad' : ''}>{fmt(t.delta)}</td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+}
 
 interface BilanSheetProps {
   part: Partition;
   shiftLabel: string;
+  scope: BilanScope;
+  onScope: (scope: BilanScope) => void;
   onClose: () => void;
 }
 
-export function BilanSheet({ part, shiftLabel, onClose }: BilanSheetProps) {
+export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanSheetProps) {
   const bilan = useBilan(part);
-  // ALL: the whole shift (when there's more than one colour).
-  const [tab, setTab] = useState(ALL);
+  const day = useDayBilan(part.date, part, scope === 'jour');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -227,31 +330,30 @@ export function BilanSheet({ part, shiftLabel, onClose }: BilanSheetProps) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  const colours = bilan?.colours ?? [];
-  const several = colours.length > 1;
-  const current = several && tab !== ALL ? colours[Math.min(tab, colours.length - 1)] : undefined;
   // A row to look at: the sheet makes way for the workbook, on that row.
   const pick = (range: string) => {
     onClose();
     grid.select(part, range);
   };
-  const single = !several ? colours[0] : undefined;
+  const single = bilan && bilan.colours.length === 1 ? bilan.colours[0] : undefined;
+  const printable = scope === 'jour' ? !!day && !day.bilan.empty : !!bilan && !bilan.empty;
 
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sb-sheet" role="dialog" aria-modal="true" aria-label="Bilan du poste">
+      <div className="sheet sb-sheet" role="dialog" aria-modal="true" aria-label={scope === 'jour' ? 'Bilan de la journée' : 'Bilan du poste'}>
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
-            <h3>Bilan</h3>
+            <h3>{scope === 'jour' ? 'Bilan de la journée' : 'Bilan'}</h3>
             <span className="sheet-head-sub">
-              Poste {part.poste} du {dayLabel(part.date)} · {shiftLabel}
-              {single && !single.none ? ` · ${single.name}` : ''}
+              {scope === 'jour'
+                ? daySpan(part.date)
+                : `Poste ${part.poste} du ${dayLabel(part.date)} · ${shiftLabel}${single && !single.none ? ` · ${single.name}` : ''}`}
             </span>
           </div>
           <div className="sheet-head-actions">
-            <button type="button" className="btn ghost mini" onClick={() => window.print()} disabled={!bilan || bilan.empty}>
+            <button type="button" className="btn ghost mini" onClick={() => window.print()} disabled={!printable}>
               Imprimer
             </button>
             <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">
@@ -260,44 +362,42 @@ export function BilanSheet({ part, shiftLabel, onClose }: BilanSheetProps) {
           </div>
         </div>
 
-        {!bilan ? (
+        <div className="seg sb-scope" role="group" aria-label="Période du bilan">
+          <button type="button" className={scope === 'poste' ? 'active' : ''} aria-pressed={scope === 'poste'} onClick={() => onScope('poste')}>
+            Poste {part.poste} · {shiftLabel}
+          </button>
+          <button type="button" className={scope === 'jour' ? 'active' : ''} aria-pressed={scope === 'jour'} onClick={() => onScope('jour')}>
+            Journée 06:00 → 06:00
+          </button>
+        </div>
+
+        {scope === 'jour' ? (
+          !day ? null : (
+            <div className="sb">
+              <div className="sb-day-status">
+                <span>
+                  {day.status === 'loading'
+                    ? 'Lecture des autres postes…'
+                    : day.status === 'error'
+                      ? `Autres postes illisibles (${day.error}) : le bilan ne compte que ceux affichés.`
+                      : `Matin, après-midi et nuit du ${dayLabel(part.date)}.`}
+                </span>
+                <button type="button" className="btn ghost mini" onClick={() => void refreshDay(part.date)} disabled={day.status === 'loading'}>
+                  Actualiser
+                </button>
+              </div>
+              <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false}>
+                <ShiftsTable day={day} live={part.poste} />
+              </BilanBody>
+            </div>
+          )
+        ) : !bilan ? (
           <p className="sb-none">Le classeur du poste n’est pas encore chargé.</p>
         ) : bilan.empty ? (
           <p className="sb-none">Aucune ligne remplie pour ce poste.</p>
         ) : (
           <div className="sb">
-            <Kpis t={bilan.totals} />
-            {several && (
-              <div className="sb-tabs" role="tablist" aria-label="Couleurs">
-                <button type="button" role="tab" aria-selected={!current} className={!current ? 'active' : ''} onClick={() => setTab(ALL)}>
-                  Tout le poste
-                </button>
-                {colours.map((c, i) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    role="tab"
-                    aria-selected={c === current}
-                    className={[c === current && 'active', c.inDl && c.inFl && c.totals.delta && 'is-bad', c.none && 'is-none'].filter(Boolean).join(' ')}
-                    onClick={() => setTab(i)}
-                  >
-                    {c.name}
-                    {c.checks.length > 0 && (
-                      <span className="sb-count" aria-label={`${c.checks.length} à vérifier`}>
-                        {c.checks.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div role={several ? 'tabpanel' : undefined} className="sb-panel" key={current?.name ?? 'all'}>
-              {current ? (
-                <Panel colour={current} rejects={current.rejects} checks={current.checks} onPick={pick} />
-              ) : (
-                <Panel rejects={bilan.rejects} checks={bilan.checks} onPick={pick} />
-              )}
-            </div>
+            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks />
           </div>
         )}
       </div>
@@ -325,11 +425,40 @@ interface BilanPrintProps {
   part: Partition;
   shiftLabel: string;
   dateLabel: string;
+  scope: BilanScope;
 }
 
-/** The bilan on paper: what printing from the Suivi tab gives. */
-export function BilanPrint({ part, shiftLabel, dateLabel }: BilanPrintProps) {
+/** The figures, then the rejects: for the whole, then every colour in turn when there are several. */
+function PrintBody({ bilan, wholeTitle, children }: { bilan: SuiviBilan; wholeTitle: string; children?: ReactNode }) {
+  if (bilan.empty) return <p className="sb-none">Aucune ligne remplie.</p>;
+  const several = bilan.colours.length > 1;
+  return (
+    <>
+      <Kpis t={bilan.totals} />
+      {children}
+      {several ? (
+        <>
+          <Section title={wholeTitle}>
+            <Rejects r={bilan.rejects} />
+          </Section>
+          {bilan.colours.map((c) => (
+            <div key={c.name} className="sb-print-colour">
+              <h2>{c.name}</h2>
+              <Panel colour={c} rejects={c.rejects} />
+            </div>
+          ))}
+        </>
+      ) : (
+        <Panel rejects={bilan.rejects} />
+      )}
+    </>
+  );
+}
+
+/** The bilan on paper, the shift's or the day's: what printing from the Suivi tab gives. */
+export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintProps) {
   const bilan = useBilan(part);
+  const day = useDayBilan(part.date, part, scope === 'jour');
   // The time it goes to paper (`beforeprint`, where the engine fires it; the
   // last render otherwise).
   const [now, setNow] = useState(() => new Date());
@@ -338,9 +467,38 @@ export function BilanPrint({ part, shiftLabel, dateLabel }: BilanPrintProps) {
     window.addEventListener('beforeprint', tick);
     return () => window.removeEventListener('beforeprint', tick);
   }, []);
-  if (!bilan) return null;
   const printed = now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const several = bilan.colours.length > 1;
+  const colourNames = (b: SuiviBilan) => b.colours.filter((c) => !c.none).map((c) => c.name).join(', ') || '—';
+
+  if (scope === 'jour') {
+    if (!day) return null;
+    return (
+      <section className="sb sb-print print-only">
+        <div className="print-header">
+          <h1>Bilan de la journée · {dateLabel}</h1>
+          <div className="meta">
+            <span>
+              <strong>Période :</strong> {daySpan(part.date)}
+            </span>
+            <span>
+              <strong>Postes :</strong> {day.shifts.map((s) => `${s.label} ${s.poste}`).join(', ')}
+            </span>
+            <span>
+              <strong>Couleurs :</strong> {colourNames(day.bilan)}
+            </span>
+            <span>
+              <strong>Imprimé le</strong> {printed}
+            </span>
+          </div>
+        </div>
+        <PrintBody bilan={day.bilan} wholeTitle="Rejets de la journée">
+          <ShiftsTable day={day} />
+        </PrintBody>
+      </section>
+    );
+  }
+
+  if (!bilan) return null;
   return (
     <section className="sb sb-print print-only">
       <div className="print-header">
@@ -352,34 +510,14 @@ export function BilanPrint({ part, shiftLabel, dateLabel }: BilanPrintProps) {
             <strong>Date :</strong> {dateLabel}
           </span>
           <span>
-            <strong>Couleurs :</strong> {bilan.colours.filter((c) => !c.none).map((c) => c.name).join(', ') || '—'}
+            <strong>Couleurs :</strong> {colourNames(bilan)}
           </span>
           <span>
             <strong>Imprimé le</strong> {printed}
           </span>
         </div>
       </div>
-      {bilan.empty ? (
-        <p className="sb-none">Aucune ligne remplie pour ce poste.</p>
-      ) : several ? (
-        <>
-          <Kpis t={bilan.totals} />
-          <Section title="Rejets du poste">
-            <Rejects r={bilan.rejects} />
-          </Section>
-          {bilan.colours.map((c) => (
-            <div key={c.name} className="sb-print-colour">
-              <h2>{c.name}</h2>
-              <Panel colour={c} rejects={c.rejects} />
-            </div>
-          ))}
-        </>
-      ) : (
-        <>
-          <Kpis t={bilan.totals} />
-          <Panel rejects={bilan.rejects} />
-        </>
-      )}
+      <PrintBody bilan={bilan} wholeTitle="Rejets du poste" />
     </section>
   );
 }

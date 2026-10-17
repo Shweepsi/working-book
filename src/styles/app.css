@@ -4101,6 +4101,15 @@ button.sb-check { cursor: pointer; }
 button.sb-check:hover { background: var(--paper-2); }
 button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .sb-check { justify-content: space-between; }
+/* The shift or its day. */
+.seg.sb-scope { align-self: stretch; }
+.sb-day-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); color: var(--ink-soft); font-size: var(--fs-md); }
+/* The day's three shifts. */
+.sb-shifts tbody th { white-space: nowrap; }
+.sb-shift-hours { display: block; font-size: var(--fs-sm); font-weight: 400; color: var(--ink-faint); }
+.sb-shifts tr.is-live th { color: var(--accent); }
+.sb-shift-none { text-align: center !important; color: var(--ink-faint); font-style: italic; }
+.sb-table td.is-bad { color: var(--flag-unsched-fg); font-weight: 650; }
 .sb-check.is-static { min-height: 0; }
 .sb-go { flex: none; font-size: 20px; line-height: 1; color: var(--ink-faint); }
 button.sb-check:hover .sb-go { color: var(--accent); }
