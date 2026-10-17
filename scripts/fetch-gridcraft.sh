@@ -14,9 +14,9 @@
 # so a re-uploaded asset fails the build instead of shipping.
 set -euo pipefail
 
-TAG=v0.7.0-shared.13
-ASSET=gridcraft-web-0.7.0-shared.13-glow.zip
-SHA256=57709a52a4ed6f9d796d2d37f39b301960cb287a383903bdfc2dd414e9188ca4
+TAG=v0.7.0-shared.14
+ASSET=gridcraft-web-0.7.0-shared.14-glow.zip
+SHA256=6fef9a5097652994cef588dfb3f8af6394ee0402679bf1b401fa7fab4bafd8fd
 REPO=Shweepsi/gridcraft
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
