@@ -266,6 +266,18 @@ export default function App() {
     setShiftKey(SHIFT_TABS[next].key);
   }
 
+  // Steps to the previous / next shift in time — so, poste by poste, since a
+  // different poste works each one. Past Nuit it rolls onto the next day's
+  // Matin, and back from Matin onto the previous day's Nuit.
+  function stepShift(delta: 1 | -1) {
+    const idx = SHIFT_TABS.findIndex((s) => s.key === shiftKey);
+    if (idx < 0) return;
+    const next = idx + delta;
+    const dayDelta = next < 0 ? -1 : next >= SHIFT_TABS.length ? 1 : 0;
+    if (dayDelta) setDate(addDaysISO(date, dayDelta));
+    setShiftKey(SHIFT_TABS[(next + SHIFT_TABS.length) % SHIFT_TABS.length].key);
+  }
+
   function cycleTab(delta: 1 | -1) {
     const idx = TABS.findIndex((t) => t.key === tab);
     if (idx < 0) return;
@@ -279,8 +291,8 @@ export default function App() {
     () => [
       ...(SHIFT_HEADER
         ? ([
-            { key: 'ArrowLeft',  ctrl: false, shift: false, alt: false, run: () => setDate(addDaysISO(date, -1)) },
-            { key: 'ArrowRight', ctrl: false, shift: false, alt: false, run: () => setDate(addDaysISO(date, +1)) },
+            { key: 'ArrowLeft',  ctrl: false, shift: false, alt: false, run: () => stepShift(-1) },
+            { key: 'ArrowRight', ctrl: false, shift: false, alt: false, run: () => stepShift(+1) },
             { key: '[', shift: false, run: () => cycleShift(-1) },
             { key: ']', shift: false, run: () => cycleShift(+1) },
             { key: 't', shift: false, run: jumpLive },
@@ -329,8 +341,9 @@ export default function App() {
               <button
                 type="button"
                 className="btn ghost icon"
-                onClick={() => setDate(addDaysISO(date, -1))}
-                aria-label="Jour précédent"
+                onClick={() => stepShift(-1)}
+                aria-label="Poste précédent"
+                title="Poste précédent"
               >
                 ‹
               </button>
@@ -343,8 +356,9 @@ export default function App() {
               <button
                 type="button"
                 className="btn ghost icon"
-                onClick={() => setDate(addDaysISO(date, +1))}
-                aria-label="Jour suivant"
+                onClick={() => stepShift(+1)}
+                aria-label="Poste suivant"
+                title="Poste suivant"
               >
                 ›
               </button>
@@ -522,7 +536,7 @@ function KeyboardHelp({ onClose }: { onClose: () => void }) {
   const rows: Array<{ keys: string[]; label: string }> = [
     ...(SHIFT_HEADER
       ? [
-          { keys: ['←', '→'], label: 'Jour précédent / suivant' },
+          { keys: ['←', '→'], label: 'Poste précédent / suivant' },
           { keys: ['[', ']'], label: 'Shift précédent / suivant' },
           { keys: ['T'], label: 'Aller au shift en cours' },
         ]
