@@ -9,7 +9,9 @@
 //             operator's own edits once they say so.
 //   controle  what looks wrong in the shift before the handover, with the
 //             corrections that are certain, written the same way.
-//   bilan     the shift's summary for the next team, from Rapport's results.
+//   bilan     the shift's summary for the next team, from Rapport's results:
+//             always the same structure (AssistBilan), which the app lays out
+//             the same way every time, plus its plain-text rendering.
 //
 // Claude sees the workbook as this module writes it out (snapshot), not
 // through tools: one request per question, a few seconds on a tablet. It also
@@ -17,7 +19,7 @@
 // "pareil sur la suivante" or "annule la dernière" make sense) and the
 // workshop's vocabulary (lexicon.ts), which it learns by itself.
 
-import type { AssistItem, AssistMode, AssistReply } from '../assistTypes';
+import type { AssistBilan, AssistItem, AssistMode, AssistReply } from '../assistTypes';
 import type { CellChange, Workbook } from './engine';
 
 export interface AssistEnv {
@@ -400,16 +402,23 @@ const TASKS: Record<AssistMode, string> = {
 - un écart DL/FL (DELTA) qui n'est pas nul pour une couleur ou au total ;
 - une valeur refusée par les listes du classeur (indiquées dans l'état), en particulier Rapport!C2 et Rapport!F2.
 Pour chaque problème : la cellule, une phrase courte et concrète, et dans « correction » la valeur corrigée seulement si elle est certaine, sinon une chaîne vide (« 15/10 » tapé en texte dans la colonne Date → « 15/10/26 » ; un défaut écrit à moitié → son nom exact dans la liste). Rien sur la mise en forme, pas de conseils vagues. Si tout va bien, aucune entrée.`,
-  bilan: `Ta tâche : rédiger le bilan du poste pour l'équipe suivante. Texte brut, sans markdown ni titre, 10 lignes au plus, phrases courtes :
-- production : lites et m² en début et en fin de ligne, par couleur ;
-- rejets : total, principaux défauts avec leurs quantités ;
-- écarts DL/FL s'il y en a, lignes incomplètes, points à surveiller.
-Seulement les chiffres de Rapport et de Suivi, sans en inventer. Un poste vide se dit en une ligne.`,
+  bilan: `Ta tâche : rédiger le bilan du poste pour l'équipe suivante, dans la structure demandée. Seulement les chiffres de Rapport et de Suivi, sans en inventer ; phrases courtes, sans markdown.
+- « resume » : une phrase : les couleurs produites et l'essentiel du poste, par exemple « SN51HT seule : 440 lites consommées, 48 rejetées, écart nul ».
+- « poste » : le tableau POSTE du Rapport tel quel (lignes Lites et m² ; colonnes Rejets, Début de Ligne, Fin de Ligne, DELTA).
+- « couleurs » : le tableau COULEUR du Rapport, en lites ; une couleur sans aucune production n'y figure pas.
+- « defauts » : les rejets par défaut, comptés dans les colonnes de défauts de Suivi, toutes couleurs confondues, par quantité décroissante ; le nom du défaut tel que dans la liste.
+- « anomalies » : écarts DL/FL non nuls, désaccords entre Rapport et Suivi, valeurs refusées par les listes ; une phrase chacune, avec la ligne ou la cellule.
+- « incompletes » : les lignes incomplètes (N° TAG manquant ou mal formé, lites, dimension ou épaisseur absentes, date absente côté DL) ; une phrase chacune.
+- « restes » : les plaques DL pas entièrement consommées (Restantes > 0) : ligne, lites restantes, consommées non saisies ; une phrase chacune.
+- « surveiller » : ce que l'équipe suivante doit avoir à l'œil : commentaire notable, défaut concentré sur une dimension, tendance ; une phrase chacune.
+Une liste sans rien reste vide. Un poste vide : « resume » le dit, tout le reste à zéro ou vide.`,
 };
 
-// What saisie and controle answer, as JSON (structured outputs): every field
-// is there, empty when it doesn't apply.
+// What each mode answers, as JSON (structured outputs): every field is there,
+// empty when it doesn't apply.
 const arrayOf = (item: Record<string, unknown>) => ({ type: 'array', items: { type: 'object', properties: item, required: Object.keys(item), additionalProperties: false } });
+const sentences = (description: string) => ({ type: 'array', items: { type: 'string' }, description });
+const number = (description: string) => ({ type: 'number', description });
 const SCHEMAS = {
   saisie: {
     type: 'object',
@@ -438,7 +447,117 @@ const SCHEMAS = {
     required: ['resume', 'problemes'],
     additionalProperties: false,
   },
+  bilan: {
+    type: 'object',
+    properties: {
+      resume: { type: 'string', description: 'Le poste en une phrase : couleurs produites et l’essentiel.' },
+      poste: {
+        type: 'object',
+        description: 'Le tableau POSTE du Rapport.',
+        properties: {
+          dl_lites: number('Lites en début de ligne.'),
+          dl_m2: number('m² en début de ligne.'),
+          fl_lites: number('Lites en fin de ligne.'),
+          fl_m2: number('m² en fin de ligne.'),
+          rejets_lites: number('Lites rejetées.'),
+          rejets_m2: number('m² rejetés.'),
+          delta_lites: number('DELTA en lites.'),
+          delta_m2: number('DELTA en m².'),
+        },
+        required: ['dl_lites', 'dl_m2', 'fl_lites', 'fl_m2', 'rejets_lites', 'rejets_m2', 'delta_lites', 'delta_m2'],
+        additionalProperties: false,
+      },
+      couleurs: arrayOf({
+        couleur: { type: 'string', description: 'La couleur, telle que dans Suivi.' },
+        dl_lites: number('Lites en début de ligne.'),
+        fl_lites: number('Lites en fin de ligne.'),
+        rejets_lites: number('Lites rejetées.'),
+        delta_lites: number('DELTA en lites.'),
+      }),
+      defauts: arrayOf({
+        defaut: { type: 'string', description: 'Le défaut, tel que dans la liste.' },
+        lites: number('Lites rejetées pour ce défaut.'),
+      }),
+      anomalies: sentences('Écarts et désaccords, une phrase chacun ; vide si aucun.'),
+      incompletes: sentences('Lignes incomplètes, une phrase chacune ; vide si aucune.'),
+      restes: sentences('Plaques DL pas entièrement consommées, une phrase chacune ; vide si aucune.'),
+      surveiller: sentences('Points à surveiller, une phrase chacun ; vide si aucun.'),
+    },
+    required: ['resume', 'poste', 'couleurs', 'defauts', 'anomalies', 'incompletes', 'restes', 'surveiller'],
+    additionalProperties: false,
+  },
 };
+
+const num = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v.replace(/\s/g, '').replace(',', '.')) : NaN;
+  return Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0;
+};
+const sentence = (v: unknown, max = 300): string => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '');
+const sentenceList = (v: unknown, max = 12): string[] => (Array.isArray(v) ? v.map((x) => sentence(x)).filter(Boolean).slice(0, max) : []);
+
+/** Claude's bilan, every field in shape whatever it sent. */
+function bilanOf(input: Record<string, unknown>): AssistBilan {
+  const p = (input.poste && typeof input.poste === 'object' ? input.poste : {}) as Record<string, unknown>;
+  const rows = (v: unknown) => (Array.isArray(v) ? (v.filter((x) => x && typeof x === 'object') as Record<string, unknown>[]) : []);
+  return {
+    resume: sentence(input.resume) || 'Rien à dire sur ce poste.',
+    poste: {
+      dl_lites: num(p.dl_lites),
+      dl_m2: num(p.dl_m2),
+      fl_lites: num(p.fl_lites),
+      fl_m2: num(p.fl_m2),
+      rejets_lites: num(p.rejets_lites),
+      rejets_m2: num(p.rejets_m2),
+      delta_lites: num(p.delta_lites),
+      delta_m2: num(p.delta_m2),
+    },
+    couleurs: rows(input.couleurs)
+      .map((c) => ({ couleur: sentence(c.couleur, 60), dl_lites: num(c.dl_lites), fl_lites: num(c.fl_lites), rejets_lites: num(c.rejets_lites), delta_lites: num(c.delta_lites) }))
+      .filter((c) => c.couleur)
+      .slice(0, 12),
+    defauts: rows(input.defauts)
+      .map((d) => ({ defaut: sentence(d.defaut, 60), lites: num(d.lites) }))
+      .filter((d) => d.defaut)
+      .slice(0, 24),
+    anomalies: sentenceList(input.anomalies),
+    incompletes: sentenceList(input.incompletes),
+    restes: sentenceList(input.restes),
+    surveiller: sentenceList(input.surveiller),
+  };
+}
+
+const FR = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
+
+/** The bilan as plain text, the same sections in the same order: what the operator copies. */
+export function bilanText(part: { date: string; poste: string }, b: AssistBilan): string {
+  const n = (v: number) => FR.format(v);
+  const p = b.poste;
+  const list = (title: string, items: string[], none: string) => [title, ...(items.length ? items.map((s) => `– ${s}`) : [none])];
+  return [
+    `Poste ${part.poste} du ${part.date.split('-').reverse().join('/')}`,
+    b.resume,
+    '',
+    'Production',
+    `Début de ligne : ${n(p.dl_lites)} lites, ${n(p.dl_m2)} m²`,
+    `Fin de ligne : ${n(p.fl_lites)} lites, ${n(p.fl_m2)} m²`,
+    `Rejets : ${n(p.rejets_lites)} lites, ${n(p.rejets_m2)} m²`,
+    `Delta : ${n(p.delta_lites)} lites, ${n(p.delta_m2)} m²`,
+    '',
+    'Par couleur (lites)',
+    ...(b.couleurs.length ? b.couleurs.map((c) => `${c.couleur} : début ${n(c.dl_lites)}, fin ${n(c.fl_lites)}, rejets ${n(c.rejets_lites)}, delta ${n(c.delta_lites)}`) : ['Aucune production.']),
+    '',
+    'Rejets par défaut',
+    ...(b.defauts.length ? b.defauts.map((d) => `${d.defaut} : ${n(d.lites)}`) : ['Aucun rejet.']),
+    '',
+    ...list('Anomalies', b.anomalies, 'Aucune.'),
+    '',
+    ...list('Lignes incomplètes', b.incompletes, 'Aucune.'),
+    '',
+    ...list('Restes en début de ligne', b.restes, 'Aucun.'),
+    '',
+    ...list('À surveiller', b.surveiller, 'Rien de particulier.'),
+  ].join('\n');
+}
 
 interface ClaudeReply {
   content: { type: string; text?: string }[];
@@ -465,7 +584,7 @@ async function claude(env: AssistEnv, mode: AssistMode, s: Sheet, ask: string, l
     messages: [{ role: 'user', content: `État du classeur :\n${s.text}\n\n${ask}` }],
     output_config: {
       effort: env.ASSIST_EFFORT || DEFAULT_EFFORT,
-      ...(mode === 'bilan' ? {} : { format: { type: 'json_schema', schema: SCHEMAS[mode] } }),
+      format: { type: 'json_schema', schema: SCHEMAS[mode] },
     },
     // "between_tools": no thinking before the answer (Sonnet 5.5), the fastest.
     ...(env.ASSIST_THINKING ? { thinking: { type: env.ASSIST_THINKING } } : {}),
@@ -514,8 +633,8 @@ export async function assist(env: AssistEnv, book: Workbook, part: { date: strin
   const ask = (q: string) => claude(env, mode, s, q, memory.lexicon);
   if (mode === 'bilan') {
     const reply = await ask('Rédige le bilan du poste.');
-    const out = textOf(reply);
-    return { ok: true, text: out || 'Rien à dire sur ce poste.' };
+    const bilan = bilanOf(jsonOf(reply));
+    return { ok: true, text: bilanText(part, bilan), bilan };
   }
   if (mode === 'saisie') {
     const reply = await ask(`${historyText(memory.history)}\n\nDemande de l'opérateur : ${text}`);

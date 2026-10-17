@@ -5,7 +5,7 @@
 // for the operator to tick them.
 
 import { useEffect, useRef, useState } from 'react';
-import { askAssistant, cellKey, reportAssistant, type AssistItem, type AssistMode, type AssistReply } from '../lib/assist';
+import { askAssistant, cellKey, reportAssistant, type AssistBilan, type AssistItem, type AssistMode, type AssistReply } from '../lib/assist';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
 import { useToast } from '../lib/toast';
 
@@ -296,7 +296,7 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
 
         {reply && mode === 'bilan' && reply.text && (
           <div className="gca-result">
-            <p className="gca-bilan">{reply.text}</p>
+            {reply.bilan ? <Bilan b={reply.bilan} /> : <p className="gca-bilan">{reply.text}</p>}
             <div className="gca-actions">
               <button type="button" className="btn ghost" onClick={() => void ask('bilan', '')} disabled={busy}>
                 Refaire
@@ -336,6 +336,112 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
         )}
 
       </div>
+    </>
+  );
+}
+
+const num = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
+
+/** The summary, laid out the same way every time: the two tables of Rapport, then the lists, each with its heading. */
+function Bilan({ b }: { b: AssistBilan }) {
+  const p = b.poste;
+  const delta = (v: number) => <td className={v ? 'is-bad' : ''}>{num(v)}</td>;
+  return (
+    <div className="gca-bilan-view" aria-label="Bilan du poste">
+      <p className="gca-bilan-resume">{b.resume}</p>
+
+      <h4>Production</h4>
+      <table className="gca-bilan-table">
+        <thead>
+          <tr>
+            <th />
+            <th>Début de ligne</th>
+            <th>Fin de ligne</th>
+            <th>Rejets</th>
+            <th>Delta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Lites</th>
+            <td>{num(p.dl_lites)}</td>
+            <td>{num(p.fl_lites)}</td>
+            <td>{num(p.rejets_lites)}</td>
+            {delta(p.delta_lites)}
+          </tr>
+          <tr>
+            <th>m²</th>
+            <td>{num(p.dl_m2)}</td>
+            <td>{num(p.fl_m2)}</td>
+            <td>{num(p.rejets_m2)}</td>
+            {delta(p.delta_m2)}
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>Par couleur (lites)</h4>
+      {b.couleurs.length ? (
+        <table className="gca-bilan-table">
+          <thead>
+            <tr>
+              <th>Couleur</th>
+              <th>Début</th>
+              <th>Fin</th>
+              <th>Rejets</th>
+              <th>Delta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {b.couleurs.map((c) => (
+              <tr key={c.couleur}>
+                <th>{c.couleur}</th>
+                <td>{num(c.dl_lites)}</td>
+                <td>{num(c.fl_lites)}</td>
+                <td>{num(c.rejets_lites)}</td>
+                {delta(c.delta_lites)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="gca-bilan-none">Aucune production.</p>
+      )}
+
+      <h4>Rejets par défaut</h4>
+      {b.defauts.length ? (
+        <ul className="gca-bilan-defauts">
+          {b.defauts.map((d) => (
+            <li key={d.defaut}>
+              <span>{d.defaut}</span>
+              <strong>{num(d.lites)}</strong>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="gca-bilan-none">Aucun rejet.</p>
+      )}
+
+      <BilanList title="Anomalies" items={b.anomalies} none="Aucune." />
+      <BilanList title="Lignes incomplètes" items={b.incompletes} none="Aucune." />
+      <BilanList title="Restes en début de ligne" items={b.restes} none="Aucun." />
+      <BilanList title="À surveiller" items={b.surveiller} none="Rien de particulier." />
+    </div>
+  );
+}
+
+function BilanList({ title, items, none }: { title: string; items: string[]; none: string }) {
+  return (
+    <>
+      <h4>{title}</h4>
+      {items.length ? (
+        <ul className="gca-bilan-list">
+          {items.map((s, i) => (
+            <li key={i}>{s}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="gca-bilan-none">{none}</p>
+      )}
     </>
   );
 }

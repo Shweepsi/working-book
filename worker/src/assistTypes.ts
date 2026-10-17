@@ -33,13 +33,32 @@ export interface AssistCell {
   c: unknown;
 }
 
+/** The shift's summary, always in this shape: the app lays it out the same way every time. */
+export interface AssistBilan {
+  /** One sentence: the shift, its colours, the essential. */
+  resume: string;
+  /** Rapport's POSTE table: lites and m², begin/end of line, rejects, delta. */
+  poste: { dl_lites: number; dl_m2: number; fl_lites: number; fl_m2: number; rejets_lites: number; rejets_m2: number; delta_lites: number; delta_m2: number };
+  /** Rapport's COULEUR table, in lites. */
+  couleurs: { couleur: string; dl_lites: number; fl_lites: number; rejets_lites: number; delta_lites: number }[];
+  /** Rejects per defect, as counted in Suivi, largest first. */
+  defauts: { defaut: string; lites: number }[];
+  /** One short sentence each; empty when there is nothing to say. */
+  anomalies: string[];
+  incompletes: string[];
+  restes: string[];
+  surveiller: string[];
+}
+
 export interface AssistReply {
   ok: boolean;
   error?: string;
   /** This exchange, in the shift's memory: what the app reports back about (AssistFeedback). */
   id?: string;
-  /** saisie, controle: one sentence; bilan: the whole text. */
+  /** saisie, controle: one sentence; bilan: the summary as plain text (clipboard, MCP clients). */
   text?: string;
+  /** bilan: the summary, structured. */
+  bilan?: AssistBilan;
   /** saisie: Claude needs to know more before proposing anything. */
   question?: string;
   items?: AssistItem[];

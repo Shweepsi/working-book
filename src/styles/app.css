@@ -4007,9 +4007,9 @@ body.is-col-resizing * {
   border: 1px solid var(--flag-unsched-bd);
 }
 .gca-summary { margin: 0; color: var(--ink); font-weight: 600; }
-.gca-bilan {
+.gca-bilan,
+.gca-bilan-view {
   margin: 0;
-  white-space: pre-wrap;
   line-height: 1.5;
   padding: var(--space-4);
   border: 1px solid var(--line-faint);
@@ -4017,6 +4017,45 @@ body.is-col-resizing * {
   background: var(--paper-2);
   user-select: text;
 }
+/* A server before the structured bilan: its text, as it came. */
+.gca-bilan { white-space: pre-wrap; }
+/* The structured bilan: the same sections in the same order, every time. */
+.gca-bilan-view { display: flex; flex-direction: column; gap: var(--space-2); }
+.gca-bilan-view h4 {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.gca-bilan-resume { margin: 0; font-weight: 600; }
+.gca-bilan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.gca-bilan-table th,
+.gca-bilan-table td {
+  padding: 4px var(--space-2);
+  text-align: right;
+  border-bottom: 1px solid var(--line-faint);
+  white-space: nowrap;
+}
+.gca-bilan-table thead th { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-soft); }
+.gca-bilan-table th:first-child,
+.gca-bilan-table td:first-child { text-align: left; white-space: normal; }
+.gca-bilan-table tbody th { font-weight: 600; color: var(--ink); }
+.gca-bilan-table tbody tr:last-child th,
+.gca-bilan-table tbody tr:last-child td { border-bottom: 0; }
+.gca-bilan-table td.is-bad { color: var(--flag-unsched-fg); font-weight: 600; }
+.gca-bilan-defauts,
+.gca-bilan-list { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.gca-bilan-defauts { list-style: none; padding: 0; }
+.gca-bilan-defauts li { display: flex; justify-content: space-between; gap: var(--space-3); }
+.gca-bilan-defauts strong { font-variant-numeric: tabular-nums; }
+.gca-bilan-list { padding-left: 1.2em; }
+.gca-bilan-none { margin: 0; color: var(--ink-faint); }
 .gca-items {
   list-style: none;
   margin: 0;

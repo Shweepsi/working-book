@@ -20,12 +20,27 @@ export interface AssistItem {
   ok: boolean;
 }
 
+/** The shift's summary, always in this shape (worker/src/assistTypes.ts). */
+export interface AssistBilan {
+  resume: string;
+  poste: { dl_lites: number; dl_m2: number; fl_lites: number; fl_m2: number; rejets_lites: number; rejets_m2: number; delta_lites: number; delta_m2: number };
+  couleurs: { couleur: string; dl_lites: number; fl_lites: number; rejets_lites: number; delta_lites: number }[];
+  defauts: { defaut: string; lites: number }[];
+  anomalies: string[];
+  incompletes: string[];
+  restes: string[];
+  surveiller: string[];
+}
+
 export interface AssistReply {
   ok: boolean;
   error?: string;
   /** This exchange, for reportAssistant. */
   id?: string;
+  /** saisie, controle: one sentence; bilan: the summary as plain text, for the clipboard. */
   text?: string;
+  /** bilan: the summary, structured; laid out the same way every time. */
+  bilan?: AssistBilan;
   question?: string;
   items?: AssistItem[];
   changes?: CellChange[];
