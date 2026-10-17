@@ -4174,7 +4174,8 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   .sb-print .sb-table td { padding: 2px 6px; border-bottom-color: var(--print-line-faint); }
   .sb-print .sb-scroll { overflow: visible; }
   .sb-print .sb-matrix th:first-child { position: static; background: none; }
-  .sb-print-colour { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  /* A colour is never split across two pages: one that doesn't fit what's left goes whole to the next. */
+  .sb-print-colour { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; break-inside: avoid-page; page-break-inside: avoid; }
   .sb-print-colour h2 { margin: 0 0 2px; font-size: 13pt; border-bottom: 1px solid var(--print-ink-strong); break-after: avoid; }
   .sb-print h4,
   .sb-print h5 { break-after: avoid; }
