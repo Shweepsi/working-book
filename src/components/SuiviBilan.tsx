@@ -405,25 +405,19 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanS
   );
 }
 
-/** The header asks the Suivi tab to open its bilan (the tab owns the sheet and its scope). */
-export const OPEN_BILAN = 'wb:open-bilan';
-
 /**
- * The header's Bilan button, an icon beside the calculator and the printer:
- * on the Suivi tab only, once the shift's workbook is there, with the number
- * of rows to look at as a badge.
+ * The header's Bilan button, an icon beside the calculator and the printer,
+ * on every page: `onOpen` brings the Suivi tab up with the sheet open. The
+ * badge counts the rows to look at once the shift's workbook is loaded.
  */
-export function BilanHeaderButton({ part }: { part: Partition | null }) {
-  const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
+export function BilanHeaderButton({ part, onOpen }: { part: Partition | null; onOpen: () => void }) {
   const bilan = useBilan(part);
-  if (!part || snap.templateId === null || snap.status === 'no-template' || snap.status === 'disabled') return null;
   const n = bilan?.checks.length ?? 0;
   return (
     <button
       type="button"
       className="btn ghost icon sb-open"
-      onClick={() => window.dispatchEvent(new Event(OPEN_BILAN))}
-      disabled={snap.status === 'loading'}
+      onClick={onOpen}
       aria-label={n ? `Bilan du poste, ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
       title={n ? `Bilan du poste · ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
     >

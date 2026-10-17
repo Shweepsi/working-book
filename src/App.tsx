@@ -123,6 +123,8 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
+  // The header's Bilan button (previews): bumped to have the Suivi tab open its bilan.
+  const [bilanRequest, setBilanRequest] = useState(0);
   // Once opened, the Suivi workbook stays mounted (hidden behind the other
   // tabs): coming back is instant, with no wasm to start again and no cells
   // to replay. Its files are fetched ahead, so the first open is quick too.
@@ -398,7 +400,15 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator grid={tab === 'grid' && poste !== null} />
-          {tab === 'grid' && SYNC_ENABLED && <BilanHeaderButton part={poste ? { date, poste } : null} />}
+          {IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid') && (
+            <BilanHeaderButton
+              part={poste ? { date, poste } : null}
+              onOpen={() => {
+                setTab('grid');
+                setBilanRequest((n) => n + 1);
+              }}
+            />
+          )}
           <button
             type="button"
             className="btn ghost icon calc-trigger"
@@ -461,7 +471,7 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
-        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
+        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} openBilan={bilanRequest} />}
       </main>
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
