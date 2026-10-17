@@ -12,13 +12,13 @@
 // (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
 // already says which shift is open. It follows Working Book's theme, not the
-// system's. The bar above it opens the shift's bilan (SuiviBilan.tsx, computed from the cells, which is
+// system's. The header's Bilan button opens the shift's bilan (SuiviBilan.tsx, computed from the cells, which is
 // also what printing from this tab gives).
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
-import { BilanButton, BilanPrint, BilanSheet, type BilanScope } from './SuiviBilan';
+import { BilanPrint, BilanSheet, OPEN_BILAN, type BilanScope } from './SuiviBilan';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
@@ -87,6 +87,14 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
   useEffect(() => setPanel(null), [hidden, date, poste]);
   // The shift's workbook is there: it has a bilan.
   const canBilan = SYNC_ENABLED && !!poste && snap.templateId !== null && snap.status !== 'no-template';
+  // The header's Bilan button (SuiviBilan.BilanHeaderButton) opens the sheet here.
+  useEffect(() => {
+    const open = () => {
+      if (!hidden && canBilan) setPanel('bilan');
+    };
+    window.addEventListener(OPEN_BILAN, open);
+    return () => window.removeEventListener(OPEN_BILAN, open);
+  }, [hidden, canBilan]);
 
   // A template added since the list was fetched: this shift may have just been
   // started on it.
@@ -130,20 +138,17 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
 
   return (
     <div className={cls}>
-      <div className="gc-editor-bar no-print">
-        {CAN_EDIT_TEMPLATE && current && (
+      {CAN_EDIT_TEMPLATE && current && (
+        <div className="gc-editor-bar no-print">
           <span className="gc-editor-title">
             Modèle <strong>{current.name}</strong>
           </span>
-        )}
-        <span className="gc-spacer" />
-        {CAN_EDIT_TEMPLATE && current && (
+          <span className="gc-spacer" />
           <button type="button" className="btn ghost mini" onClick={() => setEditing(true)}>
             Modifier le modèle
           </button>
-        )}
-        {canBilan && poste && <BilanButton part={{ date, poste }} onClick={() => setPanel('bilan')} disabled={snap.status === 'loading'} />}
-      </div>
+        </div>
+      )}
       {panel === 'bilan' && poste && (
         <BilanSheet part={{ date, poste }} shiftLabel={shiftMeta.shift.label} scope={bilanScope} onScope={setBilanScope} onClose={closePanel} />
       )}

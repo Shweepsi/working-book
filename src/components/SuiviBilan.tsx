@@ -405,16 +405,35 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanS
   );
 }
 
-/** The bar's Bilan button, with the number of rows to look at. */
-export function BilanButton({ part, onClick, disabled }: { part: Partition; onClick: () => void; disabled?: boolean }) {
+/** The header asks the Suivi tab to open its bilan (the tab owns the sheet and its scope). */
+export const OPEN_BILAN = 'wb:open-bilan';
+
+/**
+ * The header's Bilan button, an icon beside the calculator and the printer:
+ * on the Suivi tab only, once the shift's workbook is there, with the number
+ * of rows to look at as a badge.
+ */
+export function BilanHeaderButton({ part }: { part: Partition | null }) {
+  const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
   const bilan = useBilan(part);
+  if (!part || snap.templateId === null || snap.status === 'no-template' || snap.status === 'disabled') return null;
   const n = bilan?.checks.length ?? 0;
   return (
-    <button type="button" className="btn primary mini sb-open" onClick={onClick} disabled={disabled} title={n ? `${n} ligne${n > 1 ? 's' : ''} à vérifier` : undefined}>
-      Bilan
+    <button
+      type="button"
+      className="btn ghost icon sb-open"
+      onClick={() => window.dispatchEvent(new Event(OPEN_BILAN))}
+      disabled={snap.status === 'loading'}
+      aria-label={n ? `Bilan du poste, ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
+      title={n ? `Bilan du poste · ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
+    >
+      <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2" y="1.75" width="12" height="12.5" rx="1.5" />
+        <path d="M5 11.25V9M8 11.25V5.5M11 11.25V7.5" strokeWidth="1.8" />
+      </svg>
       {n > 0 && (
-        <span className="sb-count" aria-label={`${n} à vérifier`}>
-          {n}
+        <span className="sb-count sb-badge" aria-hidden="true">
+          {n > 99 ? '99+' : n}
         </span>
       )}
     </button>

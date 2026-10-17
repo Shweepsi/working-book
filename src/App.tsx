@@ -14,6 +14,7 @@ import { prefetchGridcraft } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
+import { BilanHeaderButton } from './components/SuiviBilan';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -397,6 +398,7 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator grid={tab === 'grid' && poste !== null} />
+          {tab === 'grid' && SYNC_ENABLED && <BilanHeaderButton part={poste ? { date, poste } : null} />}
           <button
             type="button"
             className="btn ghost icon calc-trigger"

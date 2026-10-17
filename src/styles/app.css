@@ -4019,8 +4019,9 @@ body.is-col-resizing * {
   line-height: 20px;
   text-align: center;
 }
-.btn.sb-open { display: inline-flex; align-items: center; gap: var(--space-3); }
-.btn.sb-open .sb-count { background: var(--paper); color: var(--ink); }
+/* The header's Bilan icon: the rows to look at as a badge on its corner. */
+.btn.sb-open { position: relative; }
+.sb-badge { position: absolute; top: -5px; right: -6px; min-width: 17px; padding: 0 4px; line-height: 17px; font-size: 10px; pointer-events: none; }
 
 /* Tables: numbers right-aligned, the first column a label. */
 .sb-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
