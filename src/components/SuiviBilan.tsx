@@ -189,17 +189,20 @@ function Section({ title, count, children }: { title: string; count?: number; ch
   );
 }
 
-/** A tab's content: a colour's own figures above its rejects, or the whole shift's. */
-function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks: BilanCheck[]; onPick?: (range: string) => void }) {
+/** A tab's content: a colour's own figures above its rejects, or the whole shift's; then the
+ * rows to look at, on screen only (`checks` isn't given on paper). */
+function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks?: BilanCheck[]; onPick?: (range: string) => void }) {
   return (
     <>
       {colour && <Kpis t={colour.totals} sides={{ dl: colour.inDl, fl: colour.inFl }} compact />}
       <Section title="Rejets par défaut">
         <Rejects r={rejects} />
       </Section>
-      <Section title="À vérifier" count={checks.length}>
-        <Checks checks={checks} onPick={onPick} />
-      </Section>
+      {checks && (
+        <Section title="À vérifier" count={checks.length}>
+          <Checks checks={checks} onPick={onPick} />
+        </Section>
+      )}
     </>
   );
 }
@@ -367,14 +370,14 @@ export function BilanPrint({ part, shiftLabel, dateLabel }: BilanPrintProps) {
           {bilan.colours.map((c) => (
             <div key={c.name} className="sb-print-colour">
               <h2>{c.name}</h2>
-              <Panel colour={c} rejects={c.rejects} checks={c.checks} />
+              <Panel colour={c} rejects={c.rejects} />
             </div>
           ))}
         </>
       ) : (
         <>
           <Kpis t={bilan.totals} />
-          <Panel rejects={bilan.rejects} checks={bilan.checks} />
+          <Panel rejects={bilan.rejects} />
         </>
       )}
     </section>
