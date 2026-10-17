@@ -413,15 +413,6 @@ export default function App() {
               <path d="M11.5 7.9h.01" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
-          <button
-            type="button"
-            className="btn ghost icon kbd-help-trigger"
-            onClick={() => setHelpOpen((v) => !v)}
-            aria-label="Raccourcis clavier"
-            title="Raccourcis clavier (Maj + ?)"
-          >
-            ?
-          </button>
           <Settings
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
