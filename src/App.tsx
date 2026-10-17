@@ -10,6 +10,7 @@ import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
+import SuiviCalculs from './components/SuiviCalculs';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -115,6 +116,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
+  // The line's calculators (time for plates, plates in a time): one way in, from every page.
+  const [calcOpen, setCalcOpen] = useState(false);
   // Which paper layout the Schedule view prints as. Kept here, next to the
   // `@page` rule and the aperçu bar, so the orientation has a single owner.
   // Persisted like the other paper-adjacent preferences: an operator who
@@ -294,6 +297,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
       <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
@@ -377,6 +381,19 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator />
+          <button
+            type="button"
+            className="btn ghost icon calc-trigger"
+            onClick={() => setCalcOpen(true)}
+            aria-label="Calculs de ligne"
+            title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <rect x="3" y="1.75" width="10" height="12.5" rx="1.5" />
+              <rect x="5.25" y="4" width="5.5" height="2.5" rx="0.5" />
+              <path d="M5.5 9h.01M8 9h.01M10.5 9h.01M5.5 11.5h.01M8 11.5h.01M10.5 11.5h.01" strokeWidth="1.8" />
+            </svg>
+          </button>
           {/* Sits in the header rather than behind the settings cog: checking
               the paper layout is a recurring gesture, not a preference. */}
           <button
@@ -387,16 +404,12 @@ export default function App() {
             aria-label="Aperçu d’impression"
             title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
           >
-            <span className="print-preview-icon" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="btn ghost icon kbd-help-trigger"
-            onClick={() => setHelpOpen((v) => !v)}
-            aria-label="Raccourcis clavier"
-            title="Raccourcis clavier (Maj + ?)"
-          >
-            ?
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4.5 5.75V1.75h7v4" />
+              <rect x="1.75" y="5.75" width="12.5" height="6" rx="1.5" />
+              <rect x="4.5" y="9.25" width="7" height="5" rx="0.5" fill="var(--paper)" />
+              <path d="M11.5 7.9h.01" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </button>
           <Settings
             open={settingsOpen}

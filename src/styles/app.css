@@ -1910,41 +1910,13 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   justify-content: center;
 }
 
-/* Aperçu trigger in the header. CSS-drawn like .sch-cols-icon rather than a
-   glyph: the printer characters have patchy font coverage and the emoji one
-   renders in colour, which the rest of the header chrome doesn't. */
+/* Aperçu trigger in the header: an inline SVG printer, drawn with the same
+   stroke as the calculator next to it (the printer characters have patchy
+   font coverage and the emoji one renders in colour). */
 .print-preview-trigger.is-on {
   color: var(--accent);
   background: var(--paper-2);
   border-color: var(--line-soft);
-}
-.print-preview-icon {
-  position: relative;
-  display: inline-block;
-  width: 14px;
-  height: 13px;
-}
-/* Sheet emerging from the top */
-.print-preview-icon::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 3px;
-  right: 3px;
-  height: 5px;
-  border: 1.5px solid currentColor;
-  border-bottom: 0;
-}
-/* Printer body */
-.print-preview-icon::after {
-  content: '';
-  position: absolute;
-  top: 5px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border: 1.5px solid currentColor;
-  border-radius: 1px 1px 2px 2px;
 }
 
 /* ---------- Real print (A4 portrait) ---------- */
@@ -5495,3 +5467,48 @@ button.as-row:focus-visible {
   color: var(--print-ink);
   font-style: italic;
 }
+
+/* The line's calculators (SuiviCalculs.tsx): a sheet opened from the header. */
+.sheet.sc-sheet { --sheet-w: 560px; display: flex; flex-direction: column; gap: var(--space-6); }
+.sheet.sc-sheet .sheet-head { margin-bottom: 0; }
+.sc-row { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; }
+.sc-field,
+.sc-result { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; min-width: 0; }
+.sc-label { font-size: var(--fs-md); color: var(--ink-soft); }
+.sc-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+}
+.sc-input:focus-within { border-color: var(--accent); }
+.sc-input input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.sc-unit { padding-right: var(--space-3); color: var(--ink-faint); font-size: var(--fs-sm); }
+.sc-field.is-bad .sc-input { border-color: var(--flag-unsched-bd); }
+.sc-result strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.5; }
+.sc-sub { font-size: var(--fs-sm); color: var(--ink-faint); }
+.sc-hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-faint); }
+.sc-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
+  background: var(--paper-2);
+}
+.sc-card h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
+.sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
