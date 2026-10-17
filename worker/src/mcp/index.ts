@@ -25,7 +25,7 @@ export { McpSession };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const POSTE_RE = /^[ABCD]$/;
-const MODES = new Set(['saisie', 'controle', 'bilan']);
+const MODES = new Set(['saisie', 'bilan']);
 // All shifts together: the routes have no auth yet, and a runaway shouldn't
 // spend the month's credits in a day. Each shift also has its own hourly cap.
 const ASSIST_PER_DAY = 300;

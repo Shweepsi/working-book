@@ -300,7 +300,7 @@ async function postAssist(request: Request, url: URL, env: GridEnv, cors: Cors):
   if (!p) return json({ error: 'invalid_params' }, cors, 400);
   const body = (await readJson(request)) as { mode?: unknown; text?: unknown; id?: unknown; outcome?: unknown; cells?: unknown } | undefined;
   const mode = body?.mode;
-  if (mode !== 'saisie' && mode !== 'controle' && mode !== 'bilan' && mode !== 'retour') return json({ error: 'invalid_mode' }, cors, 400);
+  if (mode !== 'saisie' && mode !== 'bilan' && mode !== 'retour') return json({ error: 'invalid_mode' }, cors, 400);
   if (!env.ASSIST) return json({ ok: false, error: 'L’assistant n’est pas disponible sur ce serveur.' }, cors, 503);
   if (mode === 'retour') {
     const outcome = body?.outcome;

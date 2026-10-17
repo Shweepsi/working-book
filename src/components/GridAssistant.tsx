@@ -1,11 +1,10 @@
 // The Suivi assistant's sheet (lib/assist.ts): Claude fills cells from what
-// the operator types or dictates, checks the shift before the handover, and
-// writes its summary. Saisir writes what Claude understood at once, as this
-// tablet's own edits, and the toast takes it back; Vérifier's corrections wait
-// for the operator to tick them.
+// the operator types or dictates, and writes the shift's summary. Saisir
+// writes what Claude understood at once, as this tablet's own edits, and the
+// toast takes it back. Bilan shows the summary with a tab per colour.
 
 import { useEffect, useRef, useState } from 'react';
-import { askAssistant, cellKey, reportAssistant, type AssistBilan, type AssistItem, type AssistMode, type AssistReply } from '../lib/assist';
+import { askAssistant, cellKey, reportAssistant, type AssistBilan, type AssistBilanCouleur, type AssistItem, type AssistMode, type AssistReply } from '../lib/assist';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
 import { useToast } from '../lib/toast';
 
@@ -18,7 +17,6 @@ type Tab = AssistMode;
 
 const MODES: { key: Tab; label: string; busy: string }[] = [
   { key: 'saisie', label: 'Saisir', busy: 'Claude prépare la saisie…' },
-  { key: 'controle', label: 'Vérifier', busy: 'Claude relit le poste…' },
   { key: 'bilan', label: 'Bilan', busy: 'Claude rédige le bilan…' },
 ];
 
@@ -47,7 +45,6 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState<AssistReply | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [listening, setListening] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const recRef = useRef<Recognition | null>(null);
@@ -90,7 +87,6 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
         return null;
       }
       setReply(r);
-      setPicked(new Set((r.items ?? []).filter((i) => i.ok).map((i) => i.cell)));
       return r;
     } catch {
       return null; // Closed or asked again meanwhile.
@@ -143,13 +139,6 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
     return true;
   }
 
-  function accept() {
-    if (!reply) return;
-    const changes = (reply.changes ?? []).filter((c) => picked.has(cellKey(c)));
-    const undo = (reply.undo ?? []).filter((c) => picked.has(cellKey(c)));
-    if (changes.length && write(reply, changes, undo)) onClose();
-  }
-
   function dictate() {
     if (!Speech) return;
     if (listening) {
@@ -176,15 +165,6 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
     rec.start();
   }
 
-  function toggle(cell: string) {
-    setPicked((s) => {
-      const next = new Set(s);
-      if (next.has(cell)) next.delete(cell);
-      else next.add(cell);
-      return next;
-    });
-  }
-
   async function copy(t: string) {
     try {
       await navigator.clipboard.writeText(t);
@@ -196,7 +176,6 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
 
   const current = MODES.find((m) => m.key === mode) ?? MODES[0];
   const items = reply?.items ?? [];
-  const writable = items.filter((i) => i.ok && picked.has(i.cell)).length;
 
   return (
     <>
@@ -270,15 +249,11 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
           </div>
         )}
 
-        {(mode === 'controle' || mode === 'bilan') && !reply && !busy && (
+        {mode === 'bilan' && !reply && !busy && (
           <div className="gca-start">
-            <p className="gca-hint">
-              {mode === 'controle'
-                ? 'Claude relit le poste et signale ce qui cloche avant la relève : dates tapées en texte, défauts sans quantité, écarts entre début et fin de ligne…'
-                : 'Claude rédige le résumé du poste pour l’équipe suivante, à partir des chiffres du Rapport.'}
-            </p>
-            <button type="button" className="btn primary" onClick={() => void ask(mode, '')}>
-              {mode === 'controle' ? 'Vérifier le poste' : 'Rédiger le bilan'}
+            <p className="gca-hint">Claude rédige le résumé du poste pour l’équipe suivante, couleur par couleur, à partir des chiffres du Rapport.</p>
+            <button type="button" className="btn primary" onClick={() => void ask('bilan', '')}>
+              Rédiger le bilan
             </button>
           </div>
         )}
@@ -308,30 +283,16 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
           </div>
         )}
 
-        {reply && (mode === 'saisie' || mode === 'controle') && !(mode === 'saisie' && asked) && (
+        {reply && mode === 'saisie' && !asked && (
           <div className="gca-result">
             {reply.text && <p className="gca-summary">{reply.text}</p>}
-            {items.length > 0 ? (
+            {items.length > 0 && (
               <ul className="gca-items">
                 {items.map((it) => (
-                  <Item key={`${it.cell}-${it.label}`} item={it} picked={picked.has(it.cell)} onToggle={() => toggle(it.cell)} />
+                  <Item key={`${it.cell}-${it.label}`} item={it} />
                 ))}
               </ul>
-            ) : (
-              mode === 'controle' && !reply.text && <p className="gca-hint">Rien à signaler.</p>
             )}
-            <div className="gca-actions">
-              {mode === 'controle' && (
-                <button type="button" className="btn ghost" onClick={() => void ask('controle', '')} disabled={busy}>
-                  Revérifier
-                </button>
-              )}
-              {(reply.changes ?? []).length > 0 && (
-                <button type="button" className="btn primary" disabled={!writable} onClick={accept}>
-                  {mode === 'controle' ? `Corriger (${writable})` : `Valider (${writable})`}
-                </button>
-              )}
-            </div>
           </div>
         )}
 
@@ -342,15 +303,18 @@ export default function GridAssistant({ part, onClose }: GridAssistantProps) {
 
 const num = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
 
-/** The summary, laid out the same way every time: the two tables of Rapport, then the lists, each with its heading. */
+const delta = (v: number) => <td className={v ? 'is-bad' : ''}>{num(v)}</td>;
+
+/** The summary, laid out the same way every time: the shift's totals, then a tab per colour. */
 function Bilan({ b }: { b: AssistBilan }) {
+  const [tab, setTab] = useState(0);
   const p = b.poste;
-  const delta = (v: number) => <td className={v ? 'is-bad' : ''}>{num(v)}</td>;
+  const current = b.couleurs[Math.min(tab, b.couleurs.length - 1)];
   return (
     <div className="gca-bilan-view" aria-label="Bilan du poste">
       <p className="gca-bilan-resume">{b.resume}</p>
 
-      <h4>Production</h4>
+      <h4>Production du poste</h4>
       <table className="gca-bilan-table">
         <thead>
           <tr>
@@ -379,38 +343,68 @@ function Bilan({ b }: { b: AssistBilan }) {
         </tbody>
       </table>
 
-      <h4>Par couleur (lites)</h4>
-      {b.couleurs.length ? (
-        <table className="gca-bilan-table">
-          <thead>
-            <tr>
-              <th>Couleur</th>
-              <th>Début</th>
-              <th>Fin</th>
-              <th>Rejets</th>
-              <th>Delta</th>
-            </tr>
-          </thead>
-          <tbody>
-            {b.couleurs.map((c) => (
-              <tr key={c.couleur}>
-                <th>{c.couleur}</th>
-                <td>{num(c.dl_lites)}</td>
-                <td>{num(c.fl_lites)}</td>
-                <td>{num(c.rejets_lites)}</td>
-                {delta(c.delta_lites)}
-              </tr>
+      {b.general.length > 0 && (
+        <ul className="gca-bilan-list">
+          {b.general.map((s, i) => (
+            <li key={i}>{s}</li>
+          ))}
+        </ul>
+      )}
+
+      {current ? (
+        <>
+          <div className="gca-bilan-tabs" role="tablist" aria-label="Couleurs">
+            {b.couleurs.map((c, i) => (
+              <button
+                key={c.couleur}
+                type="button"
+                role="tab"
+                aria-selected={c === current}
+                className={`${c === current ? 'active' : ''}${c.delta_lites ? ' is-bad' : ''}`}
+                onClick={() => setTab(i)}
+              >
+                {c.couleur}
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+          <BilanCouleur key={current.couleur} c={current} />
+        </>
       ) : (
         <p className="gca-bilan-none">Aucune production.</p>
       )}
+    </div>
+  );
+}
+
+/** One colour's tab: its line of the COULEUR table, its rejects per defect, then the lists. */
+function BilanCouleur({ c }: { c: AssistBilanCouleur }) {
+  return (
+    <div role="tabpanel" className="gca-bilan-panel" aria-label={c.couleur}>
+      <table className="gca-bilan-table">
+        <thead>
+          <tr>
+            <th>Lites</th>
+            <th>Début de ligne</th>
+            <th>Fin de ligne</th>
+            <th>Rejets</th>
+            <th>Delta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>{c.couleur}</th>
+            <td>{num(c.dl_lites)}</td>
+            <td>{num(c.fl_lites)}</td>
+            <td>{num(c.rejets_lites)}</td>
+            {delta(c.delta_lites)}
+          </tr>
+        </tbody>
+      </table>
 
       <h4>Rejets par défaut</h4>
-      {b.defauts.length ? (
+      {c.defauts.length ? (
         <ul className="gca-bilan-defauts">
-          {b.defauts.map((d) => (
+          {c.defauts.map((d) => (
             <li key={d.defaut}>
               <span>{d.defaut}</span>
               <strong>{num(d.lites)}</strong>
@@ -421,10 +415,10 @@ function Bilan({ b }: { b: AssistBilan }) {
         <p className="gca-bilan-none">Aucun rejet.</p>
       )}
 
-      <BilanList title="Anomalies" items={b.anomalies} none="Aucune." />
-      <BilanList title="Lignes incomplètes" items={b.incompletes} none="Aucune." />
-      <BilanList title="Restes en début de ligne" items={b.restes} none="Aucun." />
-      <BilanList title="À surveiller" items={b.surveiller} none="Rien de particulier." />
+      <BilanList title="Anomalies" items={c.anomalies} none="Aucune." />
+      <BilanList title="Lignes incomplètes" items={c.incompletes} none="Aucune." />
+      <BilanList title="Restes en début de ligne" items={c.restes} none="Aucun." />
+      <BilanList title="À surveiller" items={c.surveiller} none="Rien de particulier." />
     </div>
   );
 }
@@ -446,17 +440,14 @@ function BilanList({ title, items, none }: { title: string; items: string[]; non
   );
 }
 
-function Item({ item, picked, onToggle }: { item: AssistItem; picked: boolean; onToggle: () => void }) {
+/** A cell of the saisie that couldn't be written, with why. */
+function Item({ item }: { item: AssistItem }) {
   const remark = item.after === null;
   return (
     <li className={`gca-item${item.ok ? '' : ' is-off'}${remark ? ' is-remark' : ''}`}>
-      {item.ok ? (
-        <input type="checkbox" checked={picked} onChange={onToggle} aria-label={`Écrire ${item.label}`} />
-      ) : (
-        <span className="gca-item-glyph" aria-hidden="true">
-          {remark ? '⚠' : '–'}
-        </span>
-      )}
+      <span className="gca-item-glyph" aria-hidden="true">
+        {remark ? '⚠' : '–'}
+      </span>
       <div className="gca-item-body">
         <span className="gca-item-label">{item.label}</span>
         <span className="gca-item-values">

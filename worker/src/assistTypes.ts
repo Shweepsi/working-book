@@ -3,7 +3,7 @@
 // binding (an RPC entrypoint, never on the internet), which has GridCraft's
 // engine and the Claude API key.
 
-export type AssistMode = 'saisie' | 'controle' | 'bilan';
+export type AssistMode = 'saisie' | 'bilan';
 
 export interface AssistRequest {
   date: string;
@@ -13,7 +13,7 @@ export interface AssistRequest {
   text?: string;
 }
 
-/** One cell of a proposal (saisie, or a correction from controle), or a remark (`after` null). */
+/** One cell of a saisie, or a remark (`after` null). */
 export interface AssistItem {
   /** "Suivi!S12" */
   cell: string;
@@ -33,15 +33,15 @@ export interface AssistCell {
   c: unknown;
 }
 
-/** The shift's summary, always in this shape: the app lays it out the same way every time. */
-export interface AssistBilan {
-  /** One sentence: the shift, its colours, the essential. */
-  resume: string;
-  /** Rapport's POSTE table: lites and m², begin/end of line, rejects, delta. */
-  poste: { dl_lites: number; dl_m2: number; fl_lites: number; fl_m2: number; rejets_lites: number; rejets_m2: number; delta_lites: number; delta_m2: number };
-  /** Rapport's COULEUR table, in lites. */
-  couleurs: { couleur: string; dl_lites: number; fl_lites: number; rejets_lites: number; delta_lites: number }[];
-  /** Rejects per defect, as counted in Suivi, largest first. */
+/** One colour of the shift in the summary: its line of Rapport's COULEUR table and what Suivi says about its rows. */
+export interface AssistBilanCouleur {
+  couleur: string;
+  /** Lites. */
+  dl_lites: number;
+  fl_lites: number;
+  rejets_lites: number;
+  delta_lites: number;
+  /** Rejects per defect in this colour's rows, largest first. */
   defauts: { defaut: string; lites: number }[];
   /** One short sentence each; empty when there is nothing to say. */
   anomalies: string[];
@@ -50,12 +50,23 @@ export interface AssistBilan {
   surveiller: string[];
 }
 
+/** The shift's summary, always in this shape: the app lays it out the same way every time, one tab per colour. */
+export interface AssistBilan {
+  /** One sentence: the shift, its colours, the essential. */
+  resume: string;
+  /** Rapport's POSTE table: lites and m², begin/end of line, rejects, delta. */
+  poste: { dl_lites: number; dl_m2: number; fl_lites: number; fl_m2: number; rejets_lites: number; rejets_m2: number; delta_lites: number; delta_m2: number };
+  couleurs: AssistBilanCouleur[];
+  /** Remarks tied to no colour (Rapport's choices, rows before the first colour). */
+  general: string[];
+}
+
 export interface AssistReply {
   ok: boolean;
   error?: string;
   /** This exchange, in the shift's memory: what the app reports back about (AssistFeedback). */
   id?: string;
-  /** saisie, controle: one sentence; bilan: the summary as plain text (clipboard, MCP clients). */
+  /** saisie: one sentence; bilan: the summary as plain text (clipboard, MCP clients). */
   text?: string;
   /** bilan: the summary, structured. */
   bilan?: AssistBilan;

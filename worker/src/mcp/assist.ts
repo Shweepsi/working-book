@@ -7,11 +7,10 @@
 //             here in GridCraft's engine (lists, protected cells) and handed
 //             back with their shared content: the app writes them as the
 //             operator's own edits once they say so.
-//   controle  what looks wrong in the shift before the handover, with the
-//             corrections that are certain, written the same way.
 //   bilan     the shift's summary for the next team, from Rapport's results:
-//             always the same structure (AssistBilan), which the app lays out
-//             the same way every time, plus its plain-text rendering.
+//             always the same structure (AssistBilan), one part per colour,
+//             which the app lays out the same way every time (a tab per
+//             colour), plus its plain-text rendering.
 //
 // Claude sees the workbook as this module writes it out (snapshot), not
 // through tools: one request per question, a few seconds on a tablet. It also
@@ -24,7 +23,7 @@ import type { CellChange, Workbook } from './engine';
 
 export interface AssistEnv {
   ANTHROPIC_API_KEY?: string;
-  /** Vérifier and Bilan (Claude Sonnet 5.5 by default). */
+  /** Bilan (Claude Sonnet 5.5 by default). */
   ASSIST_MODEL?: string;
   /** Saisir (Claude Haiku 5.5 by default): short, frequent, cheap. */
   ASSIST_MODEL_SAISIE?: string;
@@ -84,7 +83,7 @@ const clock = (t: number) => new Date(t).toLocaleTimeString('fr-FR', { timeZone:
 function historyText(history: Exchange[]): string {
   if (!history.length) return 'Aucun échange précédent avec toi sur ce poste.';
   const lines = history.map((x) => {
-    const head = `- ${clock(x.at)}, ${x.mode === 'controle' ? 'vérification du poste' : `demande « ${x.ask} »`}`;
+    const head = `- ${clock(x.at)}, demande « ${x.ask} »`;
     if (x.question && !x.cells.length) return `${head} → tu as demandé : « ${x.question} »`;
     const cells = x.cells.map((c) => `${c.cell} ${c.before ? `« ${c.before} »` : 'vide'} → ${c.after ? `« ${c.after} »` : 'vide'}`).join(', ');
     const fate =
@@ -394,23 +393,17 @@ const TASKS: Record<AssistMode, string> = {
 - « resume » : une phrase simple qui dit ce qui est saisi, par exemple « Ligne 14 FL : 3 Flaking et 2 Scratches ».
 - Les échanges précédents de ce poste te sont donnés : « pareil », « la même », « la suivante », « encore », « annule la dernière » y renvoient. Une proposition écrite est déjà dans le classeur. Pour défaire une saisie écrite, propose de remettre les valeurs d'avant ; une valeur vide efface la cellule.
 - « regle » : si l'opérateur te demande de retenir quelque chose (« retiens que… », « chez nous on dit… »), ou si sa demande corrige ta compréhension d'un mot ou d'une habitude de l'atelier (pas un simple numéro de ligne ou une quantité), écris la règle générale en une phrase courte, par exemple « "chariot" désigne la colonne Frame (FL). » Elle s'appliquera aussitôt à toutes les tablettes, sans relecture : seulement une règle sûre, générale et durable, jamais une supposition. Si elle contredit une règle du lexique, écris la nouvelle : la plus récente l'emporte. Sinon laisse vide. Une demande qui n'est qu'une règle à retenir ne propose aucune cellule.`,
-  controle: `Ta tâche : vérifier le poste avant la relève. Signale seulement de vrais problèmes, chacun sur sa cellule :
-- un nombre ou une date tapés comme du texte (valeur entre guillemets dans une colonne de nombres ou de dates) ;
-- un défaut sans quantité, une quantité sans défaut, plus de plaques rejetées que de lites sur la ligne ;
-- une ligne incomplète : N° TAG sans lites, sans dimension ou sans épaisseur ; côté DL, une plaque sans date ;
-- plus de consommées que de lites ;
-- un écart DL/FL (DELTA) qui n'est pas nul pour une couleur ou au total ;
-- une valeur refusée par les listes du classeur (indiquées dans l'état), en particulier Rapport!C2 et Rapport!F2.
-Pour chaque problème : la cellule, une phrase courte et concrète, et dans « correction » la valeur corrigée seulement si elle est certaine, sinon une chaîne vide (« 15/10 » tapé en texte dans la colonne Date → « 15/10/26 » ; un défaut écrit à moitié → son nom exact dans la liste). Rien sur la mise en forme, pas de conseils vagues. Si tout va bien, aucune entrée.`,
-  bilan: `Ta tâche : rédiger le bilan du poste pour l'équipe suivante, dans la structure demandée. Seulement les chiffres de Rapport et de Suivi, sans en inventer ; phrases courtes, sans markdown.
+  bilan: `Ta tâche : rédiger le bilan du poste pour l'équipe suivante, dans la structure demandée, couleur par couleur. Seulement les chiffres de Rapport et de Suivi, sans en inventer ; phrases courtes, sans markdown.
 - « resume » : une phrase : les couleurs produites et l'essentiel du poste, par exemple « SN51HT seule : 440 lites consommées, 48 rejetées, écart nul ».
 - « poste » : le tableau POSTE du Rapport tel quel (lignes Lites et m² ; colonnes Rejets, Début de Ligne, Fin de Ligne, DELTA).
-- « couleurs » : le tableau COULEUR du Rapport, en lites ; une couleur sans aucune production n'y figure pas.
-- « defauts » : les rejets par défaut, comptés dans les colonnes de défauts de Suivi, toutes couleurs confondues, par quantité décroissante ; le nom du défaut tel que dans la liste.
-- « anomalies » : écarts DL/FL non nuls, désaccords entre Rapport et Suivi, valeurs refusées par les listes ; une phrase chacune, avec la ligne ou la cellule.
-- « incompletes » : les lignes incomplètes (N° TAG manquant ou mal formé, lites, dimension ou épaisseur absentes, date absente côté DL) ; une phrase chacune.
-- « restes » : les plaques DL pas entièrement consommées (Restantes > 0) : ligne, lites restantes, consommées non saisies ; une phrase chacune.
-- « surveiller » : ce que l'équipe suivante doit avoir à l'œil : commentaire notable, défaut concentré sur une dimension, tendance ; une phrase chacune.
+- « couleurs » : une entrée par couleur du tableau COULEUR du Rapport, dans son ordre ; une couleur sans aucune production n'y figure pas, ni le texte « COULEUR » laissé par le modèle quand personne n'a choisi de couleur. Les lignes d'une couleur sont celles de son bloc dans Suivi (de sa ligne de couleur à la couleur suivante), côté DL et côté FL séparément. Pour chacune :
+  - « dl_lites », « fl_lites », « rejets_lites », « delta_lites » : sa ligne du tableau COULEUR, en lites ;
+  - « defauts » : ses rejets par défaut, comptés dans les colonnes de défauts de ses lignes FL, par quantité décroissante ; le nom du défaut tel que dans la liste ;
+  - « anomalies » : son écart DL/FL s'il n'est pas nul, un désaccord entre Rapport et Suivi sur ses lignes, une valeur refusée par les listes sur ses lignes ; une phrase chacune, avec la ligne ;
+  - « incompletes » : ses lignes incomplètes (N° TAG manquant ou mal formé, lites, dimension ou épaisseur absentes, date absente côté DL) ; une phrase chacune ;
+  - « restes » : ses plaques DL pas entièrement consommées (Restantes > 0) : ligne, lites restantes, consommées non saisies ; une phrase chacune ;
+  - « surveiller » : ce que l'équipe suivante doit avoir à l'œil pour cette couleur : commentaire notable, défaut concentré sur une dimension, tendance ; une phrase chacune.
+- « general » : ce qui ne tient à aucune couleur : une valeur refusée en Rapport!C2 ou Rapport!F2, des lignes remplies avant la première couleur ; une phrase chacune.
 Une liste sans rien reste vide : jamais de phrase pour dire qu'il n'y a rien à signaler. Un poste vide : « resume » le dit, tout le reste à zéro ou vide.`,
 };
 
@@ -432,19 +425,6 @@ const SCHEMAS = {
       }),
     },
     required: ['resume', 'question', 'regle', 'cellules'],
-    additionalProperties: false,
-  },
-  controle: {
-    type: 'object',
-    properties: {
-      resume: { type: 'string', description: 'Le bilan de la vérification en une phrase.' },
-      problemes: arrayOf({
-        cellule: { type: 'string', description: 'Adresse, par exemple "I5" pour Suivi ou "Rapport!C2".' },
-        message: { type: 'string', description: 'Le problème, en une phrase courte.' },
-        correction: { type: 'string', description: 'La valeur corrigée si elle est certaine, sinon vide.' },
-      }),
-    },
-    required: ['resume', 'problemes'],
     additionalProperties: false,
   },
   bilan: {
@@ -473,17 +453,18 @@ const SCHEMAS = {
         fl_lites: number('Lites en fin de ligne.'),
         rejets_lites: number('Lites rejetées.'),
         delta_lites: number('DELTA en lites.'),
+        defauts: arrayOf({
+          defaut: { type: 'string', description: 'Le défaut, tel que dans la liste.' },
+          lites: number('Lites rejetées pour ce défaut dans cette couleur.'),
+        }),
+        anomalies: sentences('Écarts et désaccords de cette couleur, une phrase chacun ; vide si aucun.'),
+        incompletes: sentences('Lignes incomplètes de cette couleur, une phrase chacune ; vide si aucune.'),
+        restes: sentences('Plaques DL de cette couleur pas entièrement consommées, une phrase chacune ; vide si aucune.'),
+        surveiller: sentences('Points à surveiller pour cette couleur, une phrase chacun ; vide si aucun.'),
       }),
-      defauts: arrayOf({
-        defaut: { type: 'string', description: 'Le défaut, tel que dans la liste.' },
-        lites: number('Lites rejetées pour ce défaut.'),
-      }),
-      anomalies: sentences('Écarts et désaccords, une phrase chacun ; vide si aucun.'),
-      incompletes: sentences('Lignes incomplètes, une phrase chacune ; vide si aucune.'),
-      restes: sentences('Plaques DL pas entièrement consommées, une phrase chacune ; vide si aucune.'),
-      surveiller: sentences('Points à surveiller, une phrase chacun ; vide si aucun.'),
+      general: sentences('Remarques qui ne tiennent à aucune couleur, une phrase chacune ; vide si aucune.'),
     },
-    required: ['resume', 'poste', 'couleurs', 'defauts', 'anomalies', 'incompletes', 'restes', 'surveiller'],
+    required: ['resume', 'poste', 'couleurs', 'general'],
     additionalProperties: false,
   },
 };
@@ -512,17 +493,24 @@ function bilanOf(input: Record<string, unknown>): AssistBilan {
       delta_m2: num(p.delta_m2),
     },
     couleurs: rows(input.couleurs)
-      .map((c) => ({ couleur: sentence(c.couleur, 60), dl_lites: num(c.dl_lites), fl_lites: num(c.fl_lites), rejets_lites: num(c.rejets_lites), delta_lites: num(c.delta_lites) }))
+      .map((c) => ({
+        couleur: sentence(c.couleur, 60),
+        dl_lites: num(c.dl_lites),
+        fl_lites: num(c.fl_lites),
+        rejets_lites: num(c.rejets_lites),
+        delta_lites: num(c.delta_lites),
+        defauts: rows(c.defauts)
+          .map((d) => ({ defaut: sentence(d.defaut, 60), lites: num(d.lites) }))
+          .filter((d) => d.defaut)
+          .slice(0, 24),
+        anomalies: sentenceList(c.anomalies),
+        incompletes: sentenceList(c.incompletes),
+        restes: sentenceList(c.restes),
+        surveiller: sentenceList(c.surveiller),
+      }))
       .filter((c) => c.couleur)
       .slice(0, 12),
-    defauts: rows(input.defauts)
-      .map((d) => ({ defaut: sentence(d.defaut, 60), lites: num(d.lites) }))
-      .filter((d) => d.defaut)
-      .slice(0, 24),
-    anomalies: sentenceList(input.anomalies),
-    incompletes: sentenceList(input.incompletes),
-    restes: sentenceList(input.restes),
-    surveiller: sentenceList(input.surveiller),
+    general: sentenceList(input.general),
   };
 }
 
@@ -542,20 +530,25 @@ export function bilanText(part: { date: string; poste: string }, b: AssistBilan)
     `Fin de ligne : ${n(p.fl_lites)} lites, ${n(p.fl_m2)} m²`,
     `Rejets : ${n(p.rejets_lites)} lites, ${n(p.rejets_m2)} m²`,
     `Delta : ${n(p.delta_lites)} lites, ${n(p.delta_m2)} m²`,
-    '',
-    'Par couleur (lites)',
-    ...(b.couleurs.length ? b.couleurs.map((c) => `${c.couleur} : début ${n(c.dl_lites)}, fin ${n(c.fl_lites)}, rejets ${n(c.rejets_lites)}, delta ${n(c.delta_lites)}`) : ['Aucune production.']),
-    '',
-    'Rejets par défaut',
-    ...(b.defauts.length ? b.defauts.map((d) => `${d.defaut} : ${n(d.lites)}`) : ['Aucun rejet.']),
-    '',
-    ...list('Anomalies', b.anomalies, 'Aucune.'),
-    '',
-    ...list('Lignes incomplètes', b.incompletes, 'Aucune.'),
-    '',
-    ...list('Restes en début de ligne', b.restes, 'Aucun.'),
-    '',
-    ...list('À surveiller', b.surveiller, 'Rien de particulier.'),
+    ...(b.general.length ? ['', ...list('Général', b.general, '')] : []),
+    ...(b.couleurs.length
+      ? b.couleurs.flatMap((c) => [
+          '',
+          `===== ${c.couleur} =====`,
+          `Lites : début ${n(c.dl_lites)}, fin ${n(c.fl_lites)}, rejets ${n(c.rejets_lites)}, delta ${n(c.delta_lites)}`,
+          '',
+          'Rejets par défaut',
+          ...(c.defauts.length ? c.defauts.map((d) => `${d.defaut} : ${n(d.lites)}`) : ['Aucun rejet.']),
+          '',
+          ...list('Anomalies', c.anomalies, 'Aucune.'),
+          '',
+          ...list('Lignes incomplètes', c.incompletes, 'Aucune.'),
+          '',
+          ...list('Restes en début de ligne', c.restes, 'Aucun.'),
+          '',
+          ...list('À surveiller', c.surveiller, 'Rien de particulier.'),
+        ])
+      : ['', 'Aucune production.']),
   ].join('\n');
 }
 
@@ -636,41 +629,13 @@ export async function assist(env: AssistEnv, book: Workbook, part: { date: strin
     const bilan = bilanOf(jsonOf(reply));
     return { ok: true, text: bilanText(part, bilan), bilan };
   }
-  if (mode === 'saisie') {
-    const reply = await ask(`${historyText(memory.history)}\n\nDemande de l'opérateur : ${text}`);
-    const input = jsonOf(reply);
-    const question = typeof input.question === 'string' && input.question.trim() ? input.question.trim() : undefined;
-    const rule = typeof input.regle === 'string' && input.regle.trim() ? input.regle.trim() : undefined;
-    const cells = Array.isArray(input.cellules) ? (input.cellules as { cellule?: unknown; valeur?: unknown }[]) : [];
-    const summary = typeof input.resume === 'string' && input.resume.trim() ? input.resume.trim() : undefined;
-    if (!cells.length) return { ok: true, ...(question ? { question } : { text: summary }), ...(rule ? { rule } : {}), items: [] };
-    const out = writeOut(book, s, cells);
-    return { ok: true, text: summary, ...(question ? { question } : {}), ...(rule ? { rule } : {}), ...out };
-  }
-  const reply = await ask('Vérifie le poste.');
+  const reply = await ask(`${historyText(memory.history)}\n\nDemande de l'opérateur : ${text}`);
   const input = jsonOf(reply);
-  const found = Array.isArray(input.problemes) ? (input.problemes as { cellule?: unknown; message?: unknown; correction?: unknown }[]) : [];
-  const fixes = found.filter((p) => typeof p.correction === 'string' && p.correction.trim());
-  const out = writeOut(
-    book,
-    s,
-    fixes.map((p) => ({ cellule: p.cellule, valeur: p.correction, note: p.message })),
-  );
-  // The remarks without a correction, as items nothing gets written to.
-  const remarks: AssistItem[] = found
-    .filter((p) => !fixes.includes(p))
-    .map((p) => {
-      const m = String(p.cellule ?? '').trim().match(ADDRESS_RE);
-      const sheet = m?.[1] && m[1].toLowerCase() === 'rapport' ? 'Rapport' : 'Suivi';
-      const ref = m ? `${sheet}!${m[2].toUpperCase()}${m[3]}` : String(p.cellule ?? '');
-      return {
-        cell: ref,
-        label: m ? labelOf(sheet, m[2].toUpperCase(), Number(m[3]), s) : ref,
-        before: m ? shownText(book, ref) : '',
-        after: null,
-        note: String(p.message ?? ''),
-        ok: false,
-      };
-    });
-  return { ok: true, text: typeof input.resume === 'string' ? input.resume : undefined, items: [...out.items, ...remarks], changes: out.changes, undo: out.undo };
+  const question = typeof input.question === 'string' && input.question.trim() ? input.question.trim() : undefined;
+  const rule = typeof input.regle === 'string' && input.regle.trim() ? input.regle.trim() : undefined;
+  const cells = Array.isArray(input.cellules) ? (input.cellules as { cellule?: unknown; valeur?: unknown }[]) : [];
+  const summary = typeof input.resume === 'string' && input.resume.trim() ? input.resume.trim() : undefined;
+  if (!cells.length) return { ok: true, ...(question ? { question } : { text: summary }), ...(rule ? { rule } : {}), items: [] };
+  const out = writeOut(book, s, cells);
+  return { ok: true, text: summary, ...(question ? { question } : {}), ...(rule ? { rule } : {}), ...out };
 }
