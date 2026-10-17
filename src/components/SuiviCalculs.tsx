@@ -1,8 +1,10 @@
 // The line's two calculators, which lived at the bottom of the template's
 // Rapport sheet (template #26 and earlier): how long a run of plates takes at
 // a speed, and how many plates go through in a time. A plate takes its length
-// plus the 0,19 m gap between two plates; the speed is in m/min. The values
-// typed stay on this device.
+// plus the 0,19 m gap between two plates; the speed is in m/min. Results are
+// rounded the way the line counts: the time to the minute, whole plates. The
+// values typed stay on this device. Opened from the Suivi tab and from a
+// schedule (with its speed).
 
 import { useEffect, useState } from 'react';
 import { load, save } from '../lib/storage';
@@ -25,14 +27,20 @@ const parse = (s: string) => {
   return s.trim() && Number.isFinite(n) ? n : NaN;
 };
 
-/** Minutes → « 1 h 01 min 54 s ». */
+const two = (n: number) => String(n).padStart(2, '0');
+
+/** Minutes → « 1 h 02 », to the minute. */
 function duration(min: number): string {
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h ? `${h} h ${two(m)}` : `${m} min`;
+}
+
+/** Minutes → « 1 min 02 s », to the second: one plate's passage. */
+function shortDuration(min: number): string {
   const s = Math.round(min * 60);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const two = (n: number) => String(n).padStart(2, '0');
-  return h ? `${h} h ${two(m)} min ${two(sec)} s` : `${m} min ${two(sec)} s`;
+  return s >= 60 ? `${Math.floor(s / 60)} min ${two(s % 60)} s` : `${s} s`;
 }
 
 const fmt = (v: number, digits: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: digits });
@@ -57,8 +65,13 @@ function Field({ label, unit, value, onChange }: FieldProps) {
   );
 }
 
-export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
-  const [v, setV] = useState<Inputs>(() => ({ ...DEFAULTS, ...load<Partial<Inputs>>(KEY, {}) }));
+/** `vitesse`: the speed to start from (a schedule's), when there's one. */
+export default function SuiviCalculs({ onClose, vitesse: given }: { onClose: () => void; vitesse?: number }) {
+  const [v, setV] = useState<Inputs>(() => ({
+    ...DEFAULTS,
+    ...load<Partial<Inputs>>(KEY, {}),
+    ...(given && given > 0 ? { vitesse: String(given).replace('.', ',') } : {}),
+  }));
   useEffect(() => save(KEY, v), [v]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -98,7 +111,7 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
           <Field label="Longueur de plaque" unit="mm" value={v.longueur} onChange={set('longueur')} />
         </div>
         <p className="sc-hint">
-          Une plaque passe en {perPlate > 0 ? duration(perPlate) : '—'}, écart de {fmt(GAP_M, 2)} m entre deux plaques compris.
+          Une plaque passe en {perPlate > 0 ? shortDuration(perPlate) : '—'}, écart de {fmt(GAP_M, 2)} m entre deux plaques compris.
         </p>
 
         <section className="sc-card">
@@ -118,8 +131,8 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
             <Field label="Temps" unit="min" value={v.temps} onChange={set('temps')} />
             <div className="sc-result" aria-live="polite">
               <span className="sc-label">Plaques</span>
-              <strong>{count > 0 ? fmt(count, 1) : '—'}</strong>
-              {count > 0 && <span className="sc-sub">{Math.floor(count)} entières</span>}
+              <strong>{count > 0 ? fmt(Math.floor(count), 0) : '—'}</strong>
+              {count > 0 && <span className="sc-sub">plaques entières</span>}
             </div>
           </div>
         </section>

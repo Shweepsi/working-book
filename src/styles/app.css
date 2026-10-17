@@ -4155,6 +4155,8 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   background: var(--paper-2);
 }
 .sc-card h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
+/* In a schedule's header, after its figures. */
+.sch-calc-btn { align-self: center; }
 .sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 
 /* The bilan on paper: the workbook's frame isn't printed (.no-print), the
