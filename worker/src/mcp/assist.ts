@@ -1,3 +1,9 @@
+// DORMANT since 17/10/2026: the app no longer has the assistant (its bilan is
+// computed by the app, and Saisir was dropped) and the API's Worker no longer
+// routes /api/grid/assist here, so nothing reaches the `Assist` entrypoint.
+// Kept while an AI check of the shift is being considered; it still reads the
+// Rapport sheet that templates up to #26 had, which #27 dropped.
+//
 // The Suivi assistant: Claude for the operators on the tablets, who have no
 // Claude account of their own. Paid by the API key the Worker holds
 // (ANTHROPIC_API_KEY, the monthly API credits of the Max plan), reached from

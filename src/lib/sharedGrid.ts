@@ -51,6 +51,8 @@ export interface GridSnapshot {
   pending: number;
   templateId: number | null;
   error: string | null;
+  /** Bumped whenever a cell on screen changes: what `cells` returns is new. */
+  rev: number;
 }
 
 const POLL_MS = 2_000;
@@ -171,6 +173,9 @@ class SharedGrid {
   private deferred = new Map<string, StoredChange>();
   // Unsent edits by cell, oldest first.
   private outbox = new Map<string, CellChange>();
+  // What the frame shows on top of the template, by "Sheet!A1": every cell the
+  // frame was sent (`apply`) or edited here (`queue`), as GridCraft shares it.
+  private view = new Map<string, unknown>();
   private inflight: CellChange[] = [];
   private flushing = false;
   private attempts = 0;
@@ -181,7 +186,7 @@ class SharedGrid {
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private loadTimer: ReturnType<typeof setTimeout> | undefined;
   private listeners = new Set<() => void>();
-  private snap: GridSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, templateId: null, error: null };
+  private snap: GridSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, templateId: null, error: null, rev: 0 };
   private fileName = 'classeur.xlsx';
   private theme: GridTheme = 'system';
 
@@ -387,6 +392,7 @@ class SharedGrid {
     const pendingKeys = new Set(pending.map(keyOf));
     const base = this.initial.filter((ch) => !pendingKeys.has(keyOf(ch)));
     this.initial = [];
+    this.view = new Map();
     this.apply([...base, ...pending, ...this.context]);
     this.lastActivity = Date.now();
     this.set({ status: this.openedOffline ? 'offline' : 'ready', error: null });
@@ -410,17 +416,25 @@ class SharedGrid {
   }
 
   private apply(changes: CellChange[]): void {
-    if (changes.length) this.post({ type: 'gridcraft:apply', changes });
+    if (!changes.length) return;
+    this.post({ type: 'gridcraft:apply', changes });
+    this.see(changes);
   }
 
-  /** Cells written on this device as if typed here — the Suivi assistant's,
-   * once the operator accepts them: shown at once, then sent like any edit
-   * made here. False when `p` isn't the shift on screen. */
-  write(p: Partition, changes: CellChange[]): boolean {
-    if (!changes.length || !this.shown || this.pendingOpen || partKey(this.shown) !== partKey(p)) return false;
-    this.apply(changes);
-    this.queue(changes);
-    return true;
+  /** Cells now on screen: the view follows, and whoever reads it hears so. */
+  private see(changes: CellChange[]): void {
+    for (const ch of changes) this.view.set(keyOf(ch), ch.c);
+    this.set({ rev: this.snap.rev + 1 });
+  }
+
+  /**
+   * The cells `p` shows on top of its template, by "Sheet!A1" (GridCraft's
+   * shared content, null for a cell emptied): the Suivi tab's bilan is computed
+   * from them. Null when `p` isn't the shift on screen.
+   */
+  cells(p: Partition): ReadonlyMap<string, unknown> | null {
+    if (!this.shown || this.pendingOpen || partKey(this.shown) !== partKey(p)) return null;
+    return this.view;
   }
 
   private onMessage = (e: MessageEvent): void => {
@@ -457,6 +471,7 @@ class SharedGrid {
   // --- Sending ---------------------------------------------------------------
 
   private queue(changes: CellChange[]): void {
+    this.see(changes);
     for (const ch of changes) {
       const k = keyOf(ch);
       this.own.set(k, Infinity);
