@@ -383,8 +383,18 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator grid={tab === 'grid' && poste !== null} />
-          <button type="button" className="btn ghost mini calc-trigger" onClick={() => setCalcOpen(true)} title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps">
-            Calculs
+          <button
+            type="button"
+            className="btn ghost icon calc-trigger"
+            onClick={() => setCalcOpen(true)}
+            aria-label="Calculs de ligne"
+            title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <rect x="3" y="1.75" width="10" height="12.5" rx="1.5" />
+              <rect x="5.25" y="4" width="5.5" height="2.5" rx="0.5" />
+              <path d="M5.5 9h.01M8 9h.01M10.5 9h.01M5.5 11.5h.01M8 11.5h.01M10.5 11.5h.01" strokeWidth="1.8" />
+            </svg>
           </button>
           {/* Sits in the header rather than behind the settings cog: checking
               the paper layout is a recurring gesture, not a preference. */}
