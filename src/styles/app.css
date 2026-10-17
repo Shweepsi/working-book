@@ -3960,105 +3960,175 @@ body.is-col-resizing * {
   color: var(--ink-soft);
   text-align: center;
 }
-/* The shift's bilan (SuiviBilan.tsx): a sheet over the workbook, a tab per
-   colour; on paper (.sb-print), every colour in turn. */
+/* The shift's bilan (SuiviBilan.tsx): a sheet over the workbook; on paper
+   (.sb-print), the whole shift then every colour in turn. */
 .sheet.sb-sheet,
-.sheet.sc-sheet { --sheet-w: 720px; display: flex; flex-direction: column; gap: var(--space-4); }
+.sheet.sc-sheet { --sheet-w: 760px; display: flex; flex-direction: column; gap: var(--space-6); }
 .sheet.sc-sheet { --sheet-w: 560px; }
 .sheet.sb-sheet .sheet-head,
 .sheet.sc-sheet .sheet-head { margin-bottom: 0; }
-.sb { display: flex; flex-direction: column; gap: var(--space-2); user-select: text; }
+.sb { display: flex; flex-direction: column; gap: var(--space-6); user-select: text; font-size: var(--fs-lg); }
 /* The paper version is .print-only, but .sb's display would show it on screen. */
 .sb.sb-print { display: none; }
+.sb-panel,
+.sb-section { display: flex; flex-direction: column; gap: var(--space-4); }
+.sb-section + .sb-section { margin-top: var(--space-4); }
 .sb h4 {
-  margin: var(--space-3) 0 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
   font-size: var(--fs-sm);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--ink-soft);
 }
+.sb h5 { margin: var(--space-4) 0 0; font-size: var(--fs-md); font-weight: 600; color: var(--ink-soft); }
 .sb-none { margin: 0; color: var(--ink-faint); }
+.sb-line { margin: 0; color: var(--ink-soft); }
 .sb-scroll { overflow-x: auto; }
-.sb-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.sb-table caption { text-align: left; font-weight: 600; padding-bottom: var(--space-1); }
-.sb-table th,
-.sb-table td {
-  padding: 4px var(--space-2);
-  text-align: right;
-  border-bottom: 1px solid var(--line-faint);
-  white-space: nowrap;
-}
-.sb-table thead th { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-soft); }
-.sb-table th:first-child,
-.sb-table td:first-child,
-.sb-table .sb-left { text-align: left; }
-.sb-table tbody th { font-weight: 600; color: var(--ink); }
-.sb-defects tbody th { font-weight: 500; white-space: normal; }
-.sb-table tbody tr:last-child th,
-.sb-table tbody tr:last-child td { border-bottom: 0; }
-.sb-table .is-bad { color: var(--flag-unsched-fg); font-weight: 600; }
-.sb-strong { font-weight: 600; }
-.sb-checks { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
-/* A row to look at: tapping it shows that row in the workbook. */
-.sb-check {
-  display: inline;
-  padding: 2px 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  text-decoration: underline;
-  text-decoration-color: var(--line-soft);
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.sb-check:hover,
-.sb-check:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
-.sb-tabs {
+
+/* Début, fin, rejets, delta: lites large, m² underneath. */
+.sb-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+.sb-kpi {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--line-faint);
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-lg);
+  background: var(--paper-2);
 }
+.sb-kpi-label { font-size: var(--fs-sm); color: var(--ink-soft); }
+.sb-kpi-value { font-size: 22px; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sb-kpi-extra { font-size: var(--fs-lg); font-weight: 600; color: var(--ink-soft); }
+.sb-kpi-sub { font-size: var(--fs-sm); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.sb-kpi.is-bad { border-color: var(--flag-unsched-bd); background: color-mix(in srgb, var(--flag-unsched-bd) 10%, var(--paper-2)); }
+.sb-kpi.is-bad .sb-kpi-value { color: var(--flag-unsched-fg); }
+.sb-kpis.is-compact .sb-kpi { padding: var(--space-4) var(--space-5); }
+.sb-kpis.is-compact .sb-kpi-value { font-size: 17px; }
+@media (max-width: 560px) {
+  .sb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* One tab per colour, after the whole shift; red when its delta isn't zero. */
+.sb-tabs { display: flex; flex-wrap: wrap; gap: var(--space-3); padding-bottom: var(--space-4); border-bottom: 1px solid var(--line-faint); }
 .sb-tabs button {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
+  gap: var(--space-3);
   min-height: 40px;
+  padding: 6px var(--space-6);
   border: 1px solid var(--line-faint);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: var(--paper);
   color: var(--ink-soft);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
+.sb-tabs button:hover { border-color: var(--line-soft); color: var(--ink); }
 .sb-tabs button.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-/* A colour whose delta isn't zero says so in red; rows under no colour are muted. */
 .sb-tabs button.is-bad:not(.active) { color: var(--flag-unsched-fg); border-color: var(--flag-unsched-bd); }
 .sb-tabs button.is-none:not(.active) { font-style: italic; }
 .sb-count {
+  display: inline-block;
   min-width: 20px;
   padding: 0 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   background: var(--flag-unsched-bd);
   color: #fff;
-  font-size: var(--fs-xs, 11px);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0;
   line-height: 20px;
   text-align: center;
 }
-.sb-panel { display: flex; flex-direction: column; gap: var(--space-2); }
+.btn.sb-open { display: inline-flex; align-items: center; gap: var(--space-3); }
+.btn.sb-open .sb-count { background: var(--paper); color: var(--ink); }
+
+/* Tables: numbers right-aligned, the first column a label. */
+.sb-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sb-table th,
+.sb-table td { padding: 6px var(--space-4); text-align: right; border-bottom: 1px solid var(--line-faint); white-space: nowrap; }
+.sb-table thead th { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-soft); }
+.sb-table th:first-child,
+.sb-table td:first-child { text-align: left; }
+.sb-table tbody th { font-weight: 500; color: var(--ink); white-space: normal; }
+.sb-table tbody tr:last-child th,
+.sb-table tbody tr:last-child td { border-bottom: 0; }
+.sb-strong { font-weight: 650; }
+
+/* How much. */
+.sb-rej-head { margin: 0; color: var(--ink-soft); }
+.sb-rej-head strong { color: var(--ink); }
+/* What: the defects, largest first, a bar for their share. */
+.sb-pareto .sb-bar-col { width: 34%; padding-left: 0; }
+.sb-bar { display: block; height: 10px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--flag-unsched-bd) 70%, transparent); }
+/* Where: the rate per dimension, cells tinted by the share of that dimension they rejected. */
+.sb-matrix th:not(:first-child),
+.sb-matrix td { min-width: 72px; }
+.sb-matrix-passed th,
+.sb-matrix-passed td { font-size: var(--fs-sm); color: var(--ink-faint); font-weight: 400; }
+.sb-matrix tfoot th,
+.sb-matrix tfoot td { border-top: 1px solid var(--line-soft); border-bottom: 0; font-weight: 650; color: var(--ink); }
+/* The lots that lost the most: each one opens its row in the workbook. */
+.sb-lots,
+.sb-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line-faint); border-radius: var(--radius-lg); overflow: hidden; }
+.sb-lots li + li,
+.sb-checks li + li { border-top: 1px solid var(--line-faint); }
+.sb-lot,
+.sb-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-4) var(--space-6);
+  border: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+button.sb-lot,
+button.sb-check { cursor: pointer; }
+button.sb-lot:hover,
+button.sb-check:hover { background: var(--paper-2); }
+button.sb-lot:focus-visible,
+button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sb-lot-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.sb-lot-row { font-weight: 650; }
+.sb-lot-id { font-size: var(--fs-sm); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.sb-lot-defects { font-size: var(--fs-md); color: var(--ink-soft); }
+.sb-lot-comment { font-style: italic; }
+.sb-lot-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+  min-width: 92px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+.sb-lot-rate strong { font-size: var(--fs-xl); color: var(--ink); }
+.sb-lot-pct { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.sb-more { align-self: flex-start; }
+.sb-check { justify-content: space-between; }
+.sb-check.is-static { min-height: 0; }
+.sb-go { flex: none; font-size: 20px; line-height: 1; color: var(--ink-faint); }
+button.sb-check:hover .sb-go { color: var(--accent); }
 
 /* The line's calculators (SuiviCalculs.tsx). */
 .sc-row { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; }
 .sc-field,
 .sc-result { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; }
-.sc-label { font-size: var(--fs-sm); color: var(--ink-soft); }
+.sc-label { font-size: var(--fs-md); color: var(--ink-soft); }
 .sc-input {
   display: flex;
   align-items: center;
@@ -4075,13 +4145,13 @@ body.is-col-resizing * {
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: var(--fs-md);
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
   outline: none;
 }
 .sc-unit { padding-right: var(--space-3); color: var(--ink-faint); font-size: var(--fs-sm); }
 .sc-field.is-bad .sc-input { border-color: var(--flag-unsched-bd); }
-.sc-result strong { font-size: var(--fs-xl, 20px); font-variant-numeric: tabular-nums; line-height: 1.6; }
+.sc-result strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.5; }
 .sc-sub { font-size: var(--fs-sm); color: var(--ink-faint); }
 .sc-hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-faint); }
 .sc-card {
@@ -4093,26 +4163,44 @@ body.is-col-resizing * {
   border-radius: var(--radius-md);
   background: var(--paper-2);
 }
-.sc-card h4 { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.sc-card h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
 .sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 
 /* The bilan on paper: the workbook's frame isn't printed (.no-print), the
-   page holds the bilan only. */
+   page holds the bilan only, tighter than on screen and without the buttons'
+   chrome. */
 @media print {
   .gc { min-height: 0; display: block; }
-  .sb.sb-print { display: block; font-size: 9.5pt; }
-  .sb-print .sb-table { margin-bottom: 6px; }
+  .sb.sb-print { display: flex; gap: 8px; font-size: 9.5pt; }
+  .sb-print .sb-section { gap: 4px; }
+  .sb-print .sb-section + .sb-section { margin-top: 4px; }
+  .sb-print h4 { font-size: 8.5pt; color: var(--print-ink); }
+  .sb-print h5 { margin-top: 4px; font-size: 9pt; }
+  .sb-print .sb-kpi { padding: 4px 8px; background: var(--print-bg); }
+  .sb-print .sb-kpi-value { font-size: 13pt; }
+  .sb-print .sb-kpis.is-compact .sb-kpi-value { font-size: 11pt; }
   .sb-print .sb-table th,
   .sb-print .sb-table td { padding: 2px 6px; border-bottom-color: var(--print-line-faint); }
-  .sb-print-colour { break-inside: avoid-page; margin-top: 14px; }
-  .sb-print-colour h2 { margin: 0 0 4px; font-size: 13pt; border-bottom: 1px solid var(--print-ink-strong); }
-  .sb-print h4 { margin: 8px 0 2px; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.04em; }
   .sb-print .sb-scroll { overflow: visible; }
+  .sb-print .sb-lots,
+  .sb-print .sb-checks { border-color: var(--print-line-faint); }
+  .sb-print .sb-lot,
+  .sb-print .sb-check { min-height: 0; padding: 3px 8px; }
+  .sb-print .sb-lot-rate { min-width: 70px; padding: 0 4px; }
+  .sb-print .sb-lot-rate strong { font-size: 10pt; }
+  .sb-print-colour { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .sb-print-colour h2 { margin: 0 0 2px; font-size: 13pt; border-bottom: 1px solid var(--print-ink-strong); break-after: avoid; }
+  .sb-print h4,
+  .sb-print h5 { break-after: avoid; }
+  .sb-print table,
+  .sb-print .sb-lots li,
+  .sb-print .sb-checks li,
+  .sb-print .sb-kpis { break-inside: avoid; }
 }
 :root.is-print-preview .gc { min-height: 0; display: block; }
-:root.is-print-preview .sb.sb-print { display: block; }
-:root.is-print-preview .sb-print-colour { margin-top: 14px; }
-:root.is-print-preview .sb-print-colour h2 { margin: 0 0 4px; font-size: 13pt; border-bottom: 1px solid var(--print-ink-strong); }
+:root.is-print-preview .sb.sb-print { display: flex; gap: 8px; font-size: 10pt; }
+:root.is-print-preview .sb-print-colour { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+:root.is-print-preview .sb-print-colour h2 { margin: 0 0 2px; font-size: 13pt; border-bottom: 1px solid var(--print-ink-strong); }
 
 /* Tablet / phone — schedule navigator moves on top of the detail rather
    than sitting in a side rail, since the detail table itself is wide

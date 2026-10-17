@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
-import { BilanPrint, BilanSheet } from './SuiviBilan';
+import { BilanButton, BilanPrint, BilanSheet } from './SuiviBilan';
 import SuiviCalculs from './SuiviCalculs';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
@@ -145,11 +145,7 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
         <button type="button" className="btn ghost mini" onClick={() => setPanel('calculs')}>
           Calculs
         </button>
-        {canBilan && (
-          <button type="button" className="btn primary mini" onClick={() => setPanel('bilan')} disabled={snap.status === 'loading'}>
-            Bilan
-          </button>
-        )}
+        {canBilan && poste && <BilanButton part={{ date, poste }} onClick={() => setPanel('bilan')} disabled={snap.status === 'loading'} />}
       </div>
       {panel === 'bilan' && poste && <BilanSheet part={{ date, poste }} shiftLabel={shiftMeta.shift.label} onClose={closePanel} />}
       {panel === 'calculs' && <SuiviCalculs onClose={closePanel} />}

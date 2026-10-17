@@ -55,9 +55,47 @@ export interface BilanTotals {
 
 export interface BilanDefect {
   defect: string;
+  /** Lites rejected for it, and their m². */
   total: number;
+  m2: number;
   /** By « Dimension x Epaisseur ». */
   byDim: Record<string, number>;
+}
+
+/** A dimension (« Dimension x Epaisseur ») at Fin de Ligne: what went through, what was rejected. */
+export interface BilanDim {
+  dim: string;
+  /** Good lites plus rejected ones. */
+  passees: number;
+  rejets: number;
+}
+
+/** A Fin de Ligne row with rejects: a lot, to look at in the workbook. */
+export interface BilanLot {
+  row: number;
+  tag: string;
+  frame: string;
+  dim: string;
+  /** Good lites (Lites) and rejected ones. */
+  bonnes: number;
+  rejets: number;
+  defects: { defect: string; q: number }[];
+  /** The defects' comments, joined. */
+  comment: string;
+  range: string;
+}
+
+/** What was rejected, against what went through Fin de Ligne: by defect, by dimension, by lot. */
+export interface BilanRejects {
+  rejets: number;
+  passees: number;
+  m2: number;
+  /** Most rejected first. */
+  defects: BilanDefect[];
+  /** Most lites through first. */
+  dims: BilanDim[];
+  /** Most rejected first. */
+  lots: BilanLot[];
 }
 
 export interface BilanColour {
@@ -69,9 +107,7 @@ export interface BilanColour {
   inDl: boolean;
   inFl: boolean;
   totals: BilanTotals;
-  defects: BilanDefect[];
-  /** The dimensions its defects were found on, most rejected first. */
-  dims: string[];
+  rejects: BilanRejects;
   /** Rows to look at. */
   checks: BilanCheck[];
 }
@@ -85,6 +121,10 @@ export interface BilanCheck {
 
 export interface SuiviBilan {
   totals: BilanTotals;
+  /** The whole shift's, every colour together. */
+  rejects: BilanRejects;
+  /** Every colour's rows to look at, by row. */
+  checks: BilanCheck[];
   colours: BilanColour[];
   /** No row filled in on either side. */
   empty: boolean;
@@ -158,6 +198,47 @@ function tagIssue(tag: Value): string {
   return `N° TAG ${digits} à ${digits.length} chiffres (${TAG_DIGITS} attendus)`;
 }
 
+interface RejectAcc {
+  defects: Map<string, BilanDefect>;
+  dims: Map<string, BilanDim>;
+  lots: BilanLot[];
+}
+const rejectAcc = (): RejectAcc => ({ defects: new Map(), dims: new Map(), lots: [] });
+
+function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
+  const defects = new Map<string, BilanDefect>();
+  const dims = new Map<string, BilanDim>();
+  const lots: BilanLot[] = [];
+  for (const a of accs) {
+    for (const d of a.defects.values()) {
+      const t = defects.get(d.defect) ?? { defect: d.defect, total: 0, m2: 0, byDim: {} };
+      t.total += d.total;
+      t.m2 += d.m2;
+      for (const [k, v] of Object.entries(d.byDim)) t.byDim[k] = (t.byDim[k] ?? 0) + v;
+      defects.set(d.defect, t);
+    }
+    for (const d of a.dims.values()) {
+      const t = dims.get(d.dim) ?? { dim: d.dim, passees: 0, rejets: 0 };
+      t.passees += d.passees;
+      t.rejets += d.rejets;
+      dims.set(d.dim, t);
+    }
+    lots.push(...a.lots);
+  }
+  const dimList = [...dims.values()].map((d) => ({ ...d, passees: round(d.passees, 3), rejets: round(d.rejets, 3) }));
+  const rejets = round(dimList.reduce((n, d) => n + d.rejets, 0), 3);
+  return {
+    rejets,
+    passees: round(dimList.reduce((n, d) => n + d.passees, 0), 3),
+    m2: round(m2, 3),
+    defects: [...defects.values()]
+      .map((d) => ({ ...d, total: round(d.total, 3), m2: round(d.m2, 3) }))
+      .sort((a, b) => b.total - a.total || a.defect.localeCompare(b.defect)),
+    dims: dimList.filter((d) => d.passees > 0).sort((a, b) => b.passees - a.passees || a.dim.localeCompare(b.dim)),
+    lots: lots.sort((a, b) => b.rejets - a.rejets || b.rejets / (b.bonnes + b.rejets) - a.rejets / (a.bonnes + a.rejets) || a.row - b.row),
+  };
+}
+
 const list = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`);
 
 export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
@@ -167,12 +248,13 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
     return TEMPLATE[`${col}${row}`] ?? null;
   };
 
-  const colours = new Map<string, BilanColour & { raw: BilanTotals; defectMap: Map<string, BilanDefect>; dimTotals: Map<string, number> }>();
+  type Acc = Omit<BilanColour, 'rejects'> & { raw: BilanTotals; acc: RejectAcc };
+  const colours = new Map<string, Acc>();
   const colourOf = (name: string | null) => {
     const key = name ?? NO_COLOUR;
     let c = colours.get(key);
     if (!c) {
-      c = { name: key, none: name === null, inDl: false, inFl: false, totals: emptyTotals(), raw: emptyTotals(), defects: [], dims: [], checks: [], defectMap: new Map(), dimTotals: new Map() };
+      c = { name: key, none: name === null, inDl: false, inFl: false, totals: emptyTotals(), raw: emptyTotals(), checks: [], acc: rejectAcc() };
       colours.set(key, c);
     }
     return c;
@@ -201,20 +283,40 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
       const dim = num(at(c.dim, r));
       const lites = num(at(c.lites, r));
       let rejets = 0;
-      const dimLabel = `${text(at(c.dim, r))} x ${text(at(c.ep, r))}`.trim();
+      const [len, ep] = [text(at(c.dim, r)), text(at(c.ep, r))];
+      const dimLabel = len || ep ? `${len || '?'} x ${ep || '?'}` : 'Sans dimension';
       const issues: string[] = [];
+      const found: { defect: string; q: number }[] = [];
       for (const [dc, qc] of c.defects) {
         const name = text(at(dc, r));
         const q = num(at(qc, r));
         rejets += q;
         if (name && q) {
-          const d = colour.defectMap.get(name) ?? { defect: name, total: 0, byDim: {} };
+          const d = colour.acc.defects.get(name) ?? { defect: name, total: 0, m2: 0, byDim: {} };
           d.total += q;
+          d.m2 += (dim * WIDTH_MM * q) / 1e6;
           d.byDim[dimLabel] = (d.byDim[dimLabel] ?? 0) + q;
-          colour.defectMap.set(name, d);
-          colour.dimTotals.set(dimLabel, (colour.dimTotals.get(dimLabel) ?? 0) + q);
+          colour.acc.defects.set(name, d);
+          found.push({ defect: name, q });
         } else if (name && !filled(at(qc, r))) issues.push(`« ${name} » sans quantité`);
         else if (!name && q) issues.push(`une quantité de ${q} sans défaut`);
+      }
+      const dimStat = colour.acc.dims.get(dimLabel) ?? { dim: dimLabel, passees: 0, rejets: 0 };
+      dimStat.passees += lites + rejets;
+      dimStat.rejets += rejets;
+      colour.acc.dims.set(dimLabel, dimStat);
+      if (rejets > 0) {
+        colour.acc.lots.push({
+          row: r,
+          tag: colourRow ? '' : text(at(c.tag, r)),
+          frame: text(at('O', r)),
+          dim: dimLabel,
+          bonnes: round(lites, 3),
+          rejets: round(rejets, 3),
+          defects: found,
+          comment: ['T', 'W', 'Z'].map((col) => text(at(col, r))).filter(Boolean).join(' · '),
+          range: `Suivi!${c.tag}${r}:${c.inputs[c.inputs.length - 1]}${r}`,
+        });
       }
       colour.raw.fl += lites;
       colour.raw.flM2 += (dim * WIDTH_MM * lites) / 1e6;
@@ -275,29 +377,34 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
     }
   }
 
+  // Rows to look at by row, Début de Ligne before Fin de Ligne on the same row.
+  const order = (x: BilanCheck) => {
+    const m = x.text.match(/^Ligne (\d+) (DL|FL)/);
+    return m ? Number(m[1]) * 2 + (m[2] === 'FL' ? 1 : 0) : 0;
+  };
   const all = emptyTotals();
   const out: BilanColour[] = [];
+  const used: Acc[] = [];
   for (const c of colours.values()) {
     // A colour named in a block but with nothing under it on either side.
-    const used = c.raw.dl || c.raw.fl || c.raw.rejets || c.checks.length || c.defectMap.size;
-    if (!used) continue;
+    if (!(c.raw.dl || c.raw.fl || c.raw.rejets || c.checks.length || c.acc.dims.size)) continue;
+    used.push(c);
     for (const k of Object.keys(all) as (keyof BilanTotals)[]) all[k] += c.raw[k];
-    const { raw, defectMap, dimTotals, ...rest } = c;
-    // By row, Début de Ligne before Fin de Ligne on the same row.
-    const order = (x: BilanCheck) => {
-      const m = x.text.match(/^Ligne (\d+) (DL|FL)/);
-      return m ? Number(m[1]) * 2 + (m[2] === 'FL' ? 1 : 0) : 0;
-    };
+    const { raw, acc, ...rest } = c;
     rest.checks = [...rest.checks].sort((x, y) => order(x) - order(y));
     if (c.none) rest.checks.unshift({ text: 'Ces lignes ne sont sous aucune couleur : écris la couleur en N° TAG sur la ligne au-dessus d’elles.' });
-    out.push({
-      ...rest,
-      totals: closeTotals(raw),
-      defects: [...defectMap.values()].sort((a, b) => b.total - a.total || a.defect.localeCompare(b.defect)),
-      dims: [...dimTotals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([d]) => d),
-    });
+    out.push({ ...rest, totals: closeTotals(raw), rejects: closeRejects([acc], raw.rejetsM2) });
   }
   // Rows under no colour last: what to fix, after the production.
   out.sort((a, b) => Number(a.none) - Number(b.none));
-  return { totals: closeTotals(all), colours: out, empty };
+  return {
+    totals: closeTotals(all),
+    rejects: closeRejects(
+      used.map((c) => c.acc),
+      all.rejetsM2,
+    ),
+    checks: out.flatMap((c) => c.checks).sort((x, y) => order(x) - order(y)),
+    colours: out,
+    empty,
+  };
 }
