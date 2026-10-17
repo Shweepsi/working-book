@@ -6,8 +6,7 @@
 //
 // The rejects say three things, in that order: how much (rejected lites
 // against what went through Fin de Ligne), what (the defects, largest first),
-// and where (the rate per dimension, then the lots that lost the most, each a
-// way into the workbook).
+// and where (the reject rate per dimension).
 
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
@@ -16,14 +15,9 @@ import { computeBilan, type BilanCheck, type BilanColour, type BilanRejects, typ
 const fmt = (v: number, digits = 3) => v.toLocaleString('fr-FR', { maximumFractionDigits: digits });
 const m2 = (v: number) => fmt(v, 2);
 const pct = (part: number, whole: number) => (whole > 0 ? `${(part / whole * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %` : '—');
-/** A tint that grows with a reject rate, so what lost the most stands out. `gain`: how fast it
- * deepens — a cell of the dimension table holds a few % of its dimension, a lot can lose half. */
-const heat = (rate: number, gain = 2.5): CSSProperties | undefined =>
-  rate > 0 ? { background: `color-mix(in srgb, var(--flag-unsched-bd) ${Math.min(55, Math.round(rate * gain * 100))}%, transparent)` } : undefined;
-const LOT_GAIN = 0.85;
-
-const LOTS_SHOWN = 5;
-const LOTS_PRINTED = 8;
+/** A tint that grows with a reject rate, so the dimension and defect that lost the most stand out. */
+const heat = (rate: number): CSSProperties | undefined =>
+  rate > 0 ? { background: `color-mix(in srgb, var(--flag-unsched-bd) ${Math.min(55, Math.round(rate * 250))}%, transparent)` } : undefined;
 
 // Every component showing the bilan asks for it on each change: computed once per change.
 let cache: { key: string; cells: ReadonlyMap<string, unknown>; bilan: SuiviBilan } | null = null;
@@ -64,8 +58,7 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
 }
 
 /** How much, what, where. */
-function Rejects({ r, onPick, print }: { r: BilanRejects; onPick?: (range: string) => void; print?: boolean }) {
-  const [allLots, setAllLots] = useState(false);
+function Rejects({ r }: { r: BilanRejects }) {
   if (!r.passees) return <p className="sb-none">Rien n’est encore passé en fin de ligne.</p>;
   if (!r.rejets)
     return (
@@ -74,8 +67,6 @@ function Rejects({ r, onPick, print }: { r: BilanRejects; onPick?: (range: strin
       </p>
     );
   const top = r.defects[0]?.total ?? 0;
-  const lots = print ? r.lots.slice(0, LOTS_PRINTED) : allLots ? r.lots : r.lots.slice(0, LOTS_SHOWN);
-  const hidden = r.lots.length - lots.length;
 
   return (
     <>
@@ -159,80 +150,6 @@ function Rejects({ r, onPick, print }: { r: BilanRejects; onPick?: (range: strin
         </p>
       )}
 
-      <h5>Lots les plus touchés</h5>
-      {print ? (
-        <table className="sb-table sb-lot-table">
-          <thead>
-            <tr>
-              <th>Ligne</th>
-              <th>N° TAG</th>
-              <th>Frame</th>
-              <th>Dimension</th>
-              <th>Défauts</th>
-              <th>Rejets</th>
-              <th>Passées</th>
-              <th>Taux</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lots.map((l) => (
-              <tr key={l.row}>
-                <th>{l.row}</th>
-                <td>{l.tag}</td>
-                <td>{l.frame}</td>
-                <td>{l.dim}</td>
-                <td className="sb-left">
-                  {l.defects.map((d) => `${d.defect} ${fmt(d.q)}`).join(' · ')}
-                  {l.comment && <em> · « {l.comment} »</em>}
-                </td>
-                <td className="sb-strong">{fmt(l.rejets)}</td>
-                <td>{fmt(l.bonnes + l.rejets)}</td>
-                <td style={heat(l.rejets / (l.bonnes + l.rejets), LOT_GAIN)}>{pct(l.rejets, l.bonnes + l.rejets)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-      <ul className="sb-lots">
-        {lots.map((l) => {
-          const body = (
-            <>
-              <span className="sb-lot-main">
-                <span className="sb-lot-row">Ligne {l.row}</span>
-                <span className="sb-lot-id">
-                  {[l.tag && `TAG ${l.tag}`, l.frame && `frame ${l.frame}`, l.dim].filter(Boolean).join(' · ')}
-                </span>
-                <span className="sb-lot-defects">
-                  {l.defects.map((d) => `${d.defect} ${fmt(d.q)}`).join(' · ')}
-                  {l.comment && <span className="sb-lot-comment"> · « {l.comment} »</span>}
-                </span>
-              </span>
-              <span className="sb-lot-rate" style={heat(l.rejets / (l.bonnes + l.rejets), LOT_GAIN)}>
-                <strong>{fmt(l.rejets)}</strong> sur {fmt(l.bonnes + l.rejets)}
-                <span className="sb-lot-pct">{pct(l.rejets, l.bonnes + l.rejets)}</span>
-              </span>
-            </>
-          );
-          return (
-            <li key={l.row}>
-              {onPick ? (
-                <button type="button" className="sb-lot" onClick={() => onPick(l.range)} title="Voir la ligne dans le classeur">
-                  {body}
-                </button>
-              ) : (
-                <div className="sb-lot">{body}</div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      )}
-      {!print && r.lots.length > LOTS_SHOWN && (
-        <button type="button" className="btn ghost mini sb-more" onClick={() => setAllLots((v) => !v)}>
-          {allLots ? 'Moins de lots' : `Voir les ${hidden} autres lots`}
-        </button>
-      )}
-      {print && hidden > 0 && <p className="sb-none">Et {hidden} autre{hidden > 1 ? 's' : ''} lot{hidden > 1 ? 's' : ''} avec moins de rejets.</p>}
     </>
   );
 }
@@ -273,12 +190,12 @@ function Section({ title, count, children }: { title: string; count?: number; ch
 }
 
 /** A tab's content: a colour's own figures above its rejects, or the whole shift's. */
-function Panel({ colour, rejects, checks, onPick, print }: { colour?: BilanColour; rejects: BilanRejects; checks: BilanCheck[]; onPick?: (range: string) => void; print?: boolean }) {
+function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks: BilanCheck[]; onPick?: (range: string) => void }) {
   return (
     <>
       {colour && <Kpis t={colour.totals} sides={{ dl: colour.inDl, fl: colour.inFl }} compact />}
       <Section title="Rejets par défaut">
-        <Rejects r={rejects} onPick={onPick} print={print} />
+        <Rejects r={rejects} />
       </Section>
       <Section title="À vérifier" count={checks.length}>
         <Checks checks={checks} onPick={onPick} />
@@ -445,19 +362,19 @@ export function BilanPrint({ part, shiftLabel, dateLabel }: BilanPrintProps) {
         <>
           <Kpis t={bilan.totals} />
           <Section title="Rejets du poste">
-            <Rejects r={bilan.rejects} print />
+            <Rejects r={bilan.rejects} />
           </Section>
           {bilan.colours.map((c) => (
             <div key={c.name} className="sb-print-colour">
               <h2>{c.name}</h2>
-              <Panel colour={c} rejects={c.rejects} checks={c.checks} print />
+              <Panel colour={c} rejects={c.rejects} checks={c.checks} />
             </div>
           ))}
         </>
       ) : (
         <>
           <Kpis t={bilan.totals} />
-          <Panel rejects={bilan.rejects} checks={bilan.checks} print />
+          <Panel rejects={bilan.rejects} checks={bilan.checks} />
         </>
       )}
     </section>

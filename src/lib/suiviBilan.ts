@@ -70,22 +70,7 @@ export interface BilanDim {
   rejets: number;
 }
 
-/** A Fin de Ligne row with rejects: a lot, to look at in the workbook. */
-export interface BilanLot {
-  row: number;
-  tag: string;
-  frame: string;
-  dim: string;
-  /** Good lites (Lites) and rejected ones. */
-  bonnes: number;
-  rejets: number;
-  defects: { defect: string; q: number }[];
-  /** The defects' comments, joined. */
-  comment: string;
-  range: string;
-}
-
-/** What was rejected, against what went through Fin de Ligne: by defect, by dimension, by lot. */
+/** What was rejected, against what went through Fin de Ligne: by defect, by dimension. */
 export interface BilanRejects {
   rejets: number;
   passees: number;
@@ -94,8 +79,6 @@ export interface BilanRejects {
   defects: BilanDefect[];
   /** Most lites through first. */
   dims: BilanDim[];
-  /** Most rejected first. */
-  lots: BilanLot[];
 }
 
 export interface BilanColour {
@@ -201,14 +184,12 @@ function tagIssue(tag: Value): string {
 interface RejectAcc {
   defects: Map<string, BilanDefect>;
   dims: Map<string, BilanDim>;
-  lots: BilanLot[];
 }
-const rejectAcc = (): RejectAcc => ({ defects: new Map(), dims: new Map(), lots: [] });
+const rejectAcc = (): RejectAcc => ({ defects: new Map(), dims: new Map() });
 
 function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
   const defects = new Map<string, BilanDefect>();
   const dims = new Map<string, BilanDim>();
-  const lots: BilanLot[] = [];
   for (const a of accs) {
     for (const d of a.defects.values()) {
       const t = defects.get(d.defect) ?? { defect: d.defect, total: 0, m2: 0, byDim: {} };
@@ -223,7 +204,6 @@ function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
       t.rejets += d.rejets;
       dims.set(d.dim, t);
     }
-    lots.push(...a.lots);
   }
   const dimList = [...dims.values()].map((d) => ({ ...d, passees: round(d.passees, 3), rejets: round(d.rejets, 3) }));
   const rejets = round(dimList.reduce((n, d) => n + d.rejets, 0), 3);
@@ -235,7 +215,6 @@ function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
       .map((d) => ({ ...d, total: round(d.total, 3), m2: round(d.m2, 3) }))
       .sort((a, b) => b.total - a.total || a.defect.localeCompare(b.defect)),
     dims: dimList.filter((d) => d.passees > 0).sort((a, b) => b.passees - a.passees || a.dim.localeCompare(b.dim)),
-    lots: lots.sort((a, b) => b.rejets - a.rejets || b.rejets / (b.bonnes + b.rejets) - a.rejets / (a.bonnes + a.rejets) || a.row - b.row),
   };
 }
 
@@ -286,7 +265,6 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
       const [len, ep] = [text(at(c.dim, r)), text(at(c.ep, r))];
       const dimLabel = len || ep ? `${len || '?'} x ${ep || '?'}` : 'Sans dimension';
       const issues: string[] = [];
-      const found: { defect: string; q: number }[] = [];
       for (const [dc, qc] of c.defects) {
         const name = text(at(dc, r));
         const q = num(at(qc, r));
@@ -297,7 +275,6 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
           d.m2 += (dim * WIDTH_MM * q) / 1e6;
           d.byDim[dimLabel] = (d.byDim[dimLabel] ?? 0) + q;
           colour.acc.defects.set(name, d);
-          found.push({ defect: name, q });
         } else if (name && !filled(at(qc, r))) issues.push(`« ${name} » sans quantité`);
         else if (!name && q) issues.push(`une quantité de ${q} sans défaut`);
       }
@@ -305,19 +282,7 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
       dimStat.passees += lites + rejets;
       dimStat.rejets += rejets;
       colour.acc.dims.set(dimLabel, dimStat);
-      if (rejets > 0) {
-        colour.acc.lots.push({
-          row: r,
-          tag: colourRow ? '' : text(at(c.tag, r)),
-          frame: text(at('O', r)),
-          dim: dimLabel,
-          bonnes: round(lites, 3),
-          rejets: round(rejets, 3),
-          defects: found,
-          comment: ['T', 'W', 'Z'].map((col) => text(at(col, r))).filter(Boolean).join(' · '),
-          range: `Suivi!${c.tag}${r}:${c.inputs[c.inputs.length - 1]}${r}`,
-        });
-      }
+
       colour.raw.fl += lites;
       colour.raw.flM2 += (dim * WIDTH_MM * lites) / 1e6;
       colour.raw.rejets += rejets;
