@@ -91,26 +91,35 @@ function Defects({ c }: { c: BilanColour }) {
   );
 }
 
-function Checks({ c }: { c: BilanColour }) {
+/** The rows to look at; with `onPick` (on screen), each one selects its row in the workbook. */
+function Checks({ c, onPick }: { c: BilanColour; onPick?: (range: string) => void }) {
   if (!c.checks.length) return <p className="sb-none">Rien à signaler.</p>;
   return (
     <ul className="sb-checks">
-      {c.checks.map((s, i) => (
-        <li key={i}>{s}</li>
+      {c.checks.map((x, i) => (
+        <li key={i}>
+          {onPick && x.range ? (
+            <button type="button" className="sb-check" onClick={() => onPick(x.range as string)} title="Voir la ligne dans le classeur">
+              {x.text}
+            </button>
+          ) : (
+            x.text
+          )}
+        </li>
       ))}
     </ul>
   );
 }
 
 /** One colour: its totals, its rejects per defect, its rows to look at. */
-function ColourPanel({ c }: { c: BilanColour }) {
+function ColourPanel({ c, onPick }: { c: BilanColour; onPick?: (range: string) => void }) {
   return (
     <>
       <TotalsTable t={c.totals} sides={{ dl: c.inDl, fl: c.inFl }} />
       <h4>Rejets par défaut</h4>
       <Defects c={c} />
       <h4>À vérifier</h4>
-      <Checks c={c} />
+      <Checks c={c} onPick={onPick} />
     </>
   );
 }
@@ -135,6 +144,11 @@ export function BilanSheet({ part, shiftLabel, onClose }: BilanSheetProps) {
   }, [onClose]);
   const colours = bilan?.colours ?? [];
   const current = colours[Math.min(tab, colours.length - 1)];
+  // A row to look at: the sheet makes way for the workbook, on that row.
+  const pick = (range: string) => {
+    onClose();
+    grid.select(part, range);
+  };
 
   return (
     <>
@@ -184,7 +198,7 @@ export function BilanSheet({ part, shiftLabel, onClose }: BilanSheetProps) {
                   ))}
                 </div>
                 <div role="tabpanel" className="sb-panel" aria-label={current.name}>
-                  <ColourPanel c={current} />
+                  <ColourPanel c={current} onPick={pick} />
                 </div>
               </>
             )}

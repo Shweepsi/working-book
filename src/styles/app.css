@@ -4000,6 +4000,22 @@ body.is-col-resizing * {
 .sb-table .is-bad { color: var(--flag-unsched-fg); font-weight: 600; }
 .sb-strong { font-weight: 600; }
 .sb-checks { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
+/* A row to look at: tapping it shows that row in the workbook. */
+.sb-check {
+  display: inline;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-soft);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sb-check:hover,
+.sb-check:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
 .sb-tabs {
   display: flex;
   flex-wrap: wrap;

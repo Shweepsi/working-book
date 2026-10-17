@@ -427,6 +427,14 @@ class SharedGrid {
     this.set({ rev: this.snap.rev + 1 });
   }
 
+  /** Selects `range` ("Suivi!N47:AA47") in the frame and scrolls to it, when `p` is the
+   * shift on screen (a GridCraft without `gridcraft:select` ignores it). */
+  select(p: Partition, range: string): void {
+    if (!this.shown || this.pendingOpen || partKey(this.shown) !== partKey(p)) return;
+    this.post({ type: 'gridcraft:select', range });
+    this.focusFrame();
+  }
+
   /**
    * The cells `p` shows on top of its template, by "Sheet!A1" (GridCraft's
    * shared content, null for a cell emptied): the Suivi tab's bilan is computed

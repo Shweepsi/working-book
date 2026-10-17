@@ -72,8 +72,15 @@ export interface BilanColour {
   defects: BilanDefect[];
   /** The dimensions its defects were found on, most rejected first. */
   dims: string[];
-  /** Rows to look at, one sentence each. */
-  checks: string[];
+  /** Rows to look at. */
+  checks: BilanCheck[];
+}
+
+/** A row to look at: one sentence, and the row's side of Suivi, to select it there. */
+export interface BilanCheck {
+  text: string;
+  /** "Suivi!N47:AA47"; none for a remark about the whole block. */
+  range?: string;
 }
 
 export interface SuiviBilan {
@@ -225,7 +232,7 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
         );
         if (missing.length) issues.push(`${list(missing)} manquante${missing.length > 1 ? 's' : ''}`);
       }
-      if (issues.length) colour.checks.push(`Ligne ${r} FL : ${issues.join(', ')}.`);
+      if (issues.length) colour.checks.push({ text: `Ligne ${r} FL : ${issues.join(', ')}.`, range: `Suivi!${c.tag}${r}:${c.inputs[c.inputs.length - 1]}${r}` });
     }
   }
 
@@ -264,7 +271,7 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
         if (missing.length) issues.push(`${list(missing)} manquante${missing.length > 1 ? 's' : ''}`);
       }
       if (filled(at(c.lites, r)) && conso > lites) issues.push(`${round(conso, 3)} consommées pour ${round(lites, 3)} lites`);
-      if (issues.length) colour.checks.push(`Ligne ${r} DL : ${issues.join(', ')}.`);
+      if (issues.length) colour.checks.push({ text: `Ligne ${r} DL : ${issues.join(', ')}.`, range: `Suivi!${c.tag}${r}:${c.inputs[c.inputs.length - 1]}${r}` });
     }
   }
 
@@ -277,12 +284,12 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
     for (const k of Object.keys(all) as (keyof BilanTotals)[]) all[k] += c.raw[k];
     const { raw, defectMap, dimTotals, ...rest } = c;
     // By row, Début de Ligne before Fin de Ligne on the same row.
-    const order = (x: string) => {
-      const m = x.match(/^Ligne (\d+) (DL|FL)/);
+    const order = (x: BilanCheck) => {
+      const m = x.text.match(/^Ligne (\d+) (DL|FL)/);
       return m ? Number(m[1]) * 2 + (m[2] === 'FL' ? 1 : 0) : 0;
     };
     rest.checks = [...rest.checks].sort((x, y) => order(x) - order(y));
-    if (c.none) rest.checks.unshift('Ces lignes ne sont sous aucune couleur : écris la couleur en N° TAG sur la ligne au-dessus d’elles.');
+    if (c.none) rest.checks.unshift({ text: 'Ces lignes ne sont sous aucune couleur : écris la couleur en N° TAG sur la ligne au-dessus d’elles.' });
     out.push({
       ...rest,
       totals: closeTotals(raw),
