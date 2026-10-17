@@ -3,8 +3,8 @@
 // a speed, and how many plates go through in a time. A plate takes its length
 // plus the 0,19 m gap between two plates; the speed is in m/min. Results are
 // rounded the way the line counts: the time to the minute, whole plates. The
-// values typed stay on this device. Opened from the Suivi tab and from a
-// schedule (with its speed).
+// values typed stay on this device. Opened from the app's header, on every
+// page.
 
 import { useEffect, useState } from 'react';
 import { load, save } from '../lib/storage';
@@ -65,13 +65,8 @@ function Field({ label, unit, value, onChange }: FieldProps) {
   );
 }
 
-/** `vitesse`: the speed to start from (a schedule's), when there's one. */
-export default function SuiviCalculs({ onClose, vitesse: given }: { onClose: () => void; vitesse?: number }) {
-  const [v, setV] = useState<Inputs>(() => ({
-    ...DEFAULTS,
-    ...load<Partial<Inputs>>(KEY, {}),
-    ...(given && given > 0 ? { vitesse: String(given).replace('.', ',') } : {}),
-  }));
+export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
+  const [v, setV] = useState<Inputs>(() => ({ ...DEFAULTS, ...load<Partial<Inputs>>(KEY, {}) }));
   useEffect(() => save(KEY, v), [v]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

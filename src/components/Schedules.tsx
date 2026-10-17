@@ -19,7 +19,6 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
-import SuiviCalculs from './SuiviCalculs';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -548,8 +547,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   // just mirrors the stored value. Without it, clearing the box would snap it
   // back to "0" mid-edit and the next keystroke would land after that zero.
   const [speedDraft, setSpeedDraft] = useState<string | null>(null);
-  // The line's calculators, from the schedule's speed.
-  const [calcOpen, setCalcOpen] = useState(false);
   const [importMode, setImportMode] = useState<'pms230' | 'policy' | 'portal' | null>(null);
   // Schedule number waiting on the retire confirmation, or null.
   const [pendingRetire, setPendingRetire] = useState<string | null>(null);
@@ -1164,7 +1161,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     // printer wasn't using. What hangs on the selection is the *hiding* of the
     // table, and the paper rules read that off the récap's own presence.
     <div className={`sch${printMode === 'recap' ? ' is-print-recap' : ''}`}>
-      {calcOpen && <SuiviCalculs vitesse={vitesse} onClose={() => setCalcOpen(false)} />}
       <SummaryBar
         data={data}
         policy={policy}
@@ -1325,9 +1321,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                         {fmtHMmin(coaterMinDt)}
                       </strong>
                     </div>
-                    <button type="button" className="btn ghost mini sch-calc-btn no-print" onClick={() => setCalcOpen(true)} title="Temps pour un nombre de plaques, plaques dans un temps, à la vitesse du schedule">
-                      Calculs
-                    </button>
                   </div>
                 </header>
               );

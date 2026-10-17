@@ -12,15 +12,13 @@
 // (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
 // already says which shift is open. It follows Working Book's theme, not the
-// system's. The bar above it opens the line's calculators (SuiviCalculs.tsx)
-// and the shift's bilan (SuiviBilan.tsx, computed from the cells, which is
+// system's. The bar above it opens the shift's bilan (SuiviBilan.tsx, computed from the cells, which is
 // also what printing from this tab gives).
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
 import { BilanButton, BilanPrint, BilanSheet, type BilanScope } from './SuiviBilan';
-import SuiviCalculs from './SuiviCalculs';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
@@ -62,7 +60,7 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
 
   const [editing, setEditing] = useState(false);
   // The sheet open over the workbook, if any.
-  const [panel, setPanel] = useState<'bilan' | 'calculs' | null>(null);
+  const [panel, setPanel] = useState<'bilan' | null>(null);
   const closePanel = useCallback(() => setPanel(null), []);
   // The shift's bilan or its day's: what the sheet shows and what printing gives.
   const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
@@ -144,15 +142,11 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
             Modifier le modèle
           </button>
         )}
-        <button type="button" className="btn ghost mini" onClick={() => setPanel('calculs')}>
-          Calculs
-        </button>
         {canBilan && poste && <BilanButton part={{ date, poste }} onClick={() => setPanel('bilan')} disabled={snap.status === 'loading'} />}
       </div>
       {panel === 'bilan' && poste && (
         <BilanSheet part={{ date, poste }} shiftLabel={shiftMeta.shift.label} scope={bilanScope} onScope={setBilanScope} onClose={closePanel} />
       )}
-      {panel === 'calculs' && <SuiviCalculs onClose={closePanel} />}
       {!hidden && canBilan && poste && <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />}
       {!SYNC_ENABLED ? (
         <div className="gc-empty">Pas de serveur configuré : le classeur partagé a besoin du Worker.</div>

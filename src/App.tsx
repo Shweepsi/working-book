@@ -13,6 +13,7 @@ import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { prefetchGridcraft } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
+import SuiviCalculs from './components/SuiviCalculs';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -119,6 +120,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
+  // The line's calculators (time for plates, plates in a time): one way in, from every page.
+  const [calcOpen, setCalcOpen] = useState(false);
   // Once opened, the Suivi workbook stays mounted (hidden behind the other
   // tabs): coming back is instant, with no wasm to start again and no cells
   // to replay. Its files are fetched ahead, so the first open is quick too.
@@ -298,6 +301,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
       <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
@@ -379,6 +383,9 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator grid={tab === 'grid' && poste !== null} />
+          <button type="button" className="btn ghost mini calc-trigger" onClick={() => setCalcOpen(true)} title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps">
+            Calculs
+          </button>
           {/* Sits in the header rather than behind the settings cog: checking
               the paper layout is a recurring gesture, not a preference. */}
           <button
