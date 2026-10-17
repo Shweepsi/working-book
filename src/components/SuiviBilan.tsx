@@ -81,9 +81,8 @@ function Rejects({ r }: { r: BilanRejects }) {
         <thead>
           <tr>
             <th>Défaut</th>
-            <th className="sb-bar-col" aria-hidden="true" />
+            <th className="sb-bar-col">Part des rejets</th>
             <th>Lites</th>
-            <th>Part</th>
             <th>m²</th>
           </tr>
         </thead>
@@ -91,11 +90,14 @@ function Rejects({ r }: { r: BilanRejects }) {
           {r.defects.map((d) => (
             <tr key={d.defect}>
               <th>{d.defect}</th>
-              <td className="sb-bar-col" aria-hidden="true">
-                <span className="sb-bar" style={{ width: `${(d.total / top) * 100}%` }} />
+              <td className="sb-bar-col">
+                {/* The bar, against the largest defect; its share of the rejects at its end. */}
+                <span className="sb-bar-row">
+                  <span className="sb-bar" style={{ width: `calc((100% - 4.5em) * ${d.total / top})` }} aria-hidden="true" />
+                  <span className="sb-bar-pct">{pct(d.total, r.rejets)}</span>
+                </span>
               </td>
               <td className="sb-strong">{fmt(d.total)}</td>
-              <td>{pct(d.total, r.rejets)}</td>
               <td>{m2(d.m2)}</td>
             </tr>
           ))}

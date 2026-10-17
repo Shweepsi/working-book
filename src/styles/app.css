@@ -4039,8 +4039,10 @@ body.is-col-resizing * {
 .sb-rej-head { margin: 0; color: var(--ink-soft); }
 .sb-rej-head strong { color: var(--ink); }
 /* What: the defects, largest first, a bar for their share. */
-.sb-pareto .sb-bar-col { width: 34%; padding-left: 0; }
-.sb-bar { display: block; height: 10px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--flag-unsched-bd) 70%, transparent); }
+.sb-pareto .sb-bar-col { width: 42%; text-align: left; }
+.sb-bar-row { display: flex; align-items: center; gap: var(--space-4); }
+.sb-bar { display: block; flex: none; min-width: 3px; height: 10px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--flag-unsched-bd) 70%, transparent); }
+.sb-bar-pct { font-size: var(--fs-md); color: var(--ink-soft); white-space: nowrap; }
 /* Where: the rate per dimension, cells tinted by the share of that dimension they rejected. */
 .sb-matrix th:not(:first-child),
 .sb-matrix td { min-width: 72px; }
@@ -4051,7 +4053,8 @@ body.is-col-resizing * {
 /* Scrolled sideways on a narrow screen, the defect stays in view. */
 .sb-matrix th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
 @media (max-width: 560px) {
-  .sb-pareto .sb-bar-col { display: none; }
+  .sb-pareto .sb-bar { display: none; }
+  .sb-pareto .sb-bar-col { width: auto; }
   .sb-matrix th:first-child { min-width: 120px; max-width: 150px; }
 }
 /* The rows to look at: each one opens its row in the workbook. */
