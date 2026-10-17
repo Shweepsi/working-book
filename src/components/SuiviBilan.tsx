@@ -16,9 +16,11 @@ import { computeBilan, type BilanCheck, type BilanColour, type BilanRejects, typ
 const fmt = (v: number, digits = 3) => v.toLocaleString('fr-FR', { maximumFractionDigits: digits });
 const m2 = (v: number) => fmt(v, 2);
 const pct = (part: number, whole: number) => (whole > 0 ? `${(part / whole * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %` : '—');
-/** A tint that grows with a reject rate: a cell or a lot that lost a lot stands out. */
-const heat = (rate: number): CSSProperties | undefined =>
-  rate > 0 ? { background: `color-mix(in srgb, var(--flag-unsched-bd) ${Math.min(55, Math.round(rate * 250))}%, transparent)` } : undefined;
+/** A tint that grows with a reject rate, so what lost the most stands out. `gain`: how fast it
+ * deepens — a cell of the dimension table holds a few % of its dimension, a lot can lose half. */
+const heat = (rate: number, gain = 2.5): CSSProperties | undefined =>
+  rate > 0 ? { background: `color-mix(in srgb, var(--flag-unsched-bd) ${Math.min(55, Math.round(rate * gain * 100))}%, transparent)` } : undefined;
+const LOT_GAIN = 0.85;
 
 const LOTS_SHOWN = 5;
 const LOTS_PRINTED = 8;
@@ -158,6 +160,39 @@ function Rejects({ r, onPick, print }: { r: BilanRejects; onPick?: (range: strin
       )}
 
       <h5>Lots les plus touchés</h5>
+      {print ? (
+        <table className="sb-table sb-lot-table">
+          <thead>
+            <tr>
+              <th>Ligne</th>
+              <th>N° TAG</th>
+              <th>Frame</th>
+              <th>Dimension</th>
+              <th>Défauts</th>
+              <th>Rejets</th>
+              <th>Passées</th>
+              <th>Taux</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lots.map((l) => (
+              <tr key={l.row}>
+                <th>{l.row}</th>
+                <td>{l.tag}</td>
+                <td>{l.frame}</td>
+                <td>{l.dim}</td>
+                <td className="sb-left">
+                  {l.defects.map((d) => `${d.defect} ${fmt(d.q)}`).join(' · ')}
+                  {l.comment && <em> · « {l.comment} »</em>}
+                </td>
+                <td className="sb-strong">{fmt(l.rejets)}</td>
+                <td>{fmt(l.bonnes + l.rejets)}</td>
+                <td style={heat(l.rejets / (l.bonnes + l.rejets), LOT_GAIN)}>{pct(l.rejets, l.bonnes + l.rejets)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
       <ul className="sb-lots">
         {lots.map((l) => {
           const body = (
@@ -172,7 +207,7 @@ function Rejects({ r, onPick, print }: { r: BilanRejects; onPick?: (range: strin
                   {l.comment && <span className="sb-lot-comment"> · « {l.comment} »</span>}
                 </span>
               </span>
-              <span className="sb-lot-rate" style={heat(l.rejets / (l.bonnes + l.rejets))}>
+              <span className="sb-lot-rate" style={heat(l.rejets / (l.bonnes + l.rejets), LOT_GAIN)}>
                 <strong>{fmt(l.rejets)}</strong> sur {fmt(l.bonnes + l.rejets)}
                 <span className="sb-lot-pct">{pct(l.rejets, l.bonnes + l.rejets)}</span>
               </span>
@@ -191,6 +226,7 @@ function Rejects({ r, onPick, print }: { r: BilanRejects; onPick?: (range: strin
           );
         })}
       </ul>
+      )}
       {!print && r.lots.length > LOTS_SHOWN && (
         <button type="button" className="btn ghost mini sb-more" onClick={() => setAllLots((v) => !v)}>
           {allLots ? 'Moins de lots' : `Voir les ${hidden} autres lots`}

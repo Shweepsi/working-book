@@ -4119,6 +4119,9 @@ button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset
 .sb-lot-rate strong { font-size: var(--fs-xl); color: var(--ink); }
 .sb-lot-pct { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
 .sb-more { align-self: flex-start; }
+.sb-table .sb-left { text-align: left; white-space: normal; }
+.sb-lot-table td,
+.sb-lot-table th { font-size: 9pt; }
 .sb-check { justify-content: space-between; }
 .sb-check.is-static { min-height: 0; }
 .sb-go { flex: none; font-size: 20px; line-height: 1; color: var(--ink-faint); }
