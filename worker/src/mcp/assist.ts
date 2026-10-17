@@ -411,7 +411,7 @@ Pour chaque problème : la cellule, une phrase courte et concrète, et dans « c
 - « incompletes » : les lignes incomplètes (N° TAG manquant ou mal formé, lites, dimension ou épaisseur absentes, date absente côté DL) ; une phrase chacune.
 - « restes » : les plaques DL pas entièrement consommées (Restantes > 0) : ligne, lites restantes, consommées non saisies ; une phrase chacune.
 - « surveiller » : ce que l'équipe suivante doit avoir à l'œil : commentaire notable, défaut concentré sur une dimension, tendance ; une phrase chacune.
-Une liste sans rien reste vide. Un poste vide : « resume » le dit, tout le reste à zéro ou vide.`,
+Une liste sans rien reste vide : jamais de phrase pour dire qu'il n'y a rien à signaler. Un poste vide : « resume » le dit, tout le reste à zéro ou vide.`,
 };
 
 // What each mode answers, as JSON (structured outputs): every field is there,
