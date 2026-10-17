@@ -3999,7 +3999,6 @@ body.is-col-resizing * {
 .sb-table tbody tr:last-child td { border-bottom: 0; }
 .sb-table .is-bad { color: var(--flag-unsched-fg); font-weight: 600; }
 .sb-strong { font-weight: 600; }
-.sb-missing { color: var(--flag-unsched-fg); font-style: italic; }
 .sb-checks { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
 .sb-tabs {
   display: flex;

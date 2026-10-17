@@ -11,8 +11,7 @@
 //     three Quantité columns (U, X, AA); DELTA = début − fin − rejets;
 //   - m² = Dimension (mm) × 3210 mm × lites;
 //   - a defect's dimension is « Dimension x Epaisseur » of its FL row.
-// Plus what the Rapport didn't say: the DL plates left unfinished and the rows
-// that look incomplete.
+// Plus what the Rapport didn't say: the rows that look incomplete.
 //
 // The columns are the template's (row 2's headings): if Suivi's layout ever
 // changes, so must COLS.
@@ -61,17 +60,6 @@ export interface BilanDefect {
   byDim: Record<string, number>;
 }
 
-export interface BilanReste {
-  row: number;
-  tag: string;
-  date: string;
-  lites: number;
-  conso: number;
-  restantes: number;
-  /** Consommées typed at all. */
-  saisie: boolean;
-}
-
 export interface BilanColour {
   /** As typed in Suivi; « Sans couleur » for rows under no colour. */
   name: string;
@@ -84,7 +72,6 @@ export interface BilanColour {
   defects: BilanDefect[];
   /** The dimensions its defects were found on, most rejected first. */
   dims: string[];
-  restes: BilanReste[];
   /** Rows to look at, one sentence each. */
   checks: string[];
 }
@@ -140,16 +127,6 @@ function isColour(v: Value): v is string {
 
 const round = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d;
 
-/** Excel's 1900 serial → jj/mm/aa; a text as typed. */
-function dayText(v: Value): string {
-  if (typeof v === 'number') {
-    const d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86_400_000);
-    const two = (n: number) => String(n).padStart(2, '0');
-    return `${two(d.getUTCDate())}/${two(d.getUTCMonth() + 1)}/${two(d.getUTCFullYear() % 100)}`;
-  }
-  return typeof v === 'string' ? v.trim() : '';
-}
-
 const text = (v: Value) => (v === null ? '' : typeof v === 'number' ? String(round(v, 3)) : String(v).trim());
 
 const emptyTotals = (): BilanTotals => ({ dl: 0, fl: 0, rejets: 0, delta: 0, dlM2: 0, flM2: 0, rejetsM2: 0, deltaM2: 0 });
@@ -188,7 +165,7 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
     const key = name ?? NO_COLOUR;
     let c = colours.get(key);
     if (!c) {
-      c = { name: key, none: name === null, inDl: false, inFl: false, totals: emptyTotals(), raw: emptyTotals(), defects: [], dims: [], restes: [], checks: [], defectMap: new Map(), dimTotals: new Map() };
+      c = { name: key, none: name === null, inDl: false, inFl: false, totals: emptyTotals(), raw: emptyTotals(), defects: [], dims: [], checks: [], defectMap: new Map(), dimTotals: new Map() };
       colours.set(key, c);
     }
     return c;
@@ -288,19 +265,6 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
       }
       if (filled(at(c.lites, r)) && conso > lites) issues.push(`${round(conso, 3)} consommées pour ${round(lites, 3)} lites`);
       if (issues.length) colour.checks.push(`Ligne ${r} DL : ${issues.join(', ')}.`);
-
-      // Restantes (the template's formula: Lites − Consommées).
-      if (filled(at(c.lites, r)) && lites - conso > 0) {
-        colour.restes.push({
-          row: r,
-          tag: text(tag),
-          date: dayText(at(c.date, r)),
-          lites: round(lites, 3),
-          conso: round(conso, 3),
-          restantes: round(lites - conso, 3),
-          saisie: filled(at(c.conso, r)),
-        });
-      }
     }
   }
 
@@ -308,7 +272,7 @@ export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
   const out: BilanColour[] = [];
   for (const c of colours.values()) {
     // A colour named in a block but with nothing under it on either side.
-    const used = c.raw.dl || c.raw.fl || c.raw.rejets || c.checks.length || c.restes.length || c.defectMap.size;
+    const used = c.raw.dl || c.raw.fl || c.raw.rejets || c.checks.length || c.defectMap.size;
     if (!used) continue;
     for (const k of Object.keys(all) as (keyof BilanTotals)[]) all[k] += c.raw[k];
     const { raw, defectMap, dimTotals, ...rest } = c;

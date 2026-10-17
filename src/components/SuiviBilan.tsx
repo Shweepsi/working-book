@@ -91,38 +91,6 @@ function Defects({ c }: { c: BilanColour }) {
   );
 }
 
-function Restes({ c }: { c: BilanColour }) {
-  if (!c.restes.length) return <p className="sb-none">Aucune plaque entamée.</p>;
-  return (
-    <div className="sb-scroll">
-      <table className="sb-table">
-        <thead>
-          <tr>
-            <th>Ligne</th>
-            <th>N° TAG</th>
-            <th>Date</th>
-            <th>Lites</th>
-            <th>Consommées</th>
-            <th>Restantes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {c.restes.map((r) => (
-            <tr key={r.row}>
-              <th>{r.row}</th>
-              <td className="sb-left">{r.tag}</td>
-              <td>{r.date}</td>
-              <td>{fmt(r.lites)}</td>
-              <td className={r.saisie ? '' : 'sb-missing'}>{r.saisie ? fmt(r.conso) : 'non saisies'}</td>
-              <td className="sb-strong">{fmt(r.restantes)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function Checks({ c }: { c: BilanColour }) {
   if (!c.checks.length) return <p className="sb-none">Rien à signaler.</p>;
   return (
@@ -134,15 +102,13 @@ function Checks({ c }: { c: BilanColour }) {
   );
 }
 
-/** One colour: its totals, its rejects per defect, its plates left, its rows to look at. */
+/** One colour: its totals, its rejects per defect, its rows to look at. */
 function ColourPanel({ c }: { c: BilanColour }) {
   return (
     <>
       <TotalsTable t={c.totals} sides={{ dl: c.inDl, fl: c.inFl }} />
       <h4>Rejets par défaut</h4>
       <Defects c={c} />
-      <h4>Restes en début de ligne</h4>
-      <Restes c={c} />
       <h4>À vérifier</h4>
       <Checks c={c} />
     </>
