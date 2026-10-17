@@ -3968,6 +3968,8 @@ body.is-col-resizing * {
 .sheet.sb-sheet .sheet-head,
 .sheet.sc-sheet .sheet-head { margin-bottom: 0; }
 .sb { display: flex; flex-direction: column; gap: var(--space-2); user-select: text; }
+/* The paper version is .print-only, but .sb's display would show it on screen. */
+.sb.sb-print { display: none; }
 .sb h4 {
   margin: var(--space-3) 0 0;
   font-size: var(--fs-sm);
@@ -4083,7 +4085,7 @@ body.is-col-resizing * {
    page holds the bilan only. */
 @media print {
   .gc { min-height: 0; display: block; }
-  .sb-print { display: block; font-size: 9.5pt; }
+  .sb.sb-print { display: block; font-size: 9.5pt; }
   .sb-print .sb-table { margin-bottom: 6px; }
   .sb-print .sb-table th,
   .sb-print .sb-table td { padding: 2px 6px; border-bottom-color: var(--print-line-faint); }
@@ -4093,6 +4095,7 @@ body.is-col-resizing * {
   .sb-print .sb-scroll { overflow: visible; }
 }
 :root.is-print-preview .gc { min-height: 0; display: block; }
+:root.is-print-preview .sb.sb-print { display: block; }
 :root.is-print-preview .sb-print-colour { margin-top: 14px; }
 :root.is-print-preview .sb-print-colour h2 { margin: 0 0 4px; font-size: 13pt; border-bottom: 1px solid var(--print-ink-strong); }
 
