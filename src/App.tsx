@@ -406,7 +406,12 @@ export default function App() {
             aria-label="Aperçu d’impression"
             title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
           >
-            <span className="print-preview-icon" aria-hidden="true" />
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4.5 5.75V1.75h7v4" />
+              <rect x="1.75" y="5.75" width="12.5" height="6" rx="1.5" />
+              <rect x="4.5" y="9.25" width="7" height="5" rx="0.5" fill="var(--paper)" />
+              <path d="M11.5 7.9h.01" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </button>
           <button
             type="button"
