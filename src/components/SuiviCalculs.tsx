@@ -127,7 +127,6 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
             <div className="sc-result" aria-live="polite">
               <span className="sc-label">Plaques</span>
               <strong>{count > 0 ? fmt(Math.floor(count), 0) : '—'}</strong>
-              {count > 0 && <span className="sc-sub">plaques entières</span>}
             </div>
           </div>
         </section>
