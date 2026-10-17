@@ -341,11 +341,11 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanS
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sb-sheet" role="dialog" aria-modal="true" aria-label={scope === 'jour' ? 'Bilan de la journée' : 'Bilan du poste'}>
+      <div className="sheet sb-sheet" role="dialog" aria-modal="true" aria-label={scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan du poste'}>
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
-            <h3>{scope === 'jour' ? 'Bilan de la journée' : 'Bilan'}</h3>
+            <h3>{scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan'}</h3>
             <span className="sheet-head-sub">
               {scope === 'jour'
                 ? daySpan(part.date)
@@ -367,7 +367,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanS
             Poste {part.poste} · {shiftLabel}
           </button>
           <button type="button" className={scope === 'jour' ? 'active' : ''} aria-pressed={scope === 'jour'} onClick={() => onScope('jour')}>
-            Journée 06:00 → 06:00
+            Journée du {shortDay(part.date)}
           </button>
         </div>
 
@@ -475,7 +475,7 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
     return (
       <section className="sb sb-print print-only">
         <div className="print-header">
-          <h1>Bilan de la journée · {dateLabel}</h1>
+          <h1>Bilan du {dateLabel}</h1>
           <div className="meta">
             <span>
               <strong>Période :</strong> {daySpan(part.date)}
