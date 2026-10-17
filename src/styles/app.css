@@ -4155,6 +4155,13 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   .sb-print table,
   .sb-print .sb-kpis { break-inside: avoid; }
 }
+/* The bilan's paper version sits beside the pages: printed with the Suivi
+   tab, or alone from its sheet over any page (print-bilan, App.printBilan). */
+.sb-print-host:not(.is-tab) { display: none; }
+:root.print-bilan .sb-print-host { display: block; }
+@media print {
+  :root.print-bilan .app-main > :not(.sb-print-host) { display: none !important; }
+}
 :root.is-print-preview .gc { min-height: 0; display: block; }
 :root.is-print-preview .sb.sb-print { display: flex; gap: 8px; font-size: 10pt; }
 :root.is-print-preview .sb-print-colour { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }

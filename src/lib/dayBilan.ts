@@ -5,9 +5,9 @@
 // opened yet, and read again when they're older than STALE_MS or on demand.
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { API_BASE } from './api';
 import { sharedGrid as grid, type Partition } from './sharedGrid';
 import { POSTES, shiftFor } from './shiftCalendar';
+import { readShift } from './shiftCells';
 import { computeBilan, mergeBilans, type SuiviBilan } from './suiviBilan';
 import type { Poste, ShiftKey } from '../types';
 
@@ -67,20 +67,6 @@ const subscribe = (l: () => void) => {
   listeners.add(l);
   return () => listeners.delete(l);
 };
-
-async function readShift(date: string, poste: Poste): Promise<ReadonlyMap<string, unknown> | null> {
-  const cells = new Map<string, unknown>();
-  let since = 0;
-  for (;;) {
-    const r = await fetch(`${API_BASE}/api/grid/doc?date=${date}&poste=${poste}&since=${since}&peek=1`);
-    if (!r.ok) throw new Error(`le serveur a répondu ${r.status}`);
-    const page = (await r.json()) as { template_id: number | null; seq: number; changes: { sheet: string; cell: string; c: unknown }[]; more?: boolean };
-    if (page.template_id === null) return null;
-    for (const ch of page.changes) cells.set(`${ch.sheet}!${ch.cell}`, ch.c);
-    since = page.seq;
-    if (!page.more) return cells;
-  }
-}
 
 /** Reads the day's shifts again. */
 export async function refreshDay(date: string): Promise<void> {

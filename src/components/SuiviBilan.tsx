@@ -8,9 +8,10 @@
 // against what went through Fin de Ligne), what (the defects, largest first),
 // and where (the reject rate per dimension).
 
-import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
 import { refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import { useShiftCells } from '../lib/shiftCells';
 import { addDaysISO } from '../lib/shiftCalendar';
 import { computeBilan, type BilanCheck, type BilanColour, type BilanRejects, type BilanTotals, type SuiviBilan } from '../lib/suiviBilan';
 
@@ -27,15 +28,12 @@ const heat = (rate: number): CSSProperties | undefined =>
 // Every component showing the bilan asks for it on each change: computed once per change.
 let cache: { key: string; cells: ReadonlyMap<string, unknown>; bilan: SuiviBilan } | null = null;
 
-/** The bilan of `part` while it's the shift on screen; null before it's open. */
+/** The bilan of `part`: live when the Suivi tab shows it, from the Worker's copy otherwise; null before it's known. */
 export function useBilan(part: Partition | null): SuiviBilan | null {
-  const snap = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
-  if (!part) return null;
-  const cells = grid.cells(part);
-  if (!cells) return null;
-  // `rev` says the cells changed; `status`, that the shift (re)opened.
-  const key = `${part.date}|${part.poste}|${snap.rev}|${snap.status}`;
-  if (!cache || cache.key !== key || cache.cells !== cells) cache = { key, cells, bilan: computeBilan(cells) };
+  const src = useShiftCells(part);
+  if (!part || !src?.cells) return null;
+  const key = `${part.date}|${part.poste}|${src.rev}`;
+  if (!cache || cache.key !== key || cache.cells !== src.cells) cache = { key, cells: src.cells, bilan: computeBilan(src.cells) };
   return cache.bilan;
 }
 
@@ -318,9 +316,13 @@ interface BilanSheetProps {
   scope: BilanScope;
   onScope: (scope: BilanScope) => void;
   onClose: () => void;
+  /** Prints the bilan alone, whatever page is under the sheet. */
+  onPrint: () => void;
+  /** A row to look at was picked: bring the Suivi tab up (the row is selected once it shows the shift). */
+  onShowRow: () => void;
 }
 
-export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanSheetProps) {
+export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint, onShowRow }: BilanSheetProps) {
   const bilan = useBilan(part);
   const day = useDayBilan(part.date, part, scope === 'jour');
   useEffect(() => {
@@ -333,6 +335,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanS
   // A row to look at: the sheet makes way for the workbook, on that row.
   const pick = (range: string) => {
     onClose();
+    onShowRow();
     grid.select(part, range);
   };
   const single = bilan && bilan.colours.length === 1 ? bilan.colours[0] : undefined;
@@ -353,7 +356,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose }: BilanS
             </span>
           </div>
           <div className="sheet-head-actions">
-            <button type="button" className="btn ghost mini" onClick={() => window.print()} disabled={!printable}>
+            <button type="button" className="btn ghost mini" onClick={onPrint} disabled={!printable}>
               Imprimer
             </button>
             <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">

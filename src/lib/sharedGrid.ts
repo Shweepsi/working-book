@@ -394,6 +394,10 @@ class SharedGrid {
     this.initial = [];
     this.view = new Map();
     this.apply([...base, ...pending, ...this.context]);
+    if (this.pendingSelect?.part === partKey(next)) {
+      this.post({ type: 'gridcraft:select', range: this.pendingSelect.range });
+      this.pendingSelect = null;
+    }
     this.lastActivity = Date.now();
     this.set({ status: this.openedOffline ? 'offline' : 'ready', error: null });
     // Not when another tab is showing: the operator is typing there.
@@ -427,10 +431,17 @@ class SharedGrid {
     this.set({ rev: this.snap.rev + 1 });
   }
 
-  /** Selects `range` ("Suivi!N47:AA47") in the frame and scrolls to it, when `p` is the
-   * shift on screen (a GridCraft without `gridcraft:select` ignores it). */
+  // A range to select once `part` is the shift on screen (asked before it opened).
+  private pendingSelect: { part: string; range: string } | null = null;
+
+  /** Selects `range` ("Suivi!N47:AA47") in the frame and brings it into view: now when `p`
+   * is the shift on screen, as soon as it opens otherwise (the bilan, from another tab). */
   select(p: Partition, range: string): void {
-    if (!this.shown || this.pendingOpen || partKey(this.shown) !== partKey(p)) return;
+    if (!this.shown || this.pendingOpen || partKey(this.shown) !== partKey(p)) {
+      this.pendingSelect = { part: partKey(p), range };
+      return;
+    }
+    this.pendingSelect = null;
     this.post({ type: 'gridcraft:select', range });
     this.focusFrame();
   }

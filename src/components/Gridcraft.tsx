@@ -12,13 +12,12 @@
 // (components/TemplateEditor.tsx). The sharing status shows in the header's sync chip, and
 // GridCraft draws no title bar of its own (`titlebar=0`): Working Book's header
 // already says which shift is open. It follows Working Book's theme, not the
-// system's. The header's Bilan button opens the shift's bilan (SuiviBilan.tsx, computed from the cells, which is
-// also what printing from this tab gives).
+// system's. The shift's bilan (SuiviBilan.tsx) opens from the app's header,
+// over any page; printing from this tab gives it.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
-import { BilanPrint, BilanSheet, type BilanScope } from './SuiviBilan';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
@@ -29,8 +28,6 @@ interface GridcraftProps {
   theme: Theme;
   /** Another tab is showing: kept mounted, off screen, polling paused. */
   hidden: boolean;
-  /** Bumped by the header's Bilan button: open the sheet as soon as the shift's workbook is there. */
-  openBilan?: number;
 }
 
 const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', dark: 'dark' };
@@ -45,7 +42,7 @@ const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', d
 const FRAME_SRC =
   '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view&lang=fr&animations=0&formulabar=0&gridlines=0&headings=0';
 
-export default function Gridcraft({ poste, shiftMeta, theme, hidden, openBilan = 0 }: GridcraftProps) {
+export default function Gridcraft({ poste, shiftMeta, theme, hidden }: GridcraftProps) {
   useEffect(() => {
     grid.connect();
     return () => grid.dispose();
@@ -61,11 +58,6 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden, openBilan =
   const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
 
   const [editing, setEditing] = useState(false);
-  // The sheet open over the workbook, if any.
-  const [panel, setPanel] = useState<'bilan' | null>(null);
-  const closePanel = useCallback(() => setPanel(null), []);
-  // The shift's bilan or its day's: what the sheet shows and what printing gives.
-  const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -85,19 +77,6 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden, openBilan =
   useEffect(() => {
     grid.open(poste ? { date, poste } : null, fileName);
   }, [date, poste, fileName]);
-  // Another tab, or another shift: the sheet open was about this one.
-  useEffect(() => setPanel(null), [hidden, date, poste]);
-  // The shift's workbook is there: it has a bilan.
-  const canBilan = SYNC_ENABLED && !!poste && snap.templateId !== null && snap.status !== 'no-template';
-  // The header's Bilan button (SuiviBilan.BilanHeaderButton): the sheet opens
-  // here, now or once the workbook it asked from another tab has loaded.
-  const handledBilan = useRef(0);
-  useEffect(() => {
-    if (openBilan > handledBilan.current && !hidden && canBilan && snap.status !== 'loading') {
-      handledBilan.current = openBilan;
-      setPanel('bilan');
-    }
-  }, [openBilan, hidden, canBilan, snap.status]);
 
   // A template added since the list was fetched: this shift may have just been
   // started on it.
@@ -152,10 +131,6 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden, openBilan =
           </button>
         </div>
       )}
-      {panel === 'bilan' && poste && (
-        <BilanSheet part={{ date, poste }} shiftLabel={shiftMeta.shift.label} scope={bilanScope} onScope={setBilanScope} onClose={closePanel} />
-      )}
-      {!hidden && canBilan && poste && <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />}
       {!SYNC_ENABLED ? (
         <div className="gc-empty">Pas de serveur configuré : le classeur partagé a besoin du Worker.</div>
       ) : !poste ? (

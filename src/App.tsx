@@ -14,7 +14,7 @@ import { prefetchGridcraft } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
-import { BilanHeaderButton } from './components/SuiviBilan';
+import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -123,8 +123,11 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
-  // The header's Bilan button (previews): bumped to have the Suivi tab open its bilan.
-  const [bilanRequest, setBilanRequest] = useState(0);
+  // The shift's bilan (previews): a sheet over whatever page is showing, the
+  // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
+  const [bilanOpen, setBilanOpen] = useState(false);
+  const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
+  const showBilan = IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
   // Once opened, the Suivi workbook stays mounted (hidden behind the other
   // tabs): coming back is instant, with no wasm to start again and no cells
   // to replay. Its files are fetched ahead, so the first open is quick too.
@@ -243,6 +246,26 @@ export default function App() {
           ? '@media print { @page { size: A4 portrait; margin: 10mm 8mm; } }'
           : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
   }, [tab, schedPrintMode]);
+
+  // The bilan alone on paper, whatever page is under its sheet: the page's own
+  // content steps aside (print-bilan on <html>) and the sheet goes portrait for
+  // the time of the dialog.
+  function printBilan() {
+    const root = document.documentElement;
+    const size = document.getElementById(PAGE_SIZE_STYLE_ID);
+    const before = size?.textContent ?? null;
+    if (size) size.textContent = '@media print { @page { size: A4 portrait; margin: 5mm; } }';
+    root.classList.add('print-bilan');
+    const done = () => {
+      root.classList.remove('print-bilan');
+      if (size && before !== null) size.textContent = before;
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+    // Where the engine fires no afterprint, print() returned once the dialog closed.
+    setTimeout(done, 0);
+  }
 
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
@@ -400,15 +423,7 @@ export default function App() {
 
         <div className="shift-meta">
           <SyncIndicator grid={tab === 'grid' && poste !== null} />
-          {IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid') && (
-            <BilanHeaderButton
-              part={poste ? { date, poste } : null}
-              onOpen={() => {
-                setTab('grid');
-                setBilanRequest((n) => n + 1);
-              }}
-            />
-          )}
+          {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
           <button
             type="button"
             className="btn ghost icon calc-trigger"
@@ -471,8 +486,24 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
-        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} openBilan={bilanRequest} />}
+        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
+        {showBilan && poste && (
+          <div className={`sb-print-host${tab === 'grid' ? ' is-tab' : ''}`}>
+            <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />
+          </div>
+        )}
       </main>
+      {bilanOpen && poste && (
+        <BilanSheet
+          part={{ date, poste }}
+          shiftLabel={shiftMeta.shift.label}
+          scope={bilanScope}
+          onScope={setBilanScope}
+          onClose={() => setBilanOpen(false)}
+          onPrint={printBilan}
+          onShowRow={() => setTab('grid')}
+        />
+      )}
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
 
