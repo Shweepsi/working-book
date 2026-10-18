@@ -10,7 +10,8 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
-import { refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import { dayShifts, refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { useShiftCells } from '../lib/shiftCells';
 import { addDaysISO } from '../lib/shiftCalendar';
 import { computeBilan, type BilanCheck, type BilanColour, type BilanRejects, type BilanTotals, type SuiviBilan } from '../lib/suiviBilan';
@@ -182,12 +183,13 @@ function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (range: str
   );
 }
 
-function Section({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
+function Section({ title, count, aside, children }: { title: string; count?: number; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="sb-section">
       <h4>
         {title}
         {count ? <span className="sb-count">{count}</span> : null}
+        {aside && <span className="sb-aside">{aside}</span>}
       </h4>
       {children}
     </section>
@@ -209,6 +211,106 @@ function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; reje
         </Section>
       )}
     </>
+  );
+}
+
+/** The shift's protection plates, typed in: a line per dimension (by hand), a counter, a comment. Never rejects. */
+function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChange: (next: (prev: ProtectionState) => ProtectionState) => void }) {
+  const [added, setAdded] = useState<string | null>(null);
+  const total = totalOf(state);
+  const update = (id: string, patch: Partial<ProtectionState['lines'][number]>) => onChange((p) => ({ ...p, lines: p.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+  const count = (raw: string) => Math.min(9999, Math.max(0, Math.round(Number(raw.replace(/\D/g, '')) || 0)));
+  const add = () => {
+    const id = newLineId();
+    setAdded(id);
+    onChange((p) => ({ ...p, lines: [...p.lines, { id, longueur: '', epaisseur: '', nombre: 0 }] }));
+  };
+  return (
+    <Section title="Plaques de protection" aside={total ? `${fmt(total)} au total` : undefined}>
+      <p className="sb-protect-hint">Pour le superviseur. Elles ne comptent pas dans les rejets.</p>
+      {state.lines.length > 0 && (
+        <ul className="sb-protect">
+          {state.lines.map((l) => (
+            <li key={l.id}>
+              <span className="sb-protect-dim">
+                <input
+                  value={l.longueur}
+                  onChange={(e) => update(l.id, { longueur: e.target.value })}
+                  inputMode="numeric"
+                  placeholder="Longueur"
+                  aria-label="Longueur en mm"
+                  autoFocus={added === l.id}
+                  maxLength={20}
+                />
+                <span aria-hidden="true">x</span>
+                <input value={l.epaisseur} onChange={(e) => update(l.id, { epaisseur: e.target.value })} placeholder="Ép." aria-label="Épaisseur" maxLength={20} />
+              </span>
+              <span className="sb-stepper">
+                <button type="button" onClick={() => update(l.id, { nombre: Math.max(0, l.nombre - 1) })} aria-label="Une plaque de moins" disabled={l.nombre <= 0}>
+                  −
+                </button>
+                <input value={String(l.nombre)} onChange={(e) => update(l.id, { nombre: count(e.target.value) })} inputMode="numeric" aria-label="Nombre de plaques" />
+                <button type="button" onClick={() => update(l.id, { nombre: Math.min(9999, l.nombre + 1) })} aria-label="Une plaque de plus">
+                  +
+                </button>
+              </span>
+              <button type="button" className="btn ghost icon sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="sb-protect-foot">
+        <button type="button" className="btn ghost mini" onClick={add}>
+          + Ajouter une dimension
+        </button>
+        <input
+          className="sb-protect-comment"
+          value={state.comment}
+          onChange={(e) => onChange((p) => ({ ...p, comment: e.target.value }))}
+          placeholder="Commentaire pour le superviseur"
+          aria-label="Commentaire sur les plaques de protection"
+          maxLength={500}
+        />
+      </div>
+    </Section>
+  );
+}
+
+/** Protection plates on paper, or over several shifts: totals by dimension and the comments. */
+function ProtectionSummary({ states, comments }: { states: ProtectionState[]; comments: { who?: string; text: string }[] }) {
+  const dims = byDimension(states);
+  const total = dims.reduce((n, d) => n + d.nombre, 0);
+  const notes = comments.filter((c) => c.text.trim());
+  return (
+    <Section title="Plaques de protection" aside={total ? `${fmt(total)} au total · hors rejets` : undefined}>
+      {dims.length ? (
+        <table className="sb-table sb-protect-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Plaques</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dims.map((d) => (
+              <tr key={d.dim}>
+                <th>{d.dim}</th>
+                <td className="sb-strong">{fmt(d.nombre)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="sb-none">Aucune plaque de protection.</p>
+      )}
+      {notes.map((c, i) => (
+        <p key={i} className="sb-line">
+          {c.who ? <strong>{c.who} : </strong> : null}« {c.text.trim()} »
+        </p>
+      ))}
+    </Section>
   );
 }
 
@@ -265,7 +367,7 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: S
 }
 
 /** The day's three shifts side by side: who worked, what went through, the gap each left. */
-function ShiftsTable({ day, live }: { day: DayBilan; live?: string }) {
+function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; protection?: Map<string, number> }) {
   return (
     <Section title="Par poste">
       <div className="sb-scroll">
@@ -278,6 +380,7 @@ function ShiftsTable({ day, live }: { day: DayBilan; live?: string }) {
               <th>Rejets</th>
               <th>Taux</th>
               <th>Delta</th>
+              {protection && <th>Protection</th>}
             </tr>
           </thead>
           <tbody>
@@ -302,6 +405,7 @@ function ShiftsTable({ day, live }: { day: DayBilan; live?: string }) {
                       <td className={t.delta ? 'is-bad' : ''}>{fmt(t.delta)}</td>
                     </>
                   )}
+                  {protection && <td className="sb-protect-col">{protection.get(s.poste) ? fmt(protection.get(s.poste) as number) : '—'}</td>}
                 </tr>
               );
             })}
@@ -310,6 +414,21 @@ function ShiftsTable({ day, live }: { day: DayBilan; live?: string }) {
       </div>
     </Section>
   );
+}
+
+/** The day's protection plates: the shift on screen as it is being typed, the other two as read. */
+function useDayProtection(part: Partition, live: ProtectionState, enabled: boolean) {
+  const shifts = dayShifts(part.date);
+  const read = useProtectionOf(
+    shifts.map((x) => ({ date: part.date, poste: x.poste })),
+    enabled,
+  );
+  const of = (poste: string) => (poste === part.poste ? live : (read.get(`${part.date}|${poste}`) ?? { lines: [], comment: '' }));
+  return {
+    states: shifts.map((x) => of(x.poste)),
+    totals: new Map(shifts.map((x) => [x.poste, totalOf(of(x.poste))])),
+    comments: shifts.map((x) => ({ who: `${x.label} · ${x.poste}`, text: of(x.poste).comment })),
+  };
 }
 
 interface BilanSheetProps {
@@ -327,6 +446,8 @@ interface BilanSheetProps {
 export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint, onShowRow }: BilanSheetProps) {
   const bilan = useBilan(part);
   const day = useDayBilan(part.date, part, scope === 'jour');
+  const [protection, setProtection] = useProtection(part);
+  const dayProtection = useDayProtection(part, protection, scope === 'jour');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -392,17 +513,21 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
                 </button>
               </div>
               <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false}>
-                <ShiftsTable day={day} live={part.poste} />
+                <ShiftsTable day={day} live={part.poste} protection={dayProtection.totals} />
+                <ProtectionSummary states={dayProtection.states} comments={dayProtection.comments} />
               </BilanBody>
             </div>
           )
-        ) : !bilan ? (
-          <p className="sb-none">Le classeur du poste n’est pas encore chargé.</p>
-        ) : bilan.empty ? (
-          <p className="sb-none">Aucune ligne remplie pour ce poste.</p>
+        ) : !bilan || bilan.empty ? (
+          <div className="sb">
+            <p className="sb-none">{!bilan ? 'Le classeur du poste n’est pas encore chargé.' : 'Aucune ligne remplie pour ce poste.'}</p>
+            <ProtectionEditor state={protection} onChange={setProtection} />
+          </div>
         ) : (
           <div className="sb">
-            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks />
+            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks>
+              <ProtectionEditor state={protection} onChange={setProtection} />
+            </BilanBody>
           </div>
         )}
       </div>
@@ -448,7 +573,13 @@ interface BilanPrintProps {
 
 /** The figures, then the rejects: for the whole, then every colour in turn when there are several. */
 function PrintBody({ bilan, wholeTitle, children }: { bilan: SuiviBilan; wholeTitle: string; children?: ReactNode }) {
-  if (bilan.empty) return <p className="sb-none">Aucune ligne remplie.</p>;
+  if (bilan.empty)
+    return (
+      <>
+        <p className="sb-none">Aucune ligne remplie.</p>
+        {children}
+      </>
+    );
   const several = bilan.colours.length > 1;
   return (
     <>
@@ -477,6 +608,8 @@ function PrintBody({ bilan, wholeTitle, children }: { bilan: SuiviBilan; wholeTi
 export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintProps) {
   const bilan = useBilan(part);
   const day = useDayBilan(part.date, part, scope === 'jour');
+  const [protection] = useProtection(part);
+  const dayProtection = useDayProtection(part, protection, scope === 'jour');
   // The time it goes to paper (`beforeprint`, where the engine fires it; the
   // last render otherwise).
   const [now, setNow] = useState(() => new Date());
@@ -510,7 +643,8 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
           </div>
         </div>
         <PrintBody bilan={day.bilan} wholeTitle="Rejets de la journée">
-          <ShiftsTable day={day} />
+          <ShiftsTable day={day} protection={dayProtection.totals} />
+          <ProtectionSummary states={dayProtection.states} comments={dayProtection.comments} />
         </PrintBody>
       </section>
     );
@@ -535,7 +669,9 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
           </span>
         </div>
       </div>
-      <PrintBody bilan={bilan} wholeTitle="Rejets du poste" />
+      <PrintBody bilan={bilan} wholeTitle="Rejets du poste">
+        <ProtectionSummary states={[protection]} comments={[{ text: protection.comment }]} />
+      </PrintBody>
     </section>
   );
 }

@@ -66,6 +66,8 @@ export default {
           return json({ ok: true }, cors);
         case '/api/logbook':
           return await handleLogbook(request, url, env, cors);
+        case '/api/protection':
+          return await handleProtection(request, url, env, cors);
         case '/api/prodtest':
           return await handleProdTest(request, url, env, cors);
         case '/api/suivi':
@@ -212,6 +214,59 @@ async function handleLogbook(
          updated_at = excluded.updated_at`,
     )
       .bind(date, poste, JSON.stringify(body), now)
+      .run();
+    return json({ ok: true, updated_at: now }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+// Protection plates of a shift (migration 0008): its lines, not rejects. The
+// shape is checked so that every device can read what any device stored.
+const MAX_PROTECTION_LINES = 50;
+function protectionState(body: unknown): { lines: { id: string; longueur: string; epaisseur: string; nombre: number }[]; comment: string } | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const { lines, comment } = body as { lines?: unknown; comment?: unknown };
+  if (!Array.isArray(lines) || lines.length > MAX_PROTECTION_LINES) return null;
+  const out = [];
+  for (const l of lines) {
+    if (!l || typeof l !== 'object') return null;
+    const { id, longueur, epaisseur, nombre } = l as Record<string, unknown>;
+    if (typeof id !== 'string' || id.length > 40) return null;
+    if (typeof longueur !== 'string' || longueur.length > 20 || typeof epaisseur !== 'string' || epaisseur.length > 20) return null;
+    if (typeof nombre !== 'number' || !Number.isInteger(nombre) || nombre < 0 || nombre > 9999) return null;
+    out.push({ id, longueur, epaisseur, nombre });
+  }
+  if (comment !== undefined && (typeof comment !== 'string' || comment.length > 500)) return null;
+  return { lines: out, comment: typeof comment === 'string' ? comment : '' };
+}
+
+async function handleProtection(request: Request, url: URL, env: Env, cors: Record<string, string>): Promise<Response> {
+  const date = url.searchParams.get('date');
+  const poste = url.searchParams.get('poste');
+  if (!date || !poste) return json({ error: 'missing_params' }, cors, 400);
+  if (!ISO_DATE_RE.test(date) || !POSTE_RE.test(poste)) return json({ error: 'invalid_params' }, cors, 400);
+
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare('SELECT state_json, updated_at FROM protection_plates WHERE date = ? AND poste = ?')
+      .bind(date, poste)
+      .first<{ state_json: string; updated_at: number }>();
+    if (!row) return json({ data: null, updated_at: null }, cors);
+    return json({ data: JSON.parse(row.state_json), updated_at: row.updated_at }, cors);
+  }
+
+  if (request.method === 'PUT') {
+    const state = protectionState(await readJsonBody(request));
+    if (!state) return json({ error: 'expected_protection_state' }, cors, 400);
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO protection_plates (date, poste, state_json, updated_at)
+       VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT(date, poste) DO UPDATE SET
+         state_json = excluded.state_json,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(date, poste, JSON.stringify(state), now)
       .run();
     return json({ ok: true, updated_at: now }, cors);
   }
@@ -436,6 +491,8 @@ async function handleUpdates(
         poste,
       ),
     );
+    domains.push('protection');
+    statements.push(env.DB.prepare('SELECT updated_at FROM protection_plates WHERE date = ? AND poste = ?').bind(date, poste));
   }
   if (dateOk && shift && SHIFT_RE.test(shift)) {
     domains.push('prodtest');
