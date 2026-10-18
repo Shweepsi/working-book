@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import EnvoiClaude from './components/EnvoiClaude';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
 import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
+import { SYNC_ENABLED } from './lib/api';
 import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
@@ -118,6 +120,7 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
+  const [envoiOpen, setEnvoiOpen] = useState(false);
   // Which paper layout the Schedule view prints as. Kept here, next to the
   // `@page` rule and the aperçu bar, so the orientation has a single owner.
   // Persisted like the other paper-adjacent preferences: an operator who
@@ -298,6 +301,7 @@ export default function App() {
   return (
     <div className="app">
       {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
+      {envoiOpen && <EnvoiClaude onClose={() => setEnvoiOpen(false)} />}
       <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
@@ -418,6 +422,7 @@ export default function App() {
             onThemeChange={setTheme}
             density={density}
             onDensityChange={setDensity}
+            onSendToClaude={SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined}
           />
         </div>
       </header>

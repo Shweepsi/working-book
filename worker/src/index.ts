@@ -33,6 +33,22 @@ const INGEST_PATH = '/api/schedules/ingest';
 // M3 host alike, and the extension may run from either.
 const DEFAULT_INGEST_ORIGINS = '*.inforcloudsuite.com';
 
+// Fichiers envoyés à Claude. The list, the upload and the delete answer the app;
+// the bytes themselves only come back through UPLOAD_FILE_PATH, with the key.
+const UPLOADS_PATH = '/api/uploads';
+const UPLOAD_FILE_PATH = '/api/uploads/file';
+// A whole logbook .xlsm, macros and all, with room to spare. The Worker holds
+// the body in memory while it cuts it up, so this is also a memory bound.
+const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+// Everything stored at once, well inside the 500 MB a D1 database gets — the
+// files share it with the line's own data, which must never be the one refused.
+const UPLOADS_MAX_TOTAL_BYTES = 200 * 1024 * 1024;
+// Under the 2 000 000 bytes D1 takes in a single value.
+const UPLOAD_CHUNK_BYTES = 1_000_000;
+const UPLOAD_NAME_MAX = 200;
+// The note rides in the query string; the app sends a longer one as a file.
+const UPLOAD_NOTE_MAX = 1000;
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('Origin');
@@ -45,7 +61,9 @@ export default {
             extraOrigins: splitPatterns(env.INGEST_ORIGINS ?? DEFAULT_INGEST_ORIGINS),
             methods: 'POST, OPTIONS',
           })
-        : corsHeaders(env, origin);
+        : url.pathname === UPLOADS_PATH
+          ? corsHeaders(env, origin, { methods: 'GET, POST, DELETE, OPTIONS' })
+          : corsHeaders(env, origin);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
@@ -75,6 +93,10 @@ export default {
           return await handleUpdates(request, url, env, cors);
         case INGEST_PATH:
           return await handleSchedulesIngest(request, env, cors);
+        case UPLOADS_PATH:
+          return await handleUploads(request, url, env, cors);
+        case UPLOAD_FILE_PATH:
+          return await handleUploadFile(request, url, env, cors);
         default:
           return json({ error: 'not_found' }, cors, 404);
       }
@@ -561,4 +583,156 @@ async function handlePolicy(
   }
 
   return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+interface UploadMeta {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  note: string | null;
+  created_at: number;
+}
+
+// Fichiers envoyés à Claude — the app's side: list them, send one, take one
+// back. The body of a POST is the file itself, as the browser read it; its
+// name and the operator's note ride in the query string.
+async function handleUploads(
+  request: Request,
+  url: URL,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      'SELECT id, name, type, size, note, created_at FROM uploads ORDER BY created_at DESC',
+    ).all<UploadMeta>();
+    return json({ data: results, updated_at: Date.now() }, { ...cors, 'Cache-Control': 'no-store' });
+  }
+
+  if (request.method === 'POST') return await storeUpload(request, url, env, cors);
+
+  if (request.method === 'DELETE') {
+    const id = url.searchParams.get('id');
+    if (!id) return json({ error: 'missing_params' }, cors, 400);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM uploads WHERE id = ?').bind(id),
+      env.DB.prepare('DELETE FROM upload_chunks WHERE upload_id = ?').bind(id),
+    ]);
+    return json({ ok: true, updated_at: Date.now() }, cors);
+  }
+
+  return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+async function storeUpload(
+  request: Request,
+  url: URL,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const name = (url.searchParams.get('name') ?? '').trim().slice(0, UPLOAD_NAME_MAX);
+  if (!name) return json({ error: 'missing_name' }, cors, 400);
+  const note = (url.searchParams.get('note') ?? '').trim().slice(0, UPLOAD_NOTE_MAX) || null;
+
+  const lenHeader = request.headers.get('Content-Length');
+  if (lenHeader && Number(lenHeader) > UPLOAD_MAX_BYTES) {
+    throw new HttpError(413, 'payload_too_large');
+  }
+  const body = await request.arrayBuffer();
+  if (body.byteLength > UPLOAD_MAX_BYTES) throw new HttpError(413, 'payload_too_large');
+  if (body.byteLength === 0) return json({ error: 'empty_file' }, cors, 400);
+
+  const stored = await env.DB.prepare(
+    'SELECT COALESCE(SUM(size), 0) AS total FROM uploads',
+  ).first<{ total: number }>();
+  if ((stored?.total ?? 0) + body.byteLength > UPLOADS_MAX_TOTAL_BYTES) {
+    return json({ error: 'storage_full' }, cors, 507);
+  }
+
+  const id = crypto.randomUUID();
+  const type =
+    (request.headers.get('Content-Type') ?? '').split(';')[0].trim() || 'application/octet-stream';
+  const chunks = Math.ceil(body.byteLength / UPLOAD_CHUNK_BYTES);
+  // One statement per chunk rather than one batch: a batch carries every chunk
+  // in a single request, and 25 MB is more than that request is meant to hold.
+  try {
+    for (let seq = 0; seq < chunks; seq++) {
+      const part = body.slice(seq * UPLOAD_CHUNK_BYTES, (seq + 1) * UPLOAD_CHUNK_BYTES);
+      await env.DB.prepare('INSERT INTO upload_chunks (upload_id, seq, data) VALUES (?1, ?2, ?3)')
+        .bind(id, seq, part)
+        .run();
+    }
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO uploads (id, name, type, size, note, chunks, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    )
+      .bind(id, name, type, body.byteLength, note, chunks, now)
+      .run();
+    const meta: UploadMeta = { id, name, type, size: body.byteLength, note, created_at: now };
+    return json({ data: meta, updated_at: now }, cors, 201);
+  } catch (err) {
+    // Half a file is worth nothing and nothing lists it: give its space back.
+    await env.DB.prepare('DELETE FROM upload_chunks WHERE upload_id = ?')
+      .bind(id)
+      .run()
+      .catch(() => undefined);
+    throw err;
+  }
+}
+
+// Claude's side: a file's bytes, for whoever holds the key drawn by migration
+// 0006 (`SELECT token FROM upload_access`). No browser ever calls this.
+async function handleUploadFile(
+  request: Request,
+  url: URL,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, cors, 405);
+
+  const access = await env.DB.prepare('SELECT token FROM upload_access WHERE id = 1').first<{
+    token: string;
+  }>();
+  const given = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (!access || !sameToken(given, access.token)) {
+    return json({ error: 'unauthorized' }, cors, 401);
+  }
+
+  const id = url.searchParams.get('id');
+  if (!id) return json({ error: 'missing_params' }, cors, 400);
+  const meta = await env.DB.prepare('SELECT name, type, size, chunks FROM uploads WHERE id = ?')
+    .bind(id)
+    .first<{ name: string; type: string; size: number; chunks: number }>();
+  if (!meta) return json({ error: 'not_found' }, cors, 404);
+
+  const out = new Uint8Array(meta.size);
+  let offset = 0;
+  for (let seq = 0; seq < meta.chunks; seq++) {
+    const row = await env.DB.prepare('SELECT data FROM upload_chunks WHERE upload_id = ? AND seq = ?')
+      .bind(id, seq)
+      .first<{ data: ArrayBuffer | number[] }>();
+    if (!row) throw new HttpError(500, 'missing_chunk');
+    // D1 has handed BLOBs back both as an ArrayBuffer and as a plain array of bytes.
+    const part = row.data instanceof ArrayBuffer ? new Uint8Array(row.data) : Uint8Array.from(row.data);
+    out.set(part, offset);
+    offset += part.byteLength;
+  }
+
+  return new Response(out, {
+    headers: {
+      ...cors,
+      'Content-Type': meta.type,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(meta.name)}`,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+function sameToken(given: string, expected: string): boolean {
+  const enc = new TextEncoder();
+  const a = enc.encode(given);
+  const b = enc.encode(expected);
+  return a.byteLength === b.byteLength && crypto.subtle.timingSafeEqual(a, b);
 }
