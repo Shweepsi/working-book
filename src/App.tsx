@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import EnvoiClaude from './components/EnvoiClaude';
 import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
@@ -123,6 +124,7 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
+  const [envoiOpen, setEnvoiOpen] = useState(false);
   // The shift's bilan (previews): a sheet over whatever page is showing, the
   // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
   const [bilanOpen, setBilanOpen] = useState(false);
@@ -340,6 +342,7 @@ export default function App() {
   return (
     <div className="app">
       {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
+      {envoiOpen && <EnvoiClaude onClose={() => setEnvoiOpen(false)} />}
       <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
@@ -461,6 +464,7 @@ export default function App() {
             onThemeChange={setTheme}
             density={density}
             onDensityChange={setDensity}
+            onSendToClaude={SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined}
           />
         </div>
       </header>

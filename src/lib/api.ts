@@ -45,3 +45,44 @@ export async function apiPut(path: string, body: unknown): Promise<number | null
     return null;
   }
 }
+
+export async function apiDelete(path: string): Promise<void> {
+  if (!SYNC_ENABLED) return;
+  const res = await fetch(API_BASE + path, { method: 'DELETE' });
+  if (!res.ok) throw new ApiError(res.status, `DELETE ${path} failed (${res.status})`);
+}
+
+// Sends a file as the raw request body. XHR rather than fetch: fetch says
+// nothing until the last byte is out, and a logbook of several megabytes on
+// the plant's network needs a bar that moves. The error carries the Worker's
+// own code (`payload_too_large`, `storage_full`…), or `network_error` with
+// status 0 when the request never got an answer at all.
+export function apiUpload<T>(
+  path: string,
+  body: Blob,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', API_BASE + path);
+    xhr.setRequestHeader('Content-Type', body.type || 'application/octet-stream');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      let parsed: { error?: unknown } | null = null;
+      try {
+        parsed = JSON.parse(xhr.responseText) as { error?: unknown };
+      } catch {
+        // Not JSON — something between us and the Worker answered instead.
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(parsed as T);
+      else {
+        const code = typeof parsed?.error === 'string' ? parsed.error : `http_${xhr.status}`;
+        reject(new ApiError(xhr.status, code));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'network_error'));
+    xhr.send(body);
+  });
+}

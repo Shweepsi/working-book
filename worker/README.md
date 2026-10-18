@@ -108,9 +108,42 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `GET  /api/archives` → `{ data: Record<schedule, ISO date> | null, updated_at }` — schedules retirés du planning
 - `PUT  /api/archives` body: `Record<schedule, ISO date>`
 - `GET  /api/updates[?date=…&poste=…&shift=…]` → `{ data: Record<domain, number | null>, updated_at }` — change probe, see below
+- `GET  /api/uploads` → `{ data: UploadMeta[], updated_at }` — fichiers envoyés à Claude, newest first
+- `POST /api/uploads?name=…[&note=…]` body: the file's raw bytes — up to 25 MB (see below)
+- `DELETE /api/uploads?id=…`
+- `GET  /api/uploads/file?id=…` + `Authorization: Bearer <token>` → the file's bytes — the one route with a key
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
 stored JSON wholesale on every `PUT`.
+
+## Envoyer à Claude
+
+Réglages → *Envoyer à Claude* opens a sheet (`src/components/EnvoiClaude.tsx`)
+that sends files — a logbook `.xlsm`, a photo, a PDF — or a plain note, for
+Claude to read in a later session. A note sent without a file is stored as a
+`note-YYYY-MM-DD-HHMM.txt` of its own.
+
+Storage is D1, not R2: the account's deploy token only covers D1, and D1 is
+what Claude already reaches through the Cloudflare connector. A file is cut
+into 1 MB rows of `upload_chunks` (D1 refuses a value over 2 000 000 bytes),
+and its `uploads` row is written last, so a file only lists once all of it is
+stored. One file is held to 25 MB, everything stored to 200 MB, so the files
+can never crowd out the line's own data in the 500 MB a database gets.
+
+Listing, sending and deleting are open like the rest of the API. Reading the
+bytes back is not: `/api/uploads/file` wants the token that migration 0006
+draws once per database (`upload_access`). It never sits in the repo, and the
+app never holds it.
+
+How Claude reads a file:
+
+1. Token, through the Cloudflare connector on the right D1:
+   `SELECT token FROM upload_access`
+2. List: `GET /api/uploads` on the matching Worker.
+3. Bytes: `curl -H "Authorization: Bearer <token>" "<worker>/api/uploads/file?id=<id>" -o <name>`
+
+For a text file, the connector alone is enough:
+`SELECT CAST(data AS TEXT) FROM upload_chunks WHERE upload_id = '<id>' ORDER BY seq`.
 
 ## Flux ICS du roulement
 
