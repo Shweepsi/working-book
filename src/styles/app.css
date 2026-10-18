@@ -5811,7 +5811,7 @@ button.as-row:focus-visible {
   margin: 0 auto;
   padding: var(--space-4) var(--space-6) 120px;
 }
-.ln-empty { align-items: center; justify-content: center; min-height: 320px; color: var(--ink-soft); text-align: center; }
+.ln-empty { display: flex; align-items: center; justify-content: center; min-height: 320px; color: var(--ink-soft); text-align: center; }
 
 .ln-block {
   display: flex;

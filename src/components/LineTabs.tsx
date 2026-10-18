@@ -631,7 +631,11 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
     <div className={`ln ln-${side} no-print`} ref={root}>
       <Lists d={data} />
       {!colours.length && !blocks.length ? (
-        <NewColour first onStart={startColour} />
+        side === 'loading' ? (
+          <NewColour first onStart={startColour} />
+        ) : (
+          <div className="ln-empty" role="status">Aucune couleur sur ce poste : elles s’ouvrent dans Loading.</div>
+        )
       ) : (
         <>
           {blocks.map((b) => (
@@ -691,7 +695,8 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
               )}
             </section>
           ))}
-          <NewColour first={!colours.length} onStart={startColour} />
+          {/* Colours open in Loading: what is loaded in a colour comes out in it. */}
+          {side === 'loading' && <NewColour first={!colours.length} onStart={startColour} />}
         </>
       )}
     </div>
