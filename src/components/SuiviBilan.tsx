@@ -214,7 +214,7 @@ function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; reje
   );
 }
 
-/** The shift's protection plates, typed in: a line per dimension (by hand), a counter, a comment. Never rejects. */
+/** The shift's protection plates, typed in: a line per dimension (by hand) and a counter. Never rejects. */
 function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChange: (next: (prev: ProtectionState) => ProtectionState) => void }) {
   const [added, setAdded] = useState<string | null>(null);
   const total = totalOf(state);
@@ -227,7 +227,6 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
   };
   return (
     <Section title="Plaques de protection" aside={total ? `${fmt(total)} au total` : undefined}>
-      <p className="sb-protect-hint">Pour le superviseur. Elles ne comptent pas dans les rejets.</p>
       {state.lines.length > 0 && (
         <ul className="sb-protect">
           {state.lines.map((l) => (
@@ -265,24 +264,15 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
         <button type="button" className="btn ghost mini" onClick={add}>
           + Ajouter une dimension
         </button>
-        <input
-          className="sb-protect-comment"
-          value={state.comment}
-          onChange={(e) => onChange((p) => ({ ...p, comment: e.target.value }))}
-          placeholder="Commentaire pour le superviseur"
-          aria-label="Commentaire sur les plaques de protection"
-          maxLength={500}
-        />
       </div>
     </Section>
   );
 }
 
-/** Protection plates on paper, or over several shifts: totals by dimension and the comments. */
-function ProtectionSummary({ states, comments }: { states: ProtectionState[]; comments: { who?: string; text: string }[] }) {
+/** Protection plates on paper, or over several shifts: totals by dimension. */
+function ProtectionSummary({ states }: { states: ProtectionState[] }) {
   const dims = byDimension(states);
   const total = dims.reduce((n, d) => n + d.nombre, 0);
-  const notes = comments.filter((c) => c.text.trim());
   return (
     <Section title="Plaques de protection" aside={total ? `${fmt(total)} au total · hors rejets` : undefined}>
       {dims.length ? (
@@ -305,11 +295,6 @@ function ProtectionSummary({ states, comments }: { states: ProtectionState[]; co
       ) : (
         <p className="sb-none">Aucune plaque de protection.</p>
       )}
-      {notes.map((c, i) => (
-        <p key={i} className="sb-line">
-          {c.who ? <strong>{c.who} : </strong> : null}« {c.text.trim()} »
-        </p>
-      ))}
     </Section>
   );
 }
@@ -427,7 +412,6 @@ function useDayProtection(part: Partition, live: ProtectionState, enabled: boole
   return {
     states: shifts.map((x) => of(x.poste)),
     totals: new Map(shifts.map((x) => [x.poste, totalOf(of(x.poste))])),
-    comments: shifts.map((x) => ({ who: `${x.label} · ${x.poste}`, text: of(x.poste).comment })),
   };
 }
 
@@ -514,7 +498,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
               </div>
               <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false}>
                 <ShiftsTable day={day} live={part.poste} protection={dayProtection.totals} />
-                <ProtectionSummary states={dayProtection.states} comments={dayProtection.comments} />
+                <ProtectionSummary states={dayProtection.states} />
               </BilanBody>
             </div>
           )
@@ -644,7 +628,7 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
         </div>
         <PrintBody bilan={day.bilan} wholeTitle="Rejets de la journée">
           <ShiftsTable day={day} protection={dayProtection.totals} />
-          <ProtectionSummary states={dayProtection.states} comments={dayProtection.comments} />
+          <ProtectionSummary states={dayProtection.states} />
         </PrintBody>
       </section>
     );
@@ -670,7 +654,7 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
         </div>
       </div>
       <PrintBody bilan={bilan} wholeTitle="Rejets du poste">
-        <ProtectionSummary states={[protection]} comments={[{ text: protection.comment }]} />
+        <ProtectionSummary states={[protection]} />
       </PrintBody>
     </section>
   );

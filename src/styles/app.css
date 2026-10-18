@@ -4080,13 +4080,11 @@ button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset
 /* Protection plates (lib/protection.ts): their own rubric, never rejects.
    Typed on a tablet, so every control is a finger wide. */
 .sb .sb-aside { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink); font-size: var(--fs-md); }
-.sb-protect-hint { margin: 0; font-size: var(--fs-md); color: var(--ink-faint); }
 .sb-protect { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .sb-protect li { display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; }
 .sb-protect-dim { display: inline-flex; align-items: center; gap: var(--space-3); color: var(--ink-soft); }
 .sb-protect-dim input,
-.sb-stepper input,
-.sb-protect-comment {
+.sb-stepper input {
   height: 44px;
   padding: 0 var(--space-4);
   border: 1px solid var(--line-soft);
@@ -4099,8 +4097,7 @@ button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset
 .sb-protect-dim input { width: 7.5em; }
 .sb-protect-dim input + span + input { width: 5em; }
 .sb-protect-dim input:focus,
-.sb-stepper input:focus,
-.sb-protect-comment:focus { outline: none; border-color: var(--accent); }
+.sb-stepper input:focus { outline: none; border-color: var(--accent); }
 .sb-stepper { display: inline-flex; align-items: center; border: 1px solid var(--line-soft); border-radius: var(--radius-md); overflow: hidden; }
 .sb-stepper button {
   width: 48px;
@@ -4118,7 +4115,6 @@ button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset
 .sb-stepper input { width: 4em; border: 0; border-radius: 0; text-align: center; font-size: var(--fs-xl); font-weight: 650; }
 .sb-protect-remove { color: var(--ink-faint); }
 .sb-protect-foot { display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; }
-.sb-protect-comment { flex: 1 1 220px; min-width: 0; }
 .sb-protect-table { width: auto; min-width: 260px; }
 .sb-shifts .sb-protect-col { color: var(--ink-soft); }
 /* The shift or its day. */
