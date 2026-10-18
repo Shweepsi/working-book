@@ -213,7 +213,7 @@ function LoadingRowView({ row, draft, onChange, onRemove }: RowProps<LoadingRow>
   const restantes = row.lites !== null && row.conso !== null ? row.lites - row.conso : null;
   const over = row.lites !== null && row.conso !== null && row.conso > row.lites;
   return (
-    <div className={`ln-row ln-loading${draft ? ' is-draft' : ''}${issues.length ? ' has-issues' : ''}`} data-rec={row.id} role="row">
+    <div className={`ln-row ln-loading${draft ? ' is-draft' : ''}${issues.length ? ' has-issues' : ''}${commenting || row.comment ? ' has-note' : ''}`} data-rec={row.id} role="row">
       <Field label="N° TAG" col="tag" invalid={!draft && !!issues.find((x) => x.startsWith('N° TAG'))}>
         <TextInput value={row.tag} onCommit={(t) => set({ tag: t.replace(/\s/g, '') })} label="N° TAG" numeric autoFocus={draft} placeholder="22111809784" />
       </Field>
