@@ -80,7 +80,13 @@ export default function ToolsMenu({ grid, line, bilan, onCalc, printPreview, onP
             <div className="hdr-list">
               <div className="hdr-menu-sync">
                 <SyncIndicator grid={grid} line={line} />
-                {sync && <span className="hdr-menu-sync-text">{sync.title.split('\n')[0]}</span>}
+                {sync && (
+                  <span className="hdr-menu-sync-text">
+                    {sync.title.split('\n').map((l) => (
+                      <span key={l}>{l}</span>
+                    ))}
+                  </span>
+                )}
               </div>
               {bilan && (
                 <button type="button" role="menuitem" className="hdr-item" onClick={run(bilan.onOpen)}>
