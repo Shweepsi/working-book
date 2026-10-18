@@ -49,6 +49,11 @@ const pct = (part: number, whole: number) => (whole > 0 ? `${((part / whole) * 1
 const plural = (n: number, one: string, many = `${one}s`) => `${fmtNum(n)} ${n > 1 ? many : one}`;
 const sum = (xs: (number | null)[]) => xs.reduce<number>((n, x) => n + (x ?? 0), 0);
 const shortDefect = (d: string) => d.replace(/^([A-Z]\d+) - /, '$1 ');
+/** « A2 Conditioning »: the code and the first word, for a button. */
+const tinyDefect = (d: string) => {
+  const m = /^([A-Z]\d+) - ([^\s/]+)/.exec(d);
+  return m ? `${m[1]} ${m[2]}` : d;
+};
 
 // The October shifts' most frequent defects, for the quick buttons until the shift has its own.
 const FREQUENT_DEFECTS = ['A6 - Flaking', 'C6 - Surplus Special Dimensions', 'A3 - Quality Test', 'A2 - Conditioning/Startup/Color Search'];
@@ -615,13 +620,15 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
       ? { ...same, qty: (same.qty ?? 0) + 1 }
       : { id: newId('s'), kind: 'scrap', at: Date.now(), colour: colour.id, defect, qty: 1, dim, ep, comment: '' };
     save(next);
-    toast.show({ message: `${shortDefect(defect)} · ${dimLabel(dim, ep)} : ${fmtNum(next.qty ?? 0)}`, undo: () => (same ? save(same) : deleteRecords(part, [next])) });
+    toast.show({ key: 'ln-quick', message: `${shortDefect(defect)} · ${dimLabel(dim, ep)} : ${fmtNum(next.qty ?? 0)}`, undo: () => (same ? save(same) : deleteRecords(part, [next])) });
   };
-  const moveTo = (rows: LineRecord[], colourId: string) =>
-    putRecords(
-      part,
-      rows.filter((r): r is LoadingRow | UnloadingRow | Scrap => r.kind !== 'colour' && !isDraft(r)).map((r) => ({ ...r, colour: colourId })),
-    );
+  // Rows under no colour put under `name`: the colour of that name, started if there's none.
+  const nameRows = (rows: LineRecord[], name: string) => {
+    const existing = colours.find((c) => c.name.trim().toUpperCase() === name);
+    const colour: Colour = existing ?? { id: newId('c'), kind: 'colour', at: Math.min(Date.now(), ...rows.map((r) => r.at - 1)), name };
+    const moved = rows.filter((r): r is LoadingRow | UnloadingRow | Scrap => r.kind !== 'colour' && !isDraft(r)).map((r) => ({ ...r, colour: colour.id }));
+    putRecords(part, existing ? moved : [colour, ...moved]);
+  };
 
   const filled = side === 'loading' ? data.loading.filter(loadingFilled) : data.unloading.filter(unloadingFilled);
   const scrapsFilled = data.scraps.filter(scrapFilled);
@@ -665,7 +672,6 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
               <BlockHead
                 block={b}
                 side={side}
-                colours={colours}
                 onRename={(name) => b.colour && save({ ...b.colour, name })}
                 onRemove={() => {
                   if (!b.colour) return;
@@ -673,7 +679,7 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
                   deleteRecords(part, [c]);
                   toast.show({ message: `Couleur ${c.name} retirée`, undo: () => save(c) });
                 }}
-                onMove={(id) => moveTo([...b.loading, ...b.unloading, ...b.scraps], id)}
+                onName={(name) => nameRows([...b.loading, ...b.unloading, ...b.scraps], name)}
                 empty={!b.loading.length && !b.unloading.length && !b.scraps.length}
               />
               {side === 'loading' ? (
@@ -725,6 +731,40 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
   );
 }
 
+/** The colour of the rows under none: typed (or picked from the list), they all go under it. */
+function NameRows({ onName }: { onName: (name: string) => void }) {
+  const [name, setName] = useState('');
+  return (
+    <form
+      className="ln-name-none"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = name.trim().toUpperCase();
+        if (!n) return;
+        onName(n);
+        setName('');
+      }}
+    >
+      <label htmlFor="ln-name-none">Leur couleur</label>
+      <input
+        id="ln-name-none"
+        className="ln-input"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        list="ln-colours"
+        placeholder="SNX60HT"
+        autoCapitalize="characters"
+        autoComplete="off"
+        spellCheck={false}
+        maxLength={60}
+      />
+      <button type="submit" className="btn primary" disabled={!name.trim()}>
+        Ranger
+      </button>
+    </form>
+  );
+}
+
 interface QuickScrapsProps {
   colour: Colour;
   /** The colour's current dimension: its last rack's (or scrap's). */
@@ -744,7 +784,7 @@ function QuickScraps({ colour, dims, defects, onAdd, onQuick }: QuickScrapsProps
       </button>
       {defects.map((d) => (
         <button key={d} type="button" className="ln-quick-defect" onClick={() => onQuick(colour, d)} title={`Un scrap de plus : ${d}${at}`}>
-          +1 {shortDefect(d)}
+          +1 {tinyDefect(d)}
         </button>
       ))}
     </div>
@@ -796,15 +836,15 @@ function TableHead({ side }: { side: Side | 'scrap' }) {
 interface BlockHeadProps {
   block: Block;
   side: Side;
-  colours: Colour[];
   onRename: (name: string) => void;
   onRemove: () => void;
-  onMove: (colourId: string) => void;
+  /** The rows under no colour go under this one. */
+  onName: (name: string) => void;
   /** Nothing under it on either tab: it can go. */
   empty: boolean;
 }
 
-function BlockHead({ block, side, colours, onRename, onRemove, onMove, empty }: BlockHeadProps) {
+function BlockHead({ block, side, onRename, onRemove, onName, empty }: BlockHeadProps) {
   const loading = block.loading.filter(loadingFilled);
   const racks = block.unloading.filter(unloadingFilled);
   const scraps = block.scraps.filter(scrapFilled);
@@ -819,21 +859,7 @@ function BlockHead({ block, side, colours, onRename, onRemove, onMove, empty }: 
       {block.colour ? <ColourName colour={block.colour} onRename={onRename} /> : <span className="ln-colour-name is-none">Sans couleur</span>}
       <span className="ln-block-sum">{summary}</span>
       <span className="gc-spacer" />
-      {!block.colour && colours.length > 0 && (
-        <select
-          className="ln-move"
-          value=""
-          onChange={(e) => e.target.value && onMove(e.target.value)}
-          aria-label="Ranger ces lignes dans une couleur"
-        >
-          <option value="">Ranger dans…</option>
-          {colours.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      )}
+      {!block.colour && <NameRows onName={onName} />}
       {block.colour && empty && <RemoveButton label={`Retirer la couleur ${block.colour.name}`} onClick={onRemove} />}
     </header>
   );

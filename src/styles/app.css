@@ -5890,7 +5890,9 @@ button.as-row:focus-visible {
 .ln-colour-name.is-none { color: var(--flag-unsched-fg); cursor: default; }
 .ln-colour-edit .ln-input { width: 14em; font-weight: 650; }
 .ln-block-sum { color: var(--ink-soft); font-size: var(--fs-base); font-variant-numeric: tabular-nums; }
-.ln-move { height: 32px; border: 1px solid var(--line-soft); border-radius: var(--radius-md); background: var(--paper); color: var(--ink); font: inherit; font-size: var(--fs-md); }
+.ln-name-none { display: flex; align-items: center; gap: var(--space-3); color: var(--ink-soft); font-size: var(--fs-md); }
+.ln-name-none .ln-input { width: 12em; height: 34px; font-size: var(--fs-lg); text-transform: uppercase; font-weight: 650; }
+.ln-name-none .btn { min-height: 34px; padding: 0 var(--space-6); }
 
 /* A row: the head's columns. */
 .ln-row {
@@ -5901,11 +5903,12 @@ button.as-row:focus-visible {
   gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
-  min-width: max-content;
+  /* The columns' least widths and gaps: narrower, the block scrolls sideways. */
+  min-width: var(--ln-min);
 }
-.ln-loading { --ln-cols: minmax(112px, 1.3fr) 64px minmax(72px, 0.8fr) minmax(76px, 0.8fr) minmax(72px, 0.8fr) 88px 88px minmax(126px, 1fr) 116px 46px 68px; }
-.ln-rack { --ln-cols: minmax(118px, 1.2fr) minmax(76px, 0.7fr) minmax(76px, 0.7fr) minmax(80px, 0.7fr) 72px minmax(160px, 2fr) 36px; }
-.ln-scrap { --ln-cols: minmax(220px, 2fr) 128px minmax(76px, 0.7fr) minmax(80px, 0.7fr) minmax(160px, 2fr) 36px; }
+.ln-loading { --ln-cols: minmax(112px, 1.3fr) 64px minmax(72px, 0.8fr) minmax(76px, 0.8fr) minmax(72px, 0.8fr) 88px 88px minmax(126px, 1fr) 116px 46px 68px; --ln-min: 1000px; }
+.ln-rack { --ln-cols: minmax(118px, 1.2fr) minmax(76px, 0.7fr) minmax(76px, 0.7fr) minmax(80px, 0.7fr) 72px minmax(160px, 2fr) 36px; --ln-min: 670px; }
+.ln-scrap { --ln-cols: minmax(220px, 2fr) 128px minmax(76px, 0.7fr) minmax(80px, 0.7fr) minmax(160px, 2fr) 36px; --ln-min: 750px; }
 .ln-head { padding-top: 0; padding-bottom: 0; color: var(--ink-faint); font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .ln-head span { padding-left: var(--space-2); white-space: nowrap; }
 .ln-row:not(.ln-head):hover { background: var(--paper-2); }
@@ -6035,6 +6038,7 @@ select.ln-input { padding-right: var(--space-2); }
   .ln-row {
     grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     min-width: 0;
+    --ln-min: 0;
     padding: var(--space-5) var(--space-5) var(--space-4);
     border: 1px solid var(--line-faint);
     border-radius: var(--radius-lg);

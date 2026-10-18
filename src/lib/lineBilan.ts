@@ -125,7 +125,7 @@ export function computeLineBilan(d: LineData): SuiviBilan {
     used.push(c);
     for (const k of Object.keys(all) as (keyof BilanTotals)[]) all[k] += c.raw[k];
     const checks = [...c.checks];
-    if (c.none) checks.unshift({ text: 'Ces lignes ne sont sous aucune couleur : donne-leur la leur dans Loading ou Unloading.' });
+    if (c.none) checks.unshift({ text: 'Ces lignes n’ont pas de couleur : indique-la en tête du bloc « Sans couleur », dans Loading ou Unloading.' });
     out.push({ name: c.name, none: c.none, inDl: c.inDl, inFl: c.inFl, totals: closeTotals(c.raw), rejects: closeRejects([c.acc], c.raw.rejetsM2), checks });
   }
   // Rows under no colour last: what to fix, after the production.
