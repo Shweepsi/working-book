@@ -5907,7 +5907,7 @@ button.as-row:focus-visible {
   /* The columns' least widths and gaps: narrower, the block scrolls sideways. */
   min-width: var(--ln-min);
 }
-.ln-loading { --ln-cols: minmax(126px, 1.4fr) minmax(56px, 0.6fr) minmax(72px, 0.8fr) minmax(76px, 0.8fr) minmax(64px, 0.7fr) 76px 76px minmax(128px, 1fr) minmax(104px, 0.9fr) 36px 64px; --ln-min: 930px; }
+.ln-loading { --ln-cols: minmax(122px, 1.4fr) minmax(56px, 0.6fr) minmax(72px, 0.8fr) minmax(76px, 0.8fr) minmax(64px, 0.7fr) 76px 76px minmax(124px, 1fr) minmax(100px, 0.9fr) 36px 64px; --ln-min: 918px; }
 .ln-rack { --ln-cols: minmax(126px, 1.2fr) minmax(70px, 0.7fr) minmax(72px, 0.7fr) minmax(76px, 0.7fr) minmax(60px, 0.6fr) minmax(150px, 2fr) 32px; --ln-min: 630px; }
 .ln-scrap { --ln-cols: minmax(200px, 2fr) 120px minmax(72px, 0.7fr) minmax(76px, 0.7fr) minmax(150px, 2fr) 32px; --ln-min: 690px; }
 .ln-head { padding-top: 0; padding-bottom: 0; color: var(--ink-faint); font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
