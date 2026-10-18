@@ -627,39 +627,9 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
     putRecords(part, existing ? moved : [colour, ...moved]);
   };
 
-  const filled = side === 'loading' ? data.loading.filter(loadingFilled) : data.unloading.filter(unloadingFilled);
-  const scrapsFilled = data.scraps.filter(scrapFilled);
-  const issuesCount =
-    side === 'loading'
-      ? filled.filter((r) => loadingIssues(r as LoadingRow).length).length
-      : filled.filter((r) => unloadingIssues(r as UnloadingRow).length).length + scrapsFilled.filter((s) => scrapIssues(s).length).length;
-
   return (
     <div className={`ln ln-${side} no-print`} ref={root}>
       <Lists d={data} />
-      <div className="ln-bar">
-        <h2>{side === 'loading' ? 'Loading' : 'Unloading'}</h2>
-        <span className="ln-bar-sum">
-          {side === 'loading' ? (
-            <>
-              {plural(filled.length, 'jumbo')} · <strong>{fmtNum(sum((filled as LoadingRow[]).map((r) => r.conso)))}</strong> consommées
-            </>
-          ) : (
-            <>
-              {plural(filled.length, 'rack')} · <strong>{fmtNum(sum((filled as UnloadingRow[]).map((r) => r.lites)))}</strong> lites ·{' '}
-              <strong>{fmtNum(sum(scrapsFilled.map((s) => s.qty)))}</strong> scraps (
-              {pct(sum(scrapsFilled.map((s) => s.qty)), sum((filled as UnloadingRow[]).map((r) => r.lites)) + sum(scrapsFilled.map((s) => s.qty)))})
-            </>
-          )}
-          {issuesCount > 0 && <span className="ln-bar-issues"> · {plural(issuesCount, 'ligne')} à compléter</span>}
-        </span>
-        {snap.pending > 0 && (
-          <span className="ln-bar-sync" role="status">
-            {snap.status === 'offline' ? `${plural(snap.pending, 'saisie')} en attente du réseau` : 'envoi…'}
-          </span>
-        )}
-      </div>
-
       {!colours.length && !blocks.length ? (
         <NewColour first onStart={startColour} />
       ) : (

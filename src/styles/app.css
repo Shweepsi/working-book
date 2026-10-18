@@ -5812,12 +5812,6 @@ button.as-row:focus-visible {
   padding: var(--space-4) var(--space-6) 120px;
 }
 .ln-empty { align-items: center; justify-content: center; min-height: 320px; color: var(--ink-soft); text-align: center; }
-.ln-bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3) var(--space-6); }
-.ln-bar h2 { margin: 0; font-size: 18px; font-weight: 650; color: var(--ink); }
-.ln-bar-sum { color: var(--ink-soft); font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
-.ln-bar-sum strong { color: var(--ink); font-weight: 650; }
-.ln-bar-issues { color: var(--flag-unsched-fg); }
-.ln-bar-sync { margin-left: auto; color: var(--ink-faint); font-size: var(--fs-md); }
 
 .ln-block {
   display: flex;
