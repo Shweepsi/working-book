@@ -167,11 +167,12 @@ function closeTotals(t: BilanTotals): BilanTotals {
     dl: round(t.dl, 3),
     fl: round(t.fl, 3),
     rejets: round(t.rejets, 3),
-    delta: round(t.dl - t.fl - t.rejets, 3),
+    // `|| 0`: no « -0 » for a gap that rounds to nothing.
+    delta: round(t.dl - t.fl - t.rejets, 3) || 0,
     dlM2: round(t.dlM2, 3),
     flM2: round(t.flM2, 3),
     rejetsM2: round(t.rejetsM2, 3),
-    deltaM2: round(t.dlM2 - t.flM2 - t.rejetsM2, 2),
+    deltaM2: round(t.dlM2 - t.flM2 - t.rejetsM2, 2) || 0,
   };
 }
 
