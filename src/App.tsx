@@ -458,8 +458,6 @@ export default function App() {
 
         {toolsMenu ? (
           <ToolsMenu
-            grid={tab === 'grid' && poste !== null}
-            line={(tab === 'loading' || tab === 'unloading') && poste !== null}
             bilan={showBilan ? { part: poste ? { date, poste } : null, onOpen: () => setBilanOpen(true) } : null}
             onCalc={() => setCalcOpen(true)}
             printPreview={printPreview}
@@ -474,7 +472,7 @@ export default function App() {
           />
         ) : (
           <div className="shift-meta hdr-tools" ref={toolsRef}>
-            <SyncIndicator grid={tab === 'grid' && poste !== null} line={(tab === 'loading' || tab === 'unloading') && poste !== null} />
+            <SyncIndicator />
             {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
             <button
               type="button"

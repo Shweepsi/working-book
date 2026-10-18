@@ -11,9 +11,6 @@ import { useBilan } from './SuiviBilan';
 import SyncIndicator, { useSyncSummary } from './SyncIndicator';
 
 interface ToolsMenuProps {
-  /** The sync chip also reflects the workbook (Suivi) or the records (Loading, Unloading). */
-  grid: boolean;
-  line: boolean;
   /** The shift's bilan, where it is offered. */
   bilan: { part: Partition | null; onOpen: () => void } | null;
   onCalc: () => void;
@@ -22,11 +19,11 @@ interface ToolsMenuProps {
   settings: Omit<SettingsPanelProps, 'onClose'>;
 }
 
-export default function ToolsMenu({ grid, line, bilan, onCalc, printPreview, onPrintPreview, settings }: ToolsMenuProps) {
+export default function ToolsMenu({ bilan, onCalc, printPreview, onPrintPreview, settings }: ToolsMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'tools' | 'settings'>('tools');
   const wrap = useRef<HTMLDivElement>(null);
-  const sync = useSyncSummary({ grid, line });
+  const sync = useSyncSummary();
   const count = useBilan(bilan?.part ?? null)?.checks.length ?? 0;
   const close = () => {
     setOpen(false);
@@ -79,11 +76,14 @@ export default function ToolsMenu({ grid, line, bilan, onCalc, printPreview, onP
           {view === 'tools' ? (
             <div className="hdr-list">
               <div className="hdr-menu-sync">
-                <SyncIndicator grid={grid} line={line} />
+                <SyncIndicator />
                 {sync && (
                   <span className="hdr-menu-sync-text">
-                    {sync.title.split('\n').map((l) => (
-                      <span key={l}>{l}</span>
+                    <span>{sync.text}</span>
+                    {sync.details.map((l) => (
+                      <span key={l} className="hdr-menu-sync-detail">
+                        {l}
+                      </span>
                     ))}
                   </span>
                 )}
