@@ -19,7 +19,8 @@
 export const WIDTH_MM = 3210;
 const FIRST_ROW = 3;
 const LAST_ROW = 100;
-const TAG_DIGITS = 11;
+// A N° TAG's lengths: 11 digits, or 10 (some write it without the leading 2).
+const TAG_DIGITS = [10, 11];
 const PLACEHOLDER = 'COULEUR';
 // The template's own content in Suivi's data rows (everything else is empty
 // there, or Restantes' formula, computed below).
@@ -177,8 +178,8 @@ function closeTotals(t: BilanTotals): BilanTotals {
 /** A N° TAG that is a number of the wrong length, as a sentence; '' when it looks right. */
 function tagIssue(tag: Value): string {
   const digits = typeof tag === 'number' ? String(Math.round(tag)) : typeof tag === 'string' && /^\d+$/.test(tag.trim()) ? tag.trim() : null;
-  if (digits === null || digits.length === TAG_DIGITS) return '';
-  return `N° TAG ${digits} à ${digits.length} chiffres (${TAG_DIGITS} attendus)`;
+  if (digits === null || TAG_DIGITS.includes(digits.length)) return '';
+  return `N° TAG ${digits} à ${digits.length} chiffres (${TAG_DIGITS.join(' ou ')} attendus)`;
 }
 
 interface RejectAcc {
