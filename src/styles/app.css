@@ -5990,6 +5990,7 @@ select.ln-input { padding-right: var(--space-2); }
 .ln-newcolour label { color: var(--ink-soft); font-size: var(--fs-base); font-weight: 600; }
 .ln-newcolour-row { display: flex; gap: var(--space-4); }
 .ln-newcolour .ln-input { max-width: 18em; text-transform: uppercase; font-weight: 650; }
+.ln-newcolour-row .btn { height: var(--ln-h); min-height: 0; padding: 0 var(--space-6); }
 .ln-newcolour.is-first { align-items: center; padding: var(--space-10) var(--space-7); text-align: center; }
 .ln-newcolour.is-first label { font-size: var(--fs-2xl); color: var(--ink); }
 
