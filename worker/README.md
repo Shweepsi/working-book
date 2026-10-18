@@ -122,10 +122,11 @@ record, in the order of their `seq`.
 
 ## Envoyer à Claude
 
-Réglages → *Envoyer à Claude* opens a sheet (`src/components/EnvoiClaude.tsx`)
-that sends files — a logbook `.xlsm`, a photo, a PDF — or a plain note, for
-Claude to read in a later session. A note sent without a file is stored as a
-`note-YYYY-MM-DD-HHMM.txt` of its own.
+A reception endpoint for files — a logbook `.xlsm`, a photo, a PDF — that Claude
+reads in a later session. There is no front-end for it: the plant PC's browser
+blocks uploads, so a file is sent instead by a small `envoyer-claude.bat` that
+POSTs it with Windows' built-in `curl`. `POST /api/uploads?name=…` takes the raw
+bytes; the bytes are what matter, the `name` is just a label.
 
 Storage is D1, not R2: the account's deploy token only covers D1, and D1 is
 what Claude already reaches through the Cloudflare connector. A file is cut

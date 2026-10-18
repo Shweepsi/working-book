@@ -16,18 +16,16 @@ const THEMES = [
 ] as const satisfies readonly { key: Theme; label: string; glyph: string }[];
 
 const DENSITIES = [
-  { key: 'compact', label: 'Compact', help: 'Lignes serrées, petit texte — tient plus à l’écran.' },
-  { key: 'normal', label: 'Normal', help: 'Espacement convivial, cibles tactiles plus grandes. Recommandé.' },
-  { key: 'advanced', label: 'Avancé', help: 'Lignes plus spacieuses avec la puce de type et les actions au survol.' },
-] as const satisfies readonly { key: Density; label: string; help: string }[];
+  { key: 'compact', label: 'Compact' },
+  { key: 'normal', label: 'Normal' },
+  { key: 'advanced', label: 'Avancé' },
+] as const satisfies readonly { key: Density; label: string }[];
 
 export interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
-  // Opens « Envoyer à Claude ». Left out when the build has no Worker to send to.
-  onSendToClaude?: () => void;
   /** Closes whatever shows the panel (the gear's popover, the header's menu). */
   onClose: () => void;
 }
@@ -37,8 +35,8 @@ interface SettingsProps extends Omit<SettingsPanelProps, 'onClose'> {
   onOpenChange: (open: boolean) => void;
 }
 
-/** The settings themselves: theme, density, Claude, version. */
-export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, onSendToClaude, onClose }: SettingsPanelProps) {
+/** The settings themselves: theme, density, version. */
+export function SettingsPanel({ theme, onThemeChange, density, onDensityChange }: SettingsPanelProps) {
   const toast = useToast();
   // Mirrors the service worker's "a new version is parked and waiting" state,
   // so the button can promise an update rather than only a search for one.
@@ -69,8 +67,6 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
       setChecking(false);
     }
   }
-
-  const densityHelp = DENSITIES.find((d) => d.key === density)?.help;
 
   return (
     <>
@@ -106,23 +102,7 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
             </button>
           ))}
         </div>
-        {densityHelp && <div className="popover-help">{densityHelp}</div>}
       </div>
-      {onSendToClaude && (
-        <div>
-          <h4>Claude</h4>
-          <button
-            type="button"
-            className="btn popover-action"
-            onClick={() => {
-              onClose();
-              onSendToClaude();
-            }}
-          >
-            Envoyer à Claude
-          </button>
-        </div>
-      )}
       <div>
         <h4>Version</h4>
         <div className="popover-help popover-version mono">

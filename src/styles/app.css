@@ -5797,52 +5797,6 @@ button.as-row:focus-visible {
   font-style: italic;
 }
 
-/* Envoyer à Claude (EnvoiClaude.tsx): a sheet opened from Réglages. */
-.sheet.ec-sheet { --sheet-w: 560px; display: flex; flex-direction: column; gap: var(--space-6); }
-.sheet.ec-sheet .sheet-head { margin-bottom: 0; }
-.ec-drop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-6);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-md);
-  background: var(--paper-2);
-}
-.ec-drop.is-over { border-color: var(--accent); }
-.ec-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.ec-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-2) 0 var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--line-faint);
-}
-.ec-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ec-meta { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ec-item-note { grid-column: 1 / -1; margin-top: calc(-1 * var(--space-2)); white-space: pre-wrap; }
-.ec-note { display: flex; flex-direction: column; gap: 4px; }
-.ec-note textarea {
-  width: 100%;
-  padding: var(--space-3);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  resize: vertical;
-}
-.ec-note textarea:focus { outline: none; border-color: var(--accent); }
-.ec-progress { display: flex; flex-direction: column; gap: var(--space-2); }
-.ec-bar { height: 6px; border-radius: var(--radius-pill); background: var(--paper-2); overflow: hidden; }
-.ec-bar span { display: block; height: 100%; background: var(--accent); transition: width 120ms linear; }
-.ec-actions { display: flex; justify-content: flex-end; }
-.ec-sent { display: flex; flex-direction: column; gap: var(--space-3); }
-.ec-sent h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
-.ec-sent p { margin: 0; }
-
 /* Loading and Unloading (LineTabs.tsx): the line's own input, a block per
    colour. A table on a tablet in landscape, cards on a phone; fields sized for
    a finger (40px), labelled by the table's head or, on a card, their own. */
