@@ -16,6 +16,7 @@ import { computeLineBilan } from '../lib/lineBilan';
 import { lineSync, useLine } from '../lib/lineSync';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { addDaysISO } from '../lib/shiftCalendar';
+import { BilanIcon } from './icons';
 import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
 
 /** A row the bilan points at: its tab and record. */
@@ -539,10 +540,7 @@ export function BilanHeaderButton({ part, onOpen }: { part: Partition | null; on
       aria-label={n ? `Bilan du poste, ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
       title={n ? `Bilan du poste · ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
     >
-      <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="2" y="1.75" width="12" height="12.5" rx="1.5" />
-        <path d="M5 11.25V9M8 11.25V5.5M11 11.25V7.5" strokeWidth="1.8" />
-      </svg>
+      <BilanIcon />
       {n > 0 && (
         <span className="sb-count sb-badge" aria-hidden="true">
           {n > 99 ? '99+' : n}

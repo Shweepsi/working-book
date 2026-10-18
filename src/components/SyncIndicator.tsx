@@ -75,7 +75,15 @@ interface SyncIndicatorProps {
   line?: boolean;
 }
 
-export default function SyncIndicator({ grid = false, line = false }: SyncIndicatorProps) {
+export interface SyncSummary {
+  status: SyncStatus;
+  pending: number;
+  title: string;
+}
+
+/** What the chip says: the worst state among the synced data and, on its tab, the shift's
+ * workbook or records; null when nothing syncs (no Worker). */
+export function useSyncSummary({ grid = false, line = false }: SyncIndicatorProps): SyncSummary | null {
   const snap = useSyncStatus();
   const gridSnap = useSyncExternalStore(sharedGrid.subscribe, sharedGrid.getSnapshot);
   const lineSnap = useSyncExternalStore(lineSync.subscribe, lineSync.getSnapshot);
@@ -87,11 +95,9 @@ export default function SyncIndicator({ grid = false, line = false }: SyncIndica
   }, []);
 
   if (snap.status === 'disabled') return null;
-
   const g = grid ? gridState(gridSnap) : line ? lineState(lineSnap) : null;
   const status = g && RANK[g.status] > RANK[snap.status] ? g.status : snap.status;
   const pending = snap.pending + (g ? (grid ? gridSnap.pending : lineSnap.pending) : 0);
-  const d = DESCRIPTORS[status];
   const lastTs = snap.status === 'error' ? snap.lastErrorAt : snap.lastSuccessAt;
   const lastLabel = lastTs ? relTime(lastTs, now) : null;
 
@@ -102,7 +108,14 @@ export default function SyncIndicator({ grid = false, line = false }: SyncIndica
   else if (snap.status === 'offline') title = 'Hors ligne — les modifications seront envoyées au retour de la connexion';
   else title = `Échec de synchronisation${lastLabel ? ` · ${lastLabel}` : ''} (${snap.pending} en attente)`;
   if (g) title = `Saisies : ${title}\n${grid ? 'Classeur du poste' : 'Loading et Unloading'} : ${g.title}`;
+  return { status, pending, title };
+}
 
+export default function SyncIndicator(props: SyncIndicatorProps) {
+  const s = useSyncSummary(props);
+  if (!s) return null;
+  const { status, pending, title } = s;
+  const d = DESCRIPTORS[status];
   return (
     <div
       className={`sync-chip no-print ${d.cls}`}

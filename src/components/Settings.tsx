@@ -21,19 +21,24 @@ const DENSITIES = [
   { key: 'advanced', label: 'Avancé', help: 'Lignes plus spacieuses avec la puce de type et les actions au survol.' },
 ] as const satisfies readonly { key: Density; label: string; help: string }[];
 
-interface SettingsProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
   // Opens « Envoyer à Claude ». Left out when the build has no Worker to send to.
   onSendToClaude?: () => void;
+  /** Closes whatever shows the panel (the gear's popover, the header's menu). */
+  onClose: () => void;
 }
 
-export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange, onSendToClaude }: SettingsProps) {
-  const wrapRef = useRef<HTMLDivElement>(null);
+interface SettingsProps extends Omit<SettingsPanelProps, 'onClose'> {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** The settings themselves: theme, density, Claude, version. */
+export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, onSendToClaude, onClose }: SettingsPanelProps) {
   const toast = useToast();
   // Mirrors the service worker's "a new version is parked and waiting" state,
   // so the button can promise an update rather than only a search for one.
@@ -65,6 +70,89 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
     }
   }
 
+  const densityHelp = DENSITIES.find((d) => d.key === density)?.help;
+
+  return (
+    <>
+      <div>
+        <h4>Thème</h4>
+        <div className="seg" role="group" aria-label="Thème">
+          {THEMES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={theme === t.key ? 'active' : ''}
+              onClick={() => onThemeChange(t.key)}
+              aria-pressed={theme === t.key}
+            >
+              <span className="glyph" aria-hidden="true">{t.glyph}</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h4>Densité</h4>
+        <div className="seg" role="group" aria-label="Densité">
+          {DENSITIES.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              className={density === d.key ? 'active' : ''}
+              onClick={() => onDensityChange(d.key)}
+              aria-pressed={density === d.key}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+        {densityHelp && <div className="popover-help">{densityHelp}</div>}
+      </div>
+      {onSendToClaude && (
+        <div>
+          <h4>Claude</h4>
+          <button
+            type="button"
+            className="btn popover-action"
+            onClick={() => {
+              onClose();
+              onSendToClaude();
+            }}
+          >
+            Envoyer à Claude
+          </button>
+        </div>
+      )}
+      <div>
+        <h4>Version</h4>
+        <div className="popover-help popover-version mono">
+          {__APP_VERSION__} · {__APP_COMMIT__}
+          {BUILT_AT && (
+            <>
+              <br />
+              {BUILT_AT}
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          className={`btn popover-action${updateWaiting ? ' accent' : ''}`}
+          onClick={() => void update()}
+          disabled={checking}
+        >
+          {checking ? 'Recherche…' : updateWaiting ? 'Mettre à jour' : 'Rechercher une mise à jour'}
+        </button>
+        {updateWaiting && (
+          <div className="popover-help">Une nouvelle version est prête — le bouton recharge l’application.</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+export default function Settings({ open, onOpenChange, ...panel }: SettingsProps) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
@@ -81,8 +169,6 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
     };
   }, [open, onOpenChange]);
 
-  const densityHelp = DENSITIES.find((d) => d.key === density)?.help;
-
   return (
     <div className="settings-wrap" ref={wrapRef}>
       <button
@@ -97,78 +183,7 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
       </button>
       {open && (
         <div className="popover" role="dialog" aria-label="Paramètres">
-          <div>
-            <h4>Thème</h4>
-            <div className="seg" role="group" aria-label="Thème">
-              {THEMES.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  className={theme === t.key ? 'active' : ''}
-                  onClick={() => onThemeChange(t.key)}
-                  aria-pressed={theme === t.key}
-                >
-                  <span className="glyph" aria-hidden="true">{t.glyph}</span>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h4>Densité</h4>
-            <div className="seg" role="group" aria-label="Densité">
-              {DENSITIES.map((d) => (
-                <button
-                  key={d.key}
-                  type="button"
-                  className={density === d.key ? 'active' : ''}
-                  onClick={() => onDensityChange(d.key)}
-                  aria-pressed={density === d.key}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            {densityHelp && <div className="popover-help">{densityHelp}</div>}
-          </div>
-          {onSendToClaude && (
-            <div>
-              <h4>Claude</h4>
-              <button
-                type="button"
-                className="btn popover-action"
-                onClick={() => {
-                  onOpenChange(false);
-                  onSendToClaude();
-                }}
-              >
-                Envoyer à Claude
-              </button>
-            </div>
-          )}
-          <div>
-            <h4>Version</h4>
-            <div className="popover-help popover-version mono">
-              {__APP_VERSION__} · {__APP_COMMIT__}
-              {BUILT_AT && (
-                <>
-                  <br />
-                  {BUILT_AT}
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              className={`btn popover-action${updateWaiting ? ' accent' : ''}`}
-              onClick={() => void update()}
-              disabled={checking}
-            >
-              {checking ? 'Recherche…' : updateWaiting ? 'Mettre à jour' : 'Rechercher une mise à jour'}
-            </button>
-            {updateWaiting && (
-              <div className="popover-help">Une nouvelle version est prête — le bouton recharge l’application.</div>
-            )}
-          </div>
+          <SettingsPanel {...panel} onClose={() => onOpenChange(false)} />
         </div>
       )}
     </div>

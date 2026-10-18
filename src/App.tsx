@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import EnvoiClaude from './components/EnvoiClaude';
 import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
@@ -17,6 +17,8 @@ import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
 import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
 import LineTab from './components/LineTabs';
+import ToolsMenu from './components/ToolsMenu';
+import { CalcIcon, PrintIcon } from './components/icons';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -343,11 +345,37 @@ export default function App() {
 
   useKeyBindings(bindings);
 
+  // The tools on the right go into a menu when they would start a second line
+  // of the header: measured against what the rest of the line takes, with the
+  // tools' own width as last seen inline.
+  const headerRef = useRef<HTMLElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const toolsWidth = useRef(0);
+  const [toolsMenu, setToolsMenu] = useState(false);
+  useLayoutEffect(() => {
+    const h = headerRef.current;
+    if (!h || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      const cs = getComputedStyle(h);
+      const gap = parseFloat(cs.columnGap) || 0;
+      const room = h.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (toolsRef.current) toolsWidth.current = toolsRef.current.offsetWidth;
+      const rest = [...h.children].filter((el) => !el.classList.contains('hdr-tools')) as HTMLElement[];
+      const needed = rest.reduce((n, el) => n + el.offsetWidth + gap, 0) + toolsWidth.current;
+      setToolsMenu(needed > room + 0.5);
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(h);
+    for (const el of h.children) ro.observe(el);
+    check();
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className="app">
       {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
       {envoiOpen && <EnvoiClaude onClose={() => setEnvoiOpen(false)} />}
-      <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
+      <header ref={headerRef} className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
         </div>
@@ -428,49 +456,58 @@ export default function App() {
           </>
         )}
 
-        <div className="shift-meta">
-          <SyncIndicator grid={tab === 'grid' && poste !== null} line={(tab === 'loading' || tab === 'unloading') && poste !== null} />
-          {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
-          <button
-            type="button"
-            className="btn ghost icon calc-trigger"
-            onClick={() => setCalcOpen(true)}
-            aria-label="Calculs de ligne"
-            title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
-          >
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-              <rect x="3" y="1.75" width="10" height="12.5" rx="1.5" />
-              <rect x="5.25" y="4" width="5.5" height="2.5" rx="0.5" />
-              <path d="M5.5 9h.01M8 9h.01M10.5 9h.01M5.5 11.5h.01M8 11.5h.01M10.5 11.5h.01" strokeWidth="1.8" />
-            </svg>
-          </button>
-          {/* Sits in the header rather than behind the settings cog: checking
-              the paper layout is a recurring gesture, not a preference. */}
-          <button
-            type="button"
-            className={`btn ghost icon print-preview-trigger ${printPreview ? 'is-on' : ''}`}
-            onClick={() => setPrintPreview((v) => !v)}
-            aria-pressed={printPreview}
-            aria-label="Aperçu d’impression"
-            title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
-          >
-            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4.5 5.75V1.75h7v4" />
-              <rect x="1.75" y="5.75" width="12.5" height="6" rx="1.5" />
-              <rect x="4.5" y="9.25" width="7" height="5" rx="0.5" fill="var(--paper)" />
-              <path d="M11.5 7.9h.01" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-          <Settings
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
-            theme={theme}
-            onThemeChange={setTheme}
-            density={density}
-            onDensityChange={setDensity}
-            onSendToClaude={SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined}
+        {toolsMenu ? (
+          <ToolsMenu
+            grid={tab === 'grid' && poste !== null}
+            line={(tab === 'loading' || tab === 'unloading') && poste !== null}
+            bilan={showBilan ? { part: poste ? { date, poste } : null, onOpen: () => setBilanOpen(true) } : null}
+            onCalc={() => setCalcOpen(true)}
+            printPreview={printPreview}
+            onPrintPreview={() => setPrintPreview((v) => !v)}
+            settings={{
+              theme,
+              onThemeChange: setTheme,
+              density,
+              onDensityChange: setDensity,
+              onSendToClaude: SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined,
+            }}
           />
-        </div>
+        ) : (
+          <div className="shift-meta hdr-tools" ref={toolsRef}>
+            <SyncIndicator grid={tab === 'grid' && poste !== null} line={(tab === 'loading' || tab === 'unloading') && poste !== null} />
+            {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
+            <button
+              type="button"
+              className="btn ghost icon calc-trigger"
+              onClick={() => setCalcOpen(true)}
+              aria-label="Calculs de ligne"
+              title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
+            >
+              <CalcIcon />
+            </button>
+            {/* Sits in the header rather than behind the settings cog: checking
+                the paper layout is a recurring gesture, not a preference. */}
+            <button
+              type="button"
+              className={`btn ghost icon print-preview-trigger ${printPreview ? 'is-on' : ''}`}
+              onClick={() => setPrintPreview((v) => !v)}
+              aria-pressed={printPreview}
+              aria-label="Aperçu d’impression"
+              title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
+            >
+              <PrintIcon />
+            </button>
+            <Settings
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              theme={theme}
+              onThemeChange={setTheme}
+              density={density}
+              onDensityChange={setDensity}
+              onSendToClaude={SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined}
+            />
+          </div>
+        )}
       </header>
 
       <main className="app-main">
