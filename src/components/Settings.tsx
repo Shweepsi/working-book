@@ -28,9 +28,11 @@ interface SettingsProps {
   onThemeChange: (theme: Theme) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
+  // Opens « Envoyer à Claude ». Left out when the build has no Worker to send to.
+  onSendToClaude?: () => void;
 }
 
-export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange }: SettingsProps) {
+export default function Settings({ open, onOpenChange, theme, onThemeChange, density, onDensityChange, onSendToClaude }: SettingsProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   // Mirrors the service worker's "a new version is parked and waiting" state,
@@ -129,6 +131,21 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
             </div>
             {densityHelp && <div className="popover-help">{densityHelp}</div>}
           </div>
+          {onSendToClaude && (
+            <div>
+              <h4>Claude</h4>
+              <button
+                type="button"
+                className="btn popover-action"
+                onClick={() => {
+                  onOpenChange(false);
+                  onSendToClaude();
+                }}
+              >
+                Envoyer à Claude
+              </button>
+            </div>
+          )}
           <div>
             <h4>Version</h4>
             <div className="popover-help popover-version mono">
