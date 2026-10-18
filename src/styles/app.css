@@ -6000,14 +6000,17 @@ select.ln-input { padding-right: var(--space-2); }
 .ln-remove:hover,
 .ln-note:hover { background: var(--line-faint); color: var(--ink); }
 .ln-note.has-note { color: var(--accent); }
-/* A row and its comment read as one: a note's tint over both, the comment hooked under the N° TAG. */
-.ln-row:not(.ln-head) + .ln-row:not(.ln-head)::before { content: ''; position: absolute; left: var(--space-4); right: 0; top: -2px; border-top: 1px solid var(--line-faint); pointer-events: none; }
-.ln-row.has-note { background: color-mix(in srgb, var(--hl-yellow) 38%, var(--paper)); }
-.ln-row.has-note:hover { background: color-mix(in srgb, var(--hl-yellow) 55%, var(--paper)); }
-.ln-comment { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-2); padding: 0 0 var(--space-2) var(--space-2); }
-.ln-comment::before { content: '↳'; color: var(--ink-faint); }
-.ln-comment .ln-input { max-width: 640px; }
-.ln-comment-text { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: var(--fs-base); font-style: italic; text-align: left; cursor: text; }
+/* Loading's comment: a column of the row where there's room (a tablet in
+   landscape, 1180px and up), its icon and a field beside it otherwise, a
+   field of the card on a phone. */
+.ln-loading .ln-c-text { display: none; }
+.ln-actions { position: relative; }
+.ln-note-pop { position: absolute; z-index: 5; top: 50%; right: calc(100% + 4px); transform: translateY(-50%); width: min(420px, 60vw); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--radius-md); background: var(--paper); box-shadow: var(--shadow-popover); }
+@media (min-width: 1180px) {
+  .ln-loading { --ln-cols: minmax(122px, 1.2fr) minmax(56px, 0.6fr) minmax(72px, 0.7fr) minmax(76px, 0.7fr) minmax(64px, 0.6fr) 76px 76px minmax(124px, 0.9fr) minmax(100px, 0.8fr) 36px minmax(140px, 1.6fr) 32px; --ln-min: 1030px; }
+  .ln-loading .ln-c-text { display: flex; }
+  .ln-loading .ln-note { display: none; }
+}
 .ln-issues { grid-column: 1 / -1; margin: 0; padding-left: var(--space-2); color: var(--flag-unsched-fg); font-size: var(--fs-md); }
 .ln-row:focus-within .ln-issues { display: none; }
 
@@ -6051,7 +6054,8 @@ select.ln-input { padding-right: var(--space-2); }
     background: var(--paper);
   }
   .ln-row + .ln-row { margin-top: var(--space-3); }
-  .ln-row:not(.ln-head) + .ln-row:not(.ln-head)::before { display: none; }
+  .ln-loading .ln-c-text { display: flex; }
+  .ln-loading .ln-note { display: none; }
   .ln-f-label { display: block; margin-bottom: 2px; color: var(--ink-faint); font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .ln-c-tag,
   .ln-c-defect { grid-column: 1 / -1; padding-right: 76px; }

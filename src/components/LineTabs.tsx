@@ -213,7 +213,7 @@ function LoadingRowView({ row, draft, onChange, onRemove }: RowProps<LoadingRow>
   const restantes = row.lites !== null && row.conso !== null ? row.lites - row.conso : null;
   const over = row.lites !== null && row.conso !== null && row.conso > row.lites;
   return (
-    <div className={`ln-row ln-loading${draft ? ' is-draft' : ''}${issues.length ? ' has-issues' : ''}${commenting || row.comment ? ' has-note' : ''}`} data-rec={row.id} role="row">
+    <div className={`ln-row ln-loading${draft ? ' is-draft' : ''}${issues.length ? ' has-issues' : ''}`} data-rec={row.id} role="row">
       <Field label="N° TAG" col="tag" invalid={!draft && !!issues.find((x) => x.startsWith('N° TAG'))}>
         <TextInput value={row.tag} onCommit={(t) => set({ tag: t.replace(/\s/g, '') })} label="N° TAG" numeric autoFocus={draft} placeholder="22111809784" />
       </Field>
@@ -256,6 +256,9 @@ function LoadingRowView({ row, draft, onChange, onRemove }: RowProps<LoadingRow>
         <span className="ln-f-label">Restantes</span>
         <span className={`ln-rest${restantes ? ' has-rest' : ''}`}>{restantes === null ? '—' : fmtNum(restantes)}</span>
       </span>
+      <Field label="Commentaire" col="text">
+        <TextInput value={row.comment} onCommit={(t) => set({ comment: t.trim() })} label="Commentaire" />
+      </Field>
       <span className="ln-actions">
         <button
           type="button"
@@ -270,18 +273,12 @@ function LoadingRowView({ row, draft, onChange, onRemove }: RowProps<LoadingRow>
           </svg>
         </button>
         <RemoveButton label={draft ? 'Abandonner la ligne' : 'Supprimer la ligne'} onClick={onRemove} />
+        {commenting && (
+          <span className="ln-note-pop">
+            <TextInput value={row.comment} onCommit={(t) => set({ comment: t.trim() })} onDone={() => setCommenting(false)} label="Commentaire" placeholder="Commentaire" autoFocus />
+          </span>
+        )}
       </span>
-      {(commenting || row.comment) && (
-        <div className="ln-comment">
-          {commenting ? (
-            <TextInput value={row.comment} onCommit={(t) => set({ comment: t.trim() })} label="Commentaire" placeholder="Commentaire" autoFocus />
-          ) : (
-            <button type="button" className="ln-comment-text" onClick={() => setCommenting(true)}>
-              {row.comment}
-            </button>
-          )}
-        </div>
-      )}
       <Issues issues={issues} />
     </div>
   );
@@ -805,6 +802,7 @@ function TableHead({ side }: { side: Side | 'scrap' }) {
           ['date', 'Date'],
           ['conso', 'Consommées'],
           ['rest', 'Rest.'],
+          ['text', 'Commentaire'],
         ]
       : side === 'unloading'
         ? [
