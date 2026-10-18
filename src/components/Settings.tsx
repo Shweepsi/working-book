@@ -16,10 +16,10 @@ const THEMES = [
 ] as const satisfies readonly { key: Theme; label: string; glyph: string }[];
 
 const DENSITIES = [
-  { key: 'compact', label: 'Compact', help: 'Lignes serrées, petit texte — tient plus à l’écran.' },
-  { key: 'normal', label: 'Normal', help: 'Espacement convivial, cibles tactiles plus grandes. Recommandé.' },
-  { key: 'advanced', label: 'Avancé', help: 'Lignes plus spacieuses avec la puce de type et les actions au survol.' },
-] as const satisfies readonly { key: Density; label: string; help: string }[];
+  { key: 'compact', label: 'Compact' },
+  { key: 'normal', label: 'Normal' },
+  { key: 'advanced', label: 'Avancé' },
+] as const satisfies readonly { key: Density; label: string }[];
 
 interface SettingsProps {
   open: boolean;
@@ -79,8 +79,6 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
     };
   }, [open, onOpenChange]);
 
-  const densityHelp = DENSITIES.find((d) => d.key === density)?.help;
-
   return (
     <div className="settings-wrap" ref={wrapRef}>
       <button
@@ -127,7 +125,6 @@ export default function Settings({ open, onOpenChange, theme, onThemeChange, den
                 </button>
               ))}
             </div>
-            {densityHelp && <div className="popover-help">{densityHelp}</div>}
           </div>
           <div>
             <h4>Version</h4>
