@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useEscapeToClose } from '../lib/hooks';
+import { CloseIcon, PasteIcon, WarnIcon } from './icons';
 
 // Reusable paste sheet. Drives both PMS230 and policy imports.
 
@@ -124,7 +125,7 @@ export default function PasteImport<R extends PasteImportResult>({
           <h3>{title}</h3>
           <div className="sheet-head-actions">
             {headerActions}
-            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
           </div>
         </div>
 
@@ -139,7 +140,7 @@ export default function PasteImport<R extends PasteImportResult>({
               disabled={busy}
               title="Coller depuis le presse-papiers"
             >
-              <span aria-hidden="true">📋</span> Coller
+              <PasteIcon size={14} /> Coller
             </button>
           )}
           {text && (
@@ -180,7 +181,7 @@ export default function PasteImport<R extends PasteImportResult>({
         />
 
         {error && (
-          <div className="sch-import-status sch-error">⚠ {error}</div>
+          <div className="sch-import-status sch-error"><WarnIcon size={14} /> {error}</div>
         )}
         {summary && (
           <div className="sch-import-status sch-ok">{summary}</div>

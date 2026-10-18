@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SYNC_ENABLED } from '../lib/api';
 import { useEscapeToClose } from '../lib/hooks';
+import { BackIcon, CheckIcon, CloseIcon, WarnIcon } from './icons';
 
 // Set-up sheet for the direct import. Nothing here talks to Infor — it hands
 // over the one way in: the extension, which drives the search itself. With the
@@ -50,8 +51,8 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
         <div className="sheet-head">
           <h3>Import direct depuis Operator Mashup</h3>
           <div className="sheet-head-actions">
-            <button className="btn ghost mini" onClick={onBack}>← Coller</button>
-            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+            <button className="btn ghost mini" onClick={onBack}><BackIcon size={14} /> Coller</button>
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
           </div>
         </div>
 
@@ -63,7 +64,7 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
 
         {!SYNC_ENABLED ? (
           <div className="sch-import-status sch-error">
-            ⚠ Cette copie de Working Book est en mode local (aucun serveur
+            <WarnIcon size={14} /> Cette copie de Working Book est en mode local (aucun serveur
             configuré au build). L’import direct a besoin du serveur pour recevoir
             le rapport.
           </div>
@@ -81,7 +82,7 @@ export default function PortalImport({ onClose, onBack }: PortalImportProps) {
               <div className="sch-portal-path-row">
                 <code className="sch-portal-path">{EXTENSION_PATH}</code>
                 <button type="button" className="btn primary" onClick={copyPath}>
-                  {copied ? '✓ Copié' : 'Copier le chemin'}
+                  {copied ? <><CheckIcon size={14} /> Copié</> : 'Copier le chemin'}
                 </button>
               </div>
             </li>
