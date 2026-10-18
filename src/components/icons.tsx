@@ -1,39 +1,85 @@
-// The header's tool icons, shared by its buttons and its menu (ToolsMenu.tsx).
+// The app's icons: Lucide's (lucide.dev), drawn at one size and one stroke so
+// a row of them reads as one set. Every icon of the app comes from here.
 
-export function BilanIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="1.75" width="12" height="12.5" rx="1.5" />
-      <path d="M5 11.25V9M8 11.25V5.5M11 11.25V7.5" strokeWidth="1.8" />
-    </svg>
-  );
-}
+import type { LucideIcon, LucideProps } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowLeft,
+  ArrowUp,
+  Calculator,
+  ChartColumn,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Circle,
+  ClipboardPaste,
+  Clock,
+  CloudOff,
+  CornerUpRight,
+  Eraser,
+  GripVertical,
+  Import,
+  Menu,
+  MessageSquare,
+  Minus,
+  Moon,
+  Pencil,
+  Plus,
+  Printer,
+  Redo2,
+  RefreshCw,
+  Search,
+  Settings,
+  Sun,
+  SunMoon,
+  Trash2,
+  TriangleAlert,
+  Undo2,
+  X,
+} from 'lucide-react';
 
-export function CalcIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-      <rect x="3" y="1.75" width="10" height="12.5" rx="1.5" />
-      <rect x="5.25" y="4" width="5.5" height="2.5" rx="0.5" />
-      <path d="M5.5 9h.01M8 9h.01M10.5 9h.01M5.5 11.5h.01M8 11.5h.01M10.5 11.5h.01" strokeWidth="1.8" />
-    </svg>
-  );
-}
+/** 16 px, stroke 1.75: the header's buttons are 30 px, a field's text 14 to 16. */
+const make = (Icon: LucideIcon) =>
+  function AppIcon({ size = 16, strokeWidth = 1.75, ...rest }: LucideProps) {
+    return <Icon size={size} strokeWidth={strokeWidth} aria-hidden="true" focusable="false" {...rest} />;
+  };
 
-export function PrintIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4.5 5.75V1.75h7v4" />
-      <rect x="1.75" y="5.75" width="12.5" height="6" rx="1.5" />
-      <rect x="4.5" y="9.25" width="7" height="5" rx="0.5" fill="var(--paper)" />
-      <path d="M11.5 7.9h.01" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export function MenuIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-      <path d="M2.5 4.25h11M2.5 8h11M2.5 11.75h11" />
-    </svg>
-  );
-}
+export const BilanIcon = make(ChartColumn);
+export const CalcIcon = make(Calculator);
+export const PrintIcon = make(Printer);
+export const MenuIcon = make(Menu);
+export const UndoIcon = make(Undo2);
+export const RedoIcon = make(Redo2);
+export const CloseIcon = make(X);
+export const CommentIcon = make(MessageSquare);
+export const SettingsIcon = make(Settings);
+export const PrevIcon = make(ChevronLeft);
+export const NextIcon = make(ChevronRight);
+export const BackIcon = make(ArrowLeft);
+export const UpIcon = make(ArrowUp);
+export const DownIcon = make(ArrowDown);
+export const AddIcon = make(Plus);
+export const MinusIcon = make(Minus);
+export const RefreshIcon = make(RefreshCw);
+export const WarnIcon = make(TriangleAlert);
+export const CheckIcon = make(Check);
+export const OfflineIcon = make(CloudOff);
+export const LocalIcon = make(Circle);
+export const GripIcon = make(GripVertical);
+export const PasteIcon = make(ClipboardPaste);
+export const ClearIcon = make(Eraser);
+export const DeleteIcon = make(Trash2);
+export const ThemeAutoIcon = make(SunMoon);
+export const ThemeLightIcon = make(Sun);
+export const ThemeDarkIcon = make(Moon);
+export const ClockIcon = make(Clock);
+export const ExpandIcon = make(ChevronDown);
+export const CollapseIcon = make(ChevronUp);
+export const SearchIcon = make(Search);
+export const ElsewhereIcon = make(CornerUpRight);
+export const EditIcon = make(Pencil);
+export const ArchiveIcon = make(ArrowDownToLine);
+export const ImportIcon = make(Import);

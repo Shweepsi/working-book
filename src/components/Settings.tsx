@@ -3,6 +3,7 @@ import type { Density, Theme } from '../types';
 import { fmtStamp } from '../lib/format';
 import { applyUpdate, checkForUpdate, useUpdateWaiting } from '../lib/pwa';
 import { useToast } from '../lib/toast';
+import { SettingsIcon, ThemeAutoIcon, ThemeDarkIcon, ThemeLightIcon } from './icons';
 
 // The build stamp, formatted once: it is a compile-time constant, and the
 // popover re-renders on every theme or density press. Empty when the build had
@@ -10,10 +11,10 @@ import { useToast } from '../lib/toast';
 const BUILT_AT = __APP_BUILT_AT__ ? fmtStamp(__APP_BUILT_AT__) : '';
 
 const THEMES = [
-  { key: 'auto', label: 'Auto', glyph: '◐' },
-  { key: 'light', label: 'Clair', glyph: '☀' },
-  { key: 'dark', label: 'Sombre', glyph: '☾' },
-] as const satisfies readonly { key: Theme; label: string; glyph: string }[];
+  { key: 'auto', label: 'Auto', Glyph: ThemeAutoIcon },
+  { key: 'light', label: 'Clair', Glyph: ThemeLightIcon },
+  { key: 'dark', label: 'Sombre', Glyph: ThemeDarkIcon },
+] as const satisfies readonly { key: Theme; label: string; Glyph: unknown }[];
 
 const DENSITIES = [
   { key: 'compact', label: 'Compact' },
@@ -81,7 +82,7 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange }
               onClick={() => onThemeChange(t.key)}
               aria-pressed={theme === t.key}
             >
-              <span className="glyph" aria-hidden="true">{t.glyph}</span>
+              <span className="glyph" aria-hidden="true"><t.Glyph size={14} /></span>
               {t.label}
             </button>
           ))}
@@ -159,7 +160,7 @@ export default function Settings({ open, onOpenChange, ...panel }: SettingsProps
         aria-label="Paramètres"
         title="Paramètres"
       >
-        ⚙
+        <SettingsIcon />
       </button>
       {open && (
         <div className="popover" role="dialog" aria-label="Paramètres">

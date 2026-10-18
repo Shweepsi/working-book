@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Partition } from '../lib/sharedGrid';
-import { BilanIcon, CalcIcon, MenuIcon, PrintIcon } from './icons';
+import { BilanIcon, CalcIcon, MenuIcon, NextIcon, PrevIcon, PrintIcon, SettingsIcon } from './icons';
 import { SettingsPanel, type SettingsPanelProps } from './Settings';
 import { useBilan } from './SuiviBilan';
 import SyncIndicator, { useSyncSummary } from './SyncIndicator';
@@ -104,19 +104,17 @@ export default function ToolsMenu({ bilan, onCalc, printPreview, onPrintPreview,
                 <span className="hdr-item-label">{printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression'}</span>
               </button>
               <button type="button" role="menuitem" className="hdr-item" onClick={() => setView('settings')}>
-                <span className="hdr-item-glyph" aria-hidden="true">
-                  ⚙
-                </span>
+                <SettingsIcon />
                 <span className="hdr-item-label">Paramètres</span>
                 <span className="hdr-item-go" aria-hidden="true">
-                  ›
+                  <NextIcon size={14} />
                 </span>
               </button>
             </div>
           ) : (
             <>
               <button type="button" className="hdr-back" onClick={() => setView('tools')}>
-                ‹ Outils
+                <PrevIcon size={14} /> Outils
               </button>
               <SettingsPanel {...settings} onClose={close} />
             </>

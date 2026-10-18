@@ -1615,9 +1615,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .evt.evt-other.is-clickable:hover { background-color: color-mix(in srgb, var(--ink) 4%, var(--paper)); }
 .evt.evt-other.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.evt-empty::before {
-  content: '✎';
-  font-size: var(--fs-3xl);
+.evt-empty .evt-empty-icon {
   color: var(--line-soft);
   margin-bottom: 6px;
 }
@@ -2283,7 +2281,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 :root[data-theme='dark'] .seg button.active { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 .seg button .glyph {
-  display: inline-block;
+  display: inline-flex;
+  vertical-align: -2px;
   margin-right: 4px;
   font-size: var(--fs-sm);
   opacity: 0.7;
@@ -6065,9 +6064,14 @@ select.ln-input { padding-right: var(--space-2); }
 .hdr-item:hover,
 .hdr-item:focus-visible { background: var(--paper-2); outline: none; }
 .hdr-item[aria-checked='true'] { background: var(--paper-2); }
-.hdr-item > svg,
-.hdr-item-glyph { flex: none; width: 16px; color: var(--ink-soft); text-align: center; }
+.hdr-item > svg { flex: none; color: var(--ink-soft); }
 .hdr-item-label { flex: 1; }
-.hdr-item-go { color: var(--ink-faint); }
-.hdr-back { align-self: flex-start; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-soft); font: inherit; font-size: var(--fs-md); cursor: pointer; }
+.hdr-history { display: inline-flex; gap: 2px; }
+.app-header .hdr-history .btn:disabled { opacity: 0.35; cursor: default; }
+/* With the tools in their menu, the two stay beside it. */
+.app-header .hdr-end { display: flex; align-items: center; gap: var(--space-3); }
+.app-header .hdr-end > .hdr-tools { margin-left: 0; }
+.app-header .hdr-history .btn.icon { width: var(--d-ctl-h); height: var(--d-ctl-h); min-height: 0; }
+.hdr-item-go { display: inline-flex; color: var(--ink-faint); }
+.hdr-back { display: inline-flex; align-items: center; gap: 2px; align-self: flex-start; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-soft); font: inherit; font-size: var(--fs-md); cursor: pointer; }
 .hdr-back:hover { background: var(--paper-2); color: var(--ink); }

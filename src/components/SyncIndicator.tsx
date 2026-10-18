@@ -1,7 +1,8 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { lineSync, type LineSnapshot } from '../lib/lineSync';
 import { sharedGrid, type GridSnapshot } from '../lib/sharedGrid';
 import { useSyncStatus, type SyncSnapshot, type SyncStatus } from '../lib/sync';
+import { CheckIcon, LocalIcon, OfflineIcon, RefreshIcon, UpIcon, WarnIcon } from './icons';
 
 // One chip for everything that syncs, whatever tab is showing: the app's data
 // (logbook, schedule, protection…), the shift's GridCraft workbook (Suivi) and
@@ -11,17 +12,17 @@ import { useSyncStatus, type SyncSnapshot, type SyncStatus } from '../lib/sync';
 
 interface Descriptor {
   cls: string;
-  glyph: string;
+  glyph: ReactNode;
   short: string;
 }
 
 const DESCRIPTORS: Record<SyncStatus, Descriptor> = {
-  idle:     { cls: 'is-idle',    glyph: '●', short: 'Sync.' },
-  syncing:  { cls: 'is-syncing', glyph: '↻', short: 'Sync…' },
-  queued:   { cls: 'is-queued',  glyph: '↑', short: 'En file' },
-  offline:  { cls: 'is-offline', glyph: '⊘', short: 'Hors ligne' },
-  error:    { cls: 'is-error',   glyph: '⚠', short: 'Échec' },
-  disabled: { cls: 'is-disabled', glyph: '○', short: 'Local' },
+  idle:     { cls: 'is-idle',    glyph: <CheckIcon size={13} strokeWidth={2.25} />, short: 'Sync.' },
+  syncing:  { cls: 'is-syncing', glyph: <RefreshIcon size={13} />, short: 'Sync…' },
+  queued:   { cls: 'is-queued',  glyph: <UpIcon size={13} />, short: 'En file' },
+  offline:  { cls: 'is-offline', glyph: <OfflineIcon size={13} />, short: 'Hors ligne' },
+  error:    { cls: 'is-error',   glyph: <WarnIcon size={13} />, short: 'Échec' },
+  disabled: { cls: 'is-disabled', glyph: <LocalIcon size={13} />, short: 'Local' },
 };
 
 // Worst first: the chip shows the state that most needs a look.

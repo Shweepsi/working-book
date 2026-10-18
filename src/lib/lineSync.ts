@@ -110,6 +110,9 @@ export interface LineSnapshot {
   loaded: boolean;
   /** Bumped whenever the followed shift's records change. */
   rev: number;
+  /** Steps of this page on the followed shift that Ctrl+Z / Ctrl+Y can take. */
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 interface Follower {
@@ -147,7 +150,7 @@ class LineSync {
   private pollTimer: ReturnType<typeof setTimeout> | undefined;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private listeners = new Set<() => void>();
-  private snap: LineSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, error: null, part: null, loaded: false, rev: 0 };
+  private snap: LineSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, error: null, part: null, loaded: false, rev: 0, canUndo: false, canRedo: false };
   private dataCache: { key: string; rev: number; data: LineData } | null = null;
   private focus: { part: string; id: string } | null = null;
 
@@ -182,6 +185,8 @@ class LineSync {
       part: this.key,
       loaded: this.loaded,
       rev: this.snap.rev + (changedRecords ? 1 : 0),
+      canUndo: !!(this.key && this.history.get(this.key)?.undo.length),
+      canRedo: !!(this.key && this.history.get(this.key)?.redo.length),
     };
     this.listeners.forEach((l) => l());
   }

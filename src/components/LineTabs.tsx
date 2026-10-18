@@ -41,6 +41,7 @@ import {
 import { deleteRecords, lineSync, putRecord, putRecords, redoLine, undoLine, useLine, useLineSnapshot } from '../lib/lineSync';
 import type { Partition } from '../lib/sharedGrid';
 import { useToast } from '../lib/toast';
+import { AddIcon, CloseIcon, CommentIcon, MinusIcon } from './icons';
 
 type Side = 'loading' | 'unloading';
 
@@ -171,11 +172,11 @@ function Stepper({ value, onChange, label }: { value: number | null; onChange: (
   return (
     <span className="ln-stepper">
       <button type="button" onClick={() => onChange(Math.max(0, n - 1) || null)} aria-label={`${label} : un de moins`} disabled={n <= 0}>
-        −
+        <MinusIcon size={16} />
       </button>
       <TextInput value={numText(value)} onCommit={(t) => onChange(parseNumber(t))} label={label} numeric />
       <button type="button" onClick={() => onChange(n + 1)} aria-label={`${label} : un de plus`}>
-        +
+        <AddIcon size={16} />
       </button>
     </span>
   );
@@ -184,7 +185,7 @@ function Stepper({ value, onChange, label }: { value: number | null; onChange: (
 function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button type="button" className="ln-remove" onClick={onClick} aria-label={label} title={label}>
-      ✕
+      <CloseIcon size={14} />
     </button>
   );
 }
@@ -270,9 +271,7 @@ function LoadingRowView({ row, draft, onChange, onRemove }: RowProps<LoadingRow>
           aria-expanded={commenting}
           title={row.comment || 'Commentaire'}
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-            <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" />
-          </svg>
+          <CommentIcon size={14} />
         </button>
         <RemoveButton label={draft ? 'Abandonner la ligne' : 'Supprimer la ligne'} onClick={onRemove} />
         {commenting && (
@@ -688,7 +687,7 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
                   {b.colour && (
                     <div className="ln-add">
                       <button type="button" className="btn ghost mini" onClick={() => addLoading(b.colour as Colour)}>
-                        + Jumbo
+                        <AddIcon size={14} /> Jumbo
                       </button>
                     </div>
                   )}
@@ -702,7 +701,7 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
                   {b.colour && (
                     <div className="ln-add">
                       <button type="button" className="btn ghost mini" onClick={() => addRack(b.colour as Colour)}>
-                        + Rack
+                        <AddIcon size={14} /> Rack
                       </button>
                     </div>
                   )}
@@ -778,7 +777,7 @@ function QuickScraps({ colour, dims, defects, onAdd, onQuick }: QuickScrapsProps
   return (
     <div className="ln-add ln-quick">
       <button type="button" className="btn ghost mini" onClick={() => onAdd(colour)}>
-        + Scrap
+        <AddIcon size={14} /> Scrap
       </button>
       {defects.map((d) => (
         <button key={d} type="button" className="ln-quick-defect" onClick={() => onQuick(colour, d)} title={`Un scrap de plus : ${d}${at}`}>

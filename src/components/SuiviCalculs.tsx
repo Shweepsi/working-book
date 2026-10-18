@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { load, save } from '../lib/storage';
+import { CloseIcon } from './icons';
 
 const GAP_M = 0.19;
 const KEY = 'wb.suivi.calculs';
@@ -97,7 +98,7 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
             <span className="sheet-head-sub">Vitesse de ligne, temps et nombre de plaques</span>
           </div>
           <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
