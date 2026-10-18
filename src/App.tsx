@@ -16,6 +16,7 @@ import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
 import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
+import LineTab from './components/LineTabs';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -27,7 +28,7 @@ import {
 } from './lib/shiftCalendar';
 import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
-type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid';
+type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
 interface TabDef {
   key: TabKey;
@@ -46,6 +47,9 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
   { key: 'grid', label: 'Suivi', preview: true, shiftScoped: true },
+  // The line's own input, without a spreadsheet (components/LineTabs.tsx).
+  { key: 'loading', label: 'Loading', preview: true, shiftScoped: true },
+  { key: 'unloading', label: 'Unloading', preview: true, shiftScoped: true },
 ];
 
 const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
@@ -425,7 +429,7 @@ export default function App() {
         )}
 
         <div className="shift-meta">
-          <SyncIndicator grid={tab === 'grid' && poste !== null} />
+          <SyncIndicator grid={tab === 'grid' && poste !== null} line={(tab === 'loading' || tab === 'unloading') && poste !== null} />
           {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
           <button
             type="button"
@@ -491,8 +495,9 @@ export default function App() {
         )}
         {tab === 'suivi' && <Suivi />}
         {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
+        {(tab === 'loading' || tab === 'unloading') && <LineTab part={poste ? { date, poste } : null} side={tab} />}
         {showBilan && poste && (
-          <div className={`sb-print-host${tab === 'grid' ? ' is-tab' : ''}`}>
+          <div className={`sb-print-host${tab === 'grid' || tab === 'loading' || tab === 'unloading' ? ' is-tab' : ''}`}>
             <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />
           </div>
         )}
@@ -505,7 +510,7 @@ export default function App() {
           onScope={setBilanScope}
           onClose={() => setBilanOpen(false)}
           onPrint={printBilan}
-          onShowRow={() => setTab('grid')}
+          onShowRow={(target) => setTab(target.tab)}
         />
       )}
 

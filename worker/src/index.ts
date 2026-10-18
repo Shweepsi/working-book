@@ -5,6 +5,7 @@
 import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
+import { LINE_METHODS, handleLine } from './line';
 
 export interface Env {
   DB: D1Database;
@@ -13,8 +14,9 @@ export interface Env {
   // extension runs inside the Infor portal, so its Origin is never the app's
   // own — see DEFAULT_INGEST_ORIGINS.
   INGEST_ORIGINS?: string;
-  // "on" where the GridCraft shared workbooks are served. Dev only for now:
-  // like every route here they have no auth, and they take the biggest writes.
+  // "on" where the GridCraft shared workbooks are served, and the line's own
+  // input (Loading, Unloading: line.ts). Dev only for now: like every route
+  // here they have no auth, and they take the biggest writes.
   GRID?: string;
 }
 
@@ -67,9 +69,11 @@ export default {
           })
         : url.pathname.startsWith('/api/grid/')
           ? corsHeaders(env, origin, { methods: GRID_METHODS })
-          : url.pathname === UPLOADS_PATH
-            ? corsHeaders(env, origin, { methods: 'GET, POST, DELETE, OPTIONS' })
-            : corsHeaders(env, origin);
+          : url.pathname.startsWith('/api/line/')
+            ? corsHeaders(env, origin, { methods: LINE_METHODS })
+            : url.pathname === UPLOADS_PATH
+              ? corsHeaders(env, origin, { methods: 'GET, POST, DELETE, OPTIONS' })
+              : corsHeaders(env, origin);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
@@ -77,6 +81,7 @@ export default {
 
     try {
       if (url.pathname.startsWith('/api/grid/') && env.GRID === 'on') return await handleGrid(request, url, env, cors);
+      if (url.pathname.startsWith('/api/line/') && env.GRID === 'on') return await handleLine(request, url, env, cors);
       switch (url.pathname) {
         case '/api/calendar.ics':
           return calendarResponse(request, url, cors);

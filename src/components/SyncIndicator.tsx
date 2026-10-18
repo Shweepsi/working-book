@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { lineSync, type LineSnapshot } from '../lib/lineSync';
 import { sharedGrid, type GridSnapshot } from '../lib/sharedGrid';
 import { useSyncStatus, type SyncStatus } from '../lib/sync';
 
@@ -39,6 +40,23 @@ function gridState(g: GridSnapshot): { status: SyncStatus; title: string } | nul
   }
 }
 
+function lineState(l: LineSnapshot): { status: SyncStatus; title: string } | null {
+  switch (l.status) {
+    case 'ready':
+      return { status: 'idle', title: 'partagé avec les autres appareils ouverts sur ce poste' };
+    case 'loading':
+      return { status: 'syncing', title: 'chargement…' };
+    case 'syncing':
+      return { status: 'syncing', title: `envoi en cours… (${l.pending})` };
+    case 'offline':
+      return { status: 'offline', title: 'hors ligne — les saisies seront envoyées au retour de la connexion' };
+    case 'error':
+      return { status: 'error', title: l.error ?? 'échec' };
+    default:
+      return null;
+  }
+}
+
 function relTime(ts: number, now: number): string {
   const sec = Math.max(0, Math.round((now - ts) / 1000));
   if (sec < 5) return 'à l’instant';
@@ -53,11 +71,14 @@ function relTime(ts: number, now: number): string {
 interface SyncIndicatorProps {
   /** Also reflect the shift's shared GridCraft workbook (on its tab). */
   grid?: boolean;
+  /** Also reflect the shift's Loading and Unloading records (on their tabs). */
+  line?: boolean;
 }
 
-export default function SyncIndicator({ grid = false }: SyncIndicatorProps) {
+export default function SyncIndicator({ grid = false, line = false }: SyncIndicatorProps) {
   const snap = useSyncStatus();
   const gridSnap = useSyncExternalStore(sharedGrid.subscribe, sharedGrid.getSnapshot);
+  const lineSnap = useSyncExternalStore(lineSync.subscribe, lineSync.getSnapshot);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -67,9 +88,9 @@ export default function SyncIndicator({ grid = false }: SyncIndicatorProps) {
 
   if (snap.status === 'disabled') return null;
 
-  const g = grid ? gridState(gridSnap) : null;
+  const g = grid ? gridState(gridSnap) : line ? lineState(lineSnap) : null;
   const status = g && RANK[g.status] > RANK[snap.status] ? g.status : snap.status;
-  const pending = snap.pending + (g ? gridSnap.pending : 0);
+  const pending = snap.pending + (g ? (grid ? gridSnap.pending : lineSnap.pending) : 0);
   const d = DESCRIPTORS[status];
   const lastTs = snap.status === 'error' ? snap.lastErrorAt : snap.lastSuccessAt;
   const lastLabel = lastTs ? relTime(lastTs, now) : null;
@@ -80,7 +101,7 @@ export default function SyncIndicator({ grid = false }: SyncIndicatorProps) {
   else if (snap.status === 'queued') title = `${snap.pending} mutation${snap.pending > 1 ? 's' : ''} en attente`;
   else if (snap.status === 'offline') title = 'Hors ligne — les modifications seront envoyées au retour de la connexion';
   else title = `Échec de synchronisation${lastLabel ? ` · ${lastLabel}` : ''} (${snap.pending} en attente)`;
-  if (g) title = `Saisies : ${title}\nClasseur du poste : ${g.title}`;
+  if (g) title = `Saisies : ${title}\n${grid ? 'Classeur du poste' : 'Loading et Unloading'} : ${g.title}`;
 
   return (
     <div
