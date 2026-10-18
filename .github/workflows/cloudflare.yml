@@ -62,6 +62,33 @@ jobs:
       - name: Deploy Worker (dev)
         run: npx wrangler deploy --env dev
 
+  mcp-dev:
+    name: Deploy MCP server (dev)
+    # Claude on the shared Suivi workbooks (worker/src/mcp/, its own Worker).
+    # It reads and writes the dev D1 directly, after worker-dev has migrated it.
+    # Its secret MCP_PASSPHRASE is set once in the Cloudflare dashboard.
+    needs: [preflight, worker-dev]
+    if: needs.preflight.outputs.configured == 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - name: Fetch the GridCraft engine (wasm)
+        run: scripts/fetch-engine.sh
+      - name: Deploy MCP server (dev)
+        run: npx wrangler deploy -c wrangler.mcp.toml --env dev
+
   worker-prod:
     name: Deploy Worker (prod)
     needs: preflight
@@ -133,6 +160,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # The GridCraft tab is dev-channel only (see VITE_CHANNEL below), so
+      # production neither downloads nor serves its ~18 Mo of wasm.
+      - name: Fetch GridCraft web build (dev channel)
+        if: github.ref != 'refs/heads/main'
+        run: npm run fetch:gridcraft
       - run: npm run build
         env:
           # main → prod Worker + D1 prod; any branch/PR → dev Worker + D1 dev.

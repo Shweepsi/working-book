@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
+import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
 import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
+import { SYNC_ENABLED } from './lib/api';
 import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
+import { prefetchGridcraft } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
+import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -22,7 +26,7 @@ import {
 } from './lib/shiftCalendar';
 import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
-type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
+type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid';
 
 interface TabDef {
   key: TabKey;
@@ -40,6 +44,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'test', label: 'Test', preview: true, shiftScoped: true },
   { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
+  { key: 'grid', label: 'Suivi', preview: true, shiftScoped: true },
 ];
 
 const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
@@ -118,6 +123,23 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
+  // The shift's bilan (previews): a sheet over whatever page is showing, the
+  // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
+  const [bilanOpen, setBilanOpen] = useState(false);
+  const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
+  const showBilan = IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
+  // Once opened, the Suivi workbook stays mounted (hidden behind the other
+  // tabs): coming back is instant, with no wasm to start again and no cells
+  // to replay. Its files are fetched ahead, so the first open is quick too.
+  const [gridSeen, setGridSeen] = useState(false);
+  useEffect(() => {
+    if (tab === 'grid') setGridSeen(true);
+  }, [tab]);
+  useEffect(() => {
+    if (!IS_DEV_CHANNEL || !SYNC_ENABLED) return;
+    const t = setTimeout(() => void prefetchGridcraft(), 4000);
+    return () => clearTimeout(t);
+  }, []);
   // Which paper layout the Schedule view prints as. Kept here, next to the
   // `@page` rule and the aperçu bar, so the orientation has a single owner.
   // Persisted like the other paper-adjacent preferences: an operator who
@@ -224,6 +246,26 @@ export default function App() {
           ? '@media print { @page { size: A4 portrait; margin: 10mm 8mm; } }'
           : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
   }, [tab, schedPrintMode]);
+
+  // The bilan alone on paper, whatever page is under its sheet: the page's own
+  // content steps aside (print-bilan on <html>) and the sheet goes portrait for
+  // the time of the dialog.
+  function printBilan() {
+    const root = document.documentElement;
+    const size = document.getElementById(PAGE_SIZE_STYLE_ID);
+    const before = size?.textContent ?? null;
+    if (size) size.textContent = '@media print { @page { size: A4 portrait; margin: 5mm; } }';
+    root.classList.add('print-bilan');
+    const done = () => {
+      root.classList.remove('print-bilan');
+      if (size && before !== null) size.textContent = before;
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+    // Where the engine fires no afterprint, print() returned once the dialog closed.
+    setTimeout(done, 0);
+  }
 
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
@@ -380,7 +422,8 @@ export default function App() {
         )}
 
         <div className="shift-meta">
-          <SyncIndicator />
+          <SyncIndicator grid={tab === 'grid' && poste !== null} />
+          {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
           <button
             type="button"
             className="btn ghost icon calc-trigger"
@@ -443,7 +486,24 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
+        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
+        {showBilan && poste && (
+          <div className={`sb-print-host${tab === 'grid' ? ' is-tab' : ''}`}>
+            <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />
+          </div>
+        )}
       </main>
+      {bilanOpen && poste && (
+        <BilanSheet
+          part={{ date, poste }}
+          shiftLabel={shiftMeta.shift.label}
+          scope={bilanScope}
+          onScope={setBilanScope}
+          onClose={() => setBilanOpen(false)}
+          onPrint={printBilan}
+          onShowRow={() => setTab('grid')}
+        />
+      )}
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
 
