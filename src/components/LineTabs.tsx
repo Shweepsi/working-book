@@ -38,7 +38,7 @@ import {
   type Scrap,
   type UnloadingRow,
 } from '../lib/line';
-import { deleteRecords, lineSync, putRecord, putRecords, useLine, useLineSnapshot } from '../lib/lineSync';
+import { deleteRecords, lineSync, putRecord, putRecords, redoLine, undoLine, useLine, useLineSnapshot } from '../lib/lineSync';
 import type { Partition } from '../lib/sharedGrid';
 import { useToast } from '../lib/toast';
 
@@ -125,6 +125,8 @@ function TextInput({ value, onCommit, label, numeric, list, placeholder, autoFoc
       className="ln-input"
       data-nav
       value={text ?? value}
+      // Typed in and not left yet: Ctrl+Z is the field's own until then.
+      data-dirty={text !== null && text !== initial.current ? '' : undefined}
       aria-label={label}
       aria-invalid={invalid || undefined}
       inputMode={numeric ? 'decimal' : undefined}
@@ -385,8 +387,10 @@ function blocksOf(d: LineData, drafts: LineRecord[]): Block[] {
   return blocks;
 }
 
-function ColourName({ colour, onRename }: { colour: Colour; onRename: (name: string) => void }) {
+function ColourName({ colour, onRename }: { colour: Colour; onRename?: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
+  // Renamed in Loading only, where colours open.
+  if (!onRename) return <span className="ln-colour-name is-fixed">{colour.name || 'Couleur sans nom'}</span>;
   if (!editing)
     return (
       <button type="button" className="ln-colour-name" onClick={() => setEditing(true)} title="Renommer la couleur">
@@ -517,6 +521,28 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
     const ids = new Set([...data.loading, ...data.unloading, ...data.scraps].map((r) => r.id));
     if (drafts.some((r) => ids.has(r.id))) setDrafts((ds) => ds.filter((r) => !ids.has(r.id)));
   }, [data, drafts]);
+
+  // Ctrl+Z / Ctrl+Y (Ctrl+Maj+Z): this tablet's steps on the shift, both tabs.
+  // A field being typed in keeps its own; one only focused is left first, so it
+  // shows what comes back.
+  useEffect(() => {
+    if (!part) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const redo = k === 'y' || (k === 'z' && e.shiftKey);
+      if (k !== 'z' && !redo) return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        if (el.hasAttribute('data-dirty') || !el.hasAttribute('data-nav')) return;
+        el.blur();
+      }
+      e.preventDefault();
+      if (!(redo ? redoLine(part) : undoLine(part))) toast.show({ key: 'ln-undo', message: redo ? 'Rien à rétablir' : 'Rien à annuler' });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [part?.date, part?.poste]);
 
   // A row the bilan pointed at: brought into view, and flashed.
   useEffect(() => {
@@ -829,11 +855,16 @@ function BlockHead({ block, side, onRename, onRemove, onName, empty }: BlockHead
       : `${plural(racks.length, 'rack')} · ${fmtNum(lites)} lites · ${fmtNum(scrapped)} scraps (${pct(scrapped, lites + scrapped)})`;
   return (
     <header className="ln-block-head">
-      {block.colour ? <ColourName colour={block.colour} onRename={onRename} /> : <span className="ln-colour-name is-none">Sans couleur</span>}
+      {block.colour ? (
+        <ColourName colour={block.colour} onRename={side === 'loading' ? onRename : undefined} />
+      ) : (
+        <span className="ln-colour-name is-none">Sans couleur</span>
+      )}
       <span className="ln-block-sum">{summary}</span>
       <span className="gc-spacer" />
-      {!block.colour && <NameRows onName={onName} />}
-      {block.colour && empty && <RemoveButton label={`Retirer la couleur ${block.colour.name}`} onClick={onRemove} />}
+      {/* Colours open, are renamed and go in Loading only. */}
+      {side === 'loading' && !block.colour && <NameRows onName={onName} />}
+      {side === 'loading' && block.colour && empty && <RemoveButton label={`Retirer la couleur ${block.colour.name}`} onClick={onRemove} />}
     </header>
   );
 }

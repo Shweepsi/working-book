@@ -47,6 +47,18 @@ const CHUNK = 500;
 // Shifts whose last state stays on the device for opening offline.
 const MAX_SNAPSHOTS = 6;
 
+// Ctrl+Z goes back this many steps per shift; writes of one record this close
+// together are one step (a stepper tapped several times).
+const MAX_STEPS = 100;
+const MERGE_MS = 1_500;
+
+/** One step of a shift's history: its records before and after. */
+interface Step {
+  at: number;
+  before: RecordWrite[];
+  after: RecordWrite[];
+}
+
 const partKey = (p: Partition) => `${p.date}.${p.poste}`;
 const OUTBOX = 'wb.line.outbox.';
 const SNAPSHOT = 'wb.line.snap.';
@@ -116,6 +128,8 @@ class LineSync {
   private loadToken = 0;
   private loaded = false;
   private records = new Map<string, RecordWrite>();
+  // This page's own steps, per shift: what Ctrl+Z and Ctrl+Y walk through.
+  private history = new Map<string, { undo: Step[]; redo: Step[] }>();
   private server = new Map<string, StoredRecord>();
   // Per record: Infinity while our write is unsent or in flight, then its seq.
   private own = new Map<string, number>();
@@ -353,9 +367,51 @@ class LineSync {
 
   // --- Sending ---------------------------------------------------------------
 
-  /** Writes records of `p` (shown at once here, then sent). */
+  /** Writes records of `p` (shown at once here, then sent), a step of its history. */
   write(p: Partition, writes: RecordWrite[]): void {
     if (!writes.length) return;
+    const key = partKey(p);
+    if (key === this.key) this.remember(key, writes);
+    this.send(p, writes);
+  }
+
+  /** Takes back this page's last step on `p`; false when there's none. */
+  undo(p: Partition): boolean {
+    const h = this.history.get(partKey(p));
+    const step = h?.undo.pop();
+    if (!h || !step) return false;
+    h.redo.push(step);
+    this.send(p, step.before);
+    return true;
+  }
+
+  /** Makes again the last step taken back on `p`; false when there's none. */
+  redo(p: Partition): boolean {
+    const h = this.history.get(partKey(p));
+    const step = h?.redo.pop();
+    if (!h || !step) return false;
+    h.undo.push(step);
+    this.send(p, step.after);
+    return true;
+  }
+
+  private remember(key: string, writes: RecordWrite[]): void {
+    const h = this.history.get(key) ?? { undo: [], redo: [] };
+    this.history.set(key, h);
+    h.redo = [];
+    const now = Date.now();
+    const last = h.undo[h.undo.length - 1];
+    if (last && writes.length === 1 && last.after.length === 1 && last.after[0].id === writes[0].id && now - last.at < MERGE_MS) {
+      last.after = writes;
+      last.at = now;
+      return;
+    }
+    const before = writes.map((w) => this.records.get(w.id) ?? { id: w.id, kind: w.kind, v: null });
+    h.undo.push({ at: now, before: before.map((b) => ({ id: b.id, kind: b.kind, v: b.v })), after: writes });
+    if (h.undo.length > MAX_STEPS) h.undo.shift();
+  }
+
+  private send(p: Partition, writes: RecordWrite[]): void {
     this.start();
     const key = partKey(p);
     const out = this.outboxes.get(key) ?? new Map<string, RecordWrite>();
@@ -537,3 +593,9 @@ export async function readLine(date: string, poste: string): Promise<LineData> {
   }
   return toLineData(records);
 }
+
+/** Ctrl+Z on `p`: takes back this page's last step there. */
+export const undoLine = (p: Partition) => lineSync.undo(p);
+
+/** Ctrl+Y on `p`: makes again the last step taken back. */
+export const redoLine = (p: Partition) => lineSync.redo(p);

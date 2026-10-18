@@ -5837,6 +5837,7 @@ button.as-row:focus-visible {
   cursor: text;
 }
 .ln-colour-name.is-none { color: var(--flag-unsched-fg); cursor: default; }
+.ln-colour-name.is-fixed { cursor: default; }
 .ln-colour-edit .ln-input { width: 14em; font-weight: 650; }
 .ln-block-sum { color: var(--ink-soft); font-size: var(--fs-base); font-variant-numeric: tabular-nums; }
 .ln-name-none { display: flex; align-items: center; gap: var(--space-3); color: var(--ink-soft); font-size: var(--fs-md); }
