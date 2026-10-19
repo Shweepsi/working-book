@@ -6081,9 +6081,11 @@ select.ln-input { padding-right: var(--space-2); }
     inset: calc((var(--fs-2xs) - var(--d-ctl-h)) / 2) -6px;
   }
   :root:not(.is-print-preview) .sch-row.sch-head,
-  :root:not(.is-print-preview) .sch-row.sch-total { height: var(--d-ctl-h); }
+  :root:not(.is-print-preview) .sch-row.sch-total,
+  :root:not(.is-print-preview) .sch-row.sch-group-break { height: var(--d-ctl-h); }
   :root:not(.is-print-preview) .sch-row.sch-head .sch-cell,
-  :root:not(.is-print-preview) .sch-row.sch-total .sch-cell {
+  :root:not(.is-print-preview) .sch-row.sch-total .sch-cell,
+  :root:not(.is-print-preview) .sch-row.sch-group-break .sch-cell {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
   }
