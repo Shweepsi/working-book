@@ -2798,8 +2798,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: var(--radius-sm);
 }
 .sch-cols-item:hover { background: var(--paper-2); }
-.sch-cols-item.is-pinned { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.sch-cols-item.is-pinned:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .sch-cols-item.is-hidden .sch-cols-opt span { color: var(--ink-faint); text-decoration: line-through; }
 .sch-cols-actions {
   display: inline-flex;
@@ -3248,40 +3246,6 @@ body.is-col-resizing * {
   background: color-mix(in srgb, var(--accent) 10%, var(--paper-2));
 }
 
-/* Pin glyph in the Colonnes menu — vertical bar + circle on the right,
-   filled when the column is pinned. */
-.sch-cols-pin { color: var(--ink-soft); }
-.sch-cols-pin.is-on { color: var(--accent); }
-.sch-pin-glyph {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  position: relative;
-}
-.sch-pin-glyph::before {
-  content: '';
-  position: absolute;
-  left: 2px;
-  top: 2px;
-  bottom: 2px;
-  width: 1.5px;
-  background: currentColor;
-  border-radius: 1px;
-}
-.sch-pin-glyph::after {
-  content: '';
-  position: absolute;
-  right: 2px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  transition: background 100ms ease;
-}
-.sch-cols-pin.is-on .sch-pin-glyph::after { background: currentColor; }
 .sch-cell.col-fmt { text-align: center; }
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }

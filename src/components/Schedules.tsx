@@ -289,7 +289,8 @@ function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: D
     );
   return {
     hidden: dedupe(raw.hidden),
-    pinned: dedupe(raw.pinned),
+    // Pinning columns is gone; a pin saved before is dropped on load.
+    pinned: [],
     order: dedupe(raw.order),
     widths: numbers(raw.widths),
     autoWidths: numbers(raw.autoWidths),
@@ -759,13 +760,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     }));
   }
 
-  function togglePinned(key: string) {
-    updateLayout((l) => ({
-      ...l,
-      pinned: l.pinned.includes(key) ? l.pinned.filter((k) => k !== key) : [...l.pinned, key],
-    }));
-  }
-
   function moveColumn(key: string, dir: -1 | 1) {
     updateLayout((l) => {
       const order = completeColumnOrder(l.order);
@@ -1169,7 +1163,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       onToggleFilterValue={toggleFilterValue}
       onClearFilters={clearFilters}
       onToggleColumn={toggleColumnVisibility}
-      onTogglePinned={togglePinned}
       onMoveColumn={moveColumn}
       onResetLayout={resetTableLayout}
     />
@@ -2218,7 +2211,6 @@ interface TableControlsProps {
   onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
   onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
-  onTogglePinned: (key: string) => void;
   onMoveColumn: (key: string, dir: -1 | 1) => void;
   onResetLayout: () => void;
 }
@@ -2238,7 +2230,6 @@ function TableControls({
   onToggleFilterValue,
   onClearFilters,
   onToggleColumn,
-  onTogglePinned,
   onMoveColumn,
   onResetLayout,
 }: TableControlsProps) {
@@ -2361,7 +2352,7 @@ function TableControls({
                   const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
                   const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
                   return (
-                    <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
+                    <li key={col.key} className={`sch-cols-item ${visible ? '' : 'is-hidden'}`}>
                       <label className="sch-cols-opt">
                         <input
                           type="checkbox"
@@ -2371,16 +2362,6 @@ function TableControls({
                         <span>{col.label}</span>
                       </label>
                       <div className="sch-cols-actions">
-                        <button
-                          type="button"
-                          className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
-                          onClick={() => onTogglePinned(col.key)}
-                          title={pinned ? 'Désépingler' : 'Épingler à gauche'}
-                          aria-pressed={pinned}
-                          aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
-                        >
-                          <span aria-hidden="true" className="sch-pin-glyph" />
-                        </button>
                         <button
                           type="button"
                           className="btn ghost icon mini"
@@ -2403,7 +2384,7 @@ function TableControls({
                 })}
               </ul>
               <div className="sch-cols-menu-foot faint small">
-                {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
+                {visibleColumns.length}/{COLUMNS.length} visibles
               </div>
             </div>
           )}
