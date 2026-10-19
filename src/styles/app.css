@@ -4161,7 +4161,6 @@ button.sb-check:hover .sb-go { color: var(--accent); }
 .sc-field.is-bad .sc-input { border-color: var(--flag-unsched-bd); }
 .sc-result strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.5; }
 .sc-sub { font-size: var(--fs-sm); color: var(--ink-faint); }
-.sc-hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-faint); }
 .sc-card {
   display: flex;
   flex-direction: column;
@@ -4171,7 +4170,6 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   border-radius: var(--radius-md);
   background: var(--paper-2);
 }
-.sc-card h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
 .sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 
 /* The bilan on paper: the workbook's frame isn't printed (.no-print), the

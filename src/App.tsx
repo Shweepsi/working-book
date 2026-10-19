@@ -496,8 +496,8 @@ export default function App() {
               type="button"
               className="btn ghost icon calc-trigger"
               onClick={() => setCalcOpen(true)}
-              aria-label="Calculs de ligne"
-              title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
+              aria-label="Calcul Temps"
+              title="Calcul Temps"
             >
               <CalcIcon />
             </button>

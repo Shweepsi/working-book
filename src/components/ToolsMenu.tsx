@@ -97,7 +97,7 @@ export default function ToolsMenu({ bilan, onCalc, printPreview, onPrintPreview,
               )}
               <button type="button" role="menuitem" className="hdr-item" onClick={run(onCalc)}>
                 <CalcIcon />
-                <span className="hdr-item-label">Calculs de ligne</span>
+                <span className="hdr-item-label">Calcul Temps</span>
               </button>
               <button type="button" role="menuitemcheckbox" aria-checked={printPreview} className="hdr-item" onClick={run(onPrintPreview)}>
                 <PrintIcon />

@@ -38,11 +38,6 @@ function duration(min: number): string {
   return h ? `${h} h ${two(m)}` : `${m} min`;
 }
 
-/** Minutes → « 1 min 02 s », to the second: one plate's passage. */
-function shortDuration(min: number): string {
-  const s = Math.round(min * 60);
-  return s >= 60 ? `${Math.floor(s / 60)} min ${two(s % 60)} s` : `${s} s`;
-}
 
 const fmt = (v: number, digits: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: digits });
 
@@ -90,12 +85,11 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sc-sheet" role="dialog" aria-modal="true" aria-label="Calculs de ligne">
+      <div className="sheet sc-sheet" role="dialog" aria-modal="true" aria-label="Calcul Temps">
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
-            <h3>Calculs</h3>
-            <span className="sheet-head-sub">Vitesse de ligne, temps et nombre de plaques</span>
+            <h3>Calcul Temps</h3>
           </div>
           <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">
             <CloseIcon />
@@ -106,12 +100,8 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
           <Field label="Vitesse" unit="m/min" value={v.vitesse} onChange={set('vitesse')} />
           <Field label="Longueur de plaque" unit="mm" value={v.longueur} onChange={set('longueur')} />
         </div>
-        <p className="sc-hint">
-          Une plaque passe en {perPlate > 0 ? shortDuration(perPlate) : '—'}, écart de {fmt(GAP_M, 2)} m entre deux plaques compris.
-        </p>
 
         <section className="sc-card">
-          <h4>Temps pour un nombre de plaques</h4>
           <div className="sc-row">
             <Field label="Plaques" unit="plaques" value={v.plaques} onChange={set('plaques')} />
             <div className="sc-result" aria-live="polite">
@@ -122,7 +112,6 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="sc-card">
-          <h4>Plaques dans un temps</h4>
           <div className="sc-row">
             <Field label="Temps" unit="min" value={v.temps} onChange={set('temps')} />
             <div className="sc-result" aria-live="polite">
