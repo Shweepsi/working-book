@@ -1,16 +1,16 @@
 // The line's two calculators, which lived at the bottom of the template's
 // Rapport sheet (template #26 and earlier): how long a run of plates takes at
 // a speed, and how many plates go through in a time. A plate takes its length
-// plus the 0,19 m gap between two plates; the speed is in m/min. Results are
+// plus the 150 mm gap between two plates; the speed is in m/min. Results are
 // rounded the way the line counts: the time to the minute, whole plates. The
 // values typed stay on this device. Opened from the app's header, on every
 // page.
 
 import { useEffect, useState } from 'react';
 import { load, save } from '../lib/storage';
-import { CloseIcon } from './icons';
+import { CloseIcon, ResetIcon, ToIcon } from './icons';
 
-const GAP_M = 0.19;
+const GAP_M = 0.15;
 const KEY = 'wb.suivi.calculs';
 
 interface Inputs {
@@ -38,11 +38,6 @@ function duration(min: number): string {
   return h ? `${h} h ${two(m)}` : `${m} min`;
 }
 
-/** Minutes → « 1 min 02 s », to the second: one plate's passage. */
-function shortDuration(min: number): string {
-  const s = Math.round(min * 60);
-  return s >= 60 ? `${Math.floor(s / 60)} min ${two(s % 60)} s` : `${s} s`;
-}
 
 const fmt = (v: number, digits: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: digits });
 
@@ -63,6 +58,15 @@ function Field({ label, unit, value, onChange }: FieldProps) {
         <span className="sc-unit">{unit}</span>
       </span>
     </label>
+  );
+}
+
+function Result({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="sc-result" aria-live="polite">
+      <span className="sc-label">{label}</span>
+      <output className={`sc-value${value === '—' ? ' is-empty' : ''}`}>{value}</output>
+    </div>
   );
 }
 
@@ -90,51 +94,38 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sc-sheet" role="dialog" aria-modal="true" aria-label="Calculs de ligne">
+      <div className="sheet sc-sheet" role="dialog" aria-modal="true" aria-label="Calcul Temps">
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
-            <h3>Calculs</h3>
-            <span className="sheet-head-sub">Vitesse de ligne, temps et nombre de plaques</span>
+            <h3>Calcul Temps</h3>
           </div>
           <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">
             <CloseIcon />
           </button>
         </div>
 
-        <div className="sc-row">
+        <div className="sc-row sc-line">
           <Field label="Vitesse" unit="m/min" value={v.vitesse} onChange={set('vitesse')} />
           <Field label="Longueur de plaque" unit="mm" value={v.longueur} onChange={set('longueur')} />
         </div>
-        <p className="sc-hint">
-          Une plaque passe en {perPlate > 0 ? shortDuration(perPlate) : '—'}, écart de {fmt(GAP_M, 2)} m entre deux plaques compris.
-        </p>
 
-        <section className="sc-card">
-          <h4>Temps pour un nombre de plaques</h4>
-          <div className="sc-row">
+        <div className="sc-calcs">
+          <section className="sc-card">
             <Field label="Plaques" unit="plaques" value={v.plaques} onChange={set('plaques')} />
-            <div className="sc-result" aria-live="polite">
-              <span className="sc-label">Temps</span>
-              <strong>{time}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="sc-card">
-          <h4>Plaques dans un temps</h4>
-          <div className="sc-row">
+            <ToIcon className="sc-to" size={18} />
+            <Result label="Temps" value={time} />
+          </section>
+          <section className="sc-card">
             <Field label="Temps" unit="min" value={v.temps} onChange={set('temps')} />
-            <div className="sc-result" aria-live="polite">
-              <span className="sc-label">Plaques</span>
-              <strong>{count > 0 ? fmt(Math.floor(count), 0) : '—'}</strong>
-            </div>
-          </div>
-        </section>
+            <ToIcon className="sc-to" size={18} />
+            <Result label="Plaques" value={count > 0 ? fmt(Math.floor(count), 0) : '—'} />
+          </section>
+        </div>
 
         <div className="sc-actions">
-          <button type="button" className="btn ghost" onClick={() => setV(DEFAULTS)}>
-            Valeurs par défaut
+          <button type="button" className="btn ghost mini" onClick={() => setV(DEFAULTS)}>
+            <ResetIcon size={14} /> Valeurs par défaut
           </button>
         </div>
       </div>

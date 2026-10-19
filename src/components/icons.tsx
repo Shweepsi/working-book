@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowDownToLine,
   ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Calculator,
   ChartColumn,
@@ -31,6 +32,7 @@ import {
   Printer,
   Redo2,
   RefreshCw,
+  RotateCcw,
   Search,
   Settings,
   Sun,
@@ -83,3 +85,5 @@ export const ElsewhereIcon = make(CornerUpRight);
 export const EditIcon = make(Pencil);
 export const ArchiveIcon = make(ArrowDownToLine);
 export const ImportIcon = make(Import);
+export const ToIcon = make(ArrowRight);
+export const ResetIcon = make(RotateCcw);

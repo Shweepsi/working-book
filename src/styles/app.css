@@ -3937,7 +3937,7 @@ body.is-col-resizing * {
    (.sb-print), the whole shift then every colour in turn. */
 .sheet.sb-sheet,
 .sheet.sc-sheet { --sheet-w: 760px; display: flex; flex-direction: column; gap: var(--space-6); }
-.sheet.sc-sheet { --sheet-w: 560px; }
+.sheet.sc-sheet { --sheet-w: 520px; }
 .sheet.sb-sheet .sheet-head,
 .sheet.sc-sheet .sheet-head { margin-bottom: 0; }
 .sb { display: flex; flex-direction: column; gap: var(--space-6); user-select: text; font-size: var(--fs-lg); }
@@ -4066,7 +4066,7 @@ body.is-col-resizing * {
   align-items: center;
   gap: var(--space-6);
   width: 100%;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   padding: var(--space-4) var(--space-6);
   border: 0;
   background: var(--paper);
@@ -4139,6 +4139,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
 .sc-input {
   display: flex;
   align-items: center;
+  height: var(--d-ctl-h);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   background: var(--paper);
@@ -4148,31 +4149,46 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   flex: 1;
   width: 100%;
   min-width: 0;
-  padding: var(--space-3);
+  padding: 0 var(--space-3);
   border: 0;
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 18px;
+  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
   outline: none;
 }
 .sc-unit { padding-right: var(--space-3); color: var(--ink-faint); font-size: var(--fs-sm); }
 .sc-field.is-bad .sc-input { border-color: var(--flag-unsched-bd); }
-.sc-result strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.5; }
-.sc-sub { font-size: var(--fs-sm); color: var(--ink-faint); }
-.sc-hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-faint); }
+.sc-line .sc-field { flex-basis: 140px; }
+.sc-calcs { display: flex; flex-direction: column; gap: var(--space-3); }
+/* A calculation reads left to right: what is typed, an arrow, what comes out. */
 .sc-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
   background: var(--paper-2);
 }
-.sc-card h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
-.sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+.sc-card .sc-field,
+.sc-card .sc-result { flex: none; }
+.sc-to { margin-bottom: calc((var(--d-ctl-h) - 18px) / 2); color: var(--ink-faint); }
+.sc-value {
+  display: flex;
+  align-items: center;
+  height: var(--d-ctl-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.sc-value.is-empty { color: var(--ink-faint); font-weight: 400; }
+.sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: calc(-1 * var(--space-2)); }
 
 /* The bilan on paper: the workbook's frame isn't printed (.no-print), the
    page holds the bilan only, tighter than on screen and without the buttons'
@@ -4666,7 +4682,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   color: var(--ink);
   font: inherit;
   cursor: pointer;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .sv-station-btn:hover { border-color: var(--ink); }
