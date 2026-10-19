@@ -2627,6 +2627,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 .sch-detail .sch-controls { border-radius: 0; }
+/* In the schedule's header the controls lose their bar and sit between the
+   identity and the stat tiles. */
+.sch-detail-head .sch-controls {
+  flex: 1 1 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: var(--space-3) var(--space-5);
+}
+.sch-detail-head .sch-controls-end { gap: var(--space-2); }
 .sch-filter-group {
   display: inline-flex;
   align-items: center;
@@ -2688,90 +2698,35 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 /* Œillet — greys the schedule's finished lines back into the table, where the
    planner's formula had dropped them. */
 .sch-eye-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
+  position: relative;
+}
+/* How many lines the œillet holds, in a small tab on the icon's corner. */
+.sch-icon-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-pill);
+  background: var(--ink-soft);
+  color: var(--paper);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
 }
 .sch-eye-btn.is-on {
   background: var(--paper-2);
   border-color: var(--ink-faint);
   color: var(--ink);
 }
-/* CSS-drawn like .sch-cols-icon. The lens is a square with two opposite
-   corners rounded, turned 45° so the points land left and right; the pupil is
-   the dot at its centre. */
-.sch-eye {
-  position: relative;
-  width: 13px;
-  height: 13px;
-  display: inline-block;
-  opacity: 0.75;
-}
-.sch-eye::before {
-  content: '';
-  position: absolute;
-  inset: 2.5px;
-  border: 1.25px solid currentColor;
-  border-radius: 100% 0;
-  transform: rotate(45deg);
-}
-.sch-eye::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3.5px;
-  height: 3.5px;
-  margin: -1.75px 0 0 -1.75px;
-  border-radius: 50%;
-  background: currentColor;
-}
-/* Struck through while the lines are away — the button then reads as "these
-   rows are not on screen", which is what its count is counting. */
-.sch-eye.is-off {
-  background: linear-gradient(
-    45deg,
-    transparent calc(50% - 0.7px),
-    currentColor calc(50% - 0.7px),
-    currentColor calc(50% + 0.7px),
-    transparent calc(50% + 0.7px)
-  );
-}
-/* Colonnes button — CSS-drawn column icon + chevron that rotates open.
-   Active state (menu visible) flips the chevron and pins the background
-   so the button reads as the source of the open popover. */
-.sch-cols-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
+/* Colonnes: pins its background while its menu is open, so the button reads
+   as the source of the popover. */
 .sch-cols-btn.is-open {
   background: var(--paper-2);
   border-color: var(--ink-faint);
   color: var(--ink);
-}
-.sch-cols-icon {
-  width: 12px;
-  height: 12px;
-  display: inline-block;
-  background:
-    linear-gradient(currentColor, currentColor) 0 0 / 2.5px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 4.75px 0 / 2.5px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 9.5px 0 / 2.5px 100% no-repeat;
-  opacity: 0.75;
-}
-.sch-cols-chevron {
-  width: 6px;
-  height: 6px;
-  display: inline-block;
-  border: solid currentColor;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-  transition: transform 150ms ease;
-  opacity: 0.75;
-}
-.sch-cols-btn.is-open .sch-cols-chevron {
-  transform: rotate(-135deg) translate(-1px, -1px);
 }
 .sch-cols-menu {
   right: 0;

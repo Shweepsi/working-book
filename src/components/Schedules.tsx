@@ -19,7 +19,7 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
-import { ArchiveIcon, CloseIcon, CollapseIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
+import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -1151,6 +1151,30 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     }
   }
 
+  // Filters, the œillet and Colonnes ride in the schedule's header: a bar of
+  // their own cost a whole row above the table for three small controls.
+  const tableControls = (
+    <TableControls
+      settings={tableSettings}
+      layout={layout}
+      visibleColumns={visibleColumns}
+      available={availableFilters}
+      filteringActive={filteringActive}
+      colsMenuOpen={colsMenuOpen}
+      onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
+      onColsMenuClose={() => setColsMenuOpen(false)}
+      finishedCount={finishedRows.length}
+      showFinished={tableSettings.showFinished}
+      onToggleFinished={toggleShowFinished}
+      onToggleFilterValue={toggleFilterValue}
+      onClearFilters={clearFilters}
+      onToggleColumn={toggleColumnVisibility}
+      onTogglePinned={togglePinned}
+      onMoveColumn={moveColumn}
+      onResetLayout={resetTableLayout}
+    />
+  );
+
   return (
     // The print mode is carried on the root rather than on <html>: the paper
     // rules only ever need it from inside this view, and `:has()` lets the
@@ -1278,6 +1302,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                       <span className="sch-detail-head-name">{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
                     </h3>
                   </div>
+                  {tableControls}
                   <div className="sch-detail-head-stats">
                     <label className={`sch-stat-tile sch-stat-tile-input ${validSpeed ? '' : 'is-invalid'}`}>
                       <span className="sch-stat-tile-label">Vitesse</span>
@@ -1327,25 +1352,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
               );
             })()}
 
-            <TableControls
-              settings={tableSettings}
-              layout={layout}
-              visibleColumns={visibleColumns}
-              available={availableFilters}
-              filteringActive={filteringActive}
-              colsMenuOpen={colsMenuOpen}
-              onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
-              onColsMenuClose={() => setColsMenuOpen(false)}
-              finishedCount={finishedRows.length}
-              showFinished={tableSettings.showFinished}
-              onToggleFinished={toggleShowFinished}
-              onToggleFilterValue={toggleFilterValue}
-              onClearFilters={clearFilters}
-              onToggleColumn={toggleColumnVisibility}
-              onTogglePinned={togglePinned}
-              onMoveColumn={moveColumn}
-              onResetLayout={resetTableLayout}
-            />
+            {!selectedSchedule && tableControls}
 
             <ScheduleTable
               items={groupedRows}
@@ -2284,30 +2291,30 @@ function TableControls({
           // reading "0 terminées" would promise rows it cannot show.
           <button
             type="button"
-            className={`btn ghost mini sch-eye-btn ${showFinished ? 'is-on' : ''}`}
+            className={`btn ghost icon sch-eye-btn ${showFinished ? 'is-on' : ''}`}
             onClick={onToggleFinished}
             aria-pressed={showFinished}
+            aria-label={`${finishedCount} ligne${finishedCount > 1 ? 's' : ''} terminée${finishedCount > 1 ? 's' : ''}`}
             title={
               showFinished
                 ? 'Replier les lignes terminées'
                 : 'Afficher les lignes de ce schedule qui n’ont plus rien à produire'
             }
           >
-            <span className={`sch-eye ${showFinished ? '' : 'is-off'}`} aria-hidden="true" />
-            {finishedCount} terminée{finishedCount > 1 ? 's' : ''}
+            {showFinished ? <ShownIcon /> : <HiddenIcon />}
+            <span className="sch-icon-count mono">{finishedCount}</span>
           </button>
         )}
         <div className="sch-cols-wrap" ref={colsBtnRef}>
           <button
             type="button"
-            className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
+            className={`btn ghost icon sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
             onClick={onColsMenuToggle}
             aria-expanded={colsMenuOpen}
             aria-label="Configurer les colonnes"
+            title="Colonnes"
           >
-            <span className="sch-cols-icon" aria-hidden="true" />
-            Colonnes
-            <span className="sch-cols-chevron" aria-hidden="true" />
+            <ColumnsIcon />
           </button>
           {colsMenuOpen && (
             <div className="popover sch-cols-menu" role="menu">

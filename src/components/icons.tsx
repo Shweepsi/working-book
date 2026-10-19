@@ -19,8 +19,11 @@ import {
   ClipboardPaste,
   Clock,
   CloudOff,
+  Columns3,
   CornerUpRight,
   Eraser,
+  Eye,
+  EyeOff,
   GripVertical,
   Import,
   Menu,
@@ -87,3 +90,6 @@ export const ArchiveIcon = make(ArrowDownToLine);
 export const ImportIcon = make(Import);
 export const ToIcon = make(ArrowRight);
 export const ResetIcon = make(RotateCcw);
+export const ColumnsIcon = make(Columns3);
+export const ShownIcon = make(Eye);
+export const HiddenIcon = make(EyeOff);
