@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { load, save } from '../lib/storage';
-import { CloseIcon } from './icons';
+import { CloseIcon, ResetIcon, ToIcon } from './icons';
 
 const GAP_M = 0.19;
 const KEY = 'wb.suivi.calculs';
@@ -61,6 +61,15 @@ function Field({ label, unit, value, onChange }: FieldProps) {
   );
 }
 
+function Result({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="sc-result" aria-live="polite">
+      <span className="sc-label">{label}</span>
+      <output className={`sc-value${value === '—' ? ' is-empty' : ''}`}>{value}</output>
+    </div>
+  );
+}
+
 export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
   const [v, setV] = useState<Inputs>(() => ({ ...DEFAULTS, ...load<Partial<Inputs>>(KEY, {}) }));
   useEffect(() => save(KEY, v), [v]);
@@ -96,34 +105,27 @@ export default function SuiviCalculs({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="sc-row">
+        <div className="sc-row sc-line">
           <Field label="Vitesse" unit="m/min" value={v.vitesse} onChange={set('vitesse')} />
           <Field label="Longueur de plaque" unit="mm" value={v.longueur} onChange={set('longueur')} />
         </div>
 
-        <section className="sc-card">
-          <div className="sc-row">
+        <div className="sc-calcs">
+          <section className="sc-card">
             <Field label="Plaques" unit="plaques" value={v.plaques} onChange={set('plaques')} />
-            <div className="sc-result" aria-live="polite">
-              <span className="sc-label">Temps</span>
-              <strong>{time}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="sc-card">
-          <div className="sc-row">
+            <ToIcon className="sc-to" size={18} />
+            <Result label="Temps" value={time} />
+          </section>
+          <section className="sc-card">
             <Field label="Temps" unit="min" value={v.temps} onChange={set('temps')} />
-            <div className="sc-result" aria-live="polite">
-              <span className="sc-label">Plaques</span>
-              <strong>{count > 0 ? fmt(Math.floor(count), 0) : '—'}</strong>
-            </div>
-          </div>
-        </section>
+            <ToIcon className="sc-to" size={18} />
+            <Result label="Plaques" value={count > 0 ? fmt(Math.floor(count), 0) : '—'} />
+          </section>
+        </div>
 
         <div className="sc-actions">
-          <button type="button" className="btn ghost" onClick={() => setV(DEFAULTS)}>
-            Valeurs par défaut
+          <button type="button" className="btn ghost mini" onClick={() => setV(DEFAULTS)}>
+            <ResetIcon size={14} /> Valeurs par défaut
           </button>
         </div>
       </div>
