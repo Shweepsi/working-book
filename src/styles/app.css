@@ -6052,18 +6052,31 @@ select.ln-input { padding-right: var(--space-2); }
 
 /* Schedule on two control heights. What is clicked or typed into takes the
    header's control height (--d-ctl-h: 30 px, 26 compact, 34 advanced); the
-   chips that label rather than act sit one step under, at 24. Each band is
-   then its control plus 8 px above and below (7 + its 1 px border on the
-   summary). Vitesse keeps its pill: at 30 it would push the schedule's
-   header from 60 to 74 px. Screen only: paper keeps its
+   filter chips sit one step under, at 24. The summary strip, Réimporter,
+   the policy chip, « N terminés » and Vitesse are set smaller, at 15.
+   Screen only: paper keeps its
    own sizes. */
 @media screen {
-  :root:not(.is-print-preview) .sch-summary { padding-top: 7px; padding-bottom: 7px; }
-  :root:not(.is-print-preview) .sch-summary .btn {
-    height: var(--d-ctl-h);
-    min-height: 0;
+  /* The summary strip is a thin line: 30 px, its contents 15. */
+  :root:not(.is-print-preview) .sch-summary {
+    box-sizing: border-box;
+    height: 30px;
+    padding-top: 0;
+    padding-bottom: 0;
   }
-  :root:not(.is-print-preview) .sch-policy-chip { height: 24px; }
+  :root:not(.is-print-preview) .sch-summary .btn {
+    height: 15px;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 15px;
+  }
+  :root:not(.is-print-preview) .sch-policy-chip { box-sizing: border-box; height: 15px; }
+  :root:not(.is-print-preview) .sch-rail-done-btn { height: 15px; line-height: 15px; }
+  :root:not(.is-print-preview) .sch-stat-tile-input .sch-vitesse-input {
+    box-sizing: border-box;
+    height: 15px;
+  }
   :root:not(.is-print-preview) .sch-filter-chip { height: 24px; min-height: 0; }
   :root:not(.is-print-preview) .sch-rail-item {
     height: var(--d-ctl-h);
