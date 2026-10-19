@@ -4066,7 +4066,7 @@ body.is-col-resizing * {
   align-items: center;
   gap: var(--space-6);
   width: 100%;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   padding: var(--space-4) var(--space-6);
   border: 0;
   background: var(--paper);
@@ -4139,7 +4139,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
 .sc-input {
   display: flex;
   align-items: center;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   background: var(--paper);
@@ -4149,12 +4149,12 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   flex: 1;
   width: 100%;
   min-width: 0;
-  padding: var(--space-3);
+  padding: 0 var(--space-3);
   border: 0;
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 18px;
+  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
   outline: none;
 }
@@ -4174,16 +4174,16 @@ button.sb-check:hover .sb-go { color: var(--accent); }
 }
 .sc-card .sc-field,
 .sc-card .sc-result { flex: none; }
-.sc-to { margin-bottom: 13px; color: var(--ink-faint); }
+.sc-to { margin-bottom: calc((var(--d-ctl-h) - 18px) / 2); color: var(--ink-faint); }
 .sc-value {
   display: flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-4);
+  height: var(--d-ctl-h);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   background: var(--paper);
   color: var(--ink);
-  font-size: 22px;
+  font-size: var(--fs-lg);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -4682,7 +4682,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   color: var(--ink);
   font: inherit;
   cursor: pointer;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .sv-station-btn:hover { border-color: var(--ink); }
