@@ -1,7 +1,7 @@
 // The line's two calculators, which lived at the bottom of the template's
 // Rapport sheet (template #26 and earlier): how long a run of plates takes at
 // a speed, and how many plates go through in a time. A plate takes its length
-// plus the 0,19 m gap between two plates; the speed is in m/min. Results are
+// plus the 150 mm gap between two plates; the speed is in m/min. Results are
 // rounded the way the line counts: the time to the minute, whole plates. The
 // values typed stay on this device. Opened from the app's header, on every
 // page.
@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { load, save } from '../lib/storage';
 import { CloseIcon, ResetIcon, ToIcon } from './icons';
 
-const GAP_M = 0.19;
+const GAP_M = 0.15;
 const KEY = 'wb.suivi.calculs';
 
 interface Inputs {
