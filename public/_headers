@@ -1,0 +1,14 @@
+# Cloudflare Pages response headers.
+
+# Vite's and GridCraft's files carry a content hash in their name: a new
+# version is a new URL, so browsers can keep these for good instead of asking
+# again on every load (GridCraft's wasm is 6,5 Mo compressed).
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/gridcraft/gridcraft-*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Its cell fonts have no hash in their name but never change (pinned Carlito).
+/gridcraft/fonts/*
+  Cache-Control: public, max-age=2592000

@@ -41,6 +41,18 @@ export default defineConfig(({ command }) => ({
   },
   plugins: [
     react(),
+    {
+      // Cloudflare Pages serves public/gridcraft/index.html for /gridcraft/;
+      // the dev server would answer with the app's own SPA fallback instead,
+      // and the GridCraft tab would frame Working Book inside itself.
+      name: 'gridcraft-dev-index',
+      configureServer(server) {
+        server.middlewares.use((req, _res, next) => {
+          if (req.url && /^\/gridcraft\/?(\?|$)/.test(req.url)) req.url = req.url.replace(/^\/gridcraft\/?/, '/gridcraft/index.html');
+          next();
+        });
+      },
+    },
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'icon.svg'],
@@ -68,7 +80,33 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // GridCraft (dev channel only) is ~18 Mo of wasm with its own hashed
+        // names: not something to precache onto every tablet. And its page is
+        // a navigation inside the iframe, which the SPA fallback would
+        // otherwise answer with Working Book's own shell.
+        globIgnores: ['gridcraft/**'],
+        navigateFallbackDenylist: [/^\/gridcraft\//],
         runtimeCaching: [
+          // GridCraft is cached the first time the tab opens rather than
+          // precached: its hashed files for good, its page (inside the iframe)
+          // network first. With the shift's template, the workbook then opens
+          // without network too.
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/gridcraft/gridcraft-'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'gridcraft-app', expiration: { maxEntries: 6 } },
+          },
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/gridcraft\/(index\.html)?$/.test(url.pathname),
+            handler: 'NetworkFirst',
+            options: { cacheName: 'gridcraft-page', networkTimeoutSeconds: 4 },
+          },
+          {
+            // A template never changes under its id.
+            urlPattern: ({ url }) => url.pathname === '/api/grid/template',
+            handler: 'CacheFirst',
+            options: { cacheName: 'gridcraft-templates', expiration: { maxEntries: 10 } },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
             handler: 'StaleWhileRevalidate',

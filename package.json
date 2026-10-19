@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "build:icons": "pwa-assets-generator"
+    "build:icons": "pwa-assets-generator",
+    "fetch:gridcraft": "bash scripts/fetch-gridcraft.sh"
   },
   "dependencies": {
     "lucide-react": "1.50.0",

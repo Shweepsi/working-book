@@ -1,0 +1,46 @@
+# Working Book's MCP server (src/mcp/): Claude on the shared Suivi workbooks,
+# with GridCraft's engine in wasm. Its own Worker, so the API's Worker
+# (wrangler.toml) never loads the engine. Dev only, like the Suivi tab.
+#
+# The engine is fetched into src/mcp/engine/ first: scripts/fetch-engine.sh.
+# Secrets: MCP_PASSPHRASE (the passphrase on the /authorize page) and
+# ANTHROPIC_API_KEY (the Suivi assistant, src/mcp/assist.ts: the Max plan's
+# monthly API credits), both set in the Cloudflare dashboard.
+name = "working-book-mcp"
+main = "src/mcp/index.ts"
+compatibility_date = "2025-03-01"
+# Client ID Metadata Documents: the OAuth provider fetches a client's metadata
+# from its URL, which must stay on the public internet.
+compatibility_flags = ["global_fetch_strictly_public"]
+account_id = "5ed16f85af827a8d3c10bc075a66e4fb"
+
+[env.dev]
+name = "working-book-mcp-dev"
+workers_dev = true
+
+[env.dev.vars]
+MCP_RESOURCE = "https://working-book-mcp-dev.loic-cancelotti.workers.dev/mcp"
+# "on": Claude's edits are stored and reach the tablets. Anything else: read only.
+MCP_WRITE = "on"
+# The Suivi assistant's models: Haiku for Saisir (short, frequent), Sonnet
+# for Vérifier and Bilan. Both think before answering (effort medium): without
+# it, Haiku guessed where it should have asked.
+ASSIST_MODEL = "claude-sonnet-5-5"
+ASSIST_MODEL_SAISIE = "claude-haiku-5-5"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "working-book-dev"
+database_id = "67d3ea83-4067-495e-97e0-02dd46f18cbe"
+
+[[env.dev.kv_namespaces]]
+binding = "OAUTH_KV"
+id = "79c496f4081240c282dc24cf49044c8b"
+
+[[env.dev.durable_objects.bindings]]
+name = "SESSIONS"
+class_name = "McpSession"
+
+[[env.dev.migrations]]
+tag = "v1"
+new_sqlite_classes = ["McpSession"]

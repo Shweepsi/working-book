@@ -14,6 +14,8 @@ name = "working-book-api-dev"
 [env.dev.vars]
 # Supports exact origins and wildcard subdomains (*.foo.dev).
 ALLOWED_ORIGINS = "http://localhost:5173,*.working-book.pages.dev"
+# GridCraft shared workbooks (worker/src/grid.ts): dev only.
+GRID = "on"
 
 [[env.dev.d1_databases]]
 binding = "DB"

@@ -112,9 +112,13 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `POST /api/uploads?name=…[&note=…]` body: the file's raw bytes — up to 25 MB (see below)
 - `DELETE /api/uploads?id=…`
 - `GET  /api/uploads/file?id=…` + `Authorization: Bearer <token>` → the file's bytes — the one route with a key
+- `GET  /api/line/doc?date=…&poste=…[&since=n]` → `{ seq, records, more }` — Loading/Unloading records (dev only, `GRID = "on"`; `src/line.ts`)
+- `POST /api/line/doc?date=…&poste=…` body: `{ client, records: [{ id, kind, v }] }` → `{ seqs }` — last write wins per record, `v: null` deletes
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
-stored JSON wholesale on every `PUT`.
+stored JSON wholesale on every `PUT`. The shared workbooks (`/api/grid/`) and
+the line's records (`/api/line/`) are finer: last write wins per cell or per
+record, in the order of their `seq`.
 
 ## Envoyer à Claude
 
@@ -245,3 +249,32 @@ One optional setting governs it:
 Note that CORS is no defence against non-browser clients; it only keeps other
 web pages from posting here on an operator's behalf. If this ever needs real
 protection, it belongs in front of the whole API, not on this route alone.
+
+## MCP server: Claude on the Suivi workbooks (dev)
+
+`src/mcp/` is a second Worker, `working-book-mcp-dev` (`wrangler.mcp.toml`): an MCP
+server through which Claude (claude.ai, the mobile app, Claude Code) reads and
+fills the shared Suivi workbooks, with GridCraft's engine running in wasm. It
+reads and writes the dev D1 through the same functions as `/api/grid/`
+(`src/grid.ts`), so Claude's edits reach the tablets like any device's.
+
+- Endpoint: `https://working-book-mcp-dev.loic-cancelotti.workers.dev/mcp`
+  (Streamable HTTP, JSON replies). OAuth with `@cloudflare/workers-oauth-provider`:
+  `/authorize` asks for the passphrase, the Worker secret `MCP_PASSPHRASE`, set
+  once in the Cloudflare dashboard (Workers & Pages → working-book-mcp-dev →
+  Settings → Variables and Secrets). Grants live in the KV namespace
+  `working-book-mcp-dev-oauth`.
+- One Durable Object (`McpSession`) per MCP session: the open shift's workbook,
+  caught up with the other devices before every tool call. Edits that only this
+  copy would see (sheets, widths, merges, conditional formats…), edits to the
+  Date and Poste cells, and edits to a cell a tablet just changed are taken
+  back. `MCP_WRITE = "on"` stores edits; anything else makes it read only.
+- The engine (`src/mcp/engine/`, not committed) comes from Shweepsi/gridcraft
+  (`apps/gridcraft-worker`), built by that repo's "Worker engine" workflow and
+  pinned by tag and SHA-256 in `scripts/fetch-engine.sh`. CI fetches it before
+  deploying; run the script yourself before `tsc` or `wrangler dev`.
+
+```sh
+scripts/fetch-engine.sh
+npx wrangler deploy -c wrangler.mcp.toml --env dev
+```

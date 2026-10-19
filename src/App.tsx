@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
 import Schedules from './components/Schedules';
 import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
+import { SYNC_ENABLED } from './lib/api';
 import { IS_DEV_CHANNEL } from './lib/channel';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
+import { prefetchGridcraft } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
+import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
+import LineTab from './components/LineTabs';
+import ToolsMenu from './components/ToolsMenu';
+import { CalcIcon, CloseIcon, NextIcon, PrevIcon, PrintIcon, RedoIcon, UndoIcon } from './components/icons';
+import { redoLine, undoLine, useLineSnapshot } from './lib/lineSync';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -21,9 +29,8 @@ import {
   todayISO,
 } from './lib/shiftCalendar';
 import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
-import { CalcIcon, CloseIcon, NextIcon, PrevIcon, PrintIcon } from './components/icons';
 
-type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
+type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
 interface TabDef {
   key: TabKey;
@@ -41,6 +48,10 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'test', label: 'Test', preview: true, shiftScoped: true },
   { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
+  { key: 'grid', label: 'Suivi', preview: true, shiftScoped: true },
+  // The line's own input, without a spreadsheet (components/LineTabs.tsx).
+  { key: 'loading', label: 'Loading', preview: true, shiftScoped: true },
+  { key: 'unloading', label: 'Unloading', preview: true, shiftScoped: true },
 ];
 
 const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
@@ -119,6 +130,23 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
+  // The shift's bilan (previews): a sheet over whatever page is showing, the
+  // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
+  const [bilanOpen, setBilanOpen] = useState(false);
+  const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
+  const showBilan = IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
+  // Once opened, the Suivi workbook stays mounted (hidden behind the other
+  // tabs): coming back is instant, with no wasm to start again and no cells
+  // to replay. Its files are fetched ahead, so the first open is quick too.
+  const [gridSeen, setGridSeen] = useState(false);
+  useEffect(() => {
+    if (tab === 'grid') setGridSeen(true);
+  }, [tab]);
+  useEffect(() => {
+    if (!IS_DEV_CHANNEL || !SYNC_ENABLED) return;
+    const t = setTimeout(() => void prefetchGridcraft(), 4000);
+    return () => clearTimeout(t);
+  }, []);
   // Which paper layout the Schedule view prints as. Kept here, next to the
   // `@page` rule and the aperçu bar, so the orientation has a single owner.
   // Persisted like the other paper-adjacent preferences: an operator who
@@ -226,6 +254,26 @@ export default function App() {
           : '@media print { @page { size: A4 portrait; margin: 5mm; } }';
   }, [tab, schedPrintMode]);
 
+  // The bilan alone on paper, whatever page is under its sheet: the page's own
+  // content steps aside (print-bilan on <html>) and the sheet goes portrait for
+  // the time of the dialog.
+  function printBilan() {
+    const root = document.documentElement;
+    const size = document.getElementById(PAGE_SIZE_STYLE_ID);
+    const before = size?.textContent ?? null;
+    if (size) size.textContent = '@media print { @page { size: A4 portrait; margin: 5mm; } }';
+    root.classList.add('print-bilan');
+    const done = () => {
+      root.classList.remove('print-bilan');
+      if (size && before !== null) size.textContent = before;
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+    // Where the engine fires no afterprint, print() returned once the dialog closed.
+    setTimeout(done, 0);
+  }
+
   const dateObj = dateFromISO(date);
   const poste = posteFor(dateObj, shiftKey);
   const shift = SHIFT_TYPES[shiftKey];
@@ -296,10 +344,52 @@ export default function App() {
 
   useKeyBindings(bindings);
 
+  // The tools on the right go into a menu when they would start a second line
+  // of the header: measured against what the rest of the line takes, with the
+  // tools' own width as last seen inline.
+  const headerRef = useRef<HTMLElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const toolsWidth = useRef(0);
+  const [toolsMenu, setToolsMenu] = useState(false);
+  // Annuler / Rétablir for tablets (Ctrl+Z / Ctrl+Y otherwise): the line's input only.
+  const lineSnap = useLineSnapshot();
+  const linePart = poste && (tab === 'loading' || tab === 'unloading') ? { date, poste } : null;
+  const history = linePart
+    ? { canUndo: lineSnap.canUndo, canRedo: lineSnap.canRedo, onUndo: () => undoLine(linePart), onRedo: () => redoLine(linePart) }
+    : null;
+  const historyButtons = history && (
+    <span className="hdr-history" role="group" aria-label="Historique">
+      <button type="button" className="btn ghost icon" onClick={history.onUndo} disabled={!history.canUndo} aria-label="Annuler" title="Annuler (Ctrl+Z)">
+        <UndoIcon />
+      </button>
+      <button type="button" className="btn ghost icon" onClick={history.onRedo} disabled={!history.canRedo} aria-label="Rétablir" title="Rétablir (Ctrl+Y)">
+        <RedoIcon />
+      </button>
+    </span>
+  );
+  useLayoutEffect(() => {
+    const h = headerRef.current;
+    if (!h || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      const cs = getComputedStyle(h);
+      const gap = parseFloat(cs.columnGap) || 0;
+      const room = h.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (toolsRef.current) toolsWidth.current = toolsRef.current.offsetWidth;
+      const rest = [...h.children].filter((el) => !el.classList.contains('hdr-tools')) as HTMLElement[];
+      const needed = rest.reduce((n, el) => n + el.offsetWidth + gap, 0) + toolsWidth.current;
+      setToolsMenu(needed > room + 0.5);
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(h);
+    for (const el of h.children) ro.observe(el);
+    check();
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className="app">
       {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
-      <header className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
+      <header ref={headerRef} className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
         </div>
@@ -380,38 +470,59 @@ export default function App() {
           </>
         )}
 
-        <div className="shift-meta">
-          <SyncIndicator />
-          <button
-            type="button"
-            className="btn ghost icon calc-trigger"
-            onClick={() => setCalcOpen(true)}
-            aria-label="Calculs de ligne"
-            title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
-          >
-            <CalcIcon />
-          </button>
-          {/* Sits in the header rather than behind the settings cog: checking
-              the paper layout is a recurring gesture, not a preference. */}
-          <button
-            type="button"
-            className={`btn ghost icon print-preview-trigger ${printPreview ? 'is-on' : ''}`}
-            onClick={() => setPrintPreview((v) => !v)}
-            aria-pressed={printPreview}
-            aria-label="Aperçu d’impression"
-            title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
-          >
-            <PrintIcon />
-          </button>
-          <Settings
-            open={settingsOpen}
-            onOpenChange={setSettingsOpen}
-            theme={theme}
-            onThemeChange={setTheme}
-            density={density}
-            onDensityChange={setDensity}
-          />
-        </div>
+        {toolsMenu ? (
+          // Annuler / Rétablir stay out of the menu: a step back is one tap, as often as needed.
+          <div className="hdr-tools hdr-end">
+            {historyButtons}
+            <ToolsMenu
+              bilan={showBilan ? { part: poste ? { date, poste } : null, onOpen: () => setBilanOpen(true) } : null}
+              onCalc={() => setCalcOpen(true)}
+              printPreview={printPreview}
+              onPrintPreview={() => setPrintPreview((v) => !v)}
+              settings={{
+                theme,
+                onThemeChange: setTheme,
+                density,
+                onDensityChange: setDensity,
+              }}
+            />
+          </div>
+        ) : (
+          <div className="shift-meta hdr-tools" ref={toolsRef}>
+            <SyncIndicator />
+            {historyButtons}
+            {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
+            <button
+              type="button"
+              className="btn ghost icon calc-trigger"
+              onClick={() => setCalcOpen(true)}
+              aria-label="Calculs de ligne"
+              title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
+            >
+              <CalcIcon />
+            </button>
+            {/* Sits in the header rather than behind the settings cog: checking
+                the paper layout is a recurring gesture, not a preference. */}
+            <button
+              type="button"
+              className={`btn ghost icon print-preview-trigger ${printPreview ? 'is-on' : ''}`}
+              onClick={() => setPrintPreview((v) => !v)}
+              aria-pressed={printPreview}
+              aria-label="Aperçu d’impression"
+              title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
+            >
+              <PrintIcon />
+            </button>
+            <Settings
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              theme={theme}
+              onThemeChange={setTheme}
+              density={density}
+              onDensityChange={setDensity}
+            />
+          </div>
+        )}
       </header>
 
       <main className="app-main">
@@ -435,7 +546,25 @@ export default function App() {
           <Schedules density={density} printMode={schedPrintMode} recapShowPdp={recapShowPdp} />
         )}
         {tab === 'suivi' && <Suivi />}
+        {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
+        {(tab === 'loading' || tab === 'unloading') && <LineTab part={poste ? { date, poste } : null} side={tab} />}
+        {showBilan && poste && (
+          <div className={`sb-print-host${tab === 'grid' || tab === 'loading' || tab === 'unloading' ? ' is-tab' : ''}`}>
+            <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />
+          </div>
+        )}
       </main>
+      {bilanOpen && poste && (
+        <BilanSheet
+          part={{ date, poste }}
+          shiftLabel={shiftMeta.shift.label}
+          scope={bilanScope}
+          onScope={setBilanScope}
+          onClose={() => setBilanOpen(false)}
+          onPrint={printBilan}
+          onShowRow={(target) => setTab(target.tab)}
+        />
+      )}
 
       {helpOpen && <KeyboardHelp onClose={() => setHelpOpen(false)} />}
 
