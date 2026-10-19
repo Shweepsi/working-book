@@ -6053,10 +6053,12 @@ select.ln-input { padding-right: var(--space-2); }
 /* Schedule on two control heights. What is clicked or typed into takes the
    header's control height (--d-ctl-h: 30 px, 26 compact, 34 advanced); the
    chips that label rather than act sit one step under, at 24. Each band is
-   then its control plus 8 px above and below. Screen only: paper keeps its
+   then its control plus 8 px above and below (7 + its 1 px border on the
+   summary). Vitesse keeps its pill: at 30 it would push the schedule's
+   header from 60 to 74 px. Screen only: paper keeps its
    own sizes. */
 @media screen {
-  :root:not(.is-print-preview) .sch-summary { padding-top: 8px; padding-bottom: 8px; }
+  :root:not(.is-print-preview) .sch-summary { padding-top: 7px; padding-bottom: 7px; }
   :root:not(.is-print-preview) .sch-summary .btn {
     height: var(--d-ctl-h);
     min-height: 0;
@@ -6077,10 +6079,6 @@ select.ln-input { padding-right: var(--space-2); }
     content: '';
     position: absolute;
     inset: calc((var(--fs-2xs) - var(--d-ctl-h)) / 2) -6px;
-  }
-  :root:not(.is-print-preview) .sch-stat-tile-input .sch-vitesse-input {
-    height: var(--d-ctl-h);
-    box-sizing: border-box;
   }
   :root:not(.is-print-preview) .sch-row.sch-head,
   :root:not(.is-print-preview) .sch-row.sch-total { height: 36px; }
