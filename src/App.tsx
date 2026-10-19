@@ -21,6 +21,7 @@ import {
   todayISO,
 } from './lib/shiftCalendar';
 import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
+import { CalcIcon, CloseIcon, NextIcon, PrevIcon, PrintIcon } from './components/icons';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi';
 
@@ -329,7 +330,7 @@ export default function App() {
                 aria-label="Poste précédent"
                 title="Poste précédent"
               >
-                ‹
+                <PrevIcon />
               </button>
               <input
                 type="date"
@@ -344,7 +345,7 @@ export default function App() {
                 aria-label="Poste suivant"
                 title="Poste suivant"
               >
-                ›
+                <NextIcon />
               </button>
               <button
                 type="button"
@@ -388,11 +389,7 @@ export default function App() {
             aria-label="Calculs de ligne"
             title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
           >
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-              <rect x="3" y="1.75" width="10" height="12.5" rx="1.5" />
-              <rect x="5.25" y="4" width="5.5" height="2.5" rx="0.5" />
-              <path d="M5.5 9h.01M8 9h.01M10.5 9h.01M5.5 11.5h.01M8 11.5h.01M10.5 11.5h.01" strokeWidth="1.8" />
-            </svg>
+            <CalcIcon />
           </button>
           {/* Sits in the header rather than behind the settings cog: checking
               the paper layout is a recurring gesture, not a preference. */}
@@ -404,12 +401,7 @@ export default function App() {
             aria-label="Aperçu d’impression"
             title={printPreview ? 'Quitter l’aperçu d’impression' : 'Aperçu d’impression — voir la mise en page papier'}
           >
-            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4.5 5.75V1.75h7v4" />
-              <rect x="1.75" y="5.75" width="12.5" height="6" rx="1.5" />
-              <rect x="4.5" y="9.25" width="7" height="5" rx="0.5" fill="var(--paper)" />
-              <path d="M11.5 7.9h.01" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <PrintIcon />
           </button>
           <Settings
             open={settingsOpen}
@@ -541,7 +533,7 @@ function KeyboardHelp({ onClose }: { onClose: () => void }) {
         <div className="grabber" />
         <div className="sheet-head">
           <h3>Raccourcis clavier</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
         <dl className="kbd-help-list">
           {rows.map((r) => (
