@@ -2648,7 +2648,12 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .sch-detail-head-stats { padding-right: var(--space-5); }
 .sch-detail-head .sch-controls-end { gap: var(--space-1); margin-left: 0; }
-.sch-detail-head .sch-controls .btn.icon { color: var(--ink-soft); }
+.sch-detail-head .sch-controls .btn.icon {
+  width: var(--d-ctl-h);
+  height: var(--d-ctl-h);
+  min-height: 0;
+  color: var(--ink-soft);
+}
 .sch-detail-head .sch-controls .btn.icon:hover { color: var(--ink); }
 
 /* The filter menu stacks its groups, one per line, under a hairline. */
