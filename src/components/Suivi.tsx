@@ -4,6 +4,7 @@ import { useSyncedState } from '../lib/sync';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
 import { todayISO } from '../lib/shiftCalendar';
+import { CloseIcon } from './icons';
 
 const PROCESSES = ['Découpe', 'Trempe', 'Montage', 'Vitrine'] as const;
 const STATIONS = ['MA', 'CE', 'WH'] as const;
@@ -443,7 +444,7 @@ function SuiviSheet({ entry, onClose, onChange, onDelete }: SheetProps) {
             <span className="sv-sheet-id mono">#{entry.serial || '—'}</span>
             <h3>Cosmétique</h3>
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
 
         <div className="sv-sheet-grid">

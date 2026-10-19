@@ -21,6 +21,7 @@ import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
 import TemplateEditor from './TemplateEditor';
 import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
+import { RefreshIcon } from './icons';
 
 interface GridcraftProps {
   poste: Poste | null;
@@ -172,7 +173,7 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
               empty workbook it shows until the shift's arrives. */}
           {snap.status === 'loading' && (
             <div className="gc-loading no-print" role="status">
-              <span className="gc-loading-glyph" aria-hidden="true">↻</span>
+              <span className="gc-loading-glyph" aria-hidden="true"><RefreshIcon size={14} /></span>
               Chargement du classeur…
             </div>
           )}

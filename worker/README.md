@@ -112,16 +112,21 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `POST /api/uploads?name=…[&note=…]` body: the file's raw bytes — up to 25 MB (see below)
 - `DELETE /api/uploads?id=…`
 - `GET  /api/uploads/file?id=…` + `Authorization: Bearer <token>` → the file's bytes — the one route with a key
+- `GET  /api/line/doc?date=…&poste=…[&since=n]` → `{ seq, records, more }` — Loading/Unloading records (dev only, `GRID = "on"`; `src/line.ts`)
+- `POST /api/line/doc?date=…&poste=…` body: `{ client, records: [{ id, kind, v }] }` → `{ seqs }` — last write wins per record, `v: null` deletes
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
-stored JSON wholesale on every `PUT`.
+stored JSON wholesale on every `PUT`. The shared workbooks (`/api/grid/`) and
+the line's records (`/api/line/`) are finer: last write wins per cell or per
+record, in the order of their `seq`.
 
 ## Envoyer à Claude
 
-Réglages → *Envoyer à Claude* opens a sheet (`src/components/EnvoiClaude.tsx`)
-that sends files — a logbook `.xlsm`, a photo, a PDF — or a plain note, for
-Claude to read in a later session. A note sent without a file is stored as a
-`note-YYYY-MM-DD-HHMM.txt` of its own.
+A reception endpoint for files — a logbook `.xlsm`, a photo, a PDF — that Claude
+reads in a later session. There is no front-end for it: the plant PC's browser
+blocks uploads, so a file is sent instead by a small `envoyer-claude.bat` that
+POSTs it with Windows' built-in `curl`. `POST /api/uploads?name=…` takes the raw
+bytes; the bytes are what matter, the `name` is just a label.
 
 Storage is D1, not R2: the account's deploy token only covers D1, and D1 is
 what Claude already reaches through the Cloudflare connector. A file is cut

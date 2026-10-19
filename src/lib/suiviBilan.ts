@@ -96,11 +96,13 @@ export interface BilanColour {
   checks: BilanCheck[];
 }
 
-/** A row to look at: one sentence, and the row's side of Suivi, to select it there. */
+/** A row to look at: one sentence, and where it is, to bring it up there. */
 export interface BilanCheck {
   text: string;
   /** "Suivi!N47:AA47"; none for a remark about the whole block. */
   range?: string;
+  /** The Loading or Unloading tab's record (lib/lineBilan.ts). */
+  target?: { tab: 'loading' | 'unloading'; id: string };
 }
 
 export interface SuiviBilan {
@@ -160,9 +162,9 @@ const round = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d;
 
 const text = (v: Value) => (v === null ? '' : typeof v === 'number' ? String(round(v, 3)) : String(v).trim());
 
-const emptyTotals = (): BilanTotals => ({ dl: 0, fl: 0, rejets: 0, delta: 0, dlM2: 0, flM2: 0, rejetsM2: 0, deltaM2: 0 });
+export const emptyTotals = (): BilanTotals => ({ dl: 0, fl: 0, rejets: 0, delta: 0, dlM2: 0, flM2: 0, rejetsM2: 0, deltaM2: 0 });
 
-function closeTotals(t: BilanTotals): BilanTotals {
+export function closeTotals(t: BilanTotals): BilanTotals {
   return {
     dl: round(t.dl, 3),
     fl: round(t.fl, 3),
@@ -183,13 +185,13 @@ function tagIssue(tag: Value): string {
   return `N° TAG ${digits} à ${digits.length} chiffres (${TAG_DIGITS.join(' ou ')} attendus)`;
 }
 
-interface RejectAcc {
+export interface RejectAcc {
   defects: Map<string, BilanDefect>;
   dims: Map<string, BilanDim>;
 }
-const rejectAcc = (): RejectAcc => ({ defects: new Map(), dims: new Map() });
+export const rejectAcc = (): RejectAcc => ({ defects: new Map(), dims: new Map() });
 
-function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
+export function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
   const defects = new Map<string, BilanDefect>();
   const dims = new Map<string, BilanDim>();
   for (const a of accs) {

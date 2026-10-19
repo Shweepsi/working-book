@@ -17,6 +17,7 @@ import { load } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
 import { useToast } from '../lib/toast';
 import type { Poste, ShiftKey, ShiftMeta } from '../types';
+import { AddIcon, ClearIcon, DeleteIcon, PrintIcon, RefreshIcon } from './icons';
 
 interface TestHeader {
   testNo: string;
@@ -268,7 +269,7 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
           onClick={addTest}
           title="Ajouter un nouveau test"
         >
-          <span className="glyph">＋</span> Nouveau
+          <span className="glyph"><AddIcon size={14} /></span> Nouveau
         </button>
         {state.tests.map((t, i) => {
           const label = displayTestNo(t.header.testNo) || `Test ${i + 1}`;
@@ -413,20 +414,21 @@ export default function ProductionTest({ poste, shiftMeta }: ProductionTestProps
           onClick={autofill}
           title="Remplir automatiquement la date et l'heure"
         >
-          <span className="lbl-full">↻ Remplir auto date / heure</span>
-          <span className="lbl-short">↻ Auto</span>
+          <RefreshIcon size={14} />
+          <span className="lbl-full">Remplir auto date / heure</span>
+          <span className="lbl-short">Auto</span>
         </button>
         <button className="btn ghost" onClick={reset} title="Effacer les valeurs saisies">
           <span className="lbl-full">Effacer</span>
-          <span className="lbl-short" aria-hidden="true">⌫</span>
+          <span className="lbl-short" aria-hidden="true"><ClearIcon size={14} /></span>
         </button>
         <button className="btn ghost" onClick={deleteActive} title="Supprimer ce test">
           <span className="lbl-full">Supprimer</span>
-          <span className="lbl-short" aria-hidden="true">🗑</span>
+          <span className="lbl-short" aria-hidden="true"><DeleteIcon size={14} /></span>
         </button>
         <button className="btn" onClick={() => window.print()} title="Imprimer le test">
           <span className="lbl-full">Imprimer</span>
-          <span className="lbl-short" aria-hidden="true">🖨</span>
+          <span className="lbl-short" aria-hidden="true"><PrintIcon size={14} /></span>
         </button>
       </div>
       </>)}

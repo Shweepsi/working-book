@@ -1,20 +1,26 @@
-// The shift's bilan (lib/suiviBilan.ts), computed from the cells on screen and
-// up to date as they change, or the day's, 06:00 to 06:00 (lib/dayBilan.ts):
-// a sheet over the workbook (BilanSheet), the same content laid out for paper
-// (BilanPrint, what printing from the Suivi tab gives), and the bar's button
-// with the count of rows to look at (BilanButton).
+// The shift's bilan, computed from its Loading and Unloading tabs
+// (lib/lineBilan.ts) and up to date as they change, or the day's, 06:00 to
+// 06:00 (lib/dayBilan.ts): a sheet over any page (BilanSheet), the same
+// content laid out for paper (BilanPrint), and the header's button with the
+// count of rows to look at (BilanHeaderButton).
 //
-// The rejects say three things, in that order: how much (rejected lites
-// against what went through Fin de Ligne), what (the defects, largest first),
-// and where (the reject rate per dimension).
+// The scraps say three things, in that order: how much (scrapped lites
+// against what went through Unloading), what (the defects, largest first),
+// and where (the scrap rate per dimension).
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { sharedGrid as grid, type Partition } from '../lib/sharedGrid';
+import type { Partition } from '../lib/sharedGrid';
 import { dayShifts, refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import type { LineData } from '../lib/line';
+import { computeLineBilan } from '../lib/lineBilan';
+import { lineSync, useLine } from '../lib/lineSync';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
-import { useShiftCells } from '../lib/shiftCells';
 import { addDaysISO } from '../lib/shiftCalendar';
-import { computeBilan, type BilanCheck, type BilanColour, type BilanRejects, type BilanTotals, type SuiviBilan } from '../lib/suiviBilan';
+import { AddIcon, BilanIcon, CloseIcon, MinusIcon, NextIcon } from './icons';
+import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
+
+/** A row the bilan points at: its tab and record. */
+export type BilanTarget = NonNullable<BilanCheck['target']>;
 
 /** What the bilan covers: the shift on screen, or its whole day. */
 export type BilanScope = 'poste' | 'jour';
@@ -27,18 +33,17 @@ const heat = (rate: number): CSSProperties | undefined =>
   rate > 0 ? { background: `color-mix(in srgb, var(--flag-unsched-bd) ${Math.min(55, Math.round(rate * 250))}%, transparent)` } : undefined;
 
 // Every component showing the bilan asks for it on each change: computed once per change.
-let cache: { key: string; cells: ReadonlyMap<string, unknown>; bilan: SuiviBilan } | null = null;
+let cache: { data: LineData; bilan: SuiviBilan } | null = null;
 
-/** The bilan of `part`: live when the Suivi tab shows it, from the Worker's copy otherwise; null before it's known. */
-export function useBilan(part: Partition | null): SuiviBilan | null {
-  const src = useShiftCells(part);
-  if (!part || !src?.cells) return null;
-  const key = `${part.date}|${part.poste}|${src.rev}`;
-  if (!cache || cache.key !== key || cache.cells !== src.cells) cache = { key, cells: src.cells, bilan: computeBilan(src.cells) };
+/** The bilan of `part`, followed (every 2 s while `live`, as when the sheet is open); null before it's known. */
+export function useBilan(part: Partition | null, live = false): SuiviBilan | null {
+  const data = useLine(part, live);
+  if (!data) return null;
+  if (cache?.data !== data) cache = { data, bilan: computeLineBilan(data) };
   return cache.bilan;
 }
 
-/** Début de ligne, fin de ligne, rejects and their rate, the gap: lites, m² underneath. */
+/** Loading, Unloading, scraps and their rate, the gap: lites, m² underneath. */
 function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; sides?: { dl: boolean; fl: boolean }; compact?: boolean }) {
   const both = sides.dl && sides.fl;
   const tile = (label: string, lites: number | null, area: number | null, extra?: string, bad?: boolean) => (
@@ -53,9 +58,9 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
   );
   return (
     <div className={`sb-kpis${compact ? ' is-compact' : ''}`}>
-      {tile('Début de ligne', sides.dl ? t.dl : null, sides.dl ? t.dlM2 : null)}
-      {tile('Fin de ligne', sides.fl ? t.fl : null, sides.fl ? t.flM2 : null)}
-      {tile('Rejets', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null, sides.fl ? pct(t.rejets, t.fl + t.rejets) : undefined)}
+      {tile('Loading', sides.dl ? t.dl : null, sides.dl ? t.dlM2 : null)}
+      {tile('Unloading', sides.fl ? t.fl : null, sides.fl ? t.flM2 : null)}
+      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null, sides.fl ? pct(t.rejets, t.fl + t.rejets) : undefined)}
       {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, undefined, both && !!t.delta)}
     </div>
   );
@@ -63,11 +68,11 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
 
 /** How much, what, where. */
 function Rejects({ r }: { r: BilanRejects }) {
-  if (!r.passees) return <p className="sb-none">Rien n’est encore passé en fin de ligne.</p>;
+  if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
   if (!r.rejets)
     return (
       <p className="sb-rej-head">
-        <strong>Aucun rejet</strong> sur {fmt(r.passees)} lites passées en fin de ligne.
+        <strong>Aucun scrap</strong> sur {fmt(r.passees)} lites passées à l’unloading.
       </p>
     );
   const top = r.defects[0]?.total ?? 0;
@@ -75,14 +80,14 @@ function Rejects({ r }: { r: BilanRejects }) {
   return (
     <>
       <p className="sb-rej-head">
-        <strong>{fmt(r.rejets)} lites rejetées</strong> sur {fmt(r.passees)} passées en fin de ligne · <strong>{pct(r.rejets, r.passees)}</strong> · {m2(r.m2)} m²
+        <strong>{fmt(r.rejets)} lites en scrap</strong> sur {fmt(r.passees)} passées à l’unloading · <strong>{pct(r.rejets, r.passees)}</strong> · {m2(r.m2)} m²
       </p>
 
       <table className="sb-table sb-pareto">
         <thead>
           <tr>
             <th>Défaut</th>
-            <th className="sb-bar-col">Part des rejets</th>
+            <th className="sb-bar-col">Part des scraps</th>
             <th>Lites</th>
             <th>m²</th>
           </tr>
@@ -140,7 +145,7 @@ function Rejects({ r }: { r: BilanRejects }) {
             </tbody>
             <tfoot>
               <tr>
-                <th>Taux de rejet</th>
+                <th>Taux de scrap</th>
                 {r.dims.map((d) => (
                   <td key={d.dim} style={heat(d.rejets / d.passees)}>
                     {pct(d.rejets, d.passees)}
@@ -152,7 +157,7 @@ function Rejects({ r }: { r: BilanRejects }) {
         </div>
       ) : (
         <p className="sb-line">
-          Une seule dimension, {r.dims[0]?.dim} : {fmt(r.dims[0]?.rejets ?? 0)} rejets sur {fmt(r.dims[0]?.passees ?? 0)} ({pct(r.dims[0]?.rejets ?? 0, r.dims[0]?.passees ?? 0)}).
+          Une seule dimension, {r.dims[0]?.dim} : {fmt(r.dims[0]?.rejets ?? 0)} scraps sur {fmt(r.dims[0]?.passees ?? 0)} ({pct(r.dims[0]?.rejets ?? 0, r.dims[0]?.passees ?? 0)}).
         </p>
       )}
 
@@ -160,18 +165,18 @@ function Rejects({ r }: { r: BilanRejects }) {
   );
 }
 
-/** The rows to look at; with `onPick` (on screen), each one selects its row in the workbook. */
-function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (range: string) => void }) {
+/** The rows to look at; with `onPick` (on screen), each one brings its row up in its tab. */
+function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (target: BilanTarget) => void }) {
   if (!checks.length) return <p className="sb-none">Rien à signaler.</p>;
   return (
     <ul className="sb-checks">
       {checks.map((x, i) => (
         <li key={i}>
-          {onPick && x.range ? (
-            <button type="button" className="sb-check" onClick={() => onPick(x.range as string)} title="Voir la ligne dans le classeur">
+          {onPick && x.target ? (
+            <button type="button" className="sb-check" onClick={() => onPick(x.target as BilanTarget)} title={`Voir la ligne dans ${x.target.tab === 'loading' ? 'Loading' : 'Unloading'}`}>
               <span>{x.text}</span>
               <span className="sb-go" aria-hidden="true">
-                ›
+                <NextIcon size={14} />
               </span>
             </button>
           ) : (
@@ -198,11 +203,11 @@ function Section({ title, count, aside, children }: { title: string; count?: num
 
 /** A tab's content: a colour's own figures above its rejects, or the whole shift's; then the
  * rows to look at, on screen only (`checks` isn't given on paper). */
-function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks?: BilanCheck[]; onPick?: (range: string) => void }) {
+function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks?: BilanCheck[]; onPick?: (target: BilanTarget) => void }) {
   return (
     <>
       {colour && <Kpis t={colour.totals} sides={{ dl: colour.inDl, fl: colour.inFl }} compact />}
-      <Section title="Rejets par défaut">
+      <Section title="Scraps par défaut">
         <Rejects r={rejects} />
       </Section>
       {checks && (
@@ -246,15 +251,15 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
               </span>
               <span className="sb-stepper">
                 <button type="button" onClick={() => update(l.id, { nombre: Math.max(0, l.nombre - 1) })} aria-label="Une plaque de moins" disabled={l.nombre <= 0}>
-                  −
+                  <MinusIcon size={16} />
                 </button>
                 <input value={String(l.nombre)} onChange={(e) => update(l.id, { nombre: count(e.target.value) })} inputMode="numeric" aria-label="Nombre de plaques" />
                 <button type="button" onClick={() => update(l.id, { nombre: Math.min(9999, l.nombre + 1) })} aria-label="Une plaque de plus">
-                  +
+                  <AddIcon size={16} />
                 </button>
               </span>
               <button type="button" className="btn ghost icon sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
-                ✕
+                <CloseIcon size={14} />
               </button>
             </li>
           ))}
@@ -307,7 +312,7 @@ const ALL = -1;
 const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
 
 /** The figures on top, then a tab per colour after the whole (when there are several). */
-function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; children?: ReactNode }) {
+function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (target: BilanTarget) => void; showChecks: boolean; children?: ReactNode }) {
   const [tab, setTab] = useState(ALL);
   const colours = bilan.colours;
   const several = colours.length > 1;
@@ -360,9 +365,9 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
           <thead>
             <tr>
               <th>Poste</th>
-              <th>Début</th>
-              <th>Fin</th>
-              <th>Rejets</th>
+              <th>Loading</th>
+              <th>Unloading</th>
+              <th>Scraps</th>
               <th>Taux</th>
               <th>Delta</th>
               {protection && <th>Protection</th>}
@@ -379,7 +384,7 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
                   </th>
                   {!t || s.bilan?.empty ? (
                     <td colSpan={5} className="sb-shift-none">
-                      {!s.started ? (day.status === 'loading' ? 'lecture…' : 'pas encore ouvert') : 'aucune ligne remplie'}
+                      {!s.bilan && day.status === 'loading' ? 'lecture…' : 'rien de saisi'}
                     </td>
                   ) : (
                     <>
@@ -423,12 +428,12 @@ interface BilanSheetProps {
   onClose: () => void;
   /** Prints the bilan alone, whatever page is under the sheet. */
   onPrint: () => void;
-  /** A row to look at was picked: bring the Suivi tab up (the row is selected once it shows the shift). */
-  onShowRow: () => void;
+  /** A row to look at was picked: bring its tab up (the row comes into view there). */
+  onShowRow: (target: BilanTarget) => void;
 }
 
 export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint, onShowRow }: BilanSheetProps) {
-  const bilan = useBilan(part);
+  const bilan = useBilan(part, true);
   const day = useDayBilan(part.date, part, scope === 'jour');
   const [protection, setProtection] = useProtection(part);
   const dayProtection = useDayProtection(part, protection, scope === 'jour');
@@ -439,11 +444,11 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  // A row to look at: the sheet makes way for the workbook, on that row.
-  const pick = (range: string) => {
+  // A row to look at: the sheet makes way for its tab, on that row.
+  const pick = (target: BilanTarget) => {
     onClose();
-    onShowRow();
-    grid.select(part, range);
+    lineSync.requestFocus(part, target.id);
+    onShowRow(target);
   };
   const single = bilan && bilan.colours.length === 1 ? bilan.colours[0] : undefined;
   const printable = scope === 'jour' ? !!day && !day.bilan.empty : !!bilan && !bilan.empty;
@@ -467,7 +472,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
               Imprimer
             </button>
             <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">
-              ✕
+              <CloseIcon />
             </button>
           </div>
         </div>
@@ -504,7 +509,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           )
         ) : !bilan || bilan.empty ? (
           <div className="sb">
-            <p className="sb-none">{!bilan ? 'Le classeur du poste n’est pas encore chargé.' : 'Aucune ligne remplie pour ce poste.'}</p>
+            <p className="sb-none">{!bilan ? 'Chargement du poste…' : 'Rien de saisi pour ce poste dans Loading ni Unloading.'}</p>
             <ProtectionEditor state={protection} onChange={setProtection} />
           </div>
         ) : (
@@ -521,8 +526,8 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
 
 /**
  * The header's Bilan button, an icon beside the calculator and the printer,
- * on every page: `onOpen` brings the Suivi tab up with the sheet open. The
- * badge counts the rows to look at once the shift's workbook is loaded.
+ * on every page: `onOpen` opens the sheet over it. The badge counts the rows
+ * to look at once the shift's records are known.
  */
 export function BilanHeaderButton({ part, onOpen }: { part: Partition | null; onOpen: () => void }) {
   const bilan = useBilan(part);
@@ -535,10 +540,7 @@ export function BilanHeaderButton({ part, onOpen }: { part: Partition | null; on
       aria-label={n ? `Bilan du poste, ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
       title={n ? `Bilan du poste · ${n} ligne${n > 1 ? 's' : ''} à vérifier` : 'Bilan du poste'}
     >
-      <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="2" y="1.75" width="12" height="12.5" rx="1.5" />
-        <path d="M5 11.25V9M8 11.25V5.5M11 11.25V7.5" strokeWidth="1.8" />
-      </svg>
+      <BilanIcon />
       {n > 0 && (
         <span className="sb-count sb-badge" aria-hidden="true">
           {n > 99 ? '99+' : n}
@@ -560,7 +562,7 @@ function PrintBody({ bilan, wholeTitle, children }: { bilan: SuiviBilan; wholeTi
   if (bilan.empty)
     return (
       <>
-        <p className="sb-none">Aucune ligne remplie.</p>
+        <p className="sb-none">Rien de saisi.</p>
         {children}
       </>
     );
@@ -588,7 +590,7 @@ function PrintBody({ bilan, wholeTitle, children }: { bilan: SuiviBilan; wholeTi
   );
 }
 
-/** The bilan on paper, the shift's or the day's: what printing from the Suivi tab gives. */
+/** The bilan on paper, the shift's or the day's: what printing from the sheet, Loading or Unloading gives. */
 export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintProps) {
   const bilan = useBilan(part);
   const day = useDayBilan(part.date, part, scope === 'jour');
@@ -626,7 +628,7 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
             </span>
           </div>
         </div>
-        <PrintBody bilan={day.bilan} wholeTitle="Rejets de la journée">
+        <PrintBody bilan={day.bilan} wholeTitle="Scraps de la journée">
           <ShiftsTable day={day} protection={dayProtection.totals} />
           <ProtectionSummary states={dayProtection.states} />
         </PrintBody>
@@ -653,7 +655,7 @@ export function BilanPrint({ part, shiftLabel, dateLabel, scope }: BilanPrintPro
           </span>
         </div>
       </div>
-      <PrintBody bilan={bilan} wholeTitle="Rejets du poste">
+      <PrintBody bilan={bilan} wholeTitle="Scraps du poste">
         <ProtectionSummary states={[protection]} />
       </PrintBody>
     </section>

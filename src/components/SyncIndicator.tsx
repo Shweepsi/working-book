@@ -1,41 +1,88 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { lineSync, type LineSnapshot } from '../lib/lineSync';
 import { sharedGrid, type GridSnapshot } from '../lib/sharedGrid';
-import { useSyncStatus, type SyncStatus } from '../lib/sync';
+import { useSyncStatus, type SyncSnapshot, type SyncStatus } from '../lib/sync';
+import { CheckIcon, LocalIcon, OfflineIcon, RefreshIcon, UpIcon, WarnIcon } from './icons';
+
+// One chip for everything that syncs, whatever tab is showing: the app's data
+// (logbook, schedule, protection…), the shift's GridCraft workbook (Suivi) and
+// its Loading and Unloading records, each on its own channel. It shows the
+// state that most needs a look and the writes still waiting, all together;
+// its title says where each one stands.
 
 interface Descriptor {
   cls: string;
-  glyph: string;
+  glyph: ReactNode;
   short: string;
 }
 
 const DESCRIPTORS: Record<SyncStatus, Descriptor> = {
-  idle:     { cls: 'is-idle',    glyph: '●', short: 'Sync.' },
-  syncing:  { cls: 'is-syncing', glyph: '↻', short: 'Sync…' },
-  queued:   { cls: 'is-queued',  glyph: '↑', short: 'En file' },
-  offline:  { cls: 'is-offline', glyph: '⊘', short: 'Hors ligne' },
-  error:    { cls: 'is-error',   glyph: '⚠', short: 'Échec' },
-  disabled: { cls: 'is-disabled', glyph: '○', short: 'Local' },
+  idle:     { cls: 'is-idle',    glyph: <CheckIcon size={13} strokeWidth={2.25} />, short: 'Sync.' },
+  syncing:  { cls: 'is-syncing', glyph: <RefreshIcon size={13} />, short: 'Sync…' },
+  queued:   { cls: 'is-queued',  glyph: <UpIcon size={13} />, short: 'En file' },
+  offline:  { cls: 'is-offline', glyph: <OfflineIcon size={13} />, short: 'Hors ligne' },
+  error:    { cls: 'is-error',   glyph: <WarnIcon size={13} />, short: 'Échec' },
+  disabled: { cls: 'is-disabled', glyph: <LocalIcon size={13} />, short: 'Local' },
 };
 
 // Worst first: the chip shows the state that most needs a look.
 const RANK: Record<SyncStatus, number> = { error: 4, offline: 3, queued: 2, syncing: 1, idle: 0, disabled: -1 };
 
-// The shift's GridCraft workbook syncs on its own channel (lib/sharedGrid.ts),
-// cell by cell, apart from the queue the other tabs go through.
-function gridState(g: GridSnapshot): { status: SyncStatus; title: string } | null {
+/** One channel: where it stands, what it still has to send. */
+interface Channel {
+  name: string;
+  status: SyncStatus;
+  pending: number;
+  text: string;
+}
+
+const waiting = (n: number) => `${n} en attente`;
+
+function dataChannel(s: SyncSnapshot): Channel {
+  const text =
+    s.status === 'idle'
+      ? 'à jour'
+      : s.status === 'syncing'
+        ? `envoi en cours (${s.pending})`
+        : s.status === 'queued'
+          ? waiting(s.pending)
+          : s.status === 'offline'
+            ? `hors ligne${s.pending ? `, ${waiting(s.pending)}` : ''}`
+            : `échec${s.pending ? `, ${waiting(s.pending)}` : ''}`;
+  return { name: 'Saisies', status: s.status, pending: s.pending, text };
+}
+
+// The workbook only counts once a shift was opened in it on this device.
+function gridChannel(g: GridSnapshot): Channel | null {
+  if (g.status === 'disabled' || (g.templateId === null && !g.pending)) return null;
+  const name = 'Classeur Suivi';
   switch (g.status) {
     case 'ready':
-      return { status: 'idle', title: 'partagé avec les autres appareils ouverts sur ce poste' };
+      return { name, status: 'idle', pending: 0, text: 'à jour' };
     case 'loading':
-      return { status: 'syncing', title: 'chargement…' };
     case 'syncing':
-      return { status: 'syncing', title: `envoi en cours… (${g.pending})` };
+      return { name, status: 'syncing', pending: g.pending, text: g.pending ? `envoi en cours (${g.pending})` : 'chargement' };
     case 'offline':
-      return { status: 'offline', title: 'hors ligne — les cellules seront envoyées au retour de la connexion' };
-    case 'error':
-      return { status: 'error', title: g.error ?? 'échec' };
+      return { name, status: 'offline', pending: g.pending, text: `hors ligne${g.pending ? `, ${waiting(g.pending)}` : ''}` };
     default:
-      return null;
+      return { name, status: 'error', pending: g.pending, text: g.error ?? 'échec' };
+  }
+}
+
+// The records count once a shift is followed (or writes wait from an earlier visit).
+function lineChannel(l: LineSnapshot): Channel | null {
+  if (l.status === 'disabled' || (!l.part && !l.pending)) return null;
+  const name = 'Loading et Unloading';
+  switch (l.status) {
+    case 'ready':
+      return { name, status: 'idle', pending: 0, text: 'à jour' };
+    case 'loading':
+    case 'syncing':
+      return { name, status: 'syncing', pending: l.pending, text: l.pending ? `envoi en cours (${l.pending})` : 'chargement' };
+    case 'offline':
+      return { name, status: 'offline', pending: l.pending, text: `hors ligne${l.pending ? `, ${waiting(l.pending)}` : ''}` };
+    default:
+      return { name, status: 'error', pending: l.pending, text: l.error ?? 'échec' };
   }
 }
 
@@ -50,14 +97,20 @@ function relTime(ts: number, now: number): string {
   return `il y a ${Math.round(h / 24)} j`;
 }
 
-interface SyncIndicatorProps {
-  /** Also reflect the shift's shared GridCraft workbook (on its tab). */
-  grid?: boolean;
+export interface SyncSummary {
+  status: SyncStatus;
+  pending: number;
+  /** The whole in one sentence. */
+  text: string;
+  /** Each channel's state, a line each. */
+  details: string[];
 }
 
-export default function SyncIndicator({ grid = false }: SyncIndicatorProps) {
+/** Every channel together; null when nothing syncs (no Worker). */
+export function useSyncSummary(): SyncSummary | null {
   const snap = useSyncStatus();
   const gridSnap = useSyncExternalStore(sharedGrid.subscribe, sharedGrid.getSnapshot);
+  const lineSnap = useSyncExternalStore(lineSync.subscribe, lineSync.getSnapshot);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -66,32 +119,32 @@ export default function SyncIndicator({ grid = false }: SyncIndicatorProps) {
   }, []);
 
   if (snap.status === 'disabled') return null;
+  const channels = [dataChannel(snap), gridChannel(gridSnap), lineChannel(lineSnap)].filter((c): c is Channel => !!c);
+  const status = channels.reduce<SyncStatus>((worst, c) => (RANK[c.status] > RANK[worst] ? c.status : worst), 'idle');
+  const pending = channels.reduce((n, c) => n + c.pending, 0);
+  const last = snap.lastSuccessAt ? ` · ${relTime(snap.lastSuccessAt, now)}` : '';
+  const text =
+    status === 'idle'
+      ? `Tout est synchronisé${last}`
+      : status === 'syncing'
+        ? `Envoi en cours${pending ? ` (${pending})` : '…'}`
+        : status === 'queued'
+          ? `${pending} modification${pending > 1 ? 's' : ''} en attente`
+          : status === 'offline'
+            ? `Hors ligne${pending ? ` · ${waiting(pending)}` : ''} — envoi au retour du réseau`
+            : `Échec de synchronisation${pending ? ` · ${waiting(pending)}` : ''}`;
+  return { status, pending, text, details: channels.map((c) => `${c.name} : ${c.text}`) };
+}
 
-  const g = grid ? gridState(gridSnap) : null;
-  const status = g && RANK[g.status] > RANK[snap.status] ? g.status : snap.status;
-  const pending = snap.pending + (g ? gridSnap.pending : 0);
-  const d = DESCRIPTORS[status];
-  const lastTs = snap.status === 'error' ? snap.lastErrorAt : snap.lastSuccessAt;
-  const lastLabel = lastTs ? relTime(lastTs, now) : null;
-
-  let title: string;
-  if (snap.status === 'idle') title = lastLabel ? `Synchronisé · ${lastLabel}` : 'Synchronisé';
-  else if (snap.status === 'syncing') title = `Envoi en cours… (${snap.pending})`;
-  else if (snap.status === 'queued') title = `${snap.pending} mutation${snap.pending > 1 ? 's' : ''} en attente`;
-  else if (snap.status === 'offline') title = 'Hors ligne — les modifications seront envoyées au retour de la connexion';
-  else title = `Échec de synchronisation${lastLabel ? ` · ${lastLabel}` : ''} (${snap.pending} en attente)`;
-  if (g) title = `Saisies : ${title}\nClasseur du poste : ${g.title}`;
-
+export default function SyncIndicator() {
+  const s = useSyncSummary();
+  if (!s) return null;
+  const d = DESCRIPTORS[s.status];
   return (
-    <div
-      className={`sync-chip no-print ${d.cls}`}
-      role="status"
-      aria-live="polite"
-      title={title}
-    >
+    <div className={`sync-chip no-print ${d.cls}`} role="status" aria-live="polite" title={[s.text, ...s.details].join('\n')}>
       <span className="sync-glyph" aria-hidden="true">{d.glyph}</span>
       <span className="sync-label">{d.short}</span>
-      {pending > 0 && <span className="sync-count mono">{pending}</span>}
+      {s.pending > 0 && <span className="sync-count mono">{s.pending}</span>}
     </div>
   );
 }

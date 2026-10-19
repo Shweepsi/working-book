@@ -19,6 +19,7 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
+import { ArchiveIcon, CloseIcon, CollapseIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -1403,7 +1404,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                 aria-label="Configurer l’import direct depuis Mingle"
                 title="Import direct — importer depuis l’Operator Mashup en un clic, sans copier-coller"
               >
-                <span className="glyph" aria-hidden="true">⇱</span>
+                <span className="glyph" aria-hidden="true"><ImportIcon size={14} /></span>
                 <span className="lbl-full">Import direct</span>
                 <span className="lbl-short" aria-hidden="true">Direct</span>
               </button>
@@ -1418,7 +1419,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                     : 'Importer la table de politique MTO/MTS'
                 }
               >
-                <span className="glyph" aria-hidden="true">⚙</span>
+                <span className="glyph" aria-hidden="true"><SettingsIcon size={14} /></span>
                 <span className="lbl-full">Politique MTO/MTS</span>
                 <span className="lbl-short" aria-hidden="true">MTO</span>
               </button>
@@ -1526,7 +1527,7 @@ function FinishedSheet({
                 {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
               </div>
             </div>
-            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
           </div>
         </div>
 
@@ -1566,7 +1567,7 @@ function FinishedSheet({
                   onClick={() => setPending(s.schedule)}
                   title={`Restaurer le schedule ${s.schedule} dans le planning`}
                 >
-                  <span className="sch-done-restore-icon" aria-hidden="true">↩</span>
+                  <span className="sch-done-restore-icon" aria-hidden="true"><UndoIcon size={14} /></span>
                   Restaurer
                 </button>
               )}
@@ -1668,9 +1669,7 @@ function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children:
       }}
     >
       <div className="sch-swipe-action" aria-hidden="true">
-        {/* Dingbat rather than an emoji: it inherits the strip's colour instead
-            of dropping a full-colour glyph into the muted palette. */}
-        <span className="sch-swipe-action-glyph">↧</span>
+        <span className="sch-swipe-action-glyph"><ArchiveIcon size={20} /></span>
         <span className="sch-swipe-action-label">Terminés</span>
       </div>
       <div className="sch-swipe-surface" style={{ transform: `translate3d(${dx}px, 0, 0)` }}>
@@ -1750,7 +1749,7 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
           onClick={onImport}
           title={data ? 'Réimporter le rapport Operator Mashup' : 'Importer le rapport Operator Mashup'}
         >
-          <span aria-hidden="true">↻</span> {data ? 'Réimporter' : 'Importer'}
+          <RefreshIcon size={14} /> {data ? 'Réimporter' : 'Importer'}
         </button>
       </div>
       {/* The MTO/MTS chip is not gated on `data`: the policy syncs on its own
@@ -1763,7 +1762,7 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
               className="sch-policy-chip"
               title="Politique MTO/MTS chargée — partagée entre les opérateurs"
             >
-              <span className="sch-policy-chip-glyph" aria-hidden="true">⚙</span>
+              <span className="sch-policy-chip-glyph" aria-hidden="true"><SettingsIcon size={13} /></span>
               MTO/MTS · <strong className="mono">{policyCount}</strong>
             </span>
           )}
@@ -1840,7 +1839,7 @@ const clampColumnPx = (px: number): number =>
 // Planning-policy badge. The column is 56px, which "Inactif" doesn't fit, so
 // that state shows a cross and keeps the word in the tooltip; MTO / MTS are
 // short enough to read as-is.
-const MTO_GLYPH: Record<string, string> = { Inactif: '✕' };
+const MTO_GLYPH: Record<string, ReactNode> = { Inactif: <CloseIcon size={13} /> };
 const MTO_TITLE: Record<string, string> = {
   MTO: 'Make to order',
   MTS: 'Make to stock',
@@ -2098,7 +2097,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
         {enrichedColumns.map((c) => {
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
-          const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
+          const dirIndicator = isSorted ? (sortDir === 'asc' ? <CollapseIcon size={12} strokeWidth={2.25} /> : <ExpandIcon size={12} strokeWidth={2.25} />) : null;
           // Name the click that actually follows, so the way back to the
           // dimension order isn't invisible. The column that carries the
           // default only ever flips direction, so it never gets that wording.
@@ -2160,7 +2159,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
                 }
               }}
             >
-              <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner">⋮⋮</span>
+              <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner"><GripIcon size={13} /></span>
               {c.label}
               {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
               <ColumnResizeHandle colKey={c.key} onResizeStart={beginResize} onResize={onResize} />
@@ -2350,7 +2349,7 @@ function TableControls({
                           disabled={!sameGroupPrev}
                           title="Monter"
                           aria-label="Monter la colonne"
-                        >↑</button>
+                        ><UpIcon size={14} /></button>
                         <button
                           type="button"
                           className="btn ghost icon mini"
@@ -2358,7 +2357,7 @@ function TableControls({
                           disabled={!sameGroupNext}
                           title="Descendre"
                           aria-label="Descendre la colonne"
-                        >↓</button>
+                        ><DownIcon size={14} /></button>
                       </div>
                     </li>
                   );
@@ -2638,7 +2637,7 @@ function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps)
               </div>
             </div>
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
 
         <dl className="sch-row-sheet-grid">
