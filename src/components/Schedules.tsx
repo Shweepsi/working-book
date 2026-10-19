@@ -19,7 +19,7 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
-import { ArchiveIcon, CloseIcon, CollapseIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
+import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, FilterIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -289,7 +289,8 @@ function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: D
     );
   return {
     hidden: dedupe(raw.hidden),
-    pinned: dedupe(raw.pinned),
+    // Pinning columns is gone; a pin saved before is dropped on load.
+    pinned: [],
     order: dedupe(raw.order),
     widths: numbers(raw.widths),
     autoWidths: numbers(raw.autoWidths),
@@ -759,13 +760,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     }));
   }
 
-  function togglePinned(key: string) {
-    updateLayout((l) => ({
-      ...l,
-      pinned: l.pinned.includes(key) ? l.pinned.filter((k) => k !== key) : [...l.pinned, key],
-    }));
-  }
-
   function moveColumn(key: string, dir: -1 | 1) {
     updateLayout((l) => {
       const order = completeColumnOrder(l.order);
@@ -1151,6 +1145,29 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     }
   }
 
+  // Filters, the œillet and Colonnes ride in the schedule's header: a bar of
+  // their own cost a whole row above the table for three small controls.
+  const tableControls = (
+    <TableControls
+      settings={tableSettings}
+      layout={layout}
+      visibleColumns={visibleColumns}
+      available={availableFilters}
+      filteringActive={filteringActive}
+      colsMenuOpen={colsMenuOpen}
+      onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
+      onColsMenuClose={() => setColsMenuOpen(false)}
+      finishedCount={finishedRows.length}
+      showFinished={tableSettings.showFinished}
+      onToggleFinished={toggleShowFinished}
+      onToggleFilterValue={toggleFilterValue}
+      onClearFilters={clearFilters}
+      onToggleColumn={toggleColumnVisibility}
+      onMoveColumn={moveColumn}
+      onResetLayout={resetTableLayout}
+    />
+  );
+
   return (
     // The print mode is carried on the root rather than on <html>: the paper
     // rules only ever need it from inside this view, and `:has()` lets the
@@ -1323,29 +1340,12 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                       </strong>
                     </div>
                   </div>
+                  {tableControls}
                 </header>
               );
             })()}
 
-            <TableControls
-              settings={tableSettings}
-              layout={layout}
-              visibleColumns={visibleColumns}
-              available={availableFilters}
-              filteringActive={filteringActive}
-              colsMenuOpen={colsMenuOpen}
-              onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
-              onColsMenuClose={() => setColsMenuOpen(false)}
-              finishedCount={finishedRows.length}
-              showFinished={tableSettings.showFinished}
-              onToggleFinished={toggleShowFinished}
-              onToggleFilterValue={toggleFilterValue}
-              onClearFilters={clearFilters}
-              onToggleColumn={toggleColumnVisibility}
-              onTogglePinned={togglePinned}
-              onMoveColumn={moveColumn}
-              onResetLayout={resetTableLayout}
-            />
+            {!selectedSchedule && tableControls}
 
             <ScheduleTable
               items={groupedRows}
@@ -2211,7 +2211,6 @@ interface TableControlsProps {
   onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
   onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
-  onTogglePinned: (key: string) => void;
   onMoveColumn: (key: string, dir: -1 | 1) => void;
   onResetLayout: () => void;
 }
@@ -2231,11 +2230,22 @@ function TableControls({
   onToggleFilterValue,
   onClearFilters,
   onToggleColumn,
-  onTogglePinned,
   onMoveColumn,
   onResetLayout,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
+  const filterBtnRef = useRef<HTMLDivElement>(null);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const hasFilters = available.mtos.length > 1 || available.qualites.length > 1 || available.pdps.length > 1;
+
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node)) setFilterMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [filterMenuOpen]);
 
   useEffect(() => {
     if (!colsMenuOpen) return;
@@ -2248,66 +2258,86 @@ function TableControls({
 
   return (
     <div className="sch-controls no-print">
-      {available.mtos.length > 1 && (
-        <FilterGroup
-          label="MTO/MTS"
-          options={available.mtos}
-          selected={settings.mtoMts}
-          onToggle={(v) => onToggleFilterValue('mtoMts', v)}
-        />
-      )}
-      {available.qualites.length > 1 && (
-        <FilterGroup
-          label="Qualité"
-          options={available.qualites}
-          selected={settings.qualite}
-          onToggle={(v) => onToggleFilterValue('qualite', v)}
-        />
-      )}
-      {available.pdps.length > 1 && (
-        <FilterGroup
-          label="PDP"
-          options={available.pdps}
-          selected={settings.pdp}
-          onToggle={(v) => onToggleFilterValue('pdp', v)}
-        />
-      )}
-      {filteringActive && (
-        <button type="button" className="btn ghost mini" onClick={onClearFilters}>
-          Effacer filtres
-        </button>
-      )}
       <div className="sch-controls-end">
+        {hasFilters && (
+          <div className="sch-cols-wrap" ref={filterBtnRef}>
+            <button
+              type="button"
+              className={`btn ghost icon sch-cols-btn ${filterMenuOpen ? 'is-open' : ''} ${filteringActive ? 'is-on' : ''}`}
+              onClick={() => setFilterMenuOpen((v) => !v)}
+              aria-expanded={filterMenuOpen}
+              aria-label={filteringActive ? 'Filtres (actifs)' : 'Filtres'}
+              title="Filtres"
+            >
+              <FilterIcon />
+              {filteringActive && <span className="sch-filter-dot" aria-hidden="true" />}
+            </button>
+            {filterMenuOpen && (
+              <div className="popover sch-cols-menu sch-filter-menu" role="menu">
+                <div className="sch-cols-menu-head">
+                  <h4>Filtres</h4>
+                  {filteringActive && (
+                    <button type="button" className="btn ghost mini" onClick={onClearFilters}>Effacer</button>
+                  )}
+                </div>
+                {available.mtos.length > 1 && (
+                  <FilterGroup
+                    label="MTO/MTS"
+                    options={available.mtos}
+                    selected={settings.mtoMts}
+                    onToggle={(v) => onToggleFilterValue('mtoMts', v)}
+                  />
+                )}
+                {available.qualites.length > 1 && (
+                  <FilterGroup
+                    label="Qualité"
+                    options={available.qualites}
+                    selected={settings.qualite}
+                    onToggle={(v) => onToggleFilterValue('qualite', v)}
+                  />
+                )}
+                {available.pdps.length > 1 && (
+                  <FilterGroup
+                    label="PDP"
+                    options={available.pdps}
+                    selected={settings.pdp}
+                    onToggle={(v) => onToggleFilterValue('pdp', v)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control
           // reading "0 terminées" would promise rows it cannot show.
           <button
             type="button"
-            className={`btn ghost mini sch-eye-btn ${showFinished ? 'is-on' : ''}`}
+            className={`btn ghost icon sch-eye-btn ${showFinished ? 'is-on' : ''}`}
             onClick={onToggleFinished}
             aria-pressed={showFinished}
+            aria-label={`${finishedCount} ligne${finishedCount > 1 ? 's' : ''} terminée${finishedCount > 1 ? 's' : ''}`}
             title={
               showFinished
                 ? 'Replier les lignes terminées'
                 : 'Afficher les lignes de ce schedule qui n’ont plus rien à produire'
             }
           >
-            <span className={`sch-eye ${showFinished ? '' : 'is-off'}`} aria-hidden="true" />
-            {finishedCount} terminée{finishedCount > 1 ? 's' : ''}
+            {showFinished ? <ShownIcon /> : <HiddenIcon />}
+            <span className="sch-icon-count mono">{finishedCount}</span>
           </button>
         )}
         <div className="sch-cols-wrap" ref={colsBtnRef}>
           <button
             type="button"
-            className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
+            className={`btn ghost icon sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
             onClick={onColsMenuToggle}
             aria-expanded={colsMenuOpen}
             aria-label="Configurer les colonnes"
+            title="Colonnes"
           >
-            <span className="sch-cols-icon" aria-hidden="true" />
-            Colonnes
-            <span className="sch-cols-chevron" aria-hidden="true" />
+            <ColumnsIcon />
           </button>
           {colsMenuOpen && (
             <div className="popover sch-cols-menu" role="menu">
@@ -2322,7 +2352,7 @@ function TableControls({
                   const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
                   const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
                   return (
-                    <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
+                    <li key={col.key} className={`sch-cols-item ${visible ? '' : 'is-hidden'}`}>
                       <label className="sch-cols-opt">
                         <input
                           type="checkbox"
@@ -2332,16 +2362,6 @@ function TableControls({
                         <span>{col.label}</span>
                       </label>
                       <div className="sch-cols-actions">
-                        <button
-                          type="button"
-                          className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
-                          onClick={() => onTogglePinned(col.key)}
-                          title={pinned ? 'Désépingler' : 'Épingler à gauche'}
-                          aria-pressed={pinned}
-                          aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
-                        >
-                          <span aria-hidden="true" className="sch-pin-glyph" />
-                        </button>
                         <button
                           type="button"
                           className="btn ghost icon mini"
@@ -2364,7 +2384,7 @@ function TableControls({
                 })}
               </ul>
               <div className="sch-cols-menu-foot faint small">
-                {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
+                {visibleColumns.length}/{COLUMNS.length} visibles
               </div>
             </div>
           )}

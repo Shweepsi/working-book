@@ -2627,6 +2627,54 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 .sch-detail .sch-controls { border-radius: 0; }
+/* In the schedule's header the controls lose their bar and close the row,
+   after the stat tiles, behind the same short divider the tiles share. */
+.sch-detail-head .sch-controls {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0 0 0 var(--space-5);
+  border: 0;
+  background: none;
+}
+.sch-detail-head .sch-controls::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 1px;
+  background: var(--line-faint);
+}
+.sch-detail-head-stats { padding-right: var(--space-5); }
+.sch-detail-head .sch-controls-end { gap: var(--space-1); margin-left: 0; }
+.sch-detail-head .sch-controls .btn.icon { color: var(--ink-soft); }
+.sch-detail-head .sch-controls .btn.icon:hover { color: var(--ink); }
+
+/* The filter menu stacks its groups, one per line, under a hairline. */
+.sch-filter-menu { min-width: 240px; }
+.sch-filter-menu .sch-filter-group,
+.sch-controls .sch-filter-menu .sch-filter-group + .sch-filter-group {
+  padding-left: 0;
+  border-left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-faint);
+}
+/* A filter is on: a small accent dot on the funnel's corner. */
+.sch-filter-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, var(--ink));
+}
+.sch-cols-btn { position: relative; }
 .sch-filter-group {
   display: inline-flex;
   align-items: center;
@@ -2688,90 +2736,30 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 /* Œillet — greys the schedule's finished lines back into the table, where the
    planner's formula had dropped them. */
 .sch-eye-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
+  position: relative;
+}
+/* How many lines the œillet holds: a small faint figure tucked on the
+   icon's lower corner, read when looked for, not shouted. */
+.sch-icon-count {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-faint);
 }
 .sch-eye-btn.is-on {
   background: var(--paper-2);
   border-color: var(--ink-faint);
   color: var(--ink);
 }
-/* CSS-drawn like .sch-cols-icon. The lens is a square with two opposite
-   corners rounded, turned 45° so the points land left and right; the pupil is
-   the dot at its centre. */
-.sch-eye {
-  position: relative;
-  width: 13px;
-  height: 13px;
-  display: inline-block;
-  opacity: 0.75;
-}
-.sch-eye::before {
-  content: '';
-  position: absolute;
-  inset: 2.5px;
-  border: 1.25px solid currentColor;
-  border-radius: 100% 0;
-  transform: rotate(45deg);
-}
-.sch-eye::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3.5px;
-  height: 3.5px;
-  margin: -1.75px 0 0 -1.75px;
-  border-radius: 50%;
-  background: currentColor;
-}
-/* Struck through while the lines are away — the button then reads as "these
-   rows are not on screen", which is what its count is counting. */
-.sch-eye.is-off {
-  background: linear-gradient(
-    45deg,
-    transparent calc(50% - 0.7px),
-    currentColor calc(50% - 0.7px),
-    currentColor calc(50% + 0.7px),
-    transparent calc(50% + 0.7px)
-  );
-}
-/* Colonnes button — CSS-drawn column icon + chevron that rotates open.
-   Active state (menu visible) flips the chevron and pins the background
-   so the button reads as the source of the open popover. */
-.sch-cols-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
+/* Colonnes: pins its background while its menu is open, so the button reads
+   as the source of the popover. */
 .sch-cols-btn.is-open {
   background: var(--paper-2);
   border-color: var(--ink-faint);
   color: var(--ink);
-}
-.sch-cols-icon {
-  width: 12px;
-  height: 12px;
-  display: inline-block;
-  background:
-    linear-gradient(currentColor, currentColor) 0 0 / 2.5px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 4.75px 0 / 2.5px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 9.5px 0 / 2.5px 100% no-repeat;
-  opacity: 0.75;
-}
-.sch-cols-chevron {
-  width: 6px;
-  height: 6px;
-  display: inline-block;
-  border: solid currentColor;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-  transition: transform 150ms ease;
-  opacity: 0.75;
-}
-.sch-cols-btn.is-open .sch-cols-chevron {
-  transform: rotate(-135deg) translate(-1px, -1px);
 }
 .sch-cols-menu {
   right: 0;
@@ -2810,8 +2798,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: var(--radius-sm);
 }
 .sch-cols-item:hover { background: var(--paper-2); }
-.sch-cols-item.is-pinned { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.sch-cols-item.is-pinned:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .sch-cols-item.is-hidden .sch-cols-opt span { color: var(--ink-faint); text-decoration: line-through; }
 .sch-cols-actions {
   display: inline-flex;
@@ -3260,40 +3246,6 @@ body.is-col-resizing * {
   background: color-mix(in srgb, var(--accent) 10%, var(--paper-2));
 }
 
-/* Pin glyph in the Colonnes menu — vertical bar + circle on the right,
-   filled when the column is pinned. */
-.sch-cols-pin { color: var(--ink-soft); }
-.sch-cols-pin.is-on { color: var(--accent); }
-.sch-pin-glyph {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  position: relative;
-}
-.sch-pin-glyph::before {
-  content: '';
-  position: absolute;
-  left: 2px;
-  top: 2px;
-  bottom: 2px;
-  width: 1.5px;
-  background: currentColor;
-  border-radius: 1px;
-}
-.sch-pin-glyph::after {
-  content: '';
-  position: absolute;
-  right: 2px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  transition: background 100ms ease;
-}
-.sch-cols-pin.is-on .sch-pin-glyph::after { background: currentColor; }
 .sch-cell.col-fmt { text-align: center; }
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }
