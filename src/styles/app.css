@@ -2627,16 +2627,51 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 .sch-detail .sch-controls { border-radius: 0; }
-/* In the schedule's header the controls lose their bar and sit between the
-   identity and the stat tiles. */
+/* In the schedule's header the controls lose their bar and close the row,
+   after the stat tiles, behind the same short divider the tiles share. */
 .sch-detail-head .sch-controls {
-  flex: 1 1 auto;
-  padding: 0;
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0 0 0 var(--space-5);
   border: 0;
   background: none;
-  gap: var(--space-3) var(--space-5);
 }
-.sch-detail-head .sch-controls-end { gap: var(--space-2); }
+.sch-detail-head .sch-controls::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 1px;
+  background: var(--line-faint);
+}
+.sch-detail-head-stats { padding-right: var(--space-5); }
+.sch-detail-head .sch-controls-end { gap: var(--space-1); margin-left: 0; }
+.sch-detail-head .sch-controls .btn.icon { color: var(--ink-soft); }
+.sch-detail-head .sch-controls .btn.icon:hover { color: var(--ink); }
+
+/* The filter menu stacks its groups, one per line, under a hairline. */
+.sch-filter-menu { min-width: 240px; }
+.sch-filter-menu .sch-filter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-faint);
+}
+/* A filter is on: a small accent dot on the funnel's corner. */
+.sch-filter-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, var(--ink));
+}
+.sch-cols-btn { position: relative; }
 .sch-filter-group {
   display: inline-flex;
   align-items: center;
@@ -2700,21 +2735,16 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-eye-btn {
   position: relative;
 }
-/* How many lines the œillet holds, in a small tab on the icon's corner. */
+/* How many lines the œillet holds: a small faint figure tucked on the
+   icon's lower corner, read when looked for, not shouted. */
 .sch-icon-count {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: var(--radius-pill);
-  background: var(--ink-soft);
-  color: var(--paper);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 15px;
-  text-align: center;
+  right: 2px;
+  bottom: 1px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-faint);
 }
 .sch-eye-btn.is-on {
   background: var(--paper-2);

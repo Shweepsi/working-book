@@ -19,7 +19,7 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
-import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
+import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, FilterIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -1302,7 +1302,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                       <span className="sch-detail-head-name">{stat.shortName || shortItemName(selectedSchedule.itemRoot) || selectedSchedule.itemRoot}</span>
                     </h3>
                   </div>
-                  {tableControls}
                   <div className="sch-detail-head-stats">
                     <label className={`sch-stat-tile sch-stat-tile-input ${validSpeed ? '' : 'is-invalid'}`}>
                       <span className="sch-stat-tile-label">Vitesse</span>
@@ -1348,6 +1347,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                       </strong>
                     </div>
                   </div>
+                  {tableControls}
                 </header>
               );
             })()}
@@ -2243,6 +2243,18 @@ function TableControls({
   onResetLayout,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
+  const filterBtnRef = useRef<HTMLDivElement>(null);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const hasFilters = available.mtos.length > 1 || available.qualites.length > 1 || available.pdps.length > 1;
+
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node)) setFilterMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [filterMenuOpen]);
 
   useEffect(() => {
     if (!colsMenuOpen) return;
@@ -2255,36 +2267,56 @@ function TableControls({
 
   return (
     <div className="sch-controls no-print">
-      {available.mtos.length > 1 && (
-        <FilterGroup
-          label="MTO/MTS"
-          options={available.mtos}
-          selected={settings.mtoMts}
-          onToggle={(v) => onToggleFilterValue('mtoMts', v)}
-        />
-      )}
-      {available.qualites.length > 1 && (
-        <FilterGroup
-          label="Qualité"
-          options={available.qualites}
-          selected={settings.qualite}
-          onToggle={(v) => onToggleFilterValue('qualite', v)}
-        />
-      )}
-      {available.pdps.length > 1 && (
-        <FilterGroup
-          label="PDP"
-          options={available.pdps}
-          selected={settings.pdp}
-          onToggle={(v) => onToggleFilterValue('pdp', v)}
-        />
-      )}
-      {filteringActive && (
-        <button type="button" className="btn ghost mini" onClick={onClearFilters}>
-          Effacer filtres
-        </button>
-      )}
       <div className="sch-controls-end">
+        {hasFilters && (
+          <div className="sch-cols-wrap" ref={filterBtnRef}>
+            <button
+              type="button"
+              className={`btn ghost icon sch-cols-btn ${filterMenuOpen ? 'is-open' : ''} ${filteringActive ? 'is-on' : ''}`}
+              onClick={() => setFilterMenuOpen((v) => !v)}
+              aria-expanded={filterMenuOpen}
+              aria-label={filteringActive ? 'Filtres (actifs)' : 'Filtres'}
+              title="Filtres"
+            >
+              <FilterIcon />
+              {filteringActive && <span className="sch-filter-dot" aria-hidden="true" />}
+            </button>
+            {filterMenuOpen && (
+              <div className="popover sch-cols-menu sch-filter-menu" role="menu">
+                <div className="sch-cols-menu-head">
+                  <h4>Filtres</h4>
+                  {filteringActive && (
+                    <button type="button" className="btn ghost mini" onClick={onClearFilters}>Effacer</button>
+                  )}
+                </div>
+                {available.mtos.length > 1 && (
+                  <FilterGroup
+                    label="MTO/MTS"
+                    options={available.mtos}
+                    selected={settings.mtoMts}
+                    onToggle={(v) => onToggleFilterValue('mtoMts', v)}
+                  />
+                )}
+                {available.qualites.length > 1 && (
+                  <FilterGroup
+                    label="Qualité"
+                    options={available.qualites}
+                    selected={settings.qualite}
+                    onToggle={(v) => onToggleFilterValue('qualite', v)}
+                  />
+                )}
+                {available.pdps.length > 1 && (
+                  <FilterGroup
+                    label="PDP"
+                    options={available.pdps}
+                    selected={settings.pdp}
+                    onToggle={(v) => onToggleFilterValue('pdp', v)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control

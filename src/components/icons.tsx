@@ -24,6 +24,7 @@ import {
   Eraser,
   Eye,
   EyeOff,
+  Funnel,
   GripVertical,
   Import,
   Menu,
@@ -93,3 +94,4 @@ export const ResetIcon = make(RotateCcw);
 export const ColumnsIcon = make(Columns3);
 export const ShownIcon = make(Eye);
 export const HiddenIcon = make(EyeOff);
+export const FilterIcon = make(Funnel);
