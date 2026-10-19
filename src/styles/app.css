@@ -6070,6 +6070,7 @@ select.ln-input { padding-right: var(--space-2); }
     padding-top: 0;
     padding-bottom: 0;
     line-height: 20px;
+    border-radius: var(--radius-pill);
   }
   :root:not(.is-print-preview) .sch-policy-chip { box-sizing: border-box; height: 20px; }
   :root:not(.is-print-preview) .sch-rail-done-btn { height: 15px; line-height: 15px; }
