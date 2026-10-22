@@ -6079,10 +6079,12 @@ select.ln-input { padding-right: var(--space-2); }
     height: 15px;
   }
   :root:not(.is-print-preview) .sch-filter-chip { height: 24px; min-height: 0; }
+  /* A floor, not a height: on a wide screen the rail is a column and each
+     item wraps its figures onto a second line. */
   :root:not(.is-print-preview) .sch-rail-item {
-    height: var(--d-ctl-h);
-    padding-top: 0;
-    padding-bottom: 0;
+    min-height: var(--d-ctl-h);
+    padding-top: 4px;
+    padding-bottom: 4px;
     justify-content: center;
   }
   /* A text link, but a finger-sized target: the 30 px is invisible padding. */
