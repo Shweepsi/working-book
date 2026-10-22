@@ -6049,3 +6049,58 @@ select.ln-input { padding-right: var(--space-2); }
 .hdr-item-go { display: inline-flex; color: var(--ink-faint); }
 .hdr-back { display: inline-flex; align-items: center; gap: 2px; align-self: flex-start; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-soft); font: inherit; font-size: var(--fs-md); cursor: pointer; }
 .hdr-back:hover { background: var(--paper-2); color: var(--ink); }
+
+/* Schedule on two control heights. What is clicked or typed into takes the
+   header's control height (--d-ctl-h: 30 px, 26 compact, 34 advanced); the
+   filter chips sit one step under, at 24. The summary strip is 30, with
+   Réimporter and the policy chip at 20; « N terminés » and Vitesse at 15.
+   Screen only: paper keeps its
+   own sizes. */
+@media screen {
+  /* The summary strip is a thin line: 30 px, Réimporter and the policy chip 20. */
+  :root:not(.is-print-preview) .sch-summary {
+    box-sizing: border-box;
+    height: 30px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  :root:not(.is-print-preview) .sch-summary .btn {
+    height: 20px;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 20px;
+    border-radius: var(--radius-pill);
+  }
+  :root:not(.is-print-preview) .sch-policy-chip { box-sizing: border-box; height: 20px; }
+  :root:not(.is-print-preview) .sch-rail-done-btn { height: 15px; line-height: 15px; }
+  :root:not(.is-print-preview) .sch-stat-tile-input .sch-vitesse-input {
+    box-sizing: border-box;
+    height: 15px;
+  }
+  :root:not(.is-print-preview) .sch-filter-chip { height: 24px; min-height: 0; }
+  :root:not(.is-print-preview) .sch-rail-item {
+    height: var(--d-ctl-h);
+    padding-top: 0;
+    padding-bottom: 0;
+    justify-content: center;
+  }
+  /* A text link, but a finger-sized target: the 30 px is invisible padding. */
+  :root:not(.is-print-preview) .sch-rail-done-btn {
+    position: relative;
+  }
+  :root:not(.is-print-preview) .sch-rail-done-btn::after {
+    content: '';
+    position: absolute;
+    inset: calc((var(--fs-2xs) - var(--d-ctl-h)) / 2) -6px;
+  }
+  :root:not(.is-print-preview) .sch-row.sch-head,
+  :root:not(.is-print-preview) .sch-row.sch-total,
+  :root:not(.is-print-preview) .sch-row.sch-group-break { height: var(--d-ctl-h); }
+  :root:not(.is-print-preview) .sch-row.sch-head .sch-cell,
+  :root:not(.is-print-preview) .sch-row.sch-total .sch-cell,
+  :root:not(.is-print-preview) .sch-row.sch-group-break .sch-cell {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}
