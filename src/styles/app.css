@@ -6060,7 +6060,7 @@ select.ln-input { padding-right: var(--space-2); }
   /* The summary strip is a thin line: 30 px, Réimporter and the policy chip 20. */
   :root:not(.is-print-preview) .sch-summary {
     box-sizing: border-box;
-    height: 30px;
+    min-height: 30px;
     padding-top: 0;
     padding-bottom: 0;
   }
@@ -6104,5 +6104,14 @@ select.ln-input { padding-right: var(--space-2); }
   :root:not(.is-print-preview) .sch-row.sch-group-break .sch-cell {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
+  }
+}
+
+/* Phone: the summary strip wraps onto two lines, so it grows past 30 px
+   instead of letting the readings spill under the next card. */
+@media screen and (max-width: 640px) {
+  :root:not(.is-print-preview) .sch-summary {
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 }
