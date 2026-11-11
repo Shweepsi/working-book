@@ -93,8 +93,8 @@ un **verdict**, pas le récapitulatif :
 - **Terminé OK** — suivi du résultat, « 651 lignes importées », puis du nombre
   de pages, sur la même ligne ;
 - **Terminé — avertissement** — l'import a eu lieu, mais quelque chose mérite
-  un regard : pages refusées par le serveur, serveur secondaire en échec,
-  terminés non inclus. Les raisons suivent, en quelques mots ;
+  un regard : lignes ignorées (le serveur n'a pas pu les lire), pages refusées
+  par le serveur, serveur secondaire en échec, terminés non inclus. Les raisons suivent, en quelques mots ;
 - **NOK** — rien n'a atteint le rapport : écran PMS230 absent, recherche non
   lancée, toutes les pages refusées, exécution interrompue.
 

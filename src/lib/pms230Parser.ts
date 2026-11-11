@@ -53,6 +53,9 @@ export interface PMS230Result {
   records: PMS230Record[];
   schedules: PMS230Schedule[];
   warnings: string[];
+  /** Schedule rows of the paste that could not be decoded and were left out.
+   *  Absent on reports stored before it existed. */
+  dropped?: number;
   importedAt: string;
 }
 
@@ -511,14 +514,11 @@ export function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
   }));
 }
 
-// How many rows of a report were lost, from its warnings. Only the messages
-// that name a schedule and mean « row dropped » count: the stray cells around
-// the grid (« Record 0: only 1 fields, skipping » — the report's title line,
-// the pager) are noise, and a row kept with a field missing (« expected
-// schedLites integer ») is still a row. Lives next to the messages it reads.
-export function droppedRows(warnings: readonly string[]): number {
-  return warnings.filter((w) => /\(sched \d+\): (no MO in|expected (MO|product code|item name))/.test(w)).length;
-}
+// A schedule number on its own, or with one stray cell, is not a row: the
+// search criteria echo the schedule above the grid, and the pager leaves a
+// fragment or two. A real row has a dozen cells or more, so anything from here
+// up that fails to decode is a row lost — truncated ones included.
+const MIN_ROW_CELLS = 3;
 
 export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230Result {
   const isPayload = typeof textOrPayload === 'object' && textOrPayload !== null;
@@ -536,6 +536,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
   const warnings: string[] = [];
   const anchors = findScheduleAnchors(tokens);
   const records: PMS230Record[] = [];
+  let dropped = 0;
 
   for (let a = 0; a < anchors.length; a++) {
     const start = anchors[a]!;
@@ -548,6 +549,8 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
         m2: rowM2(decoded),
         id: `${decoded.schedule}|${decoded.mo}|${a}`,
       });
+    } else if (slice.length >= MIN_ROW_CELLS) {
+      dropped++;
     }
   }
 
@@ -557,6 +560,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     records,
     schedules,
     warnings,
+    dropped,
     importedAt: new Date().toISOString(),
   };
 }
@@ -663,6 +667,7 @@ export function mergePMS230(
     // accumulated here, 518 of them after two months, mostly the same rows
     // dropped again and again — and nothing ever read them back.
     warnings: next.warnings ?? [],
+    dropped: next.dropped ?? 0,
     importedAt: next.importedAt,
   }, incoming);
 }

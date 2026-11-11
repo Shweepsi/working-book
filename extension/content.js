@@ -324,6 +324,9 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     if (result?.ok) {
       imported += Number(result.imported) || 0;
       skipped += Number(result.skipped) || 0;
+    } else if (result?.status === 422 && Number(result.skipped) > 0) {
+      // Every row of the page failed to decode: rows lost, not a refusal.
+      skipped += Number(result.skipped);
     } else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
     // The counts above are the reference server's. The others are posted to in
     // the same breath, and one of them lagging behind shows up nowhere else.
@@ -399,8 +402,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.type === 'wb-scrape') {
     const report = readReport();
     if (!report) return false;
-    send(report, 'manual');
-    respond({ found: true, count: report.count });
+    // The server's answer goes back with the reply, so the verdict can say
+    // what was stored and what was left out rather than what was on screen.
+    send(report, 'manual')
+      .then((result) => respond({ found: true, count: report.count, result }))
+      .catch(() => respond({ found: true, count: report.count }));
     return true;
   }
 

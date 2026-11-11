@@ -2,7 +2,7 @@
 // its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
-import { droppedRows, mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
+import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 import { LINE_METHODS, handleLine } from './line';
@@ -597,7 +597,9 @@ async function handleSchedulesIngest(
   if (parsed.records.length === 0) {
     // Text arrived but no row survived decoding — usually the wrong screen, or
     // a search that returned nothing. Say so rather than touching the report.
-    return json({ error: 'no_records', warnings: parsed.warnings.slice(0, 10) }, cors, 422);
+    // `skipped` says when it was rows that failed to decode, not an empty
+    // screen: the extension must not blame the server for the decoder.
+    return json({ error: 'no_records', skipped: parsed.dropped ?? 0, warnings: parsed.warnings.slice(0, 10) }, cors, 422);
   }
 
   const { result: merged, purged } = mergePMS230(await readSchedules(env), parsed);
@@ -617,7 +619,7 @@ async function handleSchedulesIngest(
       // Rows of this page the decoder could not read and left out: what the
       // extension has to say out loud, since « imported » alone looked like a
       // clean run while fifty of them were being dropped.
-      skipped: droppedRows(parsed.warnings),
+      skipped: parsed.dropped ?? 0,
       updated_at: updatedAt,
     },
     cors,
