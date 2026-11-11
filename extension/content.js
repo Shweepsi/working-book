@@ -232,6 +232,8 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
   let pages = 0;
   let rows = 0;
   let imported = 0;
+  // Rows the server read but could not decode, summed over the pages.
+  let skipped = 0;
   const failures = [];
   // Mirrors that refused at least one page. A set, not a list: the same server
   // failing on all thirty pages is one thing gone wrong, said once.
@@ -285,6 +287,7 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
         pages = 0;
         rows = 0;
         imported = 0;
+        skipped = 0;
         failures.length = 0;
         before = null;
         expectPage = ready.pager?.page ?? null;
@@ -318,8 +321,13 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     // What the server actually stored, not what the page appeared to hold:
     // the two differ whenever a row fails to decode, and the summary would
     // otherwise claim an import that never happened.
-    if (result?.ok) imported += Number(result.imported) || 0;
-    else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
+    if (result?.ok) {
+      imported += Number(result.imported) || 0;
+      skipped += Number(result.skipped) || 0;
+    } else if (result?.status === 422 && Number(result.skipped) > 0) {
+      // Every row of the page failed to decode: rows lost, not a refusal.
+      skipped += Number(result.skipped);
+    } else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
     // The counts above are the reference server's. The others are posted to in
     // the same breath, and one of them lagging behind shows up nowhere else.
     for (const target of result?.targets ?? []) {
@@ -346,7 +354,7 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     expectPage = pageNo != null ? pageNo + 1 : null;
   }
 
-  return { pages, rows, imported, failures, refused: [...refused], timings, restarts, firstHash };
+  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash };
 }
 
 // With no request in sight, the first page was taken on a redraw and two
@@ -394,8 +402,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.type === 'wb-scrape') {
     const report = readReport();
     if (!report) return false;
-    send(report, 'manual');
-    respond({ found: true, count: report.count });
+    // The server's answer goes back with the reply, so the verdict can say
+    // what was stored and what was left out rather than what was on screen.
+    send(report, 'manual')
+      .then((result) => respond({ found: true, count: report.count, result }))
+      .catch(() => respond({ found: true, count: report.count }));
     return true;
   }
 

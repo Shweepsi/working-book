@@ -71,7 +71,9 @@ async function post(base, payload) {
     /* non-JSON error page — the status carries the story */
   }
 
-  if (!res.ok) return { ...target, ok: false, status: res.status, error: body.error };
+  // `skipped` rides along on a 422: a page whose every row failed to decode is
+  // the decoder's doing, not a refusal, and the sweep counts it that way.
+  if (!res.ok) return { ...target, ok: false, status: res.status, error: body.error, skipped: body.skipped };
   // `imported` is passed on exactly as the server sent it, missing value
   // included: the badge tells "nothing came back to count" from "nothing was
   // counted" apart, and coercing here would collapse the two into a green 0.
@@ -104,11 +106,13 @@ async function ingest(text) {
     // 422 means the grid was read but nothing decoded: worth flagging without
     // shouting, since the stored report is deliberately left untouched.
     else badge(primary.status === 422 ? '0' : String(primary.status), primary.status === 422 ? 'warn' : 'err');
-    return { ok: false, status: primary.status, error: primary.error, targets };
+    return { ok: false, status: primary.status, error: primary.error, skipped: primary.skipped, targets };
   }
 
   // Green would claim both databases took the page when only one did.
-  badge(String(primary.imported ?? '✓'), refused.length ? 'warn' : 'ok');
+  // Orange too when rows of the page were left out: green would say the page
+  // went in whole.
+  badge(String(primary.imported ?? '✓'), refused.length || Number(primary.body?.skipped) > 0 ? 'warn' : 'ok');
   return { ok: true, ...primary.body, imported: primary.imported, targets };
 }
 
@@ -224,6 +228,7 @@ function summarise(reply) {
     lines.push(`${swept.pages} page(s)${perPage} parcourue(s), ${swept.imported} ligne(s) importée(s)${took}.`);
     if (swept.restarts) lines.push('Grille remise en page 1 en cours de parcours : reparti du début.');
     if (swept.reruns) lines.push('Réponse de la recherche arrivée après le parcours : parcours refait.');
+    if (swept.skipped) lines.push(`${plural(swept.skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`);
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it
@@ -252,6 +257,9 @@ function summarise(reply) {
     };
     reasons.push(`Serveur ${swept.refused.map(short).join(', ')} en échec`);
   }
+  // Rows the report held and the server could not read: the run is not clean,
+  // whatever the imported count says.
+  if (swept?.skipped) reasons.push(plural(swept.skipped, 'ligne ignorée', 'lignes ignorées'));
   if (completedOff) reasons.push('Terminés non inclus');
 
   const headline =
@@ -423,8 +431,22 @@ async function walk(send) {
   if (!send) return record(null);
   const scraped = await ask({ type: 'wb-scrape' });
   if (scraped?.found) {
-    const headline = `${plural(scraped.count, 'ligne envoyée', 'lignes envoyées')} depuis l’écran affiché`;
-    return publish({ badge: String(scraped.count), kind: 'ok', headline, reasons: [], text: `${headline}.` });
+    // What the server stored and left out, once it has answered; the rows on
+    // screen otherwise, from a frame too old to wait for the answer.
+    const result = scraped.result;
+    const imported = result?.ok ? Number(result.imported) || 0 : null;
+    const skipped = Number(result?.skipped) || 0;
+    const headline =
+      imported != null
+        ? `${plural(imported, 'ligne importée', 'lignes importées')} depuis l’écran affiché`
+        : `${plural(scraped.count, 'ligne envoyée', 'lignes envoyées')} depuis l’écran affiché`;
+    const reasons = [];
+    if (skipped) reasons.push(plural(skipped, 'ligne ignorée', 'lignes ignorées'));
+    if (result && !result.ok && !skipped) reasons.push('Page refusée par le serveur');
+    const sank = result && !result.ok && !skipped;
+    const kind = sank ? 'err' : reasons.length ? 'warn' : 'ok';
+    const text = [`${headline}.`, ...(skipped ? [`${plural(skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`] : [])].join('\n');
+    return publish({ badge: String(imported ?? scraped.count), kind, headline, reasons, text });
   }
   return record(null);
 }

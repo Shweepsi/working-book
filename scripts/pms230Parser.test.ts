@@ -7,7 +7,7 @@
 // « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePMS230 } from '../src/lib/pms230Parser.ts';
+import { mergePMS230, parsePMS230 } from '../src/lib/pms230Parser.ts';
 
 const HEADER = [
   'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
@@ -71,4 +71,31 @@ test('an unexpected product code is reported as such, not as a missing MO', () =
   const warnings = moWarnings(paste([row]));
   assert.equal(warnings.length, 1);
   assert.match(warnings[0]!, /expected product code/);
+});
+
+test('every lost row counts as dropped, and nothing else does', () => {
+  // The header holds the schedule echoed by the search criteria: one lone
+  // cell, warned about (« only 1 fields ») but not a row.
+  assert.equal(parsePMS230(paste(ROWS)).dropped, 0);
+  assert.ok(parsePMS230(paste(ROWS)).warnings.some((w) => /only 1 fields/.test(w)));
+
+  const badProduct = ROWS[2]!.replace('|330183172|', '|340183172|');
+  const noMo = ROWS[2]!.replace('|1000227095|', '|');
+  const truncated = ROWS[2]!.split('|').slice(0, 8).join('|');
+  // A row with its lites gone is decoded and kept, short of a field.
+  const partial = ROWS[2]!.replace('|40|40|0|1.04|', '|x|');
+  const r = parsePMS230(paste([badProduct, noMo, truncated, partial, ROWS[3]!]));
+  assert.equal(r.dropped, 3);
+  assert.deepEqual(r.records.map((x) => x.mo), ['1000227095', '1000226536']);
+});
+
+test('a merge keeps the last import\'s warnings, not every import\'s', () => {
+  const bad = parsePMS230(paste([ROWS[2]!.replace('|330183172|', '|340183172|')]));
+  const good = parsePMS230(paste(ROWS));
+  const once = mergePMS230(null, bad).result;
+  assert.ok(once.warnings.length > 0);
+  const twice = mergePMS230(once, bad).result;
+  assert.equal(twice.warnings.length, once.warnings.length);
+  assert.deepEqual(mergePMS230(twice, good).result.warnings, good.warnings);
+  assert.equal(mergePMS230(twice, good).result.dropped, 0);
 });
