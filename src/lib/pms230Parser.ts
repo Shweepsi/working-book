@@ -157,15 +157,17 @@ function findScheduleAnchors(tokens: string[]): number[] {
 }
 
 // Where the MO may sit at the latest: schedule, suffix, three op steps, work
-// center, four start/end cells, Date Départ, MTO/MTS — the full head, nothing
-// missing — with room to spare for whatever column the report grows next.
-// The bound only keeps a broken row from borrowing the next row's MO; what
-// actually identifies the MO is the product code right behind it.
+// center, four start/end cells, Date Départ, MTO/MTS — eleven cells, plus
+// room for whatever column the report grows next, so the next one doesn't
+// silently drop rows the way the MTO/MTS cell did. A slice already stops at
+// the next schedule, so the bound only caps how far a garbled head is read.
 const HEAD_MAX = 16;
 const TIME_RE = /^\d{1,2}:\d{2}$/;
-// The planning policy PMS230 prints in front of the MO since November 2026.
-// The Schedule tab reads MTO/MTS from the policy table, so the cell is skipped.
-const POLICY_RE = /^(MTO|MTS)$/;
+// The planning policy PMS230 prints in front of the MO since November 2026,
+// as a label. The Schedule tab reads MTO/MTS from the policy table, so the
+// cell is skipped. Only labels: the numeric codes (10/50/90) would collide
+// with the op steps.
+const POLICY_RE = /^(MTO|MTS|Inactif)$/i;
 
 type HeadFields = Pick<
   DecodedRecord,
@@ -184,10 +186,17 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
   // which pushed it to position 12 on every row with a Date Départ — and those
   // rows were dropped, import after import, keeping their stale « reste »
   // (sched 2213000918, MO 1000227095, November 2026).
+  // Without any such pair, the first MO-looking cell is kept anyway, so that
+  // an unexpected product code is reported as such by decodeRecord rather
+  // than as a missing MO.
   let mo = -1;
-  for (let k = 1; k <= HEAD_MAX && k + 1 < slice.length; k++) {
-    if (MO_RE.test(slice[k]!) && PRODUCT_RE.test(slice[k + 1]!)) { mo = k; break; }
+  let loose = -1;
+  for (let k = 1; k <= HEAD_MAX && k < slice.length; k++) {
+    if (!MO_RE.test(slice[k]!)) continue;
+    if (PRODUCT_RE.test(slice[k + 1] ?? '')) { mo = k; break; }
+    if (loose < 0) loose = k;
   }
+  if (mo < 0) mo = loose;
   if (mo < 0) return null;
 
   const fields: HeadFields = {
@@ -213,6 +222,9 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
 
   for (let k = 1; k < mo; k++) {
     const t = slice[k]!;
+    // Before the work-center test: with an empty Work Center cell (innerText
+    // leaves no line for it), the label would otherwise be taken for one.
+    if (POLICY_RE.test(t)) continue;
     if (!fields.workCenter && SHORT_INT_RE.test(t)) {
       if (k === 1 && t.length === 1) fields.schedSuffix = t;
       else ops.push(t);
@@ -222,7 +234,6 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
       fields.workCenter = t;
       continue;
     }
-    if (POLICY_RE.test(t)) continue;
     while (slot < slots.length && !slots[slot]!.re.test(t)) slot++;
     if (slot < slots.length) fields[slots[slot++]!.key] = t;
   }
