@@ -157,9 +157,15 @@ function findScheduleAnchors(tokens: string[]): number[] {
 }
 
 // Where the MO may sit at the latest: schedule, suffix, three op steps, work
-// center, four start/end cells, Date Départ — the full head, nothing missing.
-const HEAD_MAX = 11;
+// center, four start/end cells, Date Départ, MTO/MTS — the full head, nothing
+// missing — with room to spare for whatever column the report grows next.
+// The bound only keeps a broken row from borrowing the next row's MO; what
+// actually identifies the MO is the product code right behind it.
+const HEAD_MAX = 16;
 const TIME_RE = /^\d{1,2}:\d{2}$/;
+// The planning policy PMS230 prints in front of the MO since November 2026.
+// The Schedule tab reads MTO/MTS from the policy table, so the cell is skipped.
+const POLICY_RE = /^(MTO|MTS)$/;
 
 type HeadFields = Pick<
   DecodedRecord,
@@ -173,9 +179,14 @@ type HeadFields = Pick<
 // next slot of its own kind. A missing start time therefore leaves that slot
 // empty instead of pushing a date into it.
 function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null {
+  // The MO is the 1xxxxxxxxx cell followed by the 33xxxxxxx product code. A
+  // fixed slot doesn't hold: PMS230 added an MTO/MTS cell in front of the MO,
+  // which pushed it to position 12 on every row with a Date Départ — and those
+  // rows were dropped, import after import, keeping their stale « reste »
+  // (sched 2213000918, MO 1000227095, November 2026).
   let mo = -1;
-  for (let k = 1; k <= HEAD_MAX && k < slice.length; k++) {
-    if (MO_RE.test(slice[k]!)) { mo = k; break; }
+  for (let k = 1; k <= HEAD_MAX && k + 1 < slice.length; k++) {
+    if (MO_RE.test(slice[k]!) && PRODUCT_RE.test(slice[k + 1]!)) { mo = k; break; }
   }
   if (mo < 0) return null;
 
@@ -211,6 +222,7 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
       fields.workCenter = t;
       continue;
     }
+    if (POLICY_RE.test(t)) continue;
     while (slot < slots.length && !slots[slot]!.re.test(t)) slot++;
     if (slot < slots.length) fields[slots[slot++]!.key] = t;
   }
