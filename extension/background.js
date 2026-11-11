@@ -224,6 +224,7 @@ function summarise(reply) {
     lines.push(`${swept.pages} page(s)${perPage} parcourue(s), ${swept.imported} ligne(s) importée(s)${took}.`);
     if (swept.restarts) lines.push('Grille remise en page 1 en cours de parcours : reparti du début.');
     if (swept.reruns) lines.push('Réponse de la recherche arrivée après le parcours : parcours refait.');
+    if (swept.skipped) lines.push(`${plural(swept.skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`);
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it
@@ -252,6 +253,9 @@ function summarise(reply) {
     };
     reasons.push(`Serveur ${swept.refused.map(short).join(', ')} en échec`);
   }
+  // Rows the report held and the server could not read: the run is not clean,
+  // whatever the imported count says.
+  if (swept?.skipped) reasons.push(plural(swept.skipped, 'ligne ignorée', 'lignes ignorées'));
   if (completedOff) reasons.push('Terminés non inclus');
 
   const headline =

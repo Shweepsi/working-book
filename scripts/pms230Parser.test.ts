@@ -7,7 +7,7 @@
 // « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePMS230 } from '../src/lib/pms230Parser.ts';
+import { droppedRows, mergePMS230, parsePMS230 } from '../src/lib/pms230Parser.ts';
 
 const HEADER = [
   'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
@@ -71,4 +71,24 @@ test('an unexpected product code is reported as such, not as a missing MO', () =
   const warnings = moWarnings(paste([row]));
   assert.equal(warnings.length, 1);
   assert.match(warnings[0]!, /expected product code/);
+});
+
+test('only lost rows count as dropped: stray cells and kept rows do not', () => {
+  const lost = ROWS[2]!.replace('|330183172|', '|340183172|');
+  // The report's title line is a lone cell before the first schedule.
+  const noisy = ['SOMETHING', ...HEADER, ...lost.split('|')].join('\n');
+  const { warnings } = parsePMS230(noisy);
+  assert.ok(warnings.length >= 1);
+  assert.equal(droppedRows(warnings), 1);
+  assert.equal(droppedRows(parsePMS230(paste(ROWS)).warnings), 0);
+});
+
+test('a merge keeps the last import\'s warnings, not every import\'s', () => {
+  const bad = parsePMS230(paste([ROWS[2]!.replace('|330183172|', '|340183172|')]));
+  const good = parsePMS230(paste(ROWS));
+  const once = mergePMS230(null, bad).result;
+  assert.ok(once.warnings.length > 0);
+  const twice = mergePMS230(once, bad).result;
+  assert.equal(twice.warnings.length, once.warnings.length);
+  assert.deepEqual(mergePMS230(twice, good).result.warnings, good.warnings);
 });

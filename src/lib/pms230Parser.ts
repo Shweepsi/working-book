@@ -511,6 +511,15 @@ export function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
   }));
 }
 
+// How many rows of a report were lost, from its warnings. Only the messages
+// that name a schedule and mean « row dropped » count: the stray cells around
+// the grid (« Record 0: only 1 fields, skipping » — the report's title line,
+// the pager) are noise, and a row kept with a field missing (« expected
+// schedLites integer ») is still a row. Lives next to the messages it reads.
+export function droppedRows(warnings: readonly string[]): number {
+  return warnings.filter((w) => /\(sched \d+\): (no MO in|expected (MO|product code|item name))/.test(w)).length;
+}
+
 export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230Result {
   const isPayload = typeof textOrPayload === 'object' && textOrPayload !== null;
   const html = isPayload ? textOrPayload.html ?? null : null;
@@ -650,7 +659,10 @@ export function mergePMS230(
   return trimReport({
     records,
     schedules: summariseSchedules(records),
-    warnings: [...(prev.warnings ?? []), ...(next.warnings ?? [])],
+    // The last import's, not the sum of every import's: warnings only ever
+    // accumulated here, 518 of them after two months, mostly the same rows
+    // dropped again and again — and nothing ever read them back.
+    warnings: next.warnings ?? [],
     importedAt: next.importedAt,
   }, incoming);
 }

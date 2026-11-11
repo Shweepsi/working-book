@@ -2,7 +2,7 @@
 // its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
-import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
+import { droppedRows, mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 import { LINE_METHODS, handleLine } from './line';
@@ -614,6 +614,10 @@ async function handleSchedulesIngest(
       // with no screen of its own, and this is the only place it can be said.
       purged: purged.length,
       warnings: parsed.warnings.length,
+      // Rows of this page the decoder could not read and left out: what the
+      // extension has to say out loud, since « imported » alone looked like a
+      // clean run while fifty of them were being dropped.
+      skipped: droppedRows(parsed.warnings),
       updated_at: updatedAt,
     },
     cors,
