@@ -6,6 +6,10 @@
 //     10-digit schedule pattern (`/^22\d{8}$/`) and decode each record positionally
 //     with strict type guards so a missing field can't silently drift the row.
 
+/** A product's planning policy. Defined here, not in policyParser, which the
+ *  Worker (no DOM types) cannot compile. */
+export type Policy = 'MTO' | 'MTS' | 'Inactif';
+
 export interface PMS230Record {
   id: string;
   schedule: string;
@@ -36,6 +40,9 @@ export interface PMS230Record {
   longueurInch: string;
   thickness: string;
   customer: string;
+  /** MTO / MTS as the row prints it. Absent on rows imported before PMS230
+   *  carried it: the Schedule then falls back on the imported policy table. */
+  policy?: Policy;
   m2: number;
 }
 
@@ -167,14 +174,15 @@ function findScheduleAnchors(tokens: string[]): number[] {
 const HEAD_MAX = 16;
 const TIME_RE = /^\d{1,2}:\d{2}$/;
 // The planning policy PMS230 prints in front of the MO since November 2026,
-// as a label. The Schedule tab reads MTO/MTS from the policy table, so the
-// cell is skipped. Only labels: the numeric codes (10/50/90) would collide
-// with the op steps.
+// as a label, kept on the record: the Schedule takes it over the imported
+// policy table. Only labels: the numeric codes (10/50/90) would collide with
+// the op steps.
 const POLICY_RE = /^(MTO|MTS|Inactif)$/i;
+const POLICY_LABEL: Record<string, Policy> = { MTO: 'MTO', MTS: 'MTS', INACTIF: 'Inactif' };
 
 type HeadFields = Pick<
   DecodedRecord,
-  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart'
+  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart' | 'policy'
 >;
 
 // Reads the cells between the schedule and the MO by what they look like. Op
@@ -227,7 +235,10 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
     const t = slice[k]!;
     // Before the work-center test: with an empty Work Center cell (innerText
     // leaves no line for it), the label would otherwise be taken for one.
-    if (POLICY_RE.test(t)) continue;
+    if (POLICY_RE.test(t)) {
+      fields.policy = POLICY_LABEL[t.toUpperCase()];
+      continue;
+    }
     if (!fields.workCenter && SHORT_INT_RE.test(t)) {
       if (k === 1 && t.length === 1) fields.schedSuffix = t;
       else ops.push(t);

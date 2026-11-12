@@ -3,7 +3,9 @@
 // column carries either the label (MTO / MTS) or the raw planning-policy code
 // (10 / 50 / 90), depending on which export the planner copied from.
 
-export type Policy = 'MTO' | 'MTS' | 'Inactif';
+import type { Policy } from './pms230Parser';
+
+export type { Policy };
 
 export interface PastePayload {
   html?: string | null;

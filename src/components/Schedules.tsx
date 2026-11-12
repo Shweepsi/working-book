@@ -49,6 +49,11 @@ type DisplayRow = PMS230Record & { mtoMts: string };
 // A row's planning policy, or '?' when the product isn't in the imported table.
 type MtoFilter = Policy | '?';
 
+// MTO/MTS as PMS230 prints it on the row since November 2026; the imported
+// policy table only for rows read before that.
+const policyOf = (r: PMS230Record, map: Record<string, Policy> | undefined): MtoFilter =>
+  r.policy ?? map?.[r.product] ?? '?';
+
 type GroupedItem =
   | { kind: 'break'; id: string; longueur: number }
   | { kind: 'row'; row: DisplayRow };
@@ -610,7 +615,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   const prepareRows = useCallback((records: PMS230Record[]): DisplayRow[] => {
     const policyMap = policy?.map ?? {};
     const rows: DisplayRow[] = records
-      .map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }))
+      .map((r) => ({ ...r, mtoMts: policyOf(r, policyMap) }))
       .filter((r) => {
         if (qualite.length > 0 && !qualite.includes(r.qualite)) return false;
         if (pdp.length > 0 && !pdp.includes(r.pdp)) return false;
@@ -677,7 +682,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     for (const r of planningRecords) {
       if (r.qualite) qualites.add(r.qualite);
       if (r.pdp) pdps.add(r.pdp);
-      mtos.add(policyMap[r.product] ?? '?');
+      mtos.add(policyOf(r, policyMap));
     }
     return {
       qualites: [...qualites].sort(),
@@ -1204,7 +1209,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         </div>
       )}
 
-      {data && !policy && (
+      {data && !policy && data.records.some((r) => !r.policy) && (
         <div className="sch-hint">
           <span>↪ Importer la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
           <button className="btn mini" onClick={() => setImportMode('policy')} title="Ouvrir l'importation de la politique MTO/MTS">
@@ -1447,7 +1452,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       {openRow && (
         <RowDetailSheet
           row={openRow}
-          mtoMts={policy?.map?.[openRow.product] ?? '?'}
+          mtoMts={policyOf(openRow, policy?.map)}
           onClose={() => setOpenRowId(null)}
           onDelete={() => handleDeleteRow(openRow.id)}
         />

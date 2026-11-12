@@ -51,11 +51,19 @@ test('a produced row with a Date Départ carries its production', () => {
   assert.deepEqual([r.schedLites, r.prodLites, r.reqLites], [40, 40, 0]);
   assert.equal(r.itemName, 'CSGSNX70HXC1000TPF');
   assert.equal(r.longueur, 6000);
+  assert.equal(r.policy, 'MTO');
+});
+
+test('every row carries the MTO/MTS it prints', () => {
+  const { records } = parsePMS230(paste(ROWS));
+  assert.deepEqual(records.map((r) => r.policy), ['MTS', 'MTS', 'MTO', 'MTO', 'MTO', 'MTO', 'MTO', 'MTO']);
 });
 
 test('the report as it was before the MTO/MTS cell still reads', () => {
   const old = ROWS.map((r) => r.replace(/\|(MTO|MTS)\|/, '|'));
   assert.equal(mos(paste(old)).length, ROWS.length);
+  // No label to read: the Schedule falls back on the imported policy table.
+  assert.ok(parsePMS230(paste(old)).records.every((r) => !('policy' in r)));
 });
 
 test('an empty Work Center does not take the MTO/MTS label', () => {
