@@ -741,16 +741,21 @@ export function dropVanished(
   // is taken out then: removing is for good, and the next walk will tell.
   const lines = new Map<string, number>();
   for (const r of prev.records) lines.set(r.schedule, (lines.get(r.schedule) ?? 0) + 1);
+  // A line whose MO the walk saw under another schedule was moved there by M3
+  // (2213000922 → 2213000930/932, November 2026: seven of its ten MOs): the
+  // walk read it, so it says nothing about a wrong grid and is not counted.
+  const seenMos = new Set([...keys].map((k) => k.split('|')[1]));
+  const lost = removed.filter((r) => !seenMos.has(r.mo));
   const gone = new Map<string, number>();
-  for (const r of removed) gone.set(r.schedule, (gone.get(r.schedule) ?? 0) + 1);
+  for (const r of lost) gone.set(r.schedule, (gone.get(r.schedule) ?? 0) + 1);
   const tooMany =
-    removed.length > VANISHED_MAX ||
+    lost.length > VANISHED_MAX ||
     [...gone].some(([schedule, n]) => n > Math.max(VANISHED_PER_SCHEDULE_MIN, lines.get(schedule)! / 2));
   if (tooMany) return { result: prev, removed: [], held: removed.length };
   return { result: { ...prev, records, schedules: summariseSchedules(records) }, removed, held: 0 };
 }
 
-/** More lines gone in one walk than this, and none is taken out. */
+/** More lines gone in one walk than this (moved ones aside), and none is taken out. */
 const VANISHED_MAX = 30;
 /** In one schedule: more than half its lines, beyond this many. */
 const VANISHED_PER_SCHEDULE_MIN = 2;
