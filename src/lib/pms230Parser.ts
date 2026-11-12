@@ -6,6 +6,10 @@
 //     10-digit schedule pattern (`/^22\d{8}$/`) and decode each record positionally
 //     with strict type guards so a missing field can't silently drift the row.
 
+/** A product's planning policy. Defined here, not in policyParser, which the
+ *  Worker (no DOM types) cannot compile. */
+export type Policy = 'MTO' | 'MTS' | 'Inactif';
+
 export interface PMS230Record {
   id: string;
   schedule: string;
@@ -36,6 +40,9 @@ export interface PMS230Record {
   longueurInch: string;
   thickness: string;
   customer: string;
+  /** MTO / MTS as the row prints it. Absent on rows imported before PMS230
+   *  carried it: the Schedule then falls back on the imported policy table. */
+  policy?: Policy;
   m2: number;
 }
 
@@ -167,14 +174,15 @@ function findScheduleAnchors(tokens: string[]): number[] {
 const HEAD_MAX = 16;
 const TIME_RE = /^\d{1,2}:\d{2}$/;
 // The planning policy PMS230 prints in front of the MO since November 2026,
-// as a label. The Schedule tab reads MTO/MTS from the policy table, so the
-// cell is skipped. Only labels: the numeric codes (10/50/90) would collide
-// with the op steps.
+// as a label, kept on the record: the Schedule takes it over the imported
+// policy table. Only labels: the numeric codes (10/50/90) would collide with
+// the op steps.
 const POLICY_RE = /^(MTO|MTS|Inactif)$/i;
+const POLICY_LABEL: Record<string, Policy> = { MTO: 'MTO', MTS: 'MTS', INACTIF: 'Inactif' };
 
 type HeadFields = Pick<
   DecodedRecord,
-  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart'
+  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart' | 'policy'
 >;
 
 // Reads the cells between the schedule and the MO by what they look like. Op
@@ -227,7 +235,10 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
     const t = slice[k]!;
     // Before the work-center test: with an empty Work Center cell (innerText
     // leaves no line for it), the label would otherwise be taken for one.
-    if (POLICY_RE.test(t)) continue;
+    if (POLICY_RE.test(t)) {
+      fields.policy = POLICY_LABEL[t.toUpperCase()];
+      continue;
+    }
     if (!fields.workCenter && SHORT_INT_RE.test(t)) {
       if (k === 1 && t.length === 1) fields.schedSuffix = t;
       else ops.push(t);
@@ -671,3 +682,75 @@ export function mergePMS230(
     importedAt: next.importedAt,
   }, incoming);
 }
+
+// --- Lines that left the report ----------------------------------------------
+
+/** The dates of the search a page of PMS230 answers. */
+export interface PMS230Search {
+  from: string;
+  to: string;
+}
+
+/** The dates printed at the top of a PMS230 page; null when it does not show them. */
+export function searchOf(text: string): PMS230Search | null {
+  const lines = splitLines(text);
+  const after = (label: string) => {
+    const i = lines.indexOf(label);
+    return i < 0 ? '' : lines[i + 1] ?? '';
+  };
+  const from = after('From Start Date');
+  const to = after('To Start Date');
+  return DATE_RE.test(from) && DATE_RE.test(to) ? { from, to } : null;
+}
+
+/**
+ * Takes out the lines M3 no longer reports, once a whole report has been read.
+ *
+ * Imports only ever add or update: a line M3 replaced or cancelled (MO
+ * 1000229251, 232 lites, split into 1000230291 for 116) stayed in the Schedule
+ * at 0 produced, for good. A walk that read every page of a search, without a
+ * row lost, knows every line that search covers. A stored line is gone from
+ * M3 when the walk did not see it although it saw its schedule in the same
+ * work center, and the line starts within the search's dates. Anything else
+ * may simply be outside the search — another work center than the one asked
+ * for, an earlier day — and is left alone, as are schedules the walk never saw.
+ */
+export function dropVanished(
+  prev: PMS230Result,
+  seen: Iterable<string>,
+  search: PMS230Search,
+): { result: PMS230Result; removed: PMS230Record[]; held: number } {
+  const keys = new Set(seen);
+  const key = (r: PMS230Record) => `${r.schedule}|${r.mo}`;
+  // Schedule × work center the walk saw, read off the stored lines it updated.
+  const covered = new Set(prev.records.filter((r) => keys.has(key(r))).map((r) => `${r.schedule}|${r.workCenter}`));
+  const removed: PMS230Record[] = [];
+  const records = prev.records.filter((r) => {
+    const gone =
+      !keys.has(key(r)) &&
+      covered.has(`${r.schedule}|${r.workCenter}`) &&
+      // A line whose start date was never read cannot be outside the search.
+      (!r.startDate || (r.startDate >= search.from && r.startDate <= search.to));
+    if (gone) removed.push(r);
+    return !gone;
+  });
+  if (!removed.length) return { result: prev, removed, held: 0 };
+
+  // M3 drops a line now and then; a walk that finds many gone at once more
+  // likely read the wrong grid (an answer that had not landed yet). Nothing
+  // is taken out then: removing is for good, and the next walk will tell.
+  const lines = new Map<string, number>();
+  for (const r of prev.records) lines.set(r.schedule, (lines.get(r.schedule) ?? 0) + 1);
+  const gone = new Map<string, number>();
+  for (const r of removed) gone.set(r.schedule, (gone.get(r.schedule) ?? 0) + 1);
+  const tooMany =
+    removed.length > VANISHED_MAX ||
+    [...gone].some(([schedule, n]) => n > Math.max(VANISHED_PER_SCHEDULE_MIN, lines.get(schedule)! / 2));
+  if (tooMany) return { result: prev, removed: [], held: removed.length };
+  return { result: { ...prev, records, schedules: summariseSchedules(records) }, removed, held: 0 };
+}
+
+/** More lines gone in one walk than this, and none is taken out. */
+const VANISHED_MAX = 30;
+/** In one schedule: more than half its lines, beyond this many. */
+const VANISHED_PER_SCHEDULE_MIN = 2;

@@ -7,7 +7,7 @@
 // « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mergePMS230, parsePMS230 } from '../src/lib/pms230Parser.ts';
+import { dropVanished, mergePMS230, parsePMS230, searchOf } from '../src/lib/pms230Parser.ts';
 
 const HEADER = [
   'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
@@ -51,11 +51,19 @@ test('a produced row with a Date Départ carries its production', () => {
   assert.deepEqual([r.schedLites, r.prodLites, r.reqLites], [40, 40, 0]);
   assert.equal(r.itemName, 'CSGSNX70HXC1000TPF');
   assert.equal(r.longueur, 6000);
+  assert.equal(r.policy, 'MTO');
+});
+
+test('every row carries the MTO/MTS it prints', () => {
+  const { records } = parsePMS230(paste(ROWS));
+  assert.deepEqual(records.map((r) => r.policy), ['MTS', 'MTS', 'MTO', 'MTO', 'MTO', 'MTO', 'MTO', 'MTO']);
 });
 
 test('the report as it was before the MTO/MTS cell still reads', () => {
   const old = ROWS.map((r) => r.replace(/\|(MTO|MTS)\|/, '|'));
   assert.equal(mos(paste(old)).length, ROWS.length);
+  // No label to read: the Schedule falls back on the imported policy table.
+  assert.ok(parsePMS230(paste(old)).records.every((r) => !('policy' in r)));
 });
 
 test('an empty Work Center does not take the MTO/MTS label', () => {
@@ -98,4 +106,65 @@ test('a merge keeps the last import\'s warnings, not every import\'s', () => {
   assert.equal(twice.warnings.length, once.warnings.length);
   assert.deepEqual(mergePMS230(twice, good).result.warnings, good.warnings);
   assert.equal(mergePMS230(twice, good).result.dropped, 0);
+});
+
+// Sched 2213000932 (November 2026): M3 split MO 1000229251 (232 lites) into
+// 1000230291 (116) and 1000229254 (408) into 1000230292 (204). The two old
+// MOs left PMS230 but stayed in the Schedule at 0 produced, since an import
+// only ever adds.
+const S932 = '2213000932|0|40|20|10|Coater|20261110|21:54|20261111|00:55|MTS|1000229251|330181159|CCGP2XC0400|232|0|232|0.00|0|3210.00|6000.00|XC|29|O PL4|I11L|126 3/8|236 7/32|04.00|3.80|4.20';
+const S932_NOW = [
+  '2213000932|0|90|80|10|Coater|20261111|23:25|20261112|00:55|MTS|1000230291|330181159|CCGP2XC0400|116|116|0|1.40|0|3210.00|6000.00|XC|29|O PL4|I11L|126 3/8|236 7/32|04.00|3.80|4.20',
+  '2213000932|0|70|60|10|Coater|20261111|17:06|20261111|23:59|20261116|MTO|1000229248|330203280|CCGP2XC0400|536|402|134|4.80|52|3210.00|6000.00|XC|134|O PL4|I11L|126 3/8|236 7/32|04.00|3.80|4.20|AGC INTERPANE SAS',
+];
+const keysOf = (text: string) => parsePMS230(text).records.map((r) => `${r.schedule}|${r.mo}`);
+
+test('the search a page answers is read from its header', () => {
+  assert.deepEqual(searchOf(paste(ROWS)), { from: '20261104', to: '20261125' });
+  assert.equal(searchOf(ROWS.join('\n')), null);
+});
+
+test('a line M3 no longer reports leaves the Schedule after a whole walk', () => {
+  const before = mergePMS230(parsePMS230(paste(ROWS)), parsePMS230(paste([S932, ...S932_NOW]))).result;
+  const now = paste(S932_NOW);
+  const { result, removed } = dropVanished(before, keysOf(now), searchOf(now)!);
+  assert.deepEqual(removed.map((r) => r.mo), ['1000229251']);
+  assert.ok(!result.records.some((r) => r.mo === '1000229251'));
+  // Schedules the walk did not see are untouched.
+  assert.equal(result.records.filter((r) => r.schedule === '2213000918').length, ROWS.length);
+  assert.equal(result.schedules.find((s) => s.schedule === '2213000932')?.recordCount, 2);
+});
+
+test('a line the search did not ask for is kept', () => {
+  const before = parsePMS230(paste([S932, ...S932_NOW]));
+  const seen = keysOf(paste(S932_NOW));
+  const window = { from: '20261104', to: '20261125' };
+  // Before the search's first day.
+  assert.equal(dropVanished(before, seen, { from: '20261111', to: '20261125' }).removed.length, 0);
+  // Another work center than any the walk saw in that schedule: a search
+  // narrowed to COATER does not see the QC samples of Coating - Bascharage.
+  const qc = parsePMS230(paste([ROWS[0]!.replaceAll('2213000918', '2213000932'), ...S932_NOW]));
+  assert.equal(dropVanished(qc, seen, window).removed.length, 0);
+  // Nothing seen, nothing known.
+  assert.equal(dropVanished(before, [], window).removed.length, 0);
+});
+
+test('a line whose start date was never read can still leave', () => {
+  const undated = S932.replace('|20261110|21:54|', '|21:54|');
+  const before = parsePMS230(paste([undated, ...S932_NOW]));
+  assert.equal(before.records[0]!.startDate, '');
+  const { removed } = dropVanished(before, keysOf(paste(S932_NOW)), { from: '20261104', to: '20261125' });
+  assert.deepEqual(removed.map((r) => r.mo), ['1000229251']);
+});
+
+test('too many lines gone at once: none is taken out, and it says so', () => {
+  // A schedule losing most of its lines in one walk: the wrong grid read, more
+  // likely than M3 cancelling them all.
+  const mo = (n: number) => S932.replace('|1000229251|', `|10002292${String(n).padStart(2, '0')}|`);
+  const many = [10, 11, 12, 13, 14].map(mo);
+  const before = parsePMS230(paste([...many, ...S932_NOW]));
+  const r = dropVanished(before, keysOf(paste(S932_NOW)), { from: '20261104', to: '20261125' });
+  assert.equal(r.removed.length, 0);
+  assert.equal(r.held, 5);
+  assert.equal(r.result, before);
 });
