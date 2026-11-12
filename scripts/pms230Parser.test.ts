@@ -168,3 +168,16 @@ test('too many lines gone at once: none is taken out, and it says so', () => {
   assert.equal(r.held, 5);
   assert.equal(r.result, before);
 });
+
+test('MOs moved to another schedule leave the old one, however many', () => {
+  // 2213000922 lost seven of its ten lines at once: M3 moved them to
+  // 2213000932, where the walk read them. A move, not a misread.
+  const mo = (n: number) => `10002292${String(n).padStart(2, '0')}`;
+  const row = (sched: string, n: number) => S932.replace('2213000932', sched).replace('|1000229251|', `|${mo(n)}|`);
+  const old = [10, 11, 12, 13, 14].map((n) => row('2213000922', n));
+  const before = parsePMS230(paste([...old, row('2213000922', 20), ...S932_NOW]));
+  const now = paste([row('2213000922', 20), ...[10, 11, 12, 13, 14].map((n) => row('2213000932', n)), ...S932_NOW]);
+  const r = dropVanished(before, keysOf(now), { from: '20261104', to: '20261125' });
+  assert.equal(r.held, 0);
+  assert.deepEqual(r.removed.map((x) => `${x.schedule}|${x.mo}`), [10, 11, 12, 13, 14].map((n) => `2213000922|${mo(n)}`));
+});

@@ -255,7 +255,10 @@ retirée quand ces quatre conditions sont réunies :
 
 Garde-fou : si plus de 30 lignes, ou plus de la moitié d'un schedule (au-delà
 de 2), manquent en une fois, rien n'est retiré. Une telle perte en une fois
-ressemble plus à une grille mal lue qu'à des MO annulés. Le verdict passe alors
+ressemble plus à une grille mal lue qu'à des MO annulés. Un MO que le parcours a
+revu dans un autre schedule ne compte pas : M3 l'a déplacé, il est retiré de
+l'ancien schedule quel que soit leur nombre (2213000922, novembre 2026 : 7 MO
+sur 10 passés dans 2213000930 et 2213000932). Le verdict passe alors
 en orange (« N lignes absentes de PMS230, non retirées »). Quand le nettoyage
 n'a pas pu se faire (lecture incomplète, case non cochée…), le compte-rendu
 dit pourquoi.
