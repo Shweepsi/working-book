@@ -116,6 +116,18 @@ async function ingest(text) {
   return { ok: true, ...primary.body, imported: primary.imported, targets };
 }
 
+// The end of a walk that read the whole report: every address takes out the
+// lines it no longer reports. Answers for the first, like `ingest`; a mirror
+// that fails keeps its stale lines until the next walk, which is no worse
+// than before.
+async function endSweep(seen, search) {
+  const cfg = await wbConfig();
+  if (!cfg.apiBases.length) return { ok: false, error: 'not_configured' };
+  const payload = JSON.stringify({ sweep: { seen, search } });
+  const [primary] = await Promise.all(cfg.apiBases.map((base) => post(base, payload)));
+  return primary.ok ? { ok: true, removed: primary.body?.removed ?? 0, mos: primary.body?.mos ?? [] } : { ok: false, error: primary.error };
+}
+
 // Asks every Infor tab, returns the first frame that answers.
 async function ask(message) {
   const tabs = await chrome.tabs.query(INFOR_TABS);
@@ -135,6 +147,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.type === 'wb-ingest') {
     ingest(msg.text).then(respond);
     return true; // keep the channel open for the async reply
+  }
+  if (msg?.type === 'wb-sweep-end') {
+    endSweep(msg.seen, msg.search).then(respond);
+    return true;
   }
   if (msg?.type === 'wb-run-all') {
     runEverything(msg.send !== false).then(respond);
@@ -229,6 +245,12 @@ function summarise(reply) {
     if (swept.restarts) lines.push('Grille remise en page 1 en cours de parcours : reparti du début.');
     if (swept.reruns) lines.push('Réponse de la recherche arrivée après le parcours : parcours refait.');
     if (swept.skipped) lines.push(`${plural(swept.skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`);
+    // Lines M3 no longer reports (replaced, split or cancelled), taken out of
+    // the Schedule once the whole report was read. Named: they leave the screen.
+    if (swept.removed) {
+      const mos = (swept.removedMos ?? []).map((k) => k.split('|')[1]).join(', ');
+      lines.push(`${plural(swept.removed, 'ligne retirée', 'lignes retirées')}, plus dans PMS230${mos ? ` : MO ${mos}` : ''}.`);
+    }
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it

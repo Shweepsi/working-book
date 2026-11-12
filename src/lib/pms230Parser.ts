@@ -671,3 +671,58 @@ export function mergePMS230(
     importedAt: next.importedAt,
   }, incoming);
 }
+
+// --- Lines that left the report ----------------------------------------------
+
+/** The dates of the search a page of PMS230 answers. */
+export interface PMS230Search {
+  from: string;
+  to: string;
+}
+
+/** The dates printed at the top of a PMS230 page; null when it does not show them. */
+export function searchOf(text: string): PMS230Search | null {
+  const lines = splitLines(text);
+  const after = (label: string) => {
+    const i = lines.indexOf(label);
+    return i < 0 ? '' : lines[i + 1] ?? '';
+  };
+  const from = after('From Start Date');
+  const to = after('To Start Date');
+  return DATE_RE.test(from) && DATE_RE.test(to) ? { from, to } : null;
+}
+
+/**
+ * Takes out the lines M3 no longer reports, once a whole report has been read.
+ *
+ * Imports only ever add or update: a line M3 replaced or cancelled (MO
+ * 1000229251, 232 lites, split into 1000230291 for 116) stayed in the Schedule
+ * at 0 produced, for good. A walk that read every page of a search, without a
+ * row lost, knows every line that search covers. A stored line is gone from
+ * M3 when the walk did not see it although it saw its schedule in the same
+ * work center, and the line starts within the search's dates. Anything else
+ * may simply be outside the search — another work center than the one asked
+ * for, an earlier day — and is left alone, as are schedules the walk never saw.
+ */
+export function dropVanished(
+  prev: PMS230Result,
+  seen: Iterable<string>,
+  search: PMS230Search,
+): { result: PMS230Result; removed: PMS230Record[] } {
+  const keys = new Set(seen);
+  const key = (r: PMS230Record) => `${r.schedule}|${r.mo}`;
+  // Schedule × work center the walk saw, read off the stored lines it updated.
+  const covered = new Set(prev.records.filter((r) => keys.has(key(r))).map((r) => `${r.schedule}|${r.workCenter}`));
+  const removed: PMS230Record[] = [];
+  const records = prev.records.filter((r) => {
+    const gone =
+      !keys.has(key(r)) &&
+      covered.has(`${r.schedule}|${r.workCenter}`) &&
+      r.startDate >= search.from &&
+      r.startDate <= search.to;
+    if (gone) removed.push(r);
+    return !gone;
+  });
+  if (!removed.length) return { result: prev, removed };
+  return { result: { ...prev, records, schedules: summariseSchedules(records) }, removed };
+}

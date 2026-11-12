@@ -251,6 +251,13 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
   // on screen — once; a second time is a screen that keeps resetting, and the
   // pages already sent were updated, not duplicated, so nothing is lost.
   let restarts = 0;
+  // Every line the server read during the walk, and the search it answers:
+  // handed back once the whole report has been read, so the lines M3 no
+  // longer reports can be taken out (see finishSweep).
+  const keys = new Set();
+  let search = null;
+  // Whether the walk read every page the pager announced.
+  let complete = false;
 
   let before = null;
   let expectPage = null;
@@ -289,6 +296,8 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
         imported = 0;
         skipped = 0;
         failures.length = 0;
+        keys.clear();
+        search = null;
         before = null;
         expectPage = ready.pager?.page ?? null;
         first = false;
@@ -324,6 +333,8 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     if (result?.ok) {
       imported += Number(result.imported) || 0;
       skipped += Number(result.skipped) || 0;
+      for (const k of result.seen ?? []) keys.add(k);
+      search ??= result.search ?? null;
     } else if (result?.status === 422 && Number(result.skipped) > 0) {
       // Every row of the page failed to decode: rows lost, not a refusal.
       skipped += Number(result.skipped);
@@ -347,14 +358,32 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     // The pager's word beats the button's: on this screen "next" stays
     // clickable on the last page and wraps to the first.
     const { page, pages: pageCount } = ready.pager ?? {};
-    if (page != null && pageCount != null && page >= pageCount) break;
+    if (page != null && pageCount != null && page >= pageCount) {
+      // Pages 1 to N, each read once: the whole report, by the pager's word.
+      complete = seenPages.size === pageCount;
+      break;
+    }
     mark = globalThis.wbMashup?.gridMark?.() ?? mark;
     if (!globalThis.wbMashup?.nextPage()) break;
     before = h;
     expectPage = pageNo != null ? pageNo + 1 : null;
   }
 
-  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash };
+  // Only a walk that missed nothing can say a line is gone: a page not read, a
+  // page refused or a row left undecoded would each pass for lines M3 dropped.
+  const whole = complete && !failures.length && !skipped && search != null;
+  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash, whole, keys: [...keys], search };
+}
+
+// Once a walk has read the whole report: the server takes out, from each
+// schedule the walk saw, the lines it did not see. Answers with how many went.
+async function finishSweep(swept) {
+  if (!swept?.whole) return null;
+  try {
+    return await chrome.runtime.sendMessage({ type: 'wb-sweep-end', seen: swept.keys, search: swept.search });
+  } catch {
+    return null;
+  }
 }
 
 // With no request in sight, the first page was taken on a redraw and two
@@ -450,7 +479,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
             reruns = 1;
           }
         }
-        if (swept) swept.reruns = reruns;
+        if (swept) {
+          swept.reruns = reruns;
+          // Without « Incl. Completed » ticked the report leaves out every
+          // finished line, which would pass for lines M3 dropped.
+          const end = result?.completed?.found && result.completed.now ? await finishSweep(swept) : null;
+          swept.removed = Number(end?.removed) || 0;
+          swept.removedMos = end?.mos ?? [];
+          // Not sent back to the popup: a few thousand keys nobody reads.
+          delete swept.keys;
+        }
 
         // The whole run, in order: what was clicked, what the grid did, what
         // the frame received, what was read. One run's worth of evidence.

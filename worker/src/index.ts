@@ -2,7 +2,7 @@
 // its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
-import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
+import { dropVanished, mergePMS230, parsePMS230, searchOf, type PMS230Result, type PMS230Search } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 import { LINE_METHODS, handleLine } from './line';
@@ -575,10 +575,12 @@ async function writeSchedules(env: Env, value: unknown): Promise<number> {
 // parser the paste sheet uses, so no route can drift from the others, and merge
 // the result into the shared report.
 //
-// Every import adds. There is no replace: an operator walking a multi-page
+// Every page adds. There is no replace: an operator walking a multi-page
 // report, or re-importing after a fresh search, only ever wants more rows —
 // and `mergePMS230` keys on schedule|MO, so re-sending the same page updates
-// those rows in place instead of duplicating them. Taking a schedule out of the
+// those rows in place instead of duplicating them. The one removal is the end
+// of a walk that read the whole report (`endSweep`): lines M3 no longer
+// reports. Taking a schedule out of the
 // planning is a deliberate act done from the Schedule tab, and it retires the
 // schedule (see `/api/archives`) rather than deleting it.
 async function handleSchedulesIngest(
@@ -590,6 +592,7 @@ async function handleSchedulesIngest(
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
+  if ('sweep' in body) return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
   const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
@@ -620,10 +623,45 @@ async function handleSchedulesIngest(
       // extension has to say out loud, since « imported » alone looked like a
       // clean run while fifty of them were being dropped.
       skipped: parsed.dropped ?? 0,
+      // The lines this page holds and the search it answers: the extension
+      // gathers them over a walk and hands them back once every page is read,
+      // so the lines M3 no longer reports can be taken out (see endSweep).
+      seen: parsed.records.map((r) => `${r.schedule}|${r.mo}`),
+      search: searchOf(text),
       updated_at: updatedAt,
     },
     cors,
   );
+}
+
+// The end of a walk that read every page of a search without losing a row:
+// `{ sweep: { seen, search } }`. Imports only add, so a line M3 replaced or
+// cancelled stayed at 0 produced for good; this is where it goes. The rules
+// (only a schedule and work center the walk saw, only inside the search's
+// dates) are `dropVanished`'s.
+const SWEEP_MAX_KEYS = 20000;
+const KEY_RE = /^22\d{8}\|1\d{9}$/;
+
+async function endSweep(sweep: unknown, env: Env, cors: Record<string, string>): Promise<Response> {
+  const { seen, search } = (sweep ?? {}) as { seen?: unknown; search?: unknown };
+  const s = search as Partial<PMS230Search> | null | undefined;
+  if (
+    !Array.isArray(seen) ||
+    seen.length > SWEEP_MAX_KEYS ||
+    !seen.every((k) => typeof k === 'string' && KEY_RE.test(k)) ||
+    !s ||
+    typeof s.from !== 'string' ||
+    typeof s.to !== 'string' ||
+    !/^\d{8}$/.test(s.from) ||
+    !/^\d{8}$/.test(s.to)
+  ) {
+    return json({ error: 'bad_sweep' }, cors, 400);
+  }
+  const prev = await readSchedules(env);
+  if (!prev) return json({ ok: true, removed: 0 }, cors);
+  const { result, removed } = dropVanished(prev, seen as string[], s as PMS230Search);
+  if (removed.length) await writeSchedules(env, result);
+  return json({ ok: true, removed: removed.length, mos: removed.map((r) => `${r.schedule}|${r.mo}`) }, cors);
 }
 
 // MTO/MTS policy — singleton lookup table shared across every client. Same
