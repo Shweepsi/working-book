@@ -148,3 +148,23 @@ test('a line the search did not ask for is kept', () => {
   // Nothing seen, nothing known.
   assert.equal(dropVanished(before, [], window).removed.length, 0);
 });
+
+test('a line whose start date was never read can still leave', () => {
+  const undated = S932.replace('|20261110|21:54|', '|21:54|');
+  const before = parsePMS230(paste([undated, ...S932_NOW]));
+  assert.equal(before.records[0]!.startDate, '');
+  const { removed } = dropVanished(before, keysOf(paste(S932_NOW)), { from: '20261104', to: '20261125' });
+  assert.deepEqual(removed.map((r) => r.mo), ['1000229251']);
+});
+
+test('too many lines gone at once: none is taken out, and it says so', () => {
+  // A schedule losing most of its lines in one walk: the wrong grid read, more
+  // likely than M3 cancelling them all.
+  const mo = (n: number) => S932.replace('|1000229251|', `|10002292${String(n).padStart(2, '0')}|`);
+  const many = [10, 11, 12, 13, 14].map(mo);
+  const before = parsePMS230(paste([...many, ...S932_NOW]));
+  const r = dropVanished(before, keysOf(paste(S932_NOW)), { from: '20261104', to: '20261125' });
+  assert.equal(r.removed.length, 0);
+  assert.equal(r.held, 5);
+  assert.equal(r.result, before);
+});

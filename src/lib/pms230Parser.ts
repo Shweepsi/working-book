@@ -719,7 +719,7 @@ export function dropVanished(
   prev: PMS230Result,
   seen: Iterable<string>,
   search: PMS230Search,
-): { result: PMS230Result; removed: PMS230Record[] } {
+): { result: PMS230Result; removed: PMS230Record[]; held: number } {
   const keys = new Set(seen);
   const key = (r: PMS230Record) => `${r.schedule}|${r.mo}`;
   // Schedule × work center the walk saw, read off the stored lines it updated.
@@ -729,11 +729,28 @@ export function dropVanished(
     const gone =
       !keys.has(key(r)) &&
       covered.has(`${r.schedule}|${r.workCenter}`) &&
-      r.startDate >= search.from &&
-      r.startDate <= search.to;
+      // A line whose start date was never read cannot be outside the search.
+      (!r.startDate || (r.startDate >= search.from && r.startDate <= search.to));
     if (gone) removed.push(r);
     return !gone;
   });
-  if (!removed.length) return { result: prev, removed };
-  return { result: { ...prev, records, schedules: summariseSchedules(records) }, removed };
+  if (!removed.length) return { result: prev, removed, held: 0 };
+
+  // M3 drops a line now and then; a walk that finds many gone at once more
+  // likely read the wrong grid (an answer that had not landed yet). Nothing
+  // is taken out then: removing is for good, and the next walk will tell.
+  const lines = new Map<string, number>();
+  for (const r of prev.records) lines.set(r.schedule, (lines.get(r.schedule) ?? 0) + 1);
+  const gone = new Map<string, number>();
+  for (const r of removed) gone.set(r.schedule, (gone.get(r.schedule) ?? 0) + 1);
+  const tooMany =
+    removed.length > VANISHED_MAX ||
+    [...gone].some(([schedule, n]) => n > Math.max(VANISHED_PER_SCHEDULE_MIN, lines.get(schedule)! / 2));
+  if (tooMany) return { result: prev, removed: [], held: removed.length };
+  return { result: { ...prev, records, schedules: summariseSchedules(records) }, removed, held: 0 };
 }
+
+/** More lines gone in one walk than this, and none is taken out. */
+const VANISHED_MAX = 30;
+/** In one schedule: more than half its lines, beyond this many. */
+const VANISHED_PER_SCHEDULE_MIN = 2;

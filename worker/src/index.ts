@@ -658,10 +658,11 @@ async function endSweep(sweep: unknown, env: Env, cors: Record<string, string>):
     return json({ error: 'bad_sweep' }, cors, 400);
   }
   const prev = await readSchedules(env);
-  if (!prev) return json({ ok: true, removed: 0 }, cors);
-  const { result, removed } = dropVanished(prev, seen as string[], s as PMS230Search);
+  if (!prev) return json({ ok: true, removed: 0, held: 0 }, cors);
+  const { result, removed, held } = dropVanished(prev, seen as string[], s as PMS230Search);
   if (removed.length) await writeSchedules(env, result);
-  return json({ ok: true, removed: removed.length, mos: removed.map((r) => `${r.schedule}|${r.mo}`) }, cors);
+  // `held`: lines missing from the walk but left in place, too many at once.
+  return json({ ok: true, removed: removed.length, mos: removed.map((r) => `${r.schedule}|${r.mo}`), held }, cors);
 }
 
 // MTO/MTS policy — singleton lookup table shared across every client. Same

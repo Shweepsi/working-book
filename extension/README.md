@@ -251,7 +251,14 @@ retirée quand ces quatre conditions sont réunies :
   ni ligne ignorée, et avec « Incl. Completed » coché ;
 - il a vu le schedule de la ligne, dans le même Work Center ;
 - il n'a pas vu son MO ;
-- la date de début de la ligne est entre From et To.
+- la date de début de la ligne est entre From et To (dates saisies par l'extension), ou elle n'a jamais été lue.
+
+Garde-fou : si plus de 30 lignes, ou plus de la moitié d'un schedule (au-delà
+de 2), manquent en une fois, rien n'est retiré. Une telle perte en une fois
+ressemble plus à une grille mal lue qu'à des MO annulés. Le verdict passe alors
+en orange (« N lignes absentes de PMS230, non retirées »). Quand le nettoyage
+n'a pas pu se faire (lecture incomplète, case non cochée…), le compte-rendu
+dit pourquoi.
 
 Un MO replanifié au-delà de la date To sort donc du Schedule. Il revient au
 premier import où il est de nouveau dans la fenêtre. Le compte-rendu

@@ -125,7 +125,9 @@ async function endSweep(seen, search) {
   if (!cfg.apiBases.length) return { ok: false, error: 'not_configured' };
   const payload = JSON.stringify({ sweep: { seen, search } });
   const [primary] = await Promise.all(cfg.apiBases.map((base) => post(base, payload)));
-  return primary.ok ? { ok: true, removed: primary.body?.removed ?? 0, mos: primary.body?.mos ?? [] } : { ok: false, error: primary.error };
+  if (!primary.ok) return { ok: false, error: primary.error ?? `HTTP ${primary.status ?? '?'}` };
+  const b = primary.body ?? {};
+  return { ok: true, removed: b.removed ?? 0, mos: b.mos ?? [], held: b.held ?? 0 };
 }
 
 // Asks every Infor tab, returns the first frame that answers.
@@ -251,6 +253,8 @@ function summarise(reply) {
       const mos = (swept.removedMos ?? []).map((k) => k.split('|')[1]).join(', ');
       lines.push(`${plural(swept.removed, 'ligne retirée', 'lignes retirées')}, plus dans PMS230${mos ? ` : MO ${mos}` : ''}.`);
     }
+    if (swept.held) lines.push(`${plural(swept.held, 'ligne absente', 'lignes absentes')} de PMS230 mais laissée(s) en place : trop pour un seul parcours, à vérifier.`);
+    else if (swept.cleanup) lines.push(`Lignes disparues de PMS230 non recherchées : ${swept.cleanup}.`);
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it
@@ -282,13 +286,18 @@ function summarise(reply) {
   // Rows the report held and the server could not read: the run is not clean,
   // whatever the imported count says.
   if (swept?.skipped) reasons.push(plural(swept.skipped, 'ligne ignorée', 'lignes ignorées'));
+  // Far more lines gone at once than M3 ever drops: something to look at,
+  // not something to delete on the strength of one walk.
+  if (swept?.held) reasons.push(`${plural(swept.held, 'ligne absente', 'lignes absentes')} de PMS230, non retirées`);
   if (completedOff) reasons.push('Terminés non inclus');
 
   const headline =
     reply.sent === false
       ? 'Grille prête, rien n’a été envoyé'
       : swept
-        ? plural(imported, 'ligne importée', 'lignes importées')
+        ? plural(imported, 'ligne importée', 'lignes importées') +
+          // Said on the panel, not only in the tooltip: these lines leave the Schedule.
+          (swept.removed ? `, ${plural(swept.removed, 'retirée', 'retirées')}` : '')
         : 'Aucune page lue';
   // Every page refused, or nothing read at all, is not a run with a warning:
   // nothing reached the report.

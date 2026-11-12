@@ -371,18 +371,35 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
 
   // Only a walk that missed nothing can say a line is gone: a page not read, a
   // page refused or a row left undecoded would each pass for lines M3 dropped.
-  const whole = complete && !failures.length && !skipped && search != null;
-  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash, whole, keys: [...keys], search };
+  // Why not, when not: the summary says it, rather than a cleanup that
+  // silently never happens.
+  const partial = !complete
+    ? 'toutes les pages n’ont pas été lues'
+    : failures.length
+      ? 'page refusée'
+      : skipped
+        ? 'lignes ignorées'
+        : null;
+  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash, partial, keys: [...keys], search };
 }
 
 // Once a walk has read the whole report: the server takes out, from each
-// schedule the walk saw, the lines it did not see. Answers with how many went.
-async function finishSweep(swept) {
-  if (!swept?.whole) return null;
+// schedule the walk saw, the lines it did not see. `window` is the dates the
+// search was asked for; the header's are only the fallback. Answers with
+// what went, or why nothing was looked at.
+async function finishSweep(swept, result) {
+  if (swept.partial) return { skipped: swept.partial };
+  if (!(result?.completed?.found && result.completed.now)) {
+    // Without « Incl. Completed » ticked the report leaves out every
+    // finished line, which would pass for lines M3 dropped.
+    return { skipped: '« Incl. Completed » non coché' };
+  }
+  const search = result.window ?? swept.search;
+  if (!search) return { skipped: 'dates de la recherche inconnues' };
   try {
-    return await chrome.runtime.sendMessage({ type: 'wb-sweep-end', seen: swept.keys, search: swept.search });
+    return (await chrome.runtime.sendMessage({ type: 'wb-sweep-end', seen: swept.keys, search })) ?? { skipped: 'pas de réponse' };
   } catch {
-    return null;
+    return { skipped: 'pas de réponse' };
   }
 }
 
@@ -481,11 +498,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
         }
         if (swept) {
           swept.reruns = reruns;
-          // Without « Incl. Completed » ticked the report leaves out every
-          // finished line, which would pass for lines M3 dropped.
-          const end = result?.completed?.found && result.completed.now ? await finishSweep(swept) : null;
+          const end = await finishSweep(swept, result);
           swept.removed = Number(end?.removed) || 0;
           swept.removedMos = end?.mos ?? [];
+          // Why the lines M3 no longer reports were not looked for, or why
+          // the server would not take them out (too many at once).
+          swept.cleanup = end?.skipped ?? (end?.ok === false ? end.error ?? 'refusé' : null);
+          swept.held = Number(end?.held) || 0;
           // Not sent back to the popup: a few thousand keys nobody reads.
           delete swept.keys;
         }

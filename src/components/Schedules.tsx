@@ -600,6 +600,9 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       : String(vitesse);
 
   const schedules = data?.schedules ?? [];
+  // Every line carries its MTO/MTS (PMS230 prints it since November 2026):
+  // the policy table has nothing left to add, so it is not asked for.
+  const policyInline = useMemo(() => !!data && data.records.every((r) => r.policy), [data]);
 
   // Decorate with the planning policy, apply the user-driven filters
   // (qualité / pdp / mtoMts) and sort. Shared by the planning rows and by the
@@ -1209,7 +1212,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         </div>
       )}
 
-      {data && !policy && data.records.some((r) => !r.policy) && (
+      {data && !policy && !policyInline && (
         <div className="sch-hint">
           <span>↪ Importer la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
           <button className="btn mini" onClick={() => setImportMode('policy')} title="Ouvrir l'importation de la politique MTO/MTS">
