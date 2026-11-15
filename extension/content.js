@@ -255,7 +255,6 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
   // handed back once the whole report has been read, so the lines M3 no
   // longer reports can be taken out (see finishSweep).
   const keys = new Set();
-  let search = null;
   // Whether the walk read every page the pager announced.
   let complete = false;
 
@@ -297,7 +296,6 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
         skipped = 0;
         failures.length = 0;
         keys.clear();
-        search = null;
         before = null;
         expectPage = ready.pager?.page ?? null;
         first = false;
@@ -334,7 +332,6 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
       imported += Number(result.imported) || 0;
       skipped += Number(result.skipped) || 0;
       for (const k of result.seen ?? []) keys.add(k);
-      search ??= result.search ?? null;
     } else if (result?.status === 422 && Number(result.skipped) > 0) {
       // Every row of the page failed to decode: rows lost, not a refusal.
       skipped += Number(result.skipped);
@@ -380,13 +377,13 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
       : skipped
         ? 'lignes ignorées'
         : null;
-  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash, partial, keys: [...keys], search };
+  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash, partial, keys: [...keys] };
 }
 
 // Once a walk has read the whole report: the server takes out, from each
 // schedule the walk saw, the lines it did not see. `window` is the dates the
-// search was asked for; the header's are only the fallback. Answers with
-// what went, or why nothing was looked at.
+// search was asked for, as the form was filled. Answers with what went, or
+// why nothing was looked at.
 async function finishSweep(swept, result) {
   if (swept.partial) return { skipped: swept.partial };
   if (!(result?.completed?.found && result.completed.now)) {
@@ -394,7 +391,7 @@ async function finishSweep(swept, result) {
     // finished line, which would pass for lines M3 dropped.
     return { skipped: '« Incl. Completed » non coché' };
   }
-  const search = result.window ?? swept.search;
+  const search = result.window;
   if (!search) return { skipped: 'dates de la recherche inconnues' };
   try {
     return (await chrome.runtime.sendMessage({ type: 'wb-sweep-end', seen: swept.keys, search })) ?? { skipped: 'pas de réponse' };

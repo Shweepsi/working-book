@@ -2,7 +2,7 @@
 // its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
-import { dropVanished, mergePMS230, parsePMS230, searchOf, type PMS230Result, type PMS230Search } from '../../src/lib/pms230Parser';
+import { dropVanished, mergePMS230, parsePMS230, type PMS230Result, type PMS230Search } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 import { LINE_METHODS, handleLine } from './line';
@@ -623,11 +623,10 @@ async function handleSchedulesIngest(
       // extension has to say out loud, since « imported » alone looked like a
       // clean run while fifty of them were being dropped.
       skipped: parsed.dropped ?? 0,
-      // The lines this page holds and the search it answers: the extension
-      // gathers them over a walk and hands them back once every page is read,
-      // so the lines M3 no longer reports can be taken out (see endSweep).
+      // The lines this page holds: the extension gathers them over a walk and
+      // hands them back once every page is read, so the lines M3 no longer
+      // reports can be taken out (see endSweep).
       seen: parsed.records.map((r) => `${r.schedule}|${r.mo}`),
-      search: searchOf(text),
       updated_at: updatedAt,
     },
     cors,

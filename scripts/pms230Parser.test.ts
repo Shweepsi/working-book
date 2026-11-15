@@ -7,7 +7,7 @@
 // « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dropVanished, mergePMS230, parsePMS230, searchOf } from '../src/lib/pms230Parser.ts';
+import { dropVanished, mergePMS230, parsePMS230 } from '../src/lib/pms230Parser.ts';
 
 const HEADER = [
   'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
@@ -119,15 +119,10 @@ const S932_NOW = [
 ];
 const keysOf = (text: string) => parsePMS230(text).records.map((r) => `${r.schedule}|${r.mo}`);
 
-test('the search a page answers is read from its header', () => {
-  assert.deepEqual(searchOf(paste(ROWS)), { from: '20261104', to: '20261125' });
-  assert.equal(searchOf(ROWS.join('\n')), null);
-});
-
 test('a line M3 no longer reports leaves the Schedule after a whole walk', () => {
   const before = mergePMS230(parsePMS230(paste(ROWS)), parsePMS230(paste([S932, ...S932_NOW]))).result;
   const now = paste(S932_NOW);
-  const { result, removed } = dropVanished(before, keysOf(now), searchOf(now)!);
+  const { result, removed } = dropVanished(before, keysOf(now), { from: '20261104', to: '20261125' });
   assert.deepEqual(removed.map((r) => r.mo), ['1000229251']);
   assert.ok(!result.records.some((r) => r.mo === '1000229251'));
   // Schedules the walk did not see are untouched.
@@ -180,4 +175,29 @@ test('MOs moved to another schedule leave the old one, however many', () => {
   const r = dropVanished(before, keysOf(now), { from: '20261104', to: '20261125' });
   assert.equal(r.held, 0);
   assert.deepEqual(r.removed.map((x) => `${x.schedule}|${x.mo}`), [10, 11, 12, 13, 14].map((n) => `2213000922|${mo(n)}`));
+});
+
+test('the thickness tolerance is not the customer', () => {
+  const r = parsePMS230(paste(ROWS)).records;
+  const withCustomer = r.find((x) => x.mo === '1000227095')!;
+  assert.deepEqual([withCustomer.thickMin, withCustomer.thickMax, withCustomer.customer], ['9.70', '10.30', 'Alu Glass Shpk']);
+  const bare = r.find((x) => x.mo === '1000226536')!;
+  assert.deepEqual([bare.thickMin, bare.thickMax, bare.customer], ['5.80', '6.20', '']);
+  // Three decimals, as some rows print them.
+  const row = ROWS[3]!.replace('|5.80|6.20', '|5.800|6.200');
+  const three = parsePMS230(paste([row])).records[0]!;
+  assert.deepEqual([three.thickMin, three.thickMax, three.customer], ['5.800', '6.200', '']);
+});
+
+test('the page footer is not the customer of the last row', () => {
+  const footer = ['1', 'of 6', 'Next PageLast Page50 Records per page', 'Quality Group Description     Perim Treatment   Separator', 'Metric Tons Square Meters'];
+  const text = [paste([ROWS[2]!, ROWS[3]!]), ...footer].join('\n');
+  const { records } = parsePMS230(text);
+  assert.equal(records[0]!.customer, 'Alu Glass Shpk');
+  assert.equal(records[1]!.customer, '');
+  // The same footer run together on one line, with the busy indicator.
+  const joined = ROWS[2]!.replace('Alu Glass Shpk', 'AGC Interpane GmbH First Page Previous Page Page  of 5 Next Page Last Page Quality Group Description');
+  assert.equal(parsePMS230(paste([joined])).records[0]!.customer, 'AGC Interpane GmbH');
+  const loading = ROWS[3]!.replace('|6.20', '|6.20|Loading First Page Previous Page');
+  assert.equal(parsePMS230(paste([loading])).records[0]!.customer, '');
 });

@@ -39,6 +39,11 @@ export interface PMS230Record {
   largeurInch: string;
   longueurInch: string;
   thickness: string;
+  /** The thickness tolerance PMS230 prints after the thickness (« 3.80 »,
+   *  « 4.20 »), absent on rows imported before it was read: they sit in
+   *  `customer` there. */
+  thickMin?: string;
+  thickMax?: string;
   customer: string;
   /** MTO / MTS as the row prints it. Absent on rows imported before PMS230
    *  carried it: the Schedule then falls back on the imported policy table. */
@@ -78,6 +83,10 @@ const DATE_RE     = /^\d{8}$/;
 const SHORT_INT_RE = /^\d{1,4}$/;
 const DECIMAL_RE  = /^\d+\.\d{2}$/;
 const THICKNESS_RE = /^\d{2}\.\d{2}$/;
+const TOLERANCE_RE = /^\d{1,2}\.\d{2,3}$/;
+// What the last row of a page runs into: the pager (« 1 of 6 », First Page…),
+// the busy indicator, the column legend underneath.
+const FOOTER_RE = /\s*(?:\b\d+\s+)?(?:First Page|Previous Page|Next Page|Page\s+of\s+\d+|\bof\s+\d+\b|Quality Group Description|Loading\b)[\s\S]*$/;
 const INCHES_RE   = /\s\d+\/\d+$/; // "126 3/8", "236 7/32"
 
 const NOISE_LINES = new Set([
@@ -384,11 +393,18 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   if (i < slice.length && THICKNESS_RE.test(slice[i]!)) {
     r.thickness = slice[i++]!;
   }
+  // The tolerance, two cells (« 3.80 », « 4.20 ») or three decimals
+  // (« 3.800 »): not the customer, which they were taken for.
+  if (i < slice.length && TOLERANCE_RE.test(slice[i]!)) {
+    r.thickMin = slice[i++]!;
+    if (i < slice.length && TOLERANCE_RE.test(slice[i]!)) r.thickMax = slice[i++]!;
+  }
   if (i < slice.length) {
     // Anything left is the customer name (joined in case it contains spaces
     // that survived earlier `.trim()` since clipboard cells preserve internal
-    // whitespace as-is on a single line).
-    r.customer = slice.slice(i).join(' ').trim();
+    // whitespace as-is on a single line) — up to the page's footer, which the
+    // last row of a page runs into.
+    r.customer = slice.slice(i).join(' ').replace(FOOTER_RE, '').trim();
   }
 
   return r;
@@ -689,18 +705,6 @@ export function mergePMS230(
 export interface PMS230Search {
   from: string;
   to: string;
-}
-
-/** The dates printed at the top of a PMS230 page; null when it does not show them. */
-export function searchOf(text: string): PMS230Search | null {
-  const lines = splitLines(text);
-  const after = (label: string) => {
-    const i = lines.indexOf(label);
-    return i < 0 ? '' : lines[i + 1] ?? '';
-  };
-  const from = after('From Start Date');
-  const to = after('To Start Date');
-  return DATE_RE.test(from) && DATE_RE.test(to) ? { from, to } : null;
 }
 
 /**
