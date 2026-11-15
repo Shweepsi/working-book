@@ -19,4 +19,7 @@ PWA React/Vite (front, `src/`) + Cloudflare Worker/D1 (`worker/`) + extension na
 ## Chantiers de structure identifiés (non faits)
 1. Passer à `src/features/<domaine>/` + `src/shared/` (déplacements purs, vérifiés par typecheck).
 2. Découper `Schedules.tsx` et `app.css` par feature.
-3. Branches `origin/claude/header-improvement-ideas-0shv7x` et `origin/claude/test-cosmetic-page-repatriation-48rxnx` : non fusionnées, décision en attente.
+
+## Branches supprimées (récupérables par SHA)
+Abandonnées (PR #77 et #88 fermées sans fusion), supprimées de GitHub le 2026-11-15 :
+`claude/header-improvement-ideas-0shv7x` = `a7489e0` (boîte à idées), `claude/test-cosmetic-page-repatriation-48rxnx` = `4bbf0e7` (Logbook en sections). `git fetch origin <sha>` ou `refs/pull/<n>/head` les restaure.
