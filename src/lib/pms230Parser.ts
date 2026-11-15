@@ -39,6 +39,11 @@ export interface PMS230Record {
   largeurInch: string;
   longueurInch: string;
   thickness: string;
+  /** The thickness tolerance PMS230 prints after the thickness (« 3.80 »,
+   *  « 4.20 »), absent on rows imported before it was read: they sit in
+   *  `customer` there. */
+  thickMin?: string;
+  thickMax?: string;
   customer: string;
   /** MTO / MTS as the row prints it. Absent on rows imported before PMS230
    *  carried it: the Schedule then falls back on the imported policy table. */
@@ -63,6 +68,10 @@ export interface PMS230Result {
   /** Schedule rows of the paste that could not be decoded and were left out.
    *  Absent on reports stored before it existed. */
   dropped?: number;
+  /** The cells of those rows as read, one entry per row (at most
+   *  `LOST_MAX`, each cut short): what the decoder could not make of them.
+   *  Kept with the raw page by the Worker, not in the stored report. */
+  lost?: string[];
   importedAt: string;
 }
 
@@ -77,7 +86,15 @@ const PRODUCT_RE  = /^33\d{7}$/;
 const DATE_RE     = /^\d{8}$/;
 const SHORT_INT_RE = /^\d{1,4}$/;
 const DECIMAL_RE  = /^\d+\.\d{2}$/;
-const THICKNESS_RE = /^\d{2}\.\d{2}$/;
+// Two decimals, or three as some rows print it (« 06.000 »): a thickness
+// missed here shifts the tolerance after it back into the customer.
+const THICKNESS_RE = /^\d{2}\.\d{2,3}$/;
+const TOLERANCE_RE = /^\d{1,2}\.\d{2,3}$/;
+// What the last row of a page runs into: the pager (« 1 of 6 », First Page…),
+// the busy indicator in front of it, the column legend underneath. Only the
+// pager's own phrases: a word such as « Loading » or « of 2000 » can be part
+// of a customer's name.
+const FOOTER_RE = /\s*(?:\bLoading\s+)?(?:\b\d+\s+of\s+\d+\b|First Page|Previous Page|Next Page|\bPage\s+of\s+\d+|Quality Group Description)[\s\S]*$/;
 const INCHES_RE   = /\s\d+\/\d+$/; // "126 3/8", "236 7/32"
 
 const NOISE_LINES = new Set([
@@ -384,11 +401,18 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   if (i < slice.length && THICKNESS_RE.test(slice[i]!)) {
     r.thickness = slice[i++]!;
   }
+  // The tolerance, two cells (« 3.80 », « 4.20 ») or three decimals
+  // (« 3.800 »): not the customer, which they were taken for.
+  if (i < slice.length && TOLERANCE_RE.test(slice[i]!)) {
+    r.thickMin = slice[i++]!;
+    if (i < slice.length && TOLERANCE_RE.test(slice[i]!)) r.thickMax = slice[i++]!;
+  }
   if (i < slice.length) {
     // Anything left is the customer name (joined in case it contains spaces
     // that survived earlier `.trim()` since clipboard cells preserve internal
-    // whitespace as-is on a single line).
-    r.customer = slice.slice(i).join(' ').trim();
+    // whitespace as-is on a single line) — up to the page's footer, which the
+    // last row of a page runs into.
+    r.customer = slice.slice(i).join(' ').replace(FOOTER_RE, '').trim();
   }
 
   return r;
@@ -530,6 +554,9 @@ export function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
 // fragment or two. A real row has a dozen cells or more, so anything from here
 // up that fails to decode is a row lost — truncated ones included.
 const MIN_ROW_CELLS = 3;
+/** Dropped rows whose cells are kept, and how much of each. */
+const LOST_MAX = 20;
+const LOST_CELLS_MAX = 600;
 
 export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230Result {
   const isPayload = typeof textOrPayload === 'object' && textOrPayload !== null;
@@ -548,6 +575,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
   const anchors = findScheduleAnchors(tokens);
   const records: PMS230Record[] = [];
   let dropped = 0;
+  const lost: string[] = [];
 
   for (let a = 0; a < anchors.length; a++) {
     const start = anchors[a]!;
@@ -562,6 +590,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
       });
     } else if (slice.length >= MIN_ROW_CELLS) {
       dropped++;
+      if (lost.length < LOST_MAX) lost.push(slice.join(' | ').slice(0, LOST_CELLS_MAX));
     }
   }
 
@@ -572,6 +601,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     schedules,
     warnings,
     dropped,
+    lost,
     importedAt: new Date().toISOString(),
   };
 }
@@ -660,9 +690,11 @@ export function mergePMS230(
   // `next` (the fresher paste) — so re-importing a page updates its rows in
   // place and costs nothing, and the report only grows with new work.
   const incoming = new Set(next.records.map((r) => r.schedule));
-  if (!prev) return trimReport(next, incoming);
+  // `lost` is the page's, kept with its raw text: never in the stored report.
+  const { lost: _lost, ...fresh } = next;
+  if (!prev) return trimReport(fresh, incoming);
   const seen = new Map<string, PMS230Record>();
-  for (const r of next.records) seen.set(`${r.schedule}|${r.mo}`, r);
+  for (const r of fresh.records) seen.set(`${r.schedule}|${r.mo}`, r);
   for (const r of prev.records) {
     const k = `${r.schedule}|${r.mo}`;
     if (!seen.has(k)) seen.set(k, r);
@@ -677,9 +709,9 @@ export function mergePMS230(
     // The last import's, not the sum of every import's: warnings only ever
     // accumulated here, 518 of them after two months, mostly the same rows
     // dropped again and again — and nothing ever read them back.
-    warnings: next.warnings ?? [],
-    dropped: next.dropped ?? 0,
-    importedAt: next.importedAt,
+    warnings: fresh.warnings ?? [],
+    dropped: fresh.dropped ?? 0,
+    importedAt: fresh.importedAt,
   }, incoming);
 }
 
@@ -689,18 +721,6 @@ export function mergePMS230(
 export interface PMS230Search {
   from: string;
   to: string;
-}
-
-/** The dates printed at the top of a PMS230 page; null when it does not show them. */
-export function searchOf(text: string): PMS230Search | null {
-  const lines = splitLines(text);
-  const after = (label: string) => {
-    const i = lines.indexOf(label);
-    return i < 0 ? '' : lines[i + 1] ?? '';
-  };
-  const from = after('From Start Date');
-  const to = after('To Start Date');
-  return DATE_RE.test(from) && DATE_RE.test(to) ? { from, to } : null;
 }
 
 /**

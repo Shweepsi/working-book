@@ -2,7 +2,7 @@
 // its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
-import { dropVanished, mergePMS230, parsePMS230, searchOf, type PMS230Result, type PMS230Search } from '../../src/lib/pms230Parser';
+import { dropVanished, mergePMS230, parsePMS230, type PMS230Result, type PMS230Search } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 import { LINE_METHODS, handleLine } from './line';
@@ -56,7 +56,7 @@ const UPLOAD_NAME_MAX = 200;
 const UPLOAD_NOTE_MAX = 1000;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const origin = request.headers.get('Origin');
     const url = new URL(request.url);
     // CORS is per-path: only the ingest endpoint answers to the Infor origins,
@@ -106,7 +106,7 @@ export default {
         case '/api/updates':
           return await handleUpdates(request, url, env, cors);
         case INGEST_PATH:
-          return await handleSchedulesIngest(request, env, cors);
+          return await handleSchedulesIngest(request, env, cors, ctx);
         case UPLOADS_PATH:
           return await handleUploads(request, url, env, cors);
         case UPLOAD_FILE_PATH:
@@ -587,16 +587,24 @@ async function handleSchedulesIngest(
   request: Request,
   env: Env,
   cors: Record<string, string>,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, cors, 405);
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
-  if ('sweep' in body) return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
+  if ('sweep' in body) {
+    ctx.waitUntil(purgeRawPages(env));
+    return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
+  }
   const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
   const parsed = parsePMS230(text);
+  // Before anything can refuse the page: a page nothing decoded from is the
+  // one worth reading back. In the background: the page's answer does not
+  // wait for a copy kept for whoever looks into it.
+  ctx.waitUntil(keepRawPage(env, text, parsed));
   if (parsed.records.length === 0) {
     // Text arrived but no row survived decoding — usually the wrong screen, or
     // a search that returned nothing. Say so rather than touching the report.
@@ -623,15 +631,54 @@ async function handleSchedulesIngest(
       // extension has to say out loud, since « imported » alone looked like a
       // clean run while fifty of them were being dropped.
       skipped: parsed.dropped ?? 0,
-      // The lines this page holds and the search it answers: the extension
-      // gathers them over a walk and hands them back once every page is read,
-      // so the lines M3 no longer reports can be taken out (see endSweep).
+      // The lines this page holds: the extension gathers them over a walk and
+      // hands them back once every page is read, so the lines M3 no longer
+      // reports can be taken out (see endSweep).
       seen: parsed.records.map((r) => `${r.schedule}|${r.mo}`),
-      search: searchOf(text),
       updated_at: updatedAt,
     },
     cors,
   );
+}
+
+// The raw text of each page the extension sends, to replay the decoder on the
+// real report (table schedule_raw). A page already kept only has its last-seen
+// date moved on; whatever has not been seen for RAW_KEEP_DAYS goes. Never
+// allowed to fail an import: this is for whoever looks into one.
+const RAW_KEEP_DAYS = 14;
+// D1 refuses a value over 2 000 000 bytes — bytes, not characters: an
+// accented customer name weighs two.
+const RAW_MAX_BYTES = 1_900_000;
+
+async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof parsePMS230>): Promise<void> {
+  try {
+    const bytes = new TextEncoder().encode(text);
+    if (bytes.length > RAW_MAX_BYTES) return;
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    // What the page decodes to is today's decoder's word, refreshed every time
+    // it comes back: after a decoder fix, the same text reads differently.
+    await env.DB.prepare(
+      `INSERT INTO schedule_raw (hash, first_at, last_at, records, dropped, lost, text)
+       VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)
+       ON CONFLICT(hash) DO UPDATE SET last_at = ?2, seen = seen + 1,
+         records = excluded.records, dropped = excluded.dropped, lost = excluded.lost`,
+    )
+      .bind(hash, Date.now(), parsed.records.length, parsed.dropped ?? 0, parsed.lost?.length ? JSON.stringify(parsed.lost) : null, text)
+      .run();
+  } catch (err) {
+    console.error('schedule_raw', err);
+  }
+}
+
+// Pages not seen for RAW_KEEP_DAYS go: once per walk, from its end
+// (endSweep), not once per page.
+async function purgeRawPages(env: Env): Promise<void> {
+  try {
+    await env.DB.prepare('DELETE FROM schedule_raw WHERE last_at < ?1').bind(Date.now() - RAW_KEEP_DAYS * 86_400_000).run();
+  } catch (err) {
+    console.error('schedule_raw purge', err);
+  }
 }
 
 // The end of a walk that read every page of a search without losing a row:
