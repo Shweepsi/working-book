@@ -288,7 +288,7 @@ se voit pas — les mêmes champs sont trouvés — mais elle se sent : le formu
 est re-résolu à chaque écriture et, pendant qu'Angular reconstruit une liste,
 toutes les 150 ms. Fait dans l'autre sens, ce travail occupait plus du tiers du
 fil d'exécution de l'onglet et figeait la grille que l'extension attendait.
-Le détail et les mesures sont dans `docs/audit-performance-extension.md`.
+Le détail et les mesures sont dans `docs/audits/audit-performance-extension.md`.
 
 ### Ce que l'extension ne réécrit pas
 
