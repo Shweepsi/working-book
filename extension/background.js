@@ -370,7 +370,32 @@ function timingLines(timings) {
 // The single place a run's outcome becomes visible: badge, tooltip, and the
 // stored account the popup and the options page both read. Clearing runState
 // here is what tells an open popup the walk is over.
-async function publish(summary) {
+// Every run's account goes to the server too (table schedule_runs): what the
+// walk did is the other half of a diagnosis, next to the pages it read, and it
+// otherwise lives only in this tooltip until the next run overwrites it. Sent
+// to every address, like the pages; nobody waits for it and a failure is
+// nothing to report — the run itself has already been told.
+const RUN_MAX_CHARS = 400_000;
+
+async function reportRun(summary, { trigger = null, reply = null } = {}) {
+  try {
+    const cfg = await wbConfig();
+    if (!cfg.apiBases.length) return;
+    const run = { at: new Date().toISOString(), version: chrome.runtime.getManifest().version, trigger, summary, reply };
+    let payload = JSON.stringify({ run });
+    // The grid's timeline is the bulky part; the rest is always worth keeping.
+    if (payload.length > RUN_MAX_CHARS && reply?.timeline) {
+      payload = JSON.stringify({ run: { ...run, reply: { ...reply, timeline: null, timelineDropped: true } } });
+    }
+    if (payload.length > RUN_MAX_CHARS) return;
+    await Promise.all(cfg.apiBases.map((base) => post(base, payload)));
+  } catch {
+    /* the run was already published; its account is a bonus */
+  }
+}
+
+async function publish(summary, context = {}) {
+  reportRun(summary, context);
   idleTitle = `Working Book — dernière exécution\n${summary.text}`;
   badge(summary.badge, summary.kind);
   chrome.action.setTitle({ title: idleTitle });
@@ -379,8 +404,8 @@ async function publish(summary) {
   return summary;
 }
 
-async function record(reply) {
-  return publish(summarise(reply));
+async function record(reply, trigger) {
+  return publish(summarise(reply), { trigger, reply });
 }
 
 // The alarm's entry point. A periodic wake-up that finds no PMS230 open is the
@@ -395,10 +420,10 @@ async function runSearch() {
   } catch (err) {
     // A sweep that got far enough to report progress has already set runState;
     // leaving it behind would strand the popup on a walk that is over.
-    return publish(failure('!', 'Interrompu', [String(err)]));
+    return publish(failure('!', 'Interrompu', [String(err)]), { trigger: 'auto' });
   }
   if (!reply) return null;
-  await record(reply);
+  await record(reply, 'auto');
   return reply;
 }
 
@@ -447,19 +472,20 @@ async function runEverything(send = true) {
     // there left the popup showing a walk in progress for good — reopening it
     // never cleared, and no button could end it. An interrupted run has to be
     // reported as one.
-    return publish(failure('!', 'Interrompu', [String(err)]));
+    return publish(failure('!', 'Interrompu', [String(err)]), { trigger: send ? 'button' : 'prepare' });
   }
 }
 
 async function walk(send) {
+  const trigger = send ? 'button' : 'prepare';
   const reply = await driveSearch(send);
-  if (reply) return record(reply);
+  if (reply) return record(reply, trigger);
 
   // No search form anywhere: fall back to sending whatever grid is on screen.
   // A report brought up by hand is still worth importing. Not offered when the
   // ask was to prepare a search — there is no search to prepare, and sending
   // would be the opposite of what was pressed.
-  if (!send) return record(null);
+  if (!send) return record(null, trigger);
   const scraped = await ask({ type: 'wb-scrape' });
   if (scraped?.found) {
     // What the server stored and left out, once it has answered; the rows on
@@ -477,7 +503,7 @@ async function walk(send) {
     const sank = result && !result.ok && !skipped;
     const kind = sank ? 'err' : reasons.length ? 'warn' : 'ok';
     const text = [`${headline}.`, ...(skipped ? [`${plural(skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`] : [])].join('\n');
-    return publish({ badge: String(imported ?? scraped.count), kind, headline, reasons, text });
+    return publish({ badge: String(imported ?? scraped.count), kind, headline, reasons, text }, { trigger: 'scrape', reply: { count: scraped.count, result } });
   }
-  return record(null);
+  return record(null, trigger);
 }

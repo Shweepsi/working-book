@@ -594,6 +594,7 @@ async function handleSchedulesIngest(
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
   if ('sweep' in body) return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
+  if ('run' in body) return await noteRun((body as { run?: unknown }).run, env, cors);
   const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
@@ -670,6 +671,24 @@ async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof par
 }
 
 
+
+// The extension's account of a run (2.9.0+), as it saw it: kept whole in
+// schedule_runs, beside the pages it read (schedule_raw). What the walk did —
+// pages, waits, refusals, why a cleanup did not happen — only ever reached the
+// extension's tooltip before. Nothing is deleted.
+const RUN_MAX_BYTES = 512 * 1024;
+
+async function noteRun(run: unknown, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (!run || typeof run !== 'object' || Array.isArray(run)) return json({ error: 'bad_run' }, cors, 400);
+  const data = JSON.stringify(run);
+  if (new TextEncoder().encode(data).length > RUN_MAX_BYTES) return json({ error: 'run_too_large' }, cors, 413);
+  const r = run as { version?: unknown; trigger?: unknown; summary?: { kind?: unknown } };
+  const text = (v: unknown) => (typeof v === 'string' ? v.slice(0, 40) : null);
+  await env.DB.prepare('INSERT INTO schedule_runs (at, version, trigger, kind, data) VALUES (?1, ?2, ?3, ?4, ?5)')
+    .bind(Date.now(), text(r.version), text(r.trigger), text(r.summary?.kind), data)
+    .run();
+  return json({ ok: true }, cors);
+}
 
 // The end of a walk that read every page of a search without losing a row:
 // `{ sweep: { seen, search } }`. Imports only add, so a line M3 replaced or

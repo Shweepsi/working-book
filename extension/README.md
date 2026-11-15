@@ -241,6 +241,12 @@ le dernier opérateur a laissé la case. Le compte-rendu le dit à chaque
 exécution (« Terminés inclus », ou en avertissement si la case n'a pas été
 trouvée ou n'a pas pu être cochée).
 
+**Chaque exécution est notée sur le serveur** (2.9.0) : le compte-rendu
+complet, tel que l'infobulle et les options le montrent, avec les attentes page
+par page et la chronologie de la grille, part avec la version de l'extension et
+ce qui l'a lancée (alarme, bouton). Avec les pages brutes que le serveur garde
+déjà, une lecture qui s'est mal passée se diagnostique sans capture d'écran.
+
 **Les lignes que M3 ne rapporte plus sont retirées** à la fin d'un parcours
 complet. Un import ajoute ou met à jour les lignes. Sans ce retrait, un MO que M3 a
 remplacé, découpé ou annulé (1000229251, 232 lites, découpé en 1000230291
