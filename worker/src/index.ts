@@ -593,10 +593,8 @@ async function handleSchedulesIngest(
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
-  if ('sweep' in body) {
-    ctx.waitUntil(purgeRawPages(env));
-    return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
-  }
+  if ('sweep' in body) return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
+  if ('run' in body) return await noteRun((body as { run?: unknown }).run, env, cors);
   const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
@@ -643,9 +641,10 @@ async function handleSchedulesIngest(
 
 // The raw text of each page the extension sends, to replay the decoder on the
 // real report (table schedule_raw). A page already kept only has its last-seen
-// date moved on; whatever has not been seen for RAW_KEEP_DAYS goes. Never
-// allowed to fail an import: this is for whoever looks into one.
-const RAW_KEEP_DAYS = 14;
+// date moved on. Nothing is ever deleted: the report's history is the raw
+// material for whatever goes wrong next (a page costs ~15 KB, and only a page
+// that changed adds one). Never allowed to fail an import: this is for
+// whoever looks into one.
 // D1 refuses a value over 2 000 000 bytes — bytes, not characters: an
 // accented customer name weighs two.
 const RAW_MAX_BYTES = 1_900_000;
@@ -671,14 +670,22 @@ async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof par
   }
 }
 
-// Pages not seen for RAW_KEEP_DAYS go: once per walk, from its end
-// (endSweep), not once per page.
-async function purgeRawPages(env: Env): Promise<void> {
-  try {
-    await env.DB.prepare('DELETE FROM schedule_raw WHERE last_at < ?1').bind(Date.now() - RAW_KEEP_DAYS * 86_400_000).run();
-  } catch (err) {
-    console.error('schedule_raw purge', err);
-  }
+// The extension's account of a run (2.9.0+), as it saw it: kept whole in
+// schedule_runs, beside the pages it read (schedule_raw). What the walk did —
+// pages, waits, refusals, why a cleanup did not happen — only ever reached the
+// extension's tooltip before. Nothing is deleted.
+const RUN_MAX_BYTES = 512 * 1024;
+
+async function noteRun(run: unknown, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (!run || typeof run !== 'object' || Array.isArray(run)) return json({ error: 'bad_run' }, cors, 400);
+  const data = JSON.stringify(run);
+  if (new TextEncoder().encode(data).length > RUN_MAX_BYTES) return json({ error: 'run_too_large' }, cors, 413);
+  const r = run as { version?: unknown; trigger?: unknown; summary?: { kind?: unknown } };
+  const text = (v: unknown) => (typeof v === 'string' ? v.slice(0, 40) : null);
+  await env.DB.prepare('INSERT INTO schedule_runs (at, version, trigger, kind, data) VALUES (?1, ?2, ?3, ?4, ?5)')
+    .bind(Date.now(), text(r.version), text(r.trigger), text(r.summary?.kind), data)
+    .run();
+  return json({ ok: true }, cors);
 }
 
 // The end of a walk that read every page of a search without losing a row:
