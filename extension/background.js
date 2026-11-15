@@ -375,19 +375,34 @@ function timingLines(timings) {
 // otherwise lives only in this tooltip until the next run overwrites it. Sent
 // to every address, like the pages; nobody waits for it and a failure is
 // nothing to report — the run itself has already been told.
-const RUN_MAX_CHARS = 400_000;
+// Bytes, as the Worker counts them (it refuses past 512 KiB).
+const RUN_MAX_BYTES = 500_000;
+const bytesOf = (s) => new TextEncoder().encode(s).length;
+
+// Addresses are kept down to their origin and path: the query string of an
+// Infor page or request can carry a tenant or session parameter, and none of
+// it says anything about how the walk went.
+function withoutQuery(_key, value) {
+  if (typeof value !== 'string' || !/^https?:\/\//.test(value)) return value;
+  try {
+    const u = new URL(value);
+    return u.origin + u.pathname;
+  } catch {
+    return value;
+  }
+}
 
 async function reportRun(summary, { trigger = null, reply = null } = {}) {
   try {
     const cfg = await wbConfig();
     if (!cfg.apiBases.length) return;
     const run = { at: new Date().toISOString(), version: chrome.runtime.getManifest().version, trigger, summary, reply };
-    let payload = JSON.stringify({ run });
+    let payload = JSON.stringify({ run }, withoutQuery);
     // The grid's timeline is the bulky part; the rest is always worth keeping.
-    if (payload.length > RUN_MAX_CHARS && reply?.timeline) {
-      payload = JSON.stringify({ run: { ...run, reply: { ...reply, timeline: null, timelineDropped: true } } });
+    if (bytesOf(payload) > RUN_MAX_BYTES && reply?.timeline) {
+      payload = JSON.stringify({ run: { ...run, reply: { ...reply, timeline: null, timelineDropped: true } } }, withoutQuery);
     }
-    if (payload.length > RUN_MAX_CHARS) return;
+    if (bytesOf(payload) > RUN_MAX_BYTES) return;
     await Promise.all(cfg.apiBases.map((base) => post(base, payload)));
   } catch {
     /* the run was already published; its account is a bonus */
@@ -395,12 +410,16 @@ async function reportRun(summary, { trigger = null, reply = null } = {}) {
 }
 
 async function publish(summary, context = {}) {
-  reportRun(summary, context);
+  // Started first, awaited last: the verdict is shown without waiting for it,
+  // but the run's promise — what keeps this service worker alive — does not
+  // settle before the account has left.
+  const reported = reportRun(summary, context);
   idleTitle = `Working Book — dernière exécution\n${summary.text}`;
   badge(summary.badge, summary.kind);
   chrome.action.setTitle({ title: idleTitle });
   await chrome.storage.local.remove('runState');
   await chrome.storage.local.set({ lastRun: { at: new Date().toISOString(), ...summary } });
+  await reported;
   return summary;
 }
 

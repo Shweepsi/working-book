@@ -670,8 +670,6 @@ async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof par
   }
 }
 
-
-
 // The extension's account of a run (2.9.0+), as it saw it: kept whole in
 // schedule_runs, beside the pages it read (schedule_raw). What the walk did —
 // pages, waits, refusals, why a cleanup did not happen — only ever reached the
