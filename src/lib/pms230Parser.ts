@@ -86,11 +86,15 @@ const PRODUCT_RE  = /^33\d{7}$/;
 const DATE_RE     = /^\d{8}$/;
 const SHORT_INT_RE = /^\d{1,4}$/;
 const DECIMAL_RE  = /^\d+\.\d{2}$/;
-const THICKNESS_RE = /^\d{2}\.\d{2}$/;
+// Two decimals, or three as some rows print it (« 06.000 »): a thickness
+// missed here shifts the tolerance after it back into the customer.
+const THICKNESS_RE = /^\d{2}\.\d{2,3}$/;
 const TOLERANCE_RE = /^\d{1,2}\.\d{2,3}$/;
 // What the last row of a page runs into: the pager (« 1 of 6 », First Page…),
-// the busy indicator, the column legend underneath.
-const FOOTER_RE = /\s*(?:\b\d+\s+)?(?:First Page|Previous Page|Next Page|Page\s+of\s+\d+|\bof\s+\d+\b|Quality Group Description|Loading\b)[\s\S]*$/;
+// the busy indicator in front of it, the column legend underneath. Only the
+// pager's own phrases: a word such as « Loading » or « of 2000 » can be part
+// of a customer's name.
+const FOOTER_RE = /\s*(?:\bLoading\s+)?(?:\b\d+\s+of\s+\d+\b|First Page|Previous Page|Next Page|\bPage\s+of\s+\d+|Quality Group Description)[\s\S]*$/;
 const INCHES_RE   = /\s\d+\/\d+$/; // "126 3/8", "236 7/32"
 
 const NOISE_LINES = new Set([
@@ -686,9 +690,11 @@ export function mergePMS230(
   // `next` (the fresher paste) — so re-importing a page updates its rows in
   // place and costs nothing, and the report only grows with new work.
   const incoming = new Set(next.records.map((r) => r.schedule));
-  if (!prev) return trimReport(next, incoming);
+  // `lost` is the page's, kept with its raw text: never in the stored report.
+  const { lost: _lost, ...fresh } = next;
+  if (!prev) return trimReport(fresh, incoming);
   const seen = new Map<string, PMS230Record>();
-  for (const r of next.records) seen.set(`${r.schedule}|${r.mo}`, r);
+  for (const r of fresh.records) seen.set(`${r.schedule}|${r.mo}`, r);
   for (const r of prev.records) {
     const k = `${r.schedule}|${r.mo}`;
     if (!seen.has(k)) seen.set(k, r);
@@ -703,9 +709,9 @@ export function mergePMS230(
     // The last import's, not the sum of every import's: warnings only ever
     // accumulated here, 518 of them after two months, mostly the same rows
     // dropped again and again — and nothing ever read them back.
-    warnings: next.warnings ?? [],
-    dropped: next.dropped ?? 0,
-    importedAt: next.importedAt,
+    warnings: fresh.warnings ?? [],
+    dropped: fresh.dropped ?? 0,
+    importedAt: fresh.importedAt,
   }, incoming);
 }
 

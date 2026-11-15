@@ -205,3 +205,23 @@ test('the page footer is not the customer of the last row', () => {
   const loading = ROWS[3]!.replace('|6.20', '|6.20|Loading First Page Previous Page');
   assert.equal(parsePMS230(paste([loading])).records[0]!.customer, '');
 });
+
+test('a thickness with three decimals keeps the tolerance out of the customer', () => {
+  const row = ROWS[2]!.replace('|10.00|9.70|10.30|', '|10.000|9.700|10.300|');
+  const r = parsePMS230(paste([row])).records[0]!;
+  assert.deepEqual([r.thickness, r.thickMin, r.thickMax, r.customer], ['10.000', '9.700', '10.300', 'Alu Glass Shpk']);
+});
+
+test('a customer name that only looks like the footer is kept whole', () => {
+  for (const name of ['Loading Systems GmbH', 'Glass of 2000 Sarl', 'Front Page Glass']) {
+    const r = parsePMS230(paste([ROWS[2]!.replace('Alu Glass Shpk', name)])).records[0]!;
+    assert.equal(r.customer, name);
+  }
+});
+
+test('the cells of lost rows never reach the stored report', () => {
+  const bad = parsePMS230(paste([ROWS[2]!.replace('|330183172|', '|340183172|'), ROWS[3]!]));
+  assert.ok(bad.lost?.length);
+  assert.ok(!('lost' in mergePMS230(null, bad).result));
+  assert.ok(!('lost' in mergePMS230(parsePMS230(paste(ROWS)), bad).result));
+});
