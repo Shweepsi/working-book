@@ -597,6 +597,9 @@ async function handleSchedulesIngest(
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
   const parsed = parsePMS230(text);
+  // Before anything can refuse the page: a page nothing decoded from is the
+  // one worth reading back.
+  await keepRawPage(env, text, parsed);
   if (parsed.records.length === 0) {
     // Text arrived but no row survived decoding — usually the wrong screen, or
     // a search that returned nothing. Say so rather than touching the report.
@@ -631,6 +634,33 @@ async function handleSchedulesIngest(
     },
     cors,
   );
+}
+
+// The raw text of each page the extension sends, to replay the decoder on the
+// real report (table schedule_raw). A page already kept only has its last-seen
+// date moved on; whatever has not been seen for RAW_KEEP_DAYS goes. Never
+// allowed to fail an import: this is for whoever looks into one.
+const RAW_KEEP_DAYS = 14;
+// D1 refuses a value over 2 000 000 bytes.
+const RAW_MAX_CHARS = 1_500_000;
+
+async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof parsePMS230>): Promise<void> {
+  try {
+    if (text.length > RAW_MAX_CHARS) return;
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const now = Date.now();
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO schedule_raw (hash, first_at, last_at, records, dropped, lost, text)
+         VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(hash) DO UPDATE SET last_at = ?2, seen = seen + 1`,
+      ).bind(hash, now, parsed.records.length, parsed.dropped ?? 0, parsed.lost?.length ? JSON.stringify(parsed.lost) : null, text),
+      env.DB.prepare('DELETE FROM schedule_raw WHERE last_at < ?1').bind(now - RAW_KEEP_DAYS * 86_400_000),
+    ]);
+  } catch (err) {
+    console.error('schedule_raw', err);
+  }
 }
 
 // The end of a walk that read every page of a search without losing a row:

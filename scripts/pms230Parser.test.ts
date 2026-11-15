@@ -95,6 +95,10 @@ test('every lost row counts as dropped, and nothing else does', () => {
   const r = parsePMS230(paste([badProduct, noMo, truncated, partial, ROWS[3]!]));
   assert.equal(r.dropped, 3);
   assert.deepEqual(r.records.map((x) => x.mo), ['1000227095', '1000226536']);
+  // What was lost is kept as read, for whoever looks into it.
+  assert.equal(r.lost?.length, 3);
+  assert.ok(r.lost![0]!.includes('340183172'));
+  assert.ok(r.lost!.every((l) => l.length <= 600));
 });
 
 test('a merge keeps the last import\'s warnings, not every import\'s', () => {

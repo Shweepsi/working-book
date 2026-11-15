@@ -68,6 +68,10 @@ export interface PMS230Result {
   /** Schedule rows of the paste that could not be decoded and were left out.
    *  Absent on reports stored before it existed. */
   dropped?: number;
+  /** The cells of those rows as read, one entry per row (at most
+   *  `LOST_MAX`, each cut short): what the decoder could not make of them.
+   *  Kept with the raw page by the Worker, not in the stored report. */
+  lost?: string[];
   importedAt: string;
 }
 
@@ -546,6 +550,9 @@ export function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
 // fragment or two. A real row has a dozen cells or more, so anything from here
 // up that fails to decode is a row lost — truncated ones included.
 const MIN_ROW_CELLS = 3;
+/** Dropped rows whose cells are kept, and how much of each. */
+const LOST_MAX = 20;
+const LOST_CELLS_MAX = 600;
 
 export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230Result {
   const isPayload = typeof textOrPayload === 'object' && textOrPayload !== null;
@@ -564,6 +571,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
   const anchors = findScheduleAnchors(tokens);
   const records: PMS230Record[] = [];
   let dropped = 0;
+  const lost: string[] = [];
 
   for (let a = 0; a < anchors.length; a++) {
     const start = anchors[a]!;
@@ -578,6 +586,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
       });
     } else if (slice.length >= MIN_ROW_CELLS) {
       dropped++;
+      if (lost.length < LOST_MAX) lost.push(slice.join(' | ').slice(0, LOST_CELLS_MAX));
     }
   }
 
@@ -588,6 +597,7 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     schedules,
     warnings,
     dropped,
+    lost,
     importedAt: new Date().toISOString(),
   };
 }
