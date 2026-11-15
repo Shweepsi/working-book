@@ -3,7 +3,7 @@
 -- diagnostique sur un rapport envoyé à la main.
 -- Une page identique à une page déjà gardée n'est pas gardée deux fois : sa
 -- date de dernière vue avance, et seule une page qui change ajoute une ligne.
--- Le tout est effacé après 14 jours sans être revu (voir handleSchedulesIngest).
+-- Rien n'est effacé : l'historique du rapport est la matière du prochain diagnostic.
 CREATE TABLE IF NOT EXISTS schedule_raw (
   hash TEXT PRIMARY KEY,           -- SHA-256 du texte
   first_at INTEGER NOT NULL,

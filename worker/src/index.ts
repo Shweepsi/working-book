@@ -593,10 +593,7 @@ async function handleSchedulesIngest(
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
-  if ('sweep' in body) {
-    ctx.waitUntil(purgeRawPages(env));
-    return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
-  }
+  if ('sweep' in body) return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
   const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
@@ -643,9 +640,10 @@ async function handleSchedulesIngest(
 
 // The raw text of each page the extension sends, to replay the decoder on the
 // real report (table schedule_raw). A page already kept only has its last-seen
-// date moved on; whatever has not been seen for RAW_KEEP_DAYS goes. Never
-// allowed to fail an import: this is for whoever looks into one.
-const RAW_KEEP_DAYS = 14;
+// date moved on. Nothing is ever deleted: the report's history is the raw
+// material for whatever goes wrong next (a page costs ~15 KB, and only a page
+// that changed adds one). Never allowed to fail an import: this is for
+// whoever looks into one.
 // D1 refuses a value over 2 000 000 bytes — bytes, not characters: an
 // accented customer name weighs two.
 const RAW_MAX_BYTES = 1_900_000;
@@ -671,15 +669,7 @@ async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof par
   }
 }
 
-// Pages not seen for RAW_KEEP_DAYS go: once per walk, from its end
-// (endSweep), not once per page.
-async function purgeRawPages(env: Env): Promise<void> {
-  try {
-    await env.DB.prepare('DELETE FROM schedule_raw WHERE last_at < ?1').bind(Date.now() - RAW_KEEP_DAYS * 86_400_000).run();
-  } catch (err) {
-    console.error('schedule_raw purge', err);
-  }
-}
+
 
 // The end of a walk that read every page of a search without losing a row:
 // `{ sweep: { seen, search } }`. Imports only add, so a line M3 replaced or
