@@ -1,7 +1,7 @@
 {
   "name": "working-book",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.4.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,11 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "build:icons": "pwa-assets-generator",
-    "fetch:gridcraft": "bash scripts/fetch-gridcraft.sh"
+    "fetch:gridcraft": "bash scripts/fetch-gridcraft.sh",
+    "test": "node --experimental-strip-types --no-warnings --test scripts/*.test.ts"
   },
   "dependencies": {
+    "lucide-react": "1.50.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

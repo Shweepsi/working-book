@@ -19,6 +19,7 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
+import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, FilterIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -47,6 +48,11 @@ type DisplayRow = PMS230Record & { mtoMts: string };
 
 // A row's planning policy, or '?' when the product isn't in the imported table.
 type MtoFilter = Policy | '?';
+
+// MTO/MTS as PMS230 prints it on the row since November 2026; the imported
+// policy table only for rows read before that.
+const policyOf = (r: PMS230Record, map: Record<string, Policy> | undefined): MtoFilter =>
+  r.policy ?? map?.[r.product] ?? '?';
 
 type GroupedItem =
   | { kind: 'break'; id: string; longueur: number }
@@ -288,7 +294,8 @@ function sanitiseColumnLayout(raw: Partial<ColumnLayout> | undefined, density: D
     );
   return {
     hidden: dedupe(raw.hidden),
-    pinned: dedupe(raw.pinned),
+    // Pinning columns is gone; a pin saved before is dropped on load.
+    pinned: [],
     order: dedupe(raw.order),
     widths: numbers(raw.widths),
     autoWidths: numbers(raw.autoWidths),
@@ -593,6 +600,9 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       : String(vitesse);
 
   const schedules = data?.schedules ?? [];
+  // Every line carries its MTO/MTS (PMS230 prints it since November 2026):
+  // the policy table has nothing left to add, so it is not asked for.
+  const policyInline = useMemo(() => !!data && data.records.every((r) => r.policy), [data]);
 
   // Decorate with the planning policy, apply the user-driven filters
   // (qualité / pdp / mtoMts) and sort. Shared by the planning rows and by the
@@ -608,7 +618,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   const prepareRows = useCallback((records: PMS230Record[]): DisplayRow[] => {
     const policyMap = policy?.map ?? {};
     const rows: DisplayRow[] = records
-      .map((r) => ({ ...r, mtoMts: policyMap[r.product] ?? '?' }))
+      .map((r) => ({ ...r, mtoMts: policyOf(r, policyMap) }))
       .filter((r) => {
         if (qualite.length > 0 && !qualite.includes(r.qualite)) return false;
         if (pdp.length > 0 && !pdp.includes(r.pdp)) return false;
@@ -675,7 +685,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     for (const r of planningRecords) {
       if (r.qualite) qualites.add(r.qualite);
       if (r.pdp) pdps.add(r.pdp);
-      mtos.add(policyMap[r.product] ?? '?');
+      mtos.add(policyOf(r, policyMap));
     }
     return {
       qualites: [...qualites].sort(),
@@ -755,13 +765,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     updateLayout((l) => ({
       ...l,
       hidden: l.hidden.includes(key) ? l.hidden.filter((k) => k !== key) : [...l.hidden, key],
-    }));
-  }
-
-  function togglePinned(key: string) {
-    updateLayout((l) => ({
-      ...l,
-      pinned: l.pinned.includes(key) ? l.pinned.filter((k) => k !== key) : [...l.pinned, key],
     }));
   }
 
@@ -1150,6 +1153,29 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     }
   }
 
+  // Filters, the œillet and Colonnes ride in the schedule's header: a bar of
+  // their own cost a whole row above the table for three small controls.
+  const tableControls = (
+    <TableControls
+      settings={tableSettings}
+      layout={layout}
+      visibleColumns={visibleColumns}
+      available={availableFilters}
+      filteringActive={filteringActive}
+      colsMenuOpen={colsMenuOpen}
+      onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
+      onColsMenuClose={() => setColsMenuOpen(false)}
+      finishedCount={finishedRows.length}
+      showFinished={tableSettings.showFinished}
+      onToggleFinished={toggleShowFinished}
+      onToggleFilterValue={toggleFilterValue}
+      onClearFilters={clearFilters}
+      onToggleColumn={toggleColumnVisibility}
+      onMoveColumn={moveColumn}
+      onResetLayout={resetTableLayout}
+    />
+  );
+
   return (
     // The print mode is carried on the root rather than on <html>: the paper
     // rules only ever need it from inside this view, and `:has()` lets the
@@ -1186,7 +1212,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
         </div>
       )}
 
-      {data && !policy && (
+      {data && !policy && !policyInline && (
         <div className="sch-hint">
           <span>↪ Importer la table <strong>Item number → Planning policy</strong> pour voir la colonne MTO/MTS.</span>
           <button className="btn mini" onClick={() => setImportMode('policy')} title="Ouvrir l'importation de la politique MTO/MTS">
@@ -1322,29 +1348,12 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                       </strong>
                     </div>
                   </div>
+                  {tableControls}
                 </header>
               );
             })()}
 
-            <TableControls
-              settings={tableSettings}
-              layout={layout}
-              visibleColumns={visibleColumns}
-              available={availableFilters}
-              filteringActive={filteringActive}
-              colsMenuOpen={colsMenuOpen}
-              onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
-              onColsMenuClose={() => setColsMenuOpen(false)}
-              finishedCount={finishedRows.length}
-              showFinished={tableSettings.showFinished}
-              onToggleFinished={toggleShowFinished}
-              onToggleFilterValue={toggleFilterValue}
-              onClearFilters={clearFilters}
-              onToggleColumn={toggleColumnVisibility}
-              onTogglePinned={togglePinned}
-              onMoveColumn={moveColumn}
-              onResetLayout={resetTableLayout}
-            />
+            {!selectedSchedule && tableControls}
 
             <ScheduleTable
               items={groupedRows}
@@ -1403,7 +1412,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                 aria-label="Configurer l’import direct depuis Mingle"
                 title="Import direct — importer depuis l’Operator Mashup en un clic, sans copier-coller"
               >
-                <span className="glyph" aria-hidden="true">⇱</span>
+                <span className="glyph" aria-hidden="true"><ImportIcon size={14} /></span>
                 <span className="lbl-full">Import direct</span>
                 <span className="lbl-short" aria-hidden="true">Direct</span>
               </button>
@@ -1418,7 +1427,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                     : 'Importer la table de politique MTO/MTS'
                 }
               >
-                <span className="glyph" aria-hidden="true">⚙</span>
+                <span className="glyph" aria-hidden="true"><SettingsIcon size={14} /></span>
                 <span className="lbl-full">Politique MTO/MTS</span>
                 <span className="lbl-short" aria-hidden="true">MTO</span>
               </button>
@@ -1446,7 +1455,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       {openRow && (
         <RowDetailSheet
           row={openRow}
-          mtoMts={policy?.map?.[openRow.product] ?? '?'}
+          mtoMts={policyOf(openRow, policy?.map)}
           onClose={() => setOpenRowId(null)}
           onDelete={() => handleDeleteRow(openRow.id)}
         />
@@ -1526,7 +1535,7 @@ function FinishedSheet({
                 {schedules.length} schedule{schedules.length > 1 ? 's' : ''} · {parts.join(' · ')}
               </div>
             </div>
-            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+            <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
           </div>
         </div>
 
@@ -1566,7 +1575,7 @@ function FinishedSheet({
                   onClick={() => setPending(s.schedule)}
                   title={`Restaurer le schedule ${s.schedule} dans le planning`}
                 >
-                  <span className="sch-done-restore-icon" aria-hidden="true">↩</span>
+                  <span className="sch-done-restore-icon" aria-hidden="true"><UndoIcon size={14} /></span>
                   Restaurer
                 </button>
               )}
@@ -1668,9 +1677,7 @@ function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children:
       }}
     >
       <div className="sch-swipe-action" aria-hidden="true">
-        {/* Dingbat rather than an emoji: it inherits the strip's colour instead
-            of dropping a full-colour glyph into the muted palette. */}
-        <span className="sch-swipe-action-glyph">↧</span>
+        <span className="sch-swipe-action-glyph"><ArchiveIcon size={20} /></span>
         <span className="sch-swipe-action-label">Terminés</span>
       </div>
       <div className="sch-swipe-surface" style={{ transform: `translate3d(${dx}px, 0, 0)` }}>
@@ -1750,7 +1757,7 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
           onClick={onImport}
           title={data ? 'Réimporter le rapport Operator Mashup' : 'Importer le rapport Operator Mashup'}
         >
-          <span aria-hidden="true">↻</span> {data ? 'Réimporter' : 'Importer'}
+          <RefreshIcon size={14} /> {data ? 'Réimporter' : 'Importer'}
         </button>
       </div>
       {/* The MTO/MTS chip is not gated on `data`: the policy syncs on its own
@@ -1763,7 +1770,7 @@ function SummaryBar({ data, policy, onImport }: SummaryBarProps) {
               className="sch-policy-chip"
               title="Politique MTO/MTS chargée — partagée entre les opérateurs"
             >
-              <span className="sch-policy-chip-glyph" aria-hidden="true">⚙</span>
+              <span className="sch-policy-chip-glyph" aria-hidden="true"><SettingsIcon size={13} /></span>
               MTO/MTS · <strong className="mono">{policyCount}</strong>
             </span>
           )}
@@ -1840,7 +1847,7 @@ const clampColumnPx = (px: number): number =>
 // Planning-policy badge. The column is 56px, which "Inactif" doesn't fit, so
 // that state shows a cross and keeps the word in the tooltip; MTO / MTS are
 // short enough to read as-is.
-const MTO_GLYPH: Record<string, string> = { Inactif: '✕' };
+const MTO_GLYPH: Record<string, ReactNode> = { Inactif: <CloseIcon size={13} /> };
 const MTO_TITLE: Record<string, string> = {
   MTO: 'Make to order',
   MTS: 'Make to stock',
@@ -2098,7 +2105,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
         {enrichedColumns.map((c) => {
           const sortable = !!c.sortKey;
           const isSorted = sortable && c.sortKey === sortKey;
-          const dirIndicator = isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '';
+          const dirIndicator = isSorted ? (sortDir === 'asc' ? <CollapseIcon size={12} strokeWidth={2.25} /> : <ExpandIcon size={12} strokeWidth={2.25} />) : null;
           // Name the click that actually follows, so the way back to the
           // dimension order isn't invisible. The column that carries the
           // default only ever flips direction, so it never gets that wording.
@@ -2160,7 +2167,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
                 }
               }}
             >
-              <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner">⋮⋮</span>
+              <span className="sch-col-drag-grip" aria-hidden="true" title="Glisser pour réordonner"><GripIcon size={13} /></span>
               {c.label}
               {dirIndicator && <span className="sch-sort-arrow" aria-hidden="true">{dirIndicator}</span>}
               <ColumnResizeHandle colKey={c.key} onResizeStart={beginResize} onResize={onResize} />
@@ -2212,7 +2219,6 @@ interface TableControlsProps {
   onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
   onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
-  onTogglePinned: (key: string) => void;
   onMoveColumn: (key: string, dir: -1 | 1) => void;
   onResetLayout: () => void;
 }
@@ -2232,11 +2238,22 @@ function TableControls({
   onToggleFilterValue,
   onClearFilters,
   onToggleColumn,
-  onTogglePinned,
   onMoveColumn,
   onResetLayout,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
+  const filterBtnRef = useRef<HTMLDivElement>(null);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const hasFilters = available.mtos.length > 1 || available.qualites.length > 1 || available.pdps.length > 1;
+
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node)) setFilterMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [filterMenuOpen]);
 
   useEffect(() => {
     if (!colsMenuOpen) return;
@@ -2249,66 +2266,86 @@ function TableControls({
 
   return (
     <div className="sch-controls no-print">
-      {available.mtos.length > 1 && (
-        <FilterGroup
-          label="MTO/MTS"
-          options={available.mtos}
-          selected={settings.mtoMts}
-          onToggle={(v) => onToggleFilterValue('mtoMts', v)}
-        />
-      )}
-      {available.qualites.length > 1 && (
-        <FilterGroup
-          label="Qualité"
-          options={available.qualites}
-          selected={settings.qualite}
-          onToggle={(v) => onToggleFilterValue('qualite', v)}
-        />
-      )}
-      {available.pdps.length > 1 && (
-        <FilterGroup
-          label="PDP"
-          options={available.pdps}
-          selected={settings.pdp}
-          onToggle={(v) => onToggleFilterValue('pdp', v)}
-        />
-      )}
-      {filteringActive && (
-        <button type="button" className="btn ghost mini" onClick={onClearFilters}>
-          Effacer filtres
-        </button>
-      )}
       <div className="sch-controls-end">
+        {hasFilters && (
+          <div className="sch-cols-wrap" ref={filterBtnRef}>
+            <button
+              type="button"
+              className={`btn ghost icon sch-cols-btn ${filterMenuOpen ? 'is-open' : ''} ${filteringActive ? 'is-on' : ''}`}
+              onClick={() => setFilterMenuOpen((v) => !v)}
+              aria-expanded={filterMenuOpen}
+              aria-label={filteringActive ? 'Filtres (actifs)' : 'Filtres'}
+              title="Filtres"
+            >
+              <FilterIcon />
+              {filteringActive && <span className="sch-filter-dot" aria-hidden="true" />}
+            </button>
+            {filterMenuOpen && (
+              <div className="popover sch-cols-menu sch-filter-menu" role="menu">
+                <div className="sch-cols-menu-head">
+                  <h4>Filtres</h4>
+                  {filteringActive && (
+                    <button type="button" className="btn ghost mini" onClick={onClearFilters}>Effacer</button>
+                  )}
+                </div>
+                {available.mtos.length > 1 && (
+                  <FilterGroup
+                    label="MTO/MTS"
+                    options={available.mtos}
+                    selected={settings.mtoMts}
+                    onToggle={(v) => onToggleFilterValue('mtoMts', v)}
+                  />
+                )}
+                {available.qualites.length > 1 && (
+                  <FilterGroup
+                    label="Qualité"
+                    options={available.qualites}
+                    selected={settings.qualite}
+                    onToggle={(v) => onToggleFilterValue('qualite', v)}
+                  />
+                )}
+                {available.pdps.length > 1 && (
+                  <FilterGroup
+                    label="PDP"
+                    options={available.pdps}
+                    selected={settings.pdp}
+                    onToggle={(v) => onToggleFilterValue('pdp', v)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control
           // reading "0 terminées" would promise rows it cannot show.
           <button
             type="button"
-            className={`btn ghost mini sch-eye-btn ${showFinished ? 'is-on' : ''}`}
+            className={`btn ghost icon sch-eye-btn ${showFinished ? 'is-on' : ''}`}
             onClick={onToggleFinished}
             aria-pressed={showFinished}
+            aria-label={`${finishedCount} ligne${finishedCount > 1 ? 's' : ''} terminée${finishedCount > 1 ? 's' : ''}`}
             title={
               showFinished
                 ? 'Replier les lignes terminées'
                 : 'Afficher les lignes de ce schedule qui n’ont plus rien à produire'
             }
           >
-            <span className={`sch-eye ${showFinished ? '' : 'is-off'}`} aria-hidden="true" />
-            {finishedCount} terminée{finishedCount > 1 ? 's' : ''}
+            {showFinished ? <ShownIcon /> : <HiddenIcon />}
+            <span className="sch-icon-count mono">{finishedCount}</span>
           </button>
         )}
         <div className="sch-cols-wrap" ref={colsBtnRef}>
           <button
             type="button"
-            className={`btn ghost mini sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
+            className={`btn ghost icon sch-cols-btn ${colsMenuOpen ? 'is-open' : ''}`}
             onClick={onColsMenuToggle}
             aria-expanded={colsMenuOpen}
             aria-label="Configurer les colonnes"
+            title="Colonnes"
           >
-            <span className="sch-cols-icon" aria-hidden="true" />
-            Colonnes
-            <span className="sch-cols-chevron" aria-hidden="true" />
+            <ColumnsIcon />
           </button>
           {colsMenuOpen && (
             <div className="popover sch-cols-menu" role="menu">
@@ -2323,7 +2360,7 @@ function TableControls({
                   const sameGroupPrev = i > 0 && layout.pinned.includes(arr[i - 1]!.key) === pinned;
                   const sameGroupNext = i < arr.length - 1 && layout.pinned.includes(arr[i + 1]!.key) === pinned;
                   return (
-                    <li key={col.key} className={`sch-cols-item ${pinned ? 'is-pinned' : ''} ${visible ? '' : 'is-hidden'}`}>
+                    <li key={col.key} className={`sch-cols-item ${visible ? '' : 'is-hidden'}`}>
                       <label className="sch-cols-opt">
                         <input
                           type="checkbox"
@@ -2335,22 +2372,12 @@ function TableControls({
                       <div className="sch-cols-actions">
                         <button
                           type="button"
-                          className={`btn ghost icon mini sch-cols-pin ${pinned ? 'is-on' : ''}`}
-                          onClick={() => onTogglePinned(col.key)}
-                          title={pinned ? 'Désépingler' : 'Épingler à gauche'}
-                          aria-pressed={pinned}
-                          aria-label={pinned ? 'Désépingler la colonne' : 'Épingler la colonne'}
-                        >
-                          <span aria-hidden="true" className="sch-pin-glyph" />
-                        </button>
-                        <button
-                          type="button"
                           className="btn ghost icon mini"
                           onClick={() => onMoveColumn(col.key, -1)}
                           disabled={!sameGroupPrev}
                           title="Monter"
                           aria-label="Monter la colonne"
-                        >↑</button>
+                        ><UpIcon size={14} /></button>
                         <button
                           type="button"
                           className="btn ghost icon mini"
@@ -2358,14 +2385,14 @@ function TableControls({
                           disabled={!sameGroupNext}
                           title="Descendre"
                           aria-label="Descendre la colonne"
-                        >↓</button>
+                        ><DownIcon size={14} /></button>
                       </div>
                     </li>
                   );
                 })}
               </ul>
               <div className="sch-cols-menu-foot faint small">
-                {visibleColumns.length}/{COLUMNS.length} visibles · {layout.pinned.length} épinglée{layout.pinned.length > 1 ? 's' : ''}
+                {visibleColumns.length}/{COLUMNS.length} visibles
               </div>
             </div>
           )}
@@ -2638,7 +2665,7 @@ function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps)
               </div>
             </div>
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
 
         <dl className="sch-row-sheet-grid">

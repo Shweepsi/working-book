@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CloseIcon } from '../components/icons';
 
 // Lightweight toast system. Drives the "destructive action + Annuler" pattern
 // that replaces the native confirm() dialogs across the app.
@@ -153,7 +154,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         </button>
       )}
       <button type="button" className="toast-close" onClick={onDismiss} aria-label="Fermer">
-        ✕
+        <CloseIcon size={14} />
       </button>
       {toast.ttl != null && <span className="toast-progress" aria-hidden="true" />}
     </div>

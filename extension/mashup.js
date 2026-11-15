@@ -544,7 +544,17 @@
       rows = await maximiseRows(PAGER_TIMEOUT_MS, criteria.rowsPerPage);
     }
 
-    return { ...describe(found), filled, kept, failed, empty, completed, clicked, rows, gridMark: mark, url: location.href };
+    // The dates the search was asked for, as PMS230 prints them (YYYYMMDD):
+    // what a walk needs to know which stored lines it could have seen. Only
+    // when both fields were written or already held them; the page's text
+    // does not carry an input's value.
+    const pad = (n) => String(n).padStart(2, '0');
+    const ymd = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    const dated = ['dateFrom', 'dateTo'].every((n) => filled.includes(n) || kept.includes(n));
+    const searched = dated
+      ? { from: ymd(dateFromOffset(criteria.fromOffset)), to: ymd(dateFromOffset(criteria.toOffset)) }
+      : null;
+    return { ...describe(found), filled, kept, failed, empty, completed, clicked, rows, window: searched, gridMark: mark, url: location.href };
   }
 
   // The pager sits under the grid and defaults to 5 rows. Since the report is

@@ -71,7 +71,9 @@ async function post(base, payload) {
     /* non-JSON error page — the status carries the story */
   }
 
-  if (!res.ok) return { ...target, ok: false, status: res.status, error: body.error };
+  // `skipped` rides along on a 422: a page whose every row failed to decode is
+  // the decoder's doing, not a refusal, and the sweep counts it that way.
+  if (!res.ok) return { ...target, ok: false, status: res.status, error: body.error, skipped: body.skipped };
   // `imported` is passed on exactly as the server sent it, missing value
   // included: the badge tells "nothing came back to count" from "nothing was
   // counted" apart, and coercing here would collapse the two into a green 0.
@@ -104,12 +106,28 @@ async function ingest(text) {
     // 422 means the grid was read but nothing decoded: worth flagging without
     // shouting, since the stored report is deliberately left untouched.
     else badge(primary.status === 422 ? '0' : String(primary.status), primary.status === 422 ? 'warn' : 'err');
-    return { ok: false, status: primary.status, error: primary.error, targets };
+    return { ok: false, status: primary.status, error: primary.error, skipped: primary.skipped, targets };
   }
 
   // Green would claim both databases took the page when only one did.
-  badge(String(primary.imported ?? '✓'), refused.length ? 'warn' : 'ok');
+  // Orange too when rows of the page were left out: green would say the page
+  // went in whole.
+  badge(String(primary.imported ?? '✓'), refused.length || Number(primary.body?.skipped) > 0 ? 'warn' : 'ok');
   return { ok: true, ...primary.body, imported: primary.imported, targets };
+}
+
+// The end of a walk that read the whole report: every address takes out the
+// lines it no longer reports. Answers for the first, like `ingest`; a mirror
+// that fails keeps its stale lines until the next walk, which is no worse
+// than before.
+async function endSweep(seen, search) {
+  const cfg = await wbConfig();
+  if (!cfg.apiBases.length) return { ok: false, error: 'not_configured' };
+  const payload = JSON.stringify({ sweep: { seen, search } });
+  const [primary] = await Promise.all(cfg.apiBases.map((base) => post(base, payload)));
+  if (!primary.ok) return { ok: false, error: primary.error ?? `HTTP ${primary.status ?? '?'}` };
+  const b = primary.body ?? {};
+  return { ok: true, removed: b.removed ?? 0, mos: b.mos ?? [], held: b.held ?? 0 };
 }
 
 // Asks every Infor tab, returns the first frame that answers.
@@ -131,6 +149,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.type === 'wb-ingest') {
     ingest(msg.text).then(respond);
     return true; // keep the channel open for the async reply
+  }
+  if (msg?.type === 'wb-sweep-end') {
+    endSweep(msg.seen, msg.search).then(respond);
+    return true;
   }
   if (msg?.type === 'wb-run-all') {
     runEverything(msg.send !== false).then(respond);
@@ -224,6 +246,15 @@ function summarise(reply) {
     lines.push(`${swept.pages} page(s)${perPage} parcourue(s), ${swept.imported} ligne(s) importée(s)${took}.`);
     if (swept.restarts) lines.push('Grille remise en page 1 en cours de parcours : reparti du début.');
     if (swept.reruns) lines.push('Réponse de la recherche arrivée après le parcours : parcours refait.');
+    if (swept.skipped) lines.push(`${plural(swept.skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`);
+    // Lines M3 no longer reports (replaced, split or cancelled), taken out of
+    // the Schedule once the whole report was read. Named: they leave the screen.
+    if (swept.removed) {
+      const mos = (swept.removedMos ?? []).map((k) => k.split('|')[1]).join(', ');
+      lines.push(`${plural(swept.removed, 'ligne retirée', 'lignes retirées')}, plus dans PMS230${mos ? ` : MO ${mos}` : ''}.`);
+    }
+    if (swept.held) lines.push(`${plural(swept.held, 'ligne absente', 'lignes absentes')} de PMS230 mais laissée(s) en place : trop pour un seul parcours, à vérifier.`);
+    else if (swept.cleanup) lines.push(`Lignes disparues de PMS230 non recherchées : ${swept.cleanup}.`);
     if (swept.failures?.length) lines.push(`${swept.failures.length} page(s) refusée(s) par le serveur.`);
     // Named, not merely counted: a mirror falling behind is invisible on
     // screen — production looks perfectly imported — and the only moment it
@@ -252,13 +283,21 @@ function summarise(reply) {
     };
     reasons.push(`Serveur ${swept.refused.map(short).join(', ')} en échec`);
   }
+  // Rows the report held and the server could not read: the run is not clean,
+  // whatever the imported count says.
+  if (swept?.skipped) reasons.push(plural(swept.skipped, 'ligne ignorée', 'lignes ignorées'));
+  // Far more lines gone at once than M3 ever drops: something to look at,
+  // not something to delete on the strength of one walk.
+  if (swept?.held) reasons.push(`${plural(swept.held, 'ligne absente', 'lignes absentes')} de PMS230, non retirées`);
   if (completedOff) reasons.push('Terminés non inclus');
 
   const headline =
     reply.sent === false
       ? 'Grille prête, rien n’a été envoyé'
       : swept
-        ? plural(imported, 'ligne importée', 'lignes importées')
+        ? plural(imported, 'ligne importée', 'lignes importées') +
+          // Said on the panel, not only in the tooltip: these lines leave the Schedule.
+          (swept.removed ? `, ${plural(swept.removed, 'retirée', 'retirées')}` : '')
         : 'Aucune page lue';
   // Every page refused, or nothing read at all, is not a run with a warning:
   // nothing reached the report.
@@ -331,17 +370,61 @@ function timingLines(timings) {
 // The single place a run's outcome becomes visible: badge, tooltip, and the
 // stored account the popup and the options page both read. Clearing runState
 // here is what tells an open popup the walk is over.
-async function publish(summary) {
+// Every run's account goes to the server too (table schedule_runs): what the
+// walk did is the other half of a diagnosis, next to the pages it read, and it
+// otherwise lives only in this tooltip until the next run overwrites it. Sent
+// to every address, like the pages; nobody waits for it and a failure is
+// nothing to report — the run itself has already been told.
+// Bytes, as the Worker counts them (it refuses past 512 KiB).
+const RUN_MAX_BYTES = 500_000;
+const bytesOf = (s) => new TextEncoder().encode(s).length;
+
+// Addresses are kept down to their origin and path: the query string of an
+// Infor page or request can carry a tenant or session parameter, and none of
+// it says anything about how the walk went.
+function withoutQuery(_key, value) {
+  if (typeof value !== 'string' || !/^https?:\/\//.test(value)) return value;
+  try {
+    const u = new URL(value);
+    return u.origin + u.pathname;
+  } catch {
+    return value;
+  }
+}
+
+async function reportRun(summary, { trigger = null, reply = null } = {}) {
+  try {
+    const cfg = await wbConfig();
+    if (!cfg.apiBases.length) return;
+    const run = { at: new Date().toISOString(), version: chrome.runtime.getManifest().version, trigger, summary, reply };
+    let payload = JSON.stringify({ run }, withoutQuery);
+    // The grid's timeline is the bulky part; the rest is always worth keeping.
+    if (bytesOf(payload) > RUN_MAX_BYTES && reply?.timeline) {
+      payload = JSON.stringify({ run: { ...run, reply: { ...reply, timeline: null, timelineDropped: true } } }, withoutQuery);
+    }
+    if (bytesOf(payload) > RUN_MAX_BYTES) return;
+    await Promise.all(cfg.apiBases.map((base) => post(base, payload)));
+  } catch {
+    /* the run was already published; its account is a bonus */
+  }
+}
+
+async function publish(summary, context = {}) {
+  // Started first, awaited last: the verdict is shown without waiting for it,
+  // but the run's promise — what keeps this service worker alive — does not
+  // settle before the account has left.
+  const reported = reportRun(summary, context);
   idleTitle = `Working Book — dernière exécution\n${summary.text}`;
   badge(summary.badge, summary.kind);
   chrome.action.setTitle({ title: idleTitle });
   await chrome.storage.local.remove('runState');
   await chrome.storage.local.set({ lastRun: { at: new Date().toISOString(), ...summary } });
+  await reported;
   return summary;
 }
 
-async function record(reply) {
-  return publish(summarise(reply));
+async function record(reply, trigger) {
+  return publish(summarise(reply), { trigger, reply });
 }
 
 // The alarm's entry point. A periodic wake-up that finds no PMS230 open is the
@@ -356,10 +439,10 @@ async function runSearch() {
   } catch (err) {
     // A sweep that got far enough to report progress has already set runState;
     // leaving it behind would strand the popup on a walk that is over.
-    return publish(failure('!', 'Interrompu', [String(err)]));
+    return publish(failure('!', 'Interrompu', [String(err)]), { trigger: 'auto' });
   }
   if (!reply) return null;
-  await record(reply);
+  await record(reply, 'auto');
   return reply;
 }
 
@@ -408,23 +491,38 @@ async function runEverything(send = true) {
     // there left the popup showing a walk in progress for good — reopening it
     // never cleared, and no button could end it. An interrupted run has to be
     // reported as one.
-    return publish(failure('!', 'Interrompu', [String(err)]));
+    return publish(failure('!', 'Interrompu', [String(err)]), { trigger: send ? 'button' : 'prepare' });
   }
 }
 
 async function walk(send) {
+  const trigger = send ? 'button' : 'prepare';
   const reply = await driveSearch(send);
-  if (reply) return record(reply);
+  if (reply) return record(reply, trigger);
 
   // No search form anywhere: fall back to sending whatever grid is on screen.
   // A report brought up by hand is still worth importing. Not offered when the
   // ask was to prepare a search — there is no search to prepare, and sending
   // would be the opposite of what was pressed.
-  if (!send) return record(null);
+  if (!send) return record(null, trigger);
   const scraped = await ask({ type: 'wb-scrape' });
   if (scraped?.found) {
-    const headline = `${plural(scraped.count, 'ligne envoyée', 'lignes envoyées')} depuis l’écran affiché`;
-    return publish({ badge: String(scraped.count), kind: 'ok', headline, reasons: [], text: `${headline}.` });
+    // What the server stored and left out, once it has answered; the rows on
+    // screen otherwise, from a frame too old to wait for the answer.
+    const result = scraped.result;
+    const imported = result?.ok ? Number(result.imported) || 0 : null;
+    const skipped = Number(result?.skipped) || 0;
+    const headline =
+      imported != null
+        ? `${plural(imported, 'ligne importée', 'lignes importées')} depuis l’écran affiché`
+        : `${plural(scraped.count, 'ligne envoyée', 'lignes envoyées')} depuis l’écran affiché`;
+    const reasons = [];
+    if (skipped) reasons.push(plural(skipped, 'ligne ignorée', 'lignes ignorées'));
+    if (result && !result.ok && !skipped) reasons.push('Page refusée par le serveur');
+    const sank = result && !result.ok && !skipped;
+    const kind = sank ? 'err' : reasons.length ? 'warn' : 'ok';
+    const text = [`${headline}.`, ...(skipped ? [`${plural(skipped, 'ligne ignorée', 'lignes ignorées')} : le serveur n’a pas pu les lire.`] : [])].join('\n');
+    return publish({ badge: String(imported ?? scraped.count), kind, headline, reasons, text }, { trigger: 'scrape', reply: { count: scraped.count, result } });
   }
-  return record(null);
+  return record(null, trigger);
 }

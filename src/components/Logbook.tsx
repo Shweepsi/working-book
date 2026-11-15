@@ -7,6 +7,7 @@ import { useSyncedState } from '../lib/sync';
 import { useToast } from '../lib/toast';
 import EventEditor from './EventEditor';
 import type { EventType, FlagKey, LogEvent, Poste, ShiftMeta } from '../types';
+import { AddIcon, CloseIcon, EditIcon, ElsewhereIcon, ExpandIcon, SearchIcon } from './icons';
 
 // Order matches the visual order in the filter row; null is implicit when no
 // chip is active. Note "normal" is intentionally absent: untagged events are
@@ -228,7 +229,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
               onClick={() => openTypedEvent(t.key)}
               title={`Enregistrer ${t.label} maintenant`}
             >
-              <span className="glyph">＋</span>
+              <span className="glyph"><AddIcon size={14} /></span>
               {t.label}
             </button>
           ))}
@@ -240,7 +241,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
             aria-expanded={showSecondary}
             aria-label="Basculer les types secondaires"
           >
-            <span className="chevron" aria-hidden="true">⌄</span>
+            <span className="chevron" aria-hidden="true"><ExpandIcon size={14} /></span>
           </button>
         </div>
         {showSecondary && (
@@ -252,7 +253,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
                 onClick={() => openTypedEvent(t.key)}
                 title={`Enregistrer ${t.label} maintenant`}
               >
-                <span className="glyph">＋</span>
+                <span className="glyph"><AddIcon size={14} /></span>
                 {t.label}
               </button>
             ))}
@@ -262,7 +263,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
 
       <div className="evt-filterbar no-print" role="search">
         <label htmlFor={queryInputId} className="evt-filterbar-label">
-          <span className="evt-filterbar-glyph" aria-hidden="true">⌕</span>
+          <span className="evt-filterbar-glyph" aria-hidden="true"><SearchIcon size={14} /></span>
           <input
             id={queryInputId}
             type="search"
@@ -316,11 +317,13 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
         ))}
         {filteredEvents.length === 0 && events.length === 0 && !filteringActive && (
           <div className="evt-empty no-print">
+            <EditIcon className="evt-empty-icon" size={26} strokeWidth={1.5} />
             <div>Aucun événement pour Poste {poste}.</div>
           </div>
         )}
         {filteredEvents.length === 0 && filteringActive && (
           <div className="evt-empty no-print">
+            <EditIcon className="evt-empty-icon" size={26} strokeWidth={1.5} />
             <div>
               {events.length > 0
                 ? 'Aucun résultat dans ce shift.'
@@ -337,7 +340,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
           <div className="evt-other-matches no-print">
             <div className="evt-other-head">
               <span className="evt-other-title">
-                <span className="evt-other-icon" aria-hidden="true">⤴</span>
+                <span className="evt-other-icon" aria-hidden="true"><ElsewhereIcon size={14} /></span>
                 Autres shifts
               </span>
               <span className="evt-other-count">
@@ -380,7 +383,7 @@ export default function Logbook({ poste, shiftMeta, onNavigate }: LogbookProps) 
         aria-label="Nouvel événement"
         title="Nouvel événement"
       >
-        <span className="fab-glyph" aria-hidden="true">＋</span>
+        <span className="fab-glyph" aria-hidden="true"><AddIcon size={22} strokeWidth={2} /></span>
       </button>
 
       {fabOpen && (
@@ -415,7 +418,7 @@ function FabTypeSheet({ onPick, onClose }: FabTypeSheetProps) {
         <div className="grabber" />
         <div className="sheet-head">
           <h3>Nouvel événement</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
         <div className="fab-sheet-grid">
           {EVENT_TYPES.map((t) => (
@@ -425,7 +428,7 @@ function FabTypeSheet({ onPick, onClose }: FabTypeSheetProps) {
               className={`fab-type-btn ${t.key === 'Nouveau' ? 'is-add' : ''}`}
               onClick={() => onPick(t.key)}
             >
-              <span className="glyph" aria-hidden="true">＋</span>
+              <span className="glyph" aria-hidden="true"><AddIcon size={14} /></span>
               <span className="fab-type-label">{t.label}</span>
             </button>
           ))}
@@ -495,7 +498,7 @@ const EventRow = memo(function EventRow({ ev, onOpen, onRemove }: EventRowProps)
             onRemove(ev.id);
           }}
         >
-          ✕
+          <CloseIcon size={14} />
         </button>
       </div>
     </div>

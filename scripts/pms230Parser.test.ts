@@ -1,0 +1,227 @@
+// npm test — the PMS230 decoder against real report rows.
+//
+// The fixture is a real paste of sched 2213000918 (November 2026), one cell
+// per line as the extension reads it. PMS230 had just added an MTO/MTS cell in
+// front of the MO, which pushed the MO to the 12th cell on every row with a
+// Date Départ: those rows were dropped on every import and kept their stale
+// « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { dropVanished, mergePMS230, parsePMS230 } from '../src/lib/pms230Parser.ts';
+
+const HEADER = [
+  'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
+  'From Start Date', '20261104', 'To Start Date', '20261125', 'Search',
+  'PMS230Export PDF', 'Post Production Report', '2213000918',
+];
+
+const ROWS = [
+  '2213000918|0|90|90|10|Coating - Bascharage|20261106|23:37|20261106|23:59|MTS|1000226525|330130395|Vacuum Coated QC Sample Item|60|1|59|0.00|0|0.00|0.00',
+  '2213000918|0|90|90|10|Coater|20261106|23:43|20261106|23:59|MTS|1000226524|330181250|CSGSNX70HXC0600TPF|9|9|0|0.24|24|3210.00|6000.00|XC|9|O PL6|I11L|126 3/8|236 7/32|06.00|5.80|6.20',
+  '2213000918|0|90|90|10|Coater|20261107|22:48|20261107|23:59|20261123|MTO|1000227095|330183172|CSGSNX70HXC1000TPF|40|40|0|1.04|10|3210.00|6000.00|XC|5|O PL6|I11L|126 3/8|236 7/32|10.00|9.70|10.30|Alu Glass Shpk',
+  '2213000918|0|90|90|10|Coater|20261107|23:35|20261107|23:59|MTO|1000226536|330186452|CSGSNX70HXC0600TPF|32|32|0|0.36|3|3210.00|2550.00|XC|16|O PL6|I11L|126 3/8|100 25/64|06.00|5.80|6.20',
+  '2213000918|0|90|90|10|Coater|20261108|23:42|20261108|23:59|MTO|1000227096|330182928|CSGSNX70HXC1000TPF|10|10|0|0.26|0|3210.00|6000.00|XC|5|O PL6|I11L|126 3/8|236 7/32|10.00|9.70|10.30',
+  '2213000918|0|90|90|10|Coater|20261108|21:46|20261108|23:59|20261117|MTO|1000227097|330195991|CSGSNX70HUC0600TPF|76|0|76|0.00|0|3210.00|6000.00|UC|19|O PL6|I11L|126 3/8|236 7/32|06.00|5.80|6.20|Flachglas Wernberg GmbH',
+  '2213000918|0|90|90|10|Coater|20261108|22:23|20261108|23:59|20261124|MTO|1000228283|330196100|CSGSNX70HUC0800TPF|64|0|64|0.00|0|3210.00|5100.00|UC|8|O PL6|I11L|126 3/8|200 25/32|08.00|7.70|8.30|Al Abbar Tempering Plant',
+  '2213000918|0|90|90|10|Coater|20261108|23:49|20261108|23:59|MTO|1000228688|330197379|CSGSNX70HXC0600TPF|6|6|0|0.15|0|3210.00|6000.00|XC|2|O PL6|I11L|126 3/8|236 7/32|06.00|5.80|6.20',
+];
+
+const paste = (rows: string[]) => [...HEADER, ...rows.flatMap((r) => r.split('|'))].join('\n');
+const mos = (text: string) => parsePMS230(text).records.map((r) => r.mo);
+const moWarnings = (text: string) => parsePMS230(text).warnings.filter((w) => /MO|product/.test(w));
+
+test('every row of the report is read, MTO/MTS cell or not', () => {
+  const { records } = parsePMS230(paste(ROWS));
+  assert.deepEqual(records.map((r) => r.mo), [
+    '1000226525', '1000226524', '1000227095', '1000226536',
+    '1000227096', '1000227097', '1000228283', '1000228688',
+  ]);
+  assert.deepEqual(moWarnings(paste(ROWS)), []);
+});
+
+test('a produced row with a Date Départ carries its production', () => {
+  const r = parsePMS230(paste(ROWS)).records.find((x) => x.mo === '1000227095')!;
+  assert.equal(r.dateDepart, '20261123');
+  assert.equal(r.startDate, '20261107');
+  assert.equal(r.startTime, '22:48');
+  assert.equal(r.endTime, '23:59');
+  assert.equal(r.workCenter, 'Coater');
+  assert.equal(r.opSteps, '90/90/10');
+  assert.equal(r.opStepD, 90);
+  assert.deepEqual([r.schedLites, r.prodLites, r.reqLites], [40, 40, 0]);
+  assert.equal(r.itemName, 'CSGSNX70HXC1000TPF');
+  assert.equal(r.longueur, 6000);
+  assert.equal(r.policy, 'MTO');
+});
+
+test('every row carries the MTO/MTS it prints', () => {
+  const { records } = parsePMS230(paste(ROWS));
+  assert.deepEqual(records.map((r) => r.policy), ['MTS', 'MTS', 'MTO', 'MTO', 'MTO', 'MTO', 'MTO', 'MTO']);
+});
+
+test('the report as it was before the MTO/MTS cell still reads', () => {
+  const old = ROWS.map((r) => r.replace(/\|(MTO|MTS)\|/, '|'));
+  assert.equal(mos(paste(old)).length, ROWS.length);
+  // No label to read: the Schedule falls back on the imported policy table.
+  assert.ok(parsePMS230(paste(old)).records.every((r) => !('policy' in r)));
+});
+
+test('an empty Work Center does not take the MTO/MTS label', () => {
+  const row = ROWS[2]!.replace('|Coater|', '|');
+  const r = parsePMS230(paste([row])).records[0]!;
+  assert.equal(r.mo, '1000227095');
+  assert.equal(r.workCenter, '');
+  assert.equal(r.dateDepart, '20261123');
+});
+
+test('an unexpected product code is reported as such, not as a missing MO', () => {
+  const row = ROWS[2]!.replace('|330183172|', '|340183172|');
+  const warnings = moWarnings(paste([row]));
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0]!, /expected product code/);
+});
+
+test('every lost row counts as dropped, and nothing else does', () => {
+  // The header holds the schedule echoed by the search criteria: one lone
+  // cell, warned about (« only 1 fields ») but not a row.
+  assert.equal(parsePMS230(paste(ROWS)).dropped, 0);
+  assert.ok(parsePMS230(paste(ROWS)).warnings.some((w) => /only 1 fields/.test(w)));
+
+  const badProduct = ROWS[2]!.replace('|330183172|', '|340183172|');
+  const noMo = ROWS[2]!.replace('|1000227095|', '|');
+  const truncated = ROWS[2]!.split('|').slice(0, 8).join('|');
+  // A row with its lites gone is decoded and kept, short of a field.
+  const partial = ROWS[2]!.replace('|40|40|0|1.04|', '|x|');
+  const r = parsePMS230(paste([badProduct, noMo, truncated, partial, ROWS[3]!]));
+  assert.equal(r.dropped, 3);
+  assert.deepEqual(r.records.map((x) => x.mo), ['1000227095', '1000226536']);
+  // What was lost is kept as read, for whoever looks into it.
+  assert.equal(r.lost?.length, 3);
+  assert.ok(r.lost![0]!.includes('340183172'));
+  assert.ok(r.lost!.every((l) => l.length <= 600));
+});
+
+test('a merge keeps the last import\'s warnings, not every import\'s', () => {
+  const bad = parsePMS230(paste([ROWS[2]!.replace('|330183172|', '|340183172|')]));
+  const good = parsePMS230(paste(ROWS));
+  const once = mergePMS230(null, bad).result;
+  assert.ok(once.warnings.length > 0);
+  const twice = mergePMS230(once, bad).result;
+  assert.equal(twice.warnings.length, once.warnings.length);
+  assert.deepEqual(mergePMS230(twice, good).result.warnings, good.warnings);
+  assert.equal(mergePMS230(twice, good).result.dropped, 0);
+});
+
+// Sched 2213000932 (November 2026): M3 split MO 1000229251 (232 lites) into
+// 1000230291 (116) and 1000229254 (408) into 1000230292 (204). The two old
+// MOs left PMS230 but stayed in the Schedule at 0 produced, since an import
+// only ever adds.
+const S932 = '2213000932|0|40|20|10|Coater|20261110|21:54|20261111|00:55|MTS|1000229251|330181159|CCGP2XC0400|232|0|232|0.00|0|3210.00|6000.00|XC|29|O PL4|I11L|126 3/8|236 7/32|04.00|3.80|4.20';
+const S932_NOW = [
+  '2213000932|0|90|80|10|Coater|20261111|23:25|20261112|00:55|MTS|1000230291|330181159|CCGP2XC0400|116|116|0|1.40|0|3210.00|6000.00|XC|29|O PL4|I11L|126 3/8|236 7/32|04.00|3.80|4.20',
+  '2213000932|0|70|60|10|Coater|20261111|17:06|20261111|23:59|20261116|MTO|1000229248|330203280|CCGP2XC0400|536|402|134|4.80|52|3210.00|6000.00|XC|134|O PL4|I11L|126 3/8|236 7/32|04.00|3.80|4.20|AGC INTERPANE SAS',
+];
+const keysOf = (text: string) => parsePMS230(text).records.map((r) => `${r.schedule}|${r.mo}`);
+
+test('a line M3 no longer reports leaves the Schedule after a whole walk', () => {
+  const before = mergePMS230(parsePMS230(paste(ROWS)), parsePMS230(paste([S932, ...S932_NOW]))).result;
+  const now = paste(S932_NOW);
+  const { result, removed } = dropVanished(before, keysOf(now), { from: '20261104', to: '20261125' });
+  assert.deepEqual(removed.map((r) => r.mo), ['1000229251']);
+  assert.ok(!result.records.some((r) => r.mo === '1000229251'));
+  // Schedules the walk did not see are untouched.
+  assert.equal(result.records.filter((r) => r.schedule === '2213000918').length, ROWS.length);
+  assert.equal(result.schedules.find((s) => s.schedule === '2213000932')?.recordCount, 2);
+});
+
+test('a line the search did not ask for is kept', () => {
+  const before = parsePMS230(paste([S932, ...S932_NOW]));
+  const seen = keysOf(paste(S932_NOW));
+  const window = { from: '20261104', to: '20261125' };
+  // Before the search's first day.
+  assert.equal(dropVanished(before, seen, { from: '20261111', to: '20261125' }).removed.length, 0);
+  // Another work center than any the walk saw in that schedule: a search
+  // narrowed to COATER does not see the QC samples of Coating - Bascharage.
+  const qc = parsePMS230(paste([ROWS[0]!.replaceAll('2213000918', '2213000932'), ...S932_NOW]));
+  assert.equal(dropVanished(qc, seen, window).removed.length, 0);
+  // Nothing seen, nothing known.
+  assert.equal(dropVanished(before, [], window).removed.length, 0);
+});
+
+test('a line whose start date was never read can still leave', () => {
+  const undated = S932.replace('|20261110|21:54|', '|21:54|');
+  const before = parsePMS230(paste([undated, ...S932_NOW]));
+  assert.equal(before.records[0]!.startDate, '');
+  const { removed } = dropVanished(before, keysOf(paste(S932_NOW)), { from: '20261104', to: '20261125' });
+  assert.deepEqual(removed.map((r) => r.mo), ['1000229251']);
+});
+
+test('too many lines gone at once: none is taken out, and it says so', () => {
+  // A schedule losing most of its lines in one walk: the wrong grid read, more
+  // likely than M3 cancelling them all.
+  const mo = (n: number) => S932.replace('|1000229251|', `|10002292${String(n).padStart(2, '0')}|`);
+  const many = [10, 11, 12, 13, 14].map(mo);
+  const before = parsePMS230(paste([...many, ...S932_NOW]));
+  const r = dropVanished(before, keysOf(paste(S932_NOW)), { from: '20261104', to: '20261125' });
+  assert.equal(r.removed.length, 0);
+  assert.equal(r.held, 5);
+  assert.equal(r.result, before);
+});
+
+test('MOs moved to another schedule leave the old one, however many', () => {
+  // 2213000922 lost seven of its ten lines at once: M3 moved them to
+  // 2213000932, where the walk read them. A move, not a misread.
+  const mo = (n: number) => `10002292${String(n).padStart(2, '0')}`;
+  const row = (sched: string, n: number) => S932.replace('2213000932', sched).replace('|1000229251|', `|${mo(n)}|`);
+  const old = [10, 11, 12, 13, 14].map((n) => row('2213000922', n));
+  const before = parsePMS230(paste([...old, row('2213000922', 20), ...S932_NOW]));
+  const now = paste([row('2213000922', 20), ...[10, 11, 12, 13, 14].map((n) => row('2213000932', n)), ...S932_NOW]);
+  const r = dropVanished(before, keysOf(now), { from: '20261104', to: '20261125' });
+  assert.equal(r.held, 0);
+  assert.deepEqual(r.removed.map((x) => `${x.schedule}|${x.mo}`), [10, 11, 12, 13, 14].map((n) => `2213000922|${mo(n)}`));
+});
+
+test('the thickness tolerance is not the customer', () => {
+  const r = parsePMS230(paste(ROWS)).records;
+  const withCustomer = r.find((x) => x.mo === '1000227095')!;
+  assert.deepEqual([withCustomer.thickMin, withCustomer.thickMax, withCustomer.customer], ['9.70', '10.30', 'Alu Glass Shpk']);
+  const bare = r.find((x) => x.mo === '1000226536')!;
+  assert.deepEqual([bare.thickMin, bare.thickMax, bare.customer], ['5.80', '6.20', '']);
+  // Three decimals, as some rows print them.
+  const row = ROWS[3]!.replace('|5.80|6.20', '|5.800|6.200');
+  const three = parsePMS230(paste([row])).records[0]!;
+  assert.deepEqual([three.thickMin, three.thickMax, three.customer], ['5.800', '6.200', '']);
+});
+
+test('the page footer is not the customer of the last row', () => {
+  const footer = ['1', 'of 6', 'Next PageLast Page50 Records per page', 'Quality Group Description     Perim Treatment   Separator', 'Metric Tons Square Meters'];
+  const text = [paste([ROWS[2]!, ROWS[3]!]), ...footer].join('\n');
+  const { records } = parsePMS230(text);
+  assert.equal(records[0]!.customer, 'Alu Glass Shpk');
+  assert.equal(records[1]!.customer, '');
+  // The same footer run together on one line, with the busy indicator.
+  const joined = ROWS[2]!.replace('Alu Glass Shpk', 'AGC Interpane GmbH First Page Previous Page Page  of 5 Next Page Last Page Quality Group Description');
+  assert.equal(parsePMS230(paste([joined])).records[0]!.customer, 'AGC Interpane GmbH');
+  const loading = ROWS[3]!.replace('|6.20', '|6.20|Loading First Page Previous Page');
+  assert.equal(parsePMS230(paste([loading])).records[0]!.customer, '');
+});
+
+test('a thickness with three decimals keeps the tolerance out of the customer', () => {
+  const row = ROWS[2]!.replace('|10.00|9.70|10.30|', '|10.000|9.700|10.300|');
+  const r = parsePMS230(paste([row])).records[0]!;
+  assert.deepEqual([r.thickness, r.thickMin, r.thickMax, r.customer], ['10.000', '9.700', '10.300', 'Alu Glass Shpk']);
+});
+
+test('a customer name that only looks like the footer is kept whole', () => {
+  for (const name of ['Loading Systems GmbH', 'Glass of 2000 Sarl', 'Front Page Glass']) {
+    const r = parsePMS230(paste([ROWS[2]!.replace('Alu Glass Shpk', name)])).records[0]!;
+    assert.equal(r.customer, name);
+  }
+});
+
+test('the cells of lost rows never reach the stored report', () => {
+  const bad = parsePMS230(paste([ROWS[2]!.replace('|330183172|', '|340183172|'), ROWS[3]!]));
+  assert.ok(bad.lost?.length);
+  assert.ok(!('lost' in mergePMS230(null, bad).result));
+  assert.ok(!('lost' in mergePMS230(parsePMS230(paste(ROWS)), bad).result));
+});

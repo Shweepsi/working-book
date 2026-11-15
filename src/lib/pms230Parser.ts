@@ -6,6 +6,10 @@
 //     10-digit schedule pattern (`/^22\d{8}$/`) and decode each record positionally
 //     with strict type guards so a missing field can't silently drift the row.
 
+/** A product's planning policy. Defined here, not in policyParser, which the
+ *  Worker (no DOM types) cannot compile. */
+export type Policy = 'MTO' | 'MTS' | 'Inactif';
+
 export interface PMS230Record {
   id: string;
   schedule: string;
@@ -35,7 +39,15 @@ export interface PMS230Record {
   largeurInch: string;
   longueurInch: string;
   thickness: string;
+  /** The thickness tolerance PMS230 prints after the thickness (« 3.80 »,
+   *  « 4.20 »), absent on rows imported before it was read: they sit in
+   *  `customer` there. */
+  thickMin?: string;
+  thickMax?: string;
   customer: string;
+  /** MTO / MTS as the row prints it. Absent on rows imported before PMS230
+   *  carried it: the Schedule then falls back on the imported policy table. */
+  policy?: Policy;
   m2: number;
 }
 
@@ -53,6 +65,13 @@ export interface PMS230Result {
   records: PMS230Record[];
   schedules: PMS230Schedule[];
   warnings: string[];
+  /** Schedule rows of the paste that could not be decoded and were left out.
+   *  Absent on reports stored before it existed. */
+  dropped?: number;
+  /** The cells of those rows as read, one entry per row (at most
+   *  `LOST_MAX`, each cut short): what the decoder could not make of them.
+   *  Kept with the raw page by the Worker, not in the stored report. */
+  lost?: string[];
   importedAt: string;
 }
 
@@ -67,7 +86,15 @@ const PRODUCT_RE  = /^33\d{7}$/;
 const DATE_RE     = /^\d{8}$/;
 const SHORT_INT_RE = /^\d{1,4}$/;
 const DECIMAL_RE  = /^\d+\.\d{2}$/;
-const THICKNESS_RE = /^\d{2}\.\d{2}$/;
+// Two decimals, or three as some rows print it (« 06.000 »): a thickness
+// missed here shifts the tolerance after it back into the customer.
+const THICKNESS_RE = /^\d{2}\.\d{2,3}$/;
+const TOLERANCE_RE = /^\d{1,2}\.\d{2,3}$/;
+// What the last row of a page runs into: the pager (« 1 of 6 », First Page…),
+// the busy indicator in front of it, the column legend underneath. Only the
+// pager's own phrases: a word such as « Loading » or « of 2000 » can be part
+// of a customer's name.
+const FOOTER_RE = /\s*(?:\bLoading\s+)?(?:\b\d+\s+of\s+\d+\b|First Page|Previous Page|Next Page|\bPage\s+of\s+\d+|Quality Group Description)[\s\S]*$/;
 const INCHES_RE   = /\s\d+\/\d+$/; // "126 3/8", "236 7/32"
 
 const NOISE_LINES = new Set([
@@ -157,13 +184,22 @@ function findScheduleAnchors(tokens: string[]): number[] {
 }
 
 // Where the MO may sit at the latest: schedule, suffix, three op steps, work
-// center, four start/end cells, Date Départ — the full head, nothing missing.
-const HEAD_MAX = 11;
+// center, four start/end cells, Date Départ, MTO/MTS — eleven cells, plus
+// room for whatever column the report grows next, so the next one doesn't
+// silently drop rows the way the MTO/MTS cell did. A slice already stops at
+// the next schedule, so the bound only caps how far a garbled head is read.
+const HEAD_MAX = 16;
 const TIME_RE = /^\d{1,2}:\d{2}$/;
+// The planning policy PMS230 prints in front of the MO since November 2026,
+// as a label, kept on the record: the Schedule takes it over the imported
+// policy table. Only labels: the numeric codes (10/50/90) would collide with
+// the op steps.
+const POLICY_RE = /^(MTO|MTS|Inactif)$/i;
+const POLICY_LABEL: Record<string, Policy> = { MTO: 'MTO', MTS: 'MTS', INACTIF: 'Inactif' };
 
 type HeadFields = Pick<
   DecodedRecord,
-  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart'
+  'schedSuffix' | 'opSteps' | 'opStepD' | 'workCenter' | 'startDate' | 'startTime' | 'endDate' | 'endTime' | 'dateDepart' | 'policy'
 >;
 
 // Reads the cells between the schedule and the MO by what they look like. Op
@@ -173,10 +209,22 @@ type HeadFields = Pick<
 // next slot of its own kind. A missing start time therefore leaves that slot
 // empty instead of pushing a date into it.
 function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null {
+  // The MO is the 1xxxxxxxxx cell followed by the 33xxxxxxx product code. A
+  // fixed slot doesn't hold: PMS230 added an MTO/MTS cell in front of the MO,
+  // which pushed it to position 12 on every row with a Date Départ — and those
+  // rows were dropped, import after import, keeping their stale « reste »
+  // (sched 2213000918, MO 1000227095, November 2026).
+  // Without any such pair, the first MO-looking cell is kept anyway, so that
+  // an unexpected product code is reported as such by decodeRecord rather
+  // than as a missing MO.
   let mo = -1;
+  let loose = -1;
   for (let k = 1; k <= HEAD_MAX && k < slice.length; k++) {
-    if (MO_RE.test(slice[k]!)) { mo = k; break; }
+    if (!MO_RE.test(slice[k]!)) continue;
+    if (PRODUCT_RE.test(slice[k + 1] ?? '')) { mo = k; break; }
+    if (loose < 0) loose = k;
   }
+  if (mo < 0) mo = loose;
   if (mo < 0) return null;
 
   const fields: HeadFields = {
@@ -202,6 +250,12 @@ function decodeHead(slice: string[]): { fields: HeadFields; mo: number } | null 
 
   for (let k = 1; k < mo; k++) {
     const t = slice[k]!;
+    // Before the work-center test: with an empty Work Center cell (innerText
+    // leaves no line for it), the label would otherwise be taken for one.
+    if (POLICY_RE.test(t)) {
+      fields.policy = POLICY_LABEL[t.toUpperCase()];
+      continue;
+    }
     if (!fields.workCenter && SHORT_INT_RE.test(t)) {
       if (k === 1 && t.length === 1) fields.schedSuffix = t;
       else ops.push(t);
@@ -347,11 +401,18 @@ function decodeRecord(slice: string[], warnings: string[], recordIdx: number): D
   if (i < slice.length && THICKNESS_RE.test(slice[i]!)) {
     r.thickness = slice[i++]!;
   }
+  // The tolerance, two cells (« 3.80 », « 4.20 ») or three decimals
+  // (« 3.800 »): not the customer, which they were taken for.
+  if (i < slice.length && TOLERANCE_RE.test(slice[i]!)) {
+    r.thickMin = slice[i++]!;
+    if (i < slice.length && TOLERANCE_RE.test(slice[i]!)) r.thickMax = slice[i++]!;
+  }
   if (i < slice.length) {
     // Anything left is the customer name (joined in case it contains spaces
     // that survived earlier `.trim()` since clipboard cells preserve internal
-    // whitespace as-is on a single line).
-    r.customer = slice.slice(i).join(' ').trim();
+    // whitespace as-is on a single line) — up to the page's footer, which the
+    // last row of a page runs into.
+    r.customer = slice.slice(i).join(' ').replace(FOOTER_RE, '').trim();
   }
 
   return r;
@@ -488,6 +549,15 @@ export function summariseSchedules(records: PMS230Record[]): PMS230Schedule[] {
   }));
 }
 
+// A schedule number on its own, or with one stray cell, is not a row: the
+// search criteria echo the schedule above the grid, and the pager leaves a
+// fragment or two. A real row has a dozen cells or more, so anything from here
+// up that fails to decode is a row lost — truncated ones included.
+const MIN_ROW_CELLS = 3;
+/** Dropped rows whose cells are kept, and how much of each. */
+const LOST_MAX = 20;
+const LOST_CELLS_MAX = 600;
+
 export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230Result {
   const isPayload = typeof textOrPayload === 'object' && textOrPayload !== null;
   const html = isPayload ? textOrPayload.html ?? null : null;
@@ -504,6 +574,8 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
   const warnings: string[] = [];
   const anchors = findScheduleAnchors(tokens);
   const records: PMS230Record[] = [];
+  let dropped = 0;
+  const lost: string[] = [];
 
   for (let a = 0; a < anchors.length; a++) {
     const start = anchors[a]!;
@@ -516,6 +588,9 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
         m2: rowM2(decoded),
         id: `${decoded.schedule}|${decoded.mo}|${a}`,
       });
+    } else if (slice.length >= MIN_ROW_CELLS) {
+      dropped++;
+      if (lost.length < LOST_MAX) lost.push(slice.join(' | ').slice(0, LOST_CELLS_MAX));
     }
   }
 
@@ -525,6 +600,8 @@ export function parsePMS230(textOrPayload: string | PMS230PastePayload): PMS230R
     records,
     schedules,
     warnings,
+    dropped,
+    lost,
     importedAt: new Date().toISOString(),
   };
 }
@@ -613,9 +690,11 @@ export function mergePMS230(
   // `next` (the fresher paste) — so re-importing a page updates its rows in
   // place and costs nothing, and the report only grows with new work.
   const incoming = new Set(next.records.map((r) => r.schedule));
-  if (!prev) return trimReport(next, incoming);
+  // `lost` is the page's, kept with its raw text: never in the stored report.
+  const { lost: _lost, ...fresh } = next;
+  if (!prev) return trimReport(fresh, incoming);
   const seen = new Map<string, PMS230Record>();
-  for (const r of next.records) seen.set(`${r.schedule}|${r.mo}`, r);
+  for (const r of fresh.records) seen.set(`${r.schedule}|${r.mo}`, r);
   for (const r of prev.records) {
     const k = `${r.schedule}|${r.mo}`;
     if (!seen.has(k)) seen.set(k, r);
@@ -627,7 +706,76 @@ export function mergePMS230(
   return trimReport({
     records,
     schedules: summariseSchedules(records),
-    warnings: [...(prev.warnings ?? []), ...(next.warnings ?? [])],
-    importedAt: next.importedAt,
+    // The last import's, not the sum of every import's: warnings only ever
+    // accumulated here, 518 of them after two months, mostly the same rows
+    // dropped again and again — and nothing ever read them back.
+    warnings: fresh.warnings ?? [],
+    dropped: fresh.dropped ?? 0,
+    importedAt: fresh.importedAt,
   }, incoming);
 }
+
+// --- Lines that left the report ----------------------------------------------
+
+/** The dates of the search a page of PMS230 answers. */
+export interface PMS230Search {
+  from: string;
+  to: string;
+}
+
+/**
+ * Takes out the lines M3 no longer reports, once a whole report has been read.
+ *
+ * Imports only ever add or update: a line M3 replaced or cancelled (MO
+ * 1000229251, 232 lites, split into 1000230291 for 116) stayed in the Schedule
+ * at 0 produced, for good. A walk that read every page of a search, without a
+ * row lost, knows every line that search covers. A stored line is gone from
+ * M3 when the walk did not see it although it saw its schedule in the same
+ * work center, and the line starts within the search's dates. Anything else
+ * may simply be outside the search — another work center than the one asked
+ * for, an earlier day — and is left alone, as are schedules the walk never saw.
+ */
+export function dropVanished(
+  prev: PMS230Result,
+  seen: Iterable<string>,
+  search: PMS230Search,
+): { result: PMS230Result; removed: PMS230Record[]; held: number } {
+  const keys = new Set(seen);
+  const key = (r: PMS230Record) => `${r.schedule}|${r.mo}`;
+  // Schedule × work center the walk saw, read off the stored lines it updated.
+  const covered = new Set(prev.records.filter((r) => keys.has(key(r))).map((r) => `${r.schedule}|${r.workCenter}`));
+  const removed: PMS230Record[] = [];
+  const records = prev.records.filter((r) => {
+    const gone =
+      !keys.has(key(r)) &&
+      covered.has(`${r.schedule}|${r.workCenter}`) &&
+      // A line whose start date was never read cannot be outside the search.
+      (!r.startDate || (r.startDate >= search.from && r.startDate <= search.to));
+    if (gone) removed.push(r);
+    return !gone;
+  });
+  if (!removed.length) return { result: prev, removed, held: 0 };
+
+  // M3 drops a line now and then; a walk that finds many gone at once more
+  // likely read the wrong grid (an answer that had not landed yet). Nothing
+  // is taken out then: removing is for good, and the next walk will tell.
+  const lines = new Map<string, number>();
+  for (const r of prev.records) lines.set(r.schedule, (lines.get(r.schedule) ?? 0) + 1);
+  // A line whose MO the walk saw under another schedule was moved there by M3
+  // (2213000922 → 2213000930/932, November 2026: seven of its ten MOs): the
+  // walk read it, so it says nothing about a wrong grid and is not counted.
+  const seenMos = new Set([...keys].map((k) => k.split('|')[1]));
+  const lost = removed.filter((r) => !seenMos.has(r.mo));
+  const gone = new Map<string, number>();
+  for (const r of lost) gone.set(r.schedule, (gone.get(r.schedule) ?? 0) + 1);
+  const tooMany =
+    lost.length > VANISHED_MAX ||
+    [...gone].some(([schedule, n]) => n > Math.max(VANISHED_PER_SCHEDULE_MIN, lines.get(schedule)! / 2));
+  if (tooMany) return { result: prev, removed: [], held: removed.length };
+  return { result: { ...prev, records, schedules: summariseSchedules(records) }, removed, held: 0 };
+}
+
+/** More lines gone in one walk than this (moved ones aside), and none is taken out. */
+const VANISHED_MAX = 30;
+/** In one schedule: more than half its lines, beyond this many. */
+const VANISHED_PER_SCHEDULE_MIN = 2;

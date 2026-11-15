@@ -1615,9 +1615,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .evt.evt-other.is-clickable:hover { background-color: color-mix(in srgb, var(--ink) 4%, var(--paper)); }
 .evt.evt-other.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.evt-empty::before {
-  content: '✎';
-  font-size: var(--fs-3xl);
+.evt-empty .evt-empty-icon {
   color: var(--line-soft);
   margin-bottom: 6px;
 }
@@ -2282,8 +2280,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 :root[data-theme='dark'] .seg button.active { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.seg button:has(.glyph) { white-space: nowrap; }
 .seg button .glyph {
-  display: inline-block;
+  display: inline-flex;
+  vertical-align: -2px;
   margin-right: 4px;
   font-size: var(--fs-sm);
   opacity: 0.7;
@@ -2627,6 +2627,59 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 .sch-detail .sch-controls { border-radius: 0; }
+/* In the schedule's header the controls lose their bar and close the row,
+   after the stat tiles, behind the same short divider the tiles share. */
+.sch-detail-head .sch-controls {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0 0 0 var(--space-5);
+  border: 0;
+  background: none;
+}
+.sch-detail-head .sch-controls::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 1px;
+  background: var(--line-faint);
+}
+.sch-detail-head-stats { padding-right: var(--space-5); }
+.sch-detail-head .sch-controls-end { gap: var(--space-1); margin-left: 0; }
+.sch-detail-head .sch-controls .btn.icon {
+  width: var(--d-ctl-h);
+  height: var(--d-ctl-h);
+  min-height: 0;
+  color: var(--ink-soft);
+}
+.sch-detail-head .sch-controls .btn.icon:hover { color: var(--ink); }
+
+/* The filter menu stacks its groups, one per line, under a hairline. */
+.sch-filter-menu { min-width: 240px; }
+.sch-filter-menu .sch-filter-group,
+.sch-controls .sch-filter-menu .sch-filter-group + .sch-filter-group {
+  padding-left: 0;
+  border-left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-faint);
+}
+/* A filter is on: a small accent dot on the funnel's corner. */
+.sch-filter-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, var(--ink));
+}
+.sch-cols-btn { position: relative; }
 .sch-filter-group {
   display: inline-flex;
   align-items: center;
@@ -2688,90 +2741,30 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 /* Œillet — greys the schedule's finished lines back into the table, where the
    planner's formula had dropped them. */
 .sch-eye-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
+  position: relative;
+}
+/* How many lines the œillet holds: a small faint figure tucked on the
+   icon's lower corner, read when looked for, not shouted. */
+.sch-icon-count {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-faint);
 }
 .sch-eye-btn.is-on {
   background: var(--paper-2);
   border-color: var(--ink-faint);
   color: var(--ink);
 }
-/* CSS-drawn like .sch-cols-icon. The lens is a square with two opposite
-   corners rounded, turned 45° so the points land left and right; the pupil is
-   the dot at its centre. */
-.sch-eye {
-  position: relative;
-  width: 13px;
-  height: 13px;
-  display: inline-block;
-  opacity: 0.75;
-}
-.sch-eye::before {
-  content: '';
-  position: absolute;
-  inset: 2.5px;
-  border: 1.25px solid currentColor;
-  border-radius: 100% 0;
-  transform: rotate(45deg);
-}
-.sch-eye::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3.5px;
-  height: 3.5px;
-  margin: -1.75px 0 0 -1.75px;
-  border-radius: 50%;
-  background: currentColor;
-}
-/* Struck through while the lines are away — the button then reads as "these
-   rows are not on screen", which is what its count is counting. */
-.sch-eye.is-off {
-  background: linear-gradient(
-    45deg,
-    transparent calc(50% - 0.7px),
-    currentColor calc(50% - 0.7px),
-    currentColor calc(50% + 0.7px),
-    transparent calc(50% + 0.7px)
-  );
-}
-/* Colonnes button — CSS-drawn column icon + chevron that rotates open.
-   Active state (menu visible) flips the chevron and pins the background
-   so the button reads as the source of the open popover. */
-.sch-cols-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
+/* Colonnes: pins its background while its menu is open, so the button reads
+   as the source of the popover. */
 .sch-cols-btn.is-open {
   background: var(--paper-2);
   border-color: var(--ink-faint);
   color: var(--ink);
-}
-.sch-cols-icon {
-  width: 12px;
-  height: 12px;
-  display: inline-block;
-  background:
-    linear-gradient(currentColor, currentColor) 0 0 / 2.5px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 4.75px 0 / 2.5px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 9.5px 0 / 2.5px 100% no-repeat;
-  opacity: 0.75;
-}
-.sch-cols-chevron {
-  width: 6px;
-  height: 6px;
-  display: inline-block;
-  border: solid currentColor;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-  transition: transform 150ms ease;
-  opacity: 0.75;
-}
-.sch-cols-btn.is-open .sch-cols-chevron {
-  transform: rotate(-135deg) translate(-1px, -1px);
 }
 .sch-cols-menu {
   right: 0;
@@ -2810,8 +2803,6 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   border-radius: var(--radius-sm);
 }
 .sch-cols-item:hover { background: var(--paper-2); }
-.sch-cols-item.is-pinned { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.sch-cols-item.is-pinned:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .sch-cols-item.is-hidden .sch-cols-opt span { color: var(--ink-faint); text-decoration: line-through; }
 .sch-cols-actions {
   display: inline-flex;
@@ -3260,40 +3251,6 @@ body.is-col-resizing * {
   background: color-mix(in srgb, var(--accent) 10%, var(--paper-2));
 }
 
-/* Pin glyph in the Colonnes menu — vertical bar + circle on the right,
-   filled when the column is pinned. */
-.sch-cols-pin { color: var(--ink-soft); }
-.sch-cols-pin.is-on { color: var(--accent); }
-.sch-pin-glyph {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  position: relative;
-}
-.sch-pin-glyph::before {
-  content: '';
-  position: absolute;
-  left: 2px;
-  top: 2px;
-  bottom: 2px;
-  width: 1.5px;
-  background: currentColor;
-  border-radius: 1px;
-}
-.sch-pin-glyph::after {
-  content: '';
-  position: absolute;
-  right: 2px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  transition: background 100ms ease;
-}
-.sch-cols-pin.is-on .sch-pin-glyph::after { background: currentColor; }
 .sch-cell.col-fmt { text-align: center; }
 .sch-cell.col-mto { text-align: center; }
 .sch-fmt-x { padding: 0 1px; }
@@ -3937,7 +3894,7 @@ body.is-col-resizing * {
    (.sb-print), the whole shift then every colour in turn. */
 .sheet.sb-sheet,
 .sheet.sc-sheet { --sheet-w: 760px; display: flex; flex-direction: column; gap: var(--space-6); }
-.sheet.sc-sheet { --sheet-w: 560px; }
+.sheet.sc-sheet { --sheet-w: 520px; }
 .sheet.sb-sheet .sheet-head,
 .sheet.sc-sheet .sheet-head { margin-bottom: 0; }
 .sb { display: flex; flex-direction: column; gap: var(--space-6); user-select: text; font-size: var(--fs-lg); }
@@ -4066,7 +4023,7 @@ body.is-col-resizing * {
   align-items: center;
   gap: var(--space-6);
   width: 100%;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   padding: var(--space-4) var(--space-6);
   border: 0;
   background: var(--paper);
@@ -4139,6 +4096,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
 .sc-input {
   display: flex;
   align-items: center;
+  height: var(--d-ctl-h);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   background: var(--paper);
@@ -4148,31 +4106,46 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   flex: 1;
   width: 100%;
   min-width: 0;
-  padding: var(--space-3);
+  padding: 0 var(--space-3);
   border: 0;
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 18px;
+  font-size: var(--fs-lg);
   font-variant-numeric: tabular-nums;
   outline: none;
 }
 .sc-unit { padding-right: var(--space-3); color: var(--ink-faint); font-size: var(--fs-sm); }
 .sc-field.is-bad .sc-input { border-color: var(--flag-unsched-bd); }
-.sc-result strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.5; }
-.sc-sub { font-size: var(--fs-sm); color: var(--ink-faint); }
-.sc-hint { margin: 0; font-size: var(--fs-sm); color: var(--ink-faint); }
+.sc-line .sc-field { flex-basis: 140px; }
+.sc-calcs { display: flex; flex-direction: column; gap: var(--space-3); }
+/* A calculation reads left to right: what is typed, an arrow, what comes out. */
 .sc-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--line-faint);
-  border-radius: var(--radius-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
   background: var(--paper-2);
 }
-.sc-card h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
-.sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+.sc-card .sc-field,
+.sc-card .sc-result { flex: none; }
+.sc-to { margin-bottom: calc((var(--d-ctl-h) - 18px) / 2); color: var(--ink-faint); }
+.sc-value {
+  display: flex;
+  align-items: center;
+  height: var(--d-ctl-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.sc-value.is-empty { color: var(--ink-faint); font-weight: 400; }
+.sc-actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: calc(-1 * var(--space-2)); }
 
 /* The bilan on paper: the workbook's frame isn't printed (.no-print), the
    page holds the bilan only, tighter than on screen and without the buttons'
@@ -4666,7 +4639,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   color: var(--ink);
   font: inherit;
   cursor: pointer;
-  min-height: 44px;
+  height: var(--d-ctl-h);
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .sv-station-btn:hover { border-color: var(--ink); }
@@ -5797,52 +5770,6 @@ button.as-row:focus-visible {
   font-style: italic;
 }
 
-/* Envoyer à Claude (EnvoiClaude.tsx): a sheet opened from Réglages. */
-.sheet.ec-sheet { --sheet-w: 560px; display: flex; flex-direction: column; gap: var(--space-6); }
-.sheet.ec-sheet .sheet-head { margin-bottom: 0; }
-.ec-drop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-6);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-md);
-  background: var(--paper-2);
-}
-.ec-drop.is-over { border-color: var(--accent); }
-.ec-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.ec-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-2) 0 var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--line-faint);
-}
-.ec-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ec-meta { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ec-item-note { grid-column: 1 / -1; margin-top: calc(-1 * var(--space-2)); white-space: pre-wrap; }
-.ec-note { display: flex; flex-direction: column; gap: 4px; }
-.ec-note textarea {
-  width: 100%;
-  padding: var(--space-3);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  resize: vertical;
-}
-.ec-note textarea:focus { outline: none; border-color: var(--accent); }
-.ec-progress { display: flex; flex-direction: column; gap: var(--space-2); }
-.ec-bar { height: 6px; border-radius: var(--radius-pill); background: var(--paper-2); overflow: hidden; }
-.ec-bar span { display: block; height: 100%; background: var(--accent); transition: width 120ms linear; }
-.ec-actions { display: flex; justify-content: flex-end; }
-.ec-sent { display: flex; flex-direction: column; gap: var(--space-3); }
-.ec-sent h4 { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
-.ec-sent p { margin: 0; }
-
 /* Loading and Unloading (LineTabs.tsx): the line's own input, a block per
    colour. A table on a tablet in landscape, cards on a phone; fields sized for
    a finger (40px), labelled by the table's head or, on a card, their own. */
@@ -5857,13 +5784,7 @@ button.as-row:focus-visible {
   margin: 0 auto;
   padding: var(--space-4) var(--space-6) 120px;
 }
-.ln-empty { align-items: center; justify-content: center; min-height: 320px; color: var(--ink-soft); text-align: center; }
-.ln-bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3) var(--space-6); }
-.ln-bar h2 { margin: 0; font-size: 18px; font-weight: 650; color: var(--ink); }
-.ln-bar-sum { color: var(--ink-soft); font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
-.ln-bar-sum strong { color: var(--ink); font-weight: 650; }
-.ln-bar-issues { color: var(--flag-unsched-fg); }
-.ln-bar-sync { margin-left: auto; color: var(--ink-faint); font-size: var(--fs-md); }
+.ln-empty { display: flex; align-items: center; justify-content: center; min-height: 320px; color: var(--ink-soft); text-align: center; }
 
 .ln-block {
   display: flex;
@@ -5889,6 +5810,7 @@ button.as-row:focus-visible {
   cursor: text;
 }
 .ln-colour-name.is-none { color: var(--flag-unsched-fg); cursor: default; }
+.ln-colour-name.is-fixed { cursor: default; }
 .ln-colour-edit .ln-input { width: 14em; font-weight: 650; }
 .ln-block-sum { color: var(--ink-soft); font-size: var(--fs-base); font-variant-numeric: tabular-nums; }
 .ln-name-none { display: flex; align-items: center; gap: var(--space-3); color: var(--ink-soft); font-size: var(--fs-md); }
@@ -6036,6 +5958,7 @@ select.ln-input { padding-right: var(--space-2); }
 .ln-newcolour label { color: var(--ink-soft); font-size: var(--fs-base); font-weight: 600; }
 .ln-newcolour-row { display: flex; gap: var(--space-4); }
 .ln-newcolour .ln-input { max-width: 18em; text-transform: uppercase; font-weight: 650; }
+.ln-newcolour-row .btn { height: var(--ln-h); min-height: 0; padding: 0 var(--space-6); }
 .ln-newcolour.is-first { align-items: center; padding: var(--space-10) var(--space-7); text-align: center; }
 .ln-newcolour.is-first label { font-size: var(--fs-2xl); color: var(--ink); }
 
@@ -6115,9 +6038,80 @@ select.ln-input { padding-right: var(--space-2); }
 .hdr-item:hover,
 .hdr-item:focus-visible { background: var(--paper-2); outline: none; }
 .hdr-item[aria-checked='true'] { background: var(--paper-2); }
-.hdr-item > svg,
-.hdr-item-glyph { flex: none; width: 16px; color: var(--ink-soft); text-align: center; }
+.hdr-item > svg { flex: none; color: var(--ink-soft); }
 .hdr-item-label { flex: 1; }
-.hdr-item-go { color: var(--ink-faint); }
-.hdr-back { align-self: flex-start; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-soft); font: inherit; font-size: var(--fs-md); cursor: pointer; }
+.hdr-history { display: inline-flex; gap: 2px; }
+.app-header .hdr-history .btn:disabled { opacity: 0.35; cursor: default; }
+/* With the tools in their menu, the two stay beside it. */
+.app-header .hdr-end { display: flex; align-items: center; gap: var(--space-3); }
+.app-header .hdr-end > .hdr-tools { margin-left: 0; }
+.app-header .hdr-history .btn.icon { width: var(--d-ctl-h); height: var(--d-ctl-h); min-height: 0; }
+.hdr-item-go { display: inline-flex; color: var(--ink-faint); }
+.hdr-back { display: inline-flex; align-items: center; gap: 2px; align-self: flex-start; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-soft); font: inherit; font-size: var(--fs-md); cursor: pointer; }
 .hdr-back:hover { background: var(--paper-2); color: var(--ink); }
+
+/* Schedule on two control heights. What is clicked or typed into takes the
+   header's control height (--d-ctl-h: 30 px, 26 compact, 34 advanced); the
+   filter chips sit one step under, at 24. The summary strip is 30, with
+   Réimporter and the policy chip at 20; « N terminés » and Vitesse at 15.
+   Screen only: paper keeps its
+   own sizes. */
+@media screen {
+  /* The summary strip is a thin line: 30 px, Réimporter and the policy chip 20. */
+  :root:not(.is-print-preview) .sch-summary {
+    box-sizing: border-box;
+    min-height: 30px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  :root:not(.is-print-preview) .sch-summary .btn {
+    height: 20px;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 20px;
+    border-radius: var(--radius-pill);
+  }
+  :root:not(.is-print-preview) .sch-policy-chip { box-sizing: border-box; height: 20px; }
+  :root:not(.is-print-preview) .sch-rail-done-btn { height: 15px; line-height: 15px; }
+  :root:not(.is-print-preview) .sch-stat-tile-input .sch-vitesse-input {
+    box-sizing: border-box;
+    height: 15px;
+  }
+  :root:not(.is-print-preview) .sch-filter-chip { height: 24px; min-height: 0; }
+  /* A floor, not a height: on a wide screen the rail is a column and each
+     item wraps its figures onto a second line. */
+  :root:not(.is-print-preview) .sch-rail-item {
+    min-height: var(--d-ctl-h);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    justify-content: center;
+  }
+  /* A text link, but a finger-sized target: the 30 px is invisible padding. */
+  :root:not(.is-print-preview) .sch-rail-done-btn {
+    position: relative;
+  }
+  :root:not(.is-print-preview) .sch-rail-done-btn::after {
+    content: '';
+    position: absolute;
+    inset: calc((var(--fs-2xs) - var(--d-ctl-h)) / 2) -6px;
+  }
+  :root:not(.is-print-preview) .sch-row.sch-head,
+  :root:not(.is-print-preview) .sch-row.sch-total,
+  :root:not(.is-print-preview) .sch-row.sch-group-break { height: var(--d-ctl-h); }
+  :root:not(.is-print-preview) .sch-row.sch-head .sch-cell,
+  :root:not(.is-print-preview) .sch-row.sch-total .sch-cell,
+  :root:not(.is-print-preview) .sch-row.sch-group-break .sch-cell {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}
+
+/* Phone: the summary strip wraps onto two lines, so it grows past 30 px
+   instead of letting the readings spill under the next card. */
+@media screen and (max-width: 640px) {
+  :root:not(.is-print-preview) .sch-summary {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+}

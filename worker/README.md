@@ -102,7 +102,9 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `PUT  /api/policy` body: `PolicyResult`
 - `GET  /api/schedules` → `{ data: PMS230Result | null, updated_at }` — PMS230 report, gated by local/sync toggle
 - `PUT  /api/schedules` body: `PMS230Result | null` — accepts up to 2 MB, where the other routes stop at 512 KB (see below)
-- `POST /api/schedules/ingest` body: `{ text: string }` — direct import, always additive (see below)
+- `POST /api/schedules/ingest` body: `{ text: string }` — direct import: every page adds; `{ sweep: { seen, search } }` ends a walk that read the whole report and takes out the lines M3 no longer reports (see below)
+  - Each page's raw text is kept in `schedule_raw` (migration 0010) so the decoder can be replayed on the real report: one row per distinct page, its last-seen date moved on (and what today's decoder makes of it refreshed) when it comes back, never deleted: the report's history is kept for diagnosis.
+  - `{ run: {...} }` keeps the extension's account of a run (2.9.0+) in `schedule_runs` (migration 0011): version, trigger (`auto`, `button`, `prepare`, `scrape`), the verdict shown, and the whole reply — pages read, waits per page, refusals, restarts, why the cleanup did or did not happen, MOs removed or held. Never deleted. Read back through D1: `SELECT datetime(at/1000,'unixepoch'), trigger, kind, data FROM schedule_runs ORDER BY at DESC`. Written in the background (`ctx.waitUntil`), so a page's answer never waits for it. The cells of rows the decoder could not read are kept in its `lost` column. Reading it back goes through D1 (`SELECT text FROM schedule_raw ORDER BY last_at DESC`), there is no route.
 - `GET  /api/speeds` → `{ data: Record<schedule, number> | null, updated_at }` — coater speed (m/min) per schedule
 - `PUT  /api/speeds` body: `Record<schedule, number>`
 - `GET  /api/archives` → `{ data: Record<schedule, ISO date> | null, updated_at }` — schedules retirés du planning
@@ -122,10 +124,11 @@ record, in the order of their `seq`.
 
 ## Envoyer à Claude
 
-Réglages → *Envoyer à Claude* opens a sheet (`src/components/EnvoiClaude.tsx`)
-that sends files — a logbook `.xlsm`, a photo, a PDF — or a plain note, for
-Claude to read in a later session. A note sent without a file is stored as a
-`note-YYYY-MM-DD-HHMM.txt` of its own.
+A reception endpoint for files — a logbook `.xlsm`, a photo, a PDF — that Claude
+reads in a later session. There is no front-end for it: the plant PC's browser
+blocks uploads, so a file is sent instead by a small `envoyer-claude.bat` that
+POSTs it with Windows' built-in `curl`. `POST /api/uploads?name=…` takes the raw
+bytes; the bytes are what matter, the `name` is just a label.
 
 Storage is D1, not R2: the account's deploy token only covers D1, and D1 is
 what Claude already reaches through the Cloudflare connector. A file is cut

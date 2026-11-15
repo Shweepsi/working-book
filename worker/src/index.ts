@@ -2,7 +2,7 @@
 // its natural partition. The front owns conflict resolution (last-write-wins);
 // the Worker is a thin persistence layer.
 
-import { mergePMS230, parsePMS230, type PMS230Result } from '../../src/lib/pms230Parser';
+import { dropVanished, mergePMS230, parsePMS230, type PMS230Result, type PMS230Search } from '../../src/lib/pms230Parser';
 import { buildICS, parsePoste } from './calendar';
 import { GRID_METHODS, handleGrid } from './grid';
 import { LINE_METHODS, handleLine } from './line';
@@ -56,7 +56,7 @@ const UPLOAD_NAME_MAX = 200;
 const UPLOAD_NOTE_MAX = 1000;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const origin = request.headers.get('Origin');
     const url = new URL(request.url);
     // CORS is per-path: only the ingest endpoint answers to the Infor origins,
@@ -106,7 +106,7 @@ export default {
         case '/api/updates':
           return await handleUpdates(request, url, env, cors);
         case INGEST_PATH:
-          return await handleSchedulesIngest(request, env, cors);
+          return await handleSchedulesIngest(request, env, cors, ctx);
         case UPLOADS_PATH:
           return await handleUploads(request, url, env, cors);
         case UPLOAD_FILE_PATH:
@@ -575,29 +575,40 @@ async function writeSchedules(env: Env, value: unknown): Promise<number> {
 // parser the paste sheet uses, so no route can drift from the others, and merge
 // the result into the shared report.
 //
-// Every import adds. There is no replace: an operator walking a multi-page
+// Every page adds. There is no replace: an operator walking a multi-page
 // report, or re-importing after a fresh search, only ever wants more rows —
 // and `mergePMS230` keys on schedule|MO, so re-sending the same page updates
-// those rows in place instead of duplicating them. Taking a schedule out of the
+// those rows in place instead of duplicating them. The one removal is the end
+// of a walk that read the whole report (`endSweep`): lines M3 no longer
+// reports. Taking a schedule out of the
 // planning is a deliberate act done from the Schedule tab, and it retires the
 // schedule (see `/api/archives`) rather than deleting it.
 async function handleSchedulesIngest(
   request: Request,
   env: Env,
   cors: Record<string, string>,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, cors, 405);
 
   const body = await readJsonBody(request, INGEST_MAX_BODY_BYTES);
   if (!body || typeof body !== 'object') return json({ error: 'expected_object' }, cors, 400);
+  if ('sweep' in body) return await endSweep((body as { sweep?: unknown }).sweep, env, cors);
+  if ('run' in body) return await noteRun((body as { run?: unknown }).run, env, cors);
   const { text } = body as { text?: unknown };
   if (typeof text !== 'string' || !text.trim()) return json({ error: 'missing_text' }, cors, 400);
 
   const parsed = parsePMS230(text);
+  // Before anything can refuse the page: a page nothing decoded from is the
+  // one worth reading back. In the background: the page's answer does not
+  // wait for a copy kept for whoever looks into it.
+  ctx.waitUntil(keepRawPage(env, text, parsed));
   if (parsed.records.length === 0) {
     // Text arrived but no row survived decoding — usually the wrong screen, or
     // a search that returned nothing. Say so rather than touching the report.
-    return json({ error: 'no_records', warnings: parsed.warnings.slice(0, 10) }, cors, 422);
+    // `skipped` says when it was rows that failed to decode, not an empty
+    // screen: the extension must not blame the server for the decoder.
+    return json({ error: 'no_records', skipped: parsed.dropped ?? 0, warnings: parsed.warnings.slice(0, 10) }, cors, 422);
   }
 
   const { result: merged, purged } = mergePMS230(await readSchedules(env), parsed);
@@ -614,10 +625,98 @@ async function handleSchedulesIngest(
       // with no screen of its own, and this is the only place it can be said.
       purged: purged.length,
       warnings: parsed.warnings.length,
+      // Rows of this page the decoder could not read and left out: what the
+      // extension has to say out loud, since « imported » alone looked like a
+      // clean run while fifty of them were being dropped.
+      skipped: parsed.dropped ?? 0,
+      // The lines this page holds: the extension gathers them over a walk and
+      // hands them back once every page is read, so the lines M3 no longer
+      // reports can be taken out (see endSweep).
+      seen: parsed.records.map((r) => `${r.schedule}|${r.mo}`),
       updated_at: updatedAt,
     },
     cors,
   );
+}
+
+// The raw text of each page the extension sends, to replay the decoder on the
+// real report (table schedule_raw). A page already kept only has its last-seen
+// date moved on. Nothing is ever deleted: the report's history is the raw
+// material for whatever goes wrong next (a page costs ~15 KB, and only a page
+// that changed adds one). Never allowed to fail an import: this is for
+// whoever looks into one.
+// D1 refuses a value over 2 000 000 bytes — bytes, not characters: an
+// accented customer name weighs two.
+const RAW_MAX_BYTES = 1_900_000;
+
+async function keepRawPage(env: Env, text: string, parsed: ReturnType<typeof parsePMS230>): Promise<void> {
+  try {
+    const bytes = new TextEncoder().encode(text);
+    if (bytes.length > RAW_MAX_BYTES) return;
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    // What the page decodes to is today's decoder's word, refreshed every time
+    // it comes back: after a decoder fix, the same text reads differently.
+    await env.DB.prepare(
+      `INSERT INTO schedule_raw (hash, first_at, last_at, records, dropped, lost, text)
+       VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)
+       ON CONFLICT(hash) DO UPDATE SET last_at = ?2, seen = seen + 1,
+         records = excluded.records, dropped = excluded.dropped, lost = excluded.lost`,
+    )
+      .bind(hash, Date.now(), parsed.records.length, parsed.dropped ?? 0, parsed.lost?.length ? JSON.stringify(parsed.lost) : null, text)
+      .run();
+  } catch (err) {
+    console.error('schedule_raw', err);
+  }
+}
+
+// The extension's account of a run (2.9.0+), as it saw it: kept whole in
+// schedule_runs, beside the pages it read (schedule_raw). What the walk did —
+// pages, waits, refusals, why a cleanup did not happen — only ever reached the
+// extension's tooltip before. Nothing is deleted.
+const RUN_MAX_BYTES = 512 * 1024;
+
+async function noteRun(run: unknown, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (!run || typeof run !== 'object' || Array.isArray(run)) return json({ error: 'bad_run' }, cors, 400);
+  const data = JSON.stringify(run);
+  if (new TextEncoder().encode(data).length > RUN_MAX_BYTES) return json({ error: 'run_too_large' }, cors, 413);
+  const r = run as { version?: unknown; trigger?: unknown; summary?: { kind?: unknown } };
+  const text = (v: unknown) => (typeof v === 'string' ? v.slice(0, 40) : null);
+  await env.DB.prepare('INSERT INTO schedule_runs (at, version, trigger, kind, data) VALUES (?1, ?2, ?3, ?4, ?5)')
+    .bind(Date.now(), text(r.version), text(r.trigger), text(r.summary?.kind), data)
+    .run();
+  return json({ ok: true }, cors);
+}
+
+// The end of a walk that read every page of a search without losing a row:
+// `{ sweep: { seen, search } }`. Imports only add, so a line M3 replaced or
+// cancelled stayed at 0 produced for good; this is where it goes. The rules
+// (only a schedule and work center the walk saw, only inside the search's
+// dates) are `dropVanished`'s.
+const SWEEP_MAX_KEYS = 20000;
+const KEY_RE = /^22\d{8}\|1\d{9}$/;
+
+async function endSweep(sweep: unknown, env: Env, cors: Record<string, string>): Promise<Response> {
+  const { seen, search } = (sweep ?? {}) as { seen?: unknown; search?: unknown };
+  const s = search as Partial<PMS230Search> | null | undefined;
+  if (
+    !Array.isArray(seen) ||
+    seen.length > SWEEP_MAX_KEYS ||
+    !seen.every((k) => typeof k === 'string' && KEY_RE.test(k)) ||
+    !s ||
+    typeof s.from !== 'string' ||
+    typeof s.to !== 'string' ||
+    !/^\d{8}$/.test(s.from) ||
+    !/^\d{8}$/.test(s.to)
+  ) {
+    return json({ error: 'bad_sweep' }, cors, 400);
+  }
+  const prev = await readSchedules(env);
+  if (!prev) return json({ ok: true, removed: 0, held: 0 }, cors);
+  const { result, removed, held } = dropVanished(prev, seen as string[], s as PMS230Search);
+  if (removed.length) await writeSchedules(env, result);
+  // `held`: lines missing from the walk but left in place, too many at once.
+  return json({ ok: true, removed: removed.length, mos: removed.map((r) => `${r.schedule}|${r.mo}`), held }, cors);
 }
 
 // MTO/MTS policy — singleton lookup table shared across every client. Same

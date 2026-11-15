@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import EnvoiClaude from './components/EnvoiClaude';
 import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
@@ -18,7 +17,8 @@ import SuiviCalculs from './components/SuiviCalculs';
 import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
 import LineTab from './components/LineTabs';
 import ToolsMenu from './components/ToolsMenu';
-import { CalcIcon, PrintIcon } from './components/icons';
+import { CalcIcon, CloseIcon, NextIcon, PrevIcon, PrintIcon, RedoIcon, UndoIcon } from './components/icons';
+import { redoLine, undoLine, useLineSnapshot } from './lib/lineSync';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -130,7 +130,6 @@ export default function App() {
   const [printPreview, setPrintPreview] = useState(false);
   // The line's calculators (time for plates, plates in a time): one way in, from every page.
   const [calcOpen, setCalcOpen] = useState(false);
-  const [envoiOpen, setEnvoiOpen] = useState(false);
   // The shift's bilan (previews): a sheet over whatever page is showing, the
   // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
   const [bilanOpen, setBilanOpen] = useState(false);
@@ -352,6 +351,22 @@ export default function App() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const toolsWidth = useRef(0);
   const [toolsMenu, setToolsMenu] = useState(false);
+  // Annuler / Rétablir for tablets (Ctrl+Z / Ctrl+Y otherwise): the line's input only.
+  const lineSnap = useLineSnapshot();
+  const linePart = poste && (tab === 'loading' || tab === 'unloading') ? { date, poste } : null;
+  const history = linePart
+    ? { canUndo: lineSnap.canUndo, canRedo: lineSnap.canRedo, onUndo: () => undoLine(linePart), onRedo: () => redoLine(linePart) }
+    : null;
+  const historyButtons = history && (
+    <span className="hdr-history" role="group" aria-label="Historique">
+      <button type="button" className="btn ghost icon" onClick={history.onUndo} disabled={!history.canUndo} aria-label="Annuler" title="Annuler (Ctrl+Z)">
+        <UndoIcon />
+      </button>
+      <button type="button" className="btn ghost icon" onClick={history.onRedo} disabled={!history.canRedo} aria-label="Rétablir" title="Rétablir (Ctrl+Y)">
+        <RedoIcon />
+      </button>
+    </span>
+  );
   useLayoutEffect(() => {
     const h = headerRef.current;
     if (!h || typeof ResizeObserver === 'undefined') return;
@@ -374,7 +389,6 @@ export default function App() {
   return (
     <div className="app">
       {calcOpen && <SuiviCalculs onClose={() => setCalcOpen(false)} />}
-      {envoiOpen && <EnvoiClaude onClose={() => setEnvoiOpen(false)} />}
       <header ref={headerRef} className={`app-header no-print${TABS.length > 1 || SHIFT_HEADER ? '' : ' is-single-view'}`}>
         <div className="brand">
           <span className="brand-name">Working Book</span>
@@ -406,7 +420,7 @@ export default function App() {
                 aria-label="Poste précédent"
                 title="Poste précédent"
               >
-                ‹
+                <PrevIcon />
               </button>
               <input
                 type="date"
@@ -421,7 +435,7 @@ export default function App() {
                 aria-label="Poste suivant"
                 title="Poste suivant"
               >
-                ›
+                <NextIcon />
               </button>
               <button
                 type="button"
@@ -457,29 +471,33 @@ export default function App() {
         )}
 
         {toolsMenu ? (
-          <ToolsMenu
-            bilan={showBilan ? { part: poste ? { date, poste } : null, onOpen: () => setBilanOpen(true) } : null}
-            onCalc={() => setCalcOpen(true)}
-            printPreview={printPreview}
-            onPrintPreview={() => setPrintPreview((v) => !v)}
-            settings={{
-              theme,
-              onThemeChange: setTheme,
-              density,
-              onDensityChange: setDensity,
-              onSendToClaude: SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined,
-            }}
-          />
+          // Annuler / Rétablir stay out of the menu: a step back is one tap, as often as needed.
+          <div className="hdr-tools hdr-end">
+            {historyButtons}
+            <ToolsMenu
+              bilan={showBilan ? { part: poste ? { date, poste } : null, onOpen: () => setBilanOpen(true) } : null}
+              onCalc={() => setCalcOpen(true)}
+              printPreview={printPreview}
+              onPrintPreview={() => setPrintPreview((v) => !v)}
+              settings={{
+                theme,
+                onThemeChange: setTheme,
+                density,
+                onDensityChange: setDensity,
+              }}
+            />
+          </div>
         ) : (
           <div className="shift-meta hdr-tools" ref={toolsRef}>
             <SyncIndicator />
+            {historyButtons}
             {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
             <button
               type="button"
               className="btn ghost icon calc-trigger"
               onClick={() => setCalcOpen(true)}
-              aria-label="Calculs de ligne"
-              title="Calculs de ligne : temps pour un nombre de plaques, plaques dans un temps"
+              aria-label="Calcul Temps"
+              title="Calcul Temps"
             >
               <CalcIcon />
             </button>
@@ -502,7 +520,6 @@ export default function App() {
               onThemeChange={setTheme}
               density={density}
               onDensityChange={setDensity}
-              onSendToClaude={SYNC_ENABLED ? () => setEnvoiOpen(true) : undefined}
             />
           </div>
         )}
@@ -645,7 +662,7 @@ function KeyboardHelp({ onClose }: { onClose: () => void }) {
         <div className="grabber" />
         <div className="sheet-head">
           <h3>Raccourcis clavier</h3>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
         <dl className="kbd-help-list">
           {rows.map((r) => (

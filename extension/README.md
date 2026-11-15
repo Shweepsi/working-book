@@ -93,8 +93,8 @@ un **verdict**, pas le récapitulatif :
 - **Terminé OK** — suivi du résultat, « 651 lignes importées », puis du nombre
   de pages, sur la même ligne ;
 - **Terminé — avertissement** — l'import a eu lieu, mais quelque chose mérite
-  un regard : pages refusées par le serveur, serveur secondaire en échec,
-  terminés non inclus. Les raisons suivent, en quelques mots ;
+  un regard : lignes ignorées (le serveur n'a pas pu les lire), pages refusées
+  par le serveur, serveur secondaire en échec, terminés non inclus. Les raisons suivent, en quelques mots ;
 - **NOK** — rien n'a atteint le rapport : écran PMS230 absent, recherche non
   lancée, toutes les pages refusées, exécution interrompue.
 
@@ -240,6 +240,38 @@ toute la fenêtre, schedules terminés compris, quel que soit l'état dans leque
 le dernier opérateur a laissé la case. Le compte-rendu le dit à chaque
 exécution (« Terminés inclus », ou en avertissement si la case n'a pas été
 trouvée ou n'a pas pu être cochée).
+
+**Chaque exécution est notée sur le serveur** (2.9.0) : le compte-rendu
+complet, tel que l'infobulle et les options le montrent, avec les attentes page
+par page et la chronologie de la grille, part avec la version de l'extension et
+ce qui l'a lancée (alarme, bouton). Avec les pages brutes que le serveur garde
+déjà, une lecture qui s'est mal passée se diagnostique sans capture d'écran.
+
+**Les lignes que M3 ne rapporte plus sont retirées** à la fin d'un parcours
+complet. Un import ajoute ou met à jour les lignes. Sans ce retrait, un MO que M3 a
+remplacé, découpé ou annulé (1000229251, 232 lites, découpé en 1000230291
+pour 116) restait dans le Schedule à 0 produit, indéfiniment. Une ligne enregistrée est
+retirée quand ces quatre conditions sont réunies :
+
+- le parcours a lu toutes les pages annoncées par le pager, sans page refusée
+  ni ligne ignorée, et avec « Incl. Completed » coché ;
+- il a vu le schedule de la ligne, dans le même Work Center ;
+- il n'a pas vu son MO ;
+- la date de début de la ligne est entre From et To (dates saisies par l'extension), ou elle n'a jamais été lue.
+
+Garde-fou : si plus de 30 lignes, ou plus de la moitié d'un schedule (au-delà
+de 2), manquent en une fois, rien n'est retiré. Une telle perte en une fois
+ressemble plus à une grille mal lue qu'à des MO annulés. Un MO que le parcours a
+revu dans un autre schedule ne compte pas : M3 l'a déplacé, il est retiré de
+l'ancien schedule quel que soit leur nombre (2213000922, novembre 2026 : 7 MO
+sur 10 passés dans 2213000930 et 2213000932). Le verdict passe alors
+en orange (« N lignes absentes de PMS230, non retirées »). Quand le nettoyage
+n'a pas pu se faire (lecture incomplète, case non cochée…), le compte-rendu
+dit pourquoi.
+
+Un MO replanifié au-delà de la date To sort donc du Schedule. Il revient au
+premier import où il est de nouveau dans la fenêtre. Le compte-rendu
+nomme les MO retirés.
 
 L'onglet Mingle doit rester ouvert et la session Infor valide — l'extension
 pilote la page de l'opérateur, elle ne se connecte pas à Infor.

@@ -16,7 +16,7 @@ import { computeLineBilan } from '../lib/lineBilan';
 import { lineSync, useLine } from '../lib/lineSync';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { addDaysISO } from '../lib/shiftCalendar';
-import { BilanIcon } from './icons';
+import { AddIcon, BilanIcon, CloseIcon, MinusIcon, NextIcon } from './icons';
 import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
 
 /** A row the bilan points at: its tab and record. */
@@ -176,7 +176,7 @@ function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (target: Bi
             <button type="button" className="sb-check" onClick={() => onPick(x.target as BilanTarget)} title={`Voir la ligne dans ${x.target.tab === 'loading' ? 'Loading' : 'Unloading'}`}>
               <span>{x.text}</span>
               <span className="sb-go" aria-hidden="true">
-                ›
+                <NextIcon size={14} />
               </span>
             </button>
           ) : (
@@ -251,15 +251,15 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
               </span>
               <span className="sb-stepper">
                 <button type="button" onClick={() => update(l.id, { nombre: Math.max(0, l.nombre - 1) })} aria-label="Une plaque de moins" disabled={l.nombre <= 0}>
-                  −
+                  <MinusIcon size={16} />
                 </button>
                 <input value={String(l.nombre)} onChange={(e) => update(l.id, { nombre: count(e.target.value) })} inputMode="numeric" aria-label="Nombre de plaques" />
                 <button type="button" onClick={() => update(l.id, { nombre: Math.min(9999, l.nombre + 1) })} aria-label="Une plaque de plus">
-                  +
+                  <AddIcon size={16} />
                 </button>
               </span>
               <button type="button" className="btn ghost icon sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
-                ✕
+                <CloseIcon size={14} />
               </button>
             </li>
           ))}
@@ -472,7 +472,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
               Imprimer
             </button>
             <button type="button" className="btn ghost icon" onClick={onClose} aria-label="Fermer">
-              ✕
+              <CloseIcon />
             </button>
           </div>
         </div>

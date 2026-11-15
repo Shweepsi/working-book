@@ -3,6 +3,7 @@ import { EVENT_TYPES, FLAGS } from '../data/eventTypes';
 import { useEscapeToClose } from '../lib/hooks';
 import { fmtHM } from '../lib/time';
 import type { LogEvent } from '../types';
+import { ClockIcon, CloseIcon, WarnIcon } from './icons';
 
 type Draft = Omit<LogEvent, 'id'> & { id?: string };
 
@@ -97,7 +98,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
             <h3>{isNew ? 'Nouvel événement' : 'Modifier l’événement'}</h3>
             {summary && <div className="sheet-head-sub mono">{summary}</div>}
           </div>
-          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer">✕</button>
+          <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
 
         <div className="form-grid">
@@ -137,7 +138,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                   title="Mise en page : marquer comme consigne / danger"
                   aria-pressed={!!draft.danger}
                 >
-                  ⚠
+                  <WarnIcon size={14} />
                 </button>
               </span>
             </label>
@@ -173,7 +174,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                     title="Définir le début à maintenant"
                     aria-label="Définir le début à maintenant"
                   >
-                    ◷
+                    <ClockIcon size={15} />
                   </button>
                 </div>
                 <span className="arrow">→</span>
@@ -194,7 +195,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                     title="Définir la fin à maintenant"
                     aria-label="Définir la fin à maintenant"
                   >
-                    ◷
+                    <ClockIcon size={15} />
                   </button>
                 </div>
               </div>
@@ -237,7 +238,7 @@ export default function EventEditor({ event, onSave, onDelete, onClose }: EventE
                   onClick={() => removeNote(i)}
                   aria-label="Supprimer la note"
                 >
-                  ✕
+                  <CloseIcon size={14} />
                 </button>
               </div>
             ))}

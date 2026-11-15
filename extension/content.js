@@ -232,6 +232,8 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
   let pages = 0;
   let rows = 0;
   let imported = 0;
+  // Rows the server read but could not decode, summed over the pages.
+  let skipped = 0;
   const failures = [];
   // Mirrors that refused at least one page. A set, not a list: the same server
   // failing on all thirty pages is one thing gone wrong, said once.
@@ -249,6 +251,12 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
   // on screen — once; a second time is a screen that keeps resetting, and the
   // pages already sent were updated, not duplicated, so nothing is lost.
   let restarts = 0;
+  // Every line the server read during the walk, and the search it answers:
+  // handed back once the whole report has been read, so the lines M3 no
+  // longer reports can be taken out (see finishSweep).
+  const keys = new Set();
+  // Whether the walk read every page the pager announced.
+  let complete = false;
 
   let before = null;
   let expectPage = null;
@@ -285,7 +293,9 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
         pages = 0;
         rows = 0;
         imported = 0;
+        skipped = 0;
         failures.length = 0;
+        keys.clear();
         before = null;
         expectPage = ready.pager?.page ?? null;
         first = false;
@@ -318,8 +328,14 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     // What the server actually stored, not what the page appeared to hold:
     // the two differ whenever a row fails to decode, and the summary would
     // otherwise claim an import that never happened.
-    if (result?.ok) imported += Number(result.imported) || 0;
-    else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
+    if (result?.ok) {
+      imported += Number(result.imported) || 0;
+      skipped += Number(result.skipped) || 0;
+      for (const k of result.seen ?? []) keys.add(k);
+    } else if (result?.status === 422 && Number(result.skipped) > 0) {
+      // Every row of the page failed to decode: rows lost, not a refusal.
+      skipped += Number(result.skipped);
+    } else failures.push({ page: pages, error: result?.error ?? 'inconnu' });
     // The counts above are the reference server's. The others are posted to in
     // the same breath, and one of them lagging behind shows up nowhere else.
     for (const target of result?.targets ?? []) {
@@ -339,14 +355,49 @@ async function sweep(maxPages, mark = { rows: 0, at: 0 }, { settled = false } = 
     // The pager's word beats the button's: on this screen "next" stays
     // clickable on the last page and wraps to the first.
     const { page, pages: pageCount } = ready.pager ?? {};
-    if (page != null && pageCount != null && page >= pageCount) break;
+    if (page != null && pageCount != null && page >= pageCount) {
+      // Pages 1 to N, each read once: the whole report, by the pager's word.
+      complete = seenPages.size === pageCount;
+      break;
+    }
     mark = globalThis.wbMashup?.gridMark?.() ?? mark;
     if (!globalThis.wbMashup?.nextPage()) break;
     before = h;
     expectPage = pageNo != null ? pageNo + 1 : null;
   }
 
-  return { pages, rows, imported, failures, refused: [...refused], timings, restarts, firstHash };
+  // Only a walk that missed nothing can say a line is gone: a page not read, a
+  // page refused or a row left undecoded would each pass for lines M3 dropped.
+  // Why not, when not: the summary says it, rather than a cleanup that
+  // silently never happens.
+  const partial = !complete
+    ? 'toutes les pages n’ont pas été lues'
+    : failures.length
+      ? 'page refusée'
+      : skipped
+        ? 'lignes ignorées'
+        : null;
+  return { pages, rows, imported, skipped, failures, refused: [...refused], timings, restarts, firstHash, partial, keys: [...keys] };
+}
+
+// Once a walk has read the whole report: the server takes out, from each
+// schedule the walk saw, the lines it did not see. `window` is the dates the
+// search was asked for, as the form was filled. Answers with what went, or
+// why nothing was looked at.
+async function finishSweep(swept, result) {
+  if (swept.partial) return { skipped: swept.partial };
+  if (!(result?.completed?.found && result.completed.now)) {
+    // Without « Incl. Completed » ticked the report leaves out every
+    // finished line, which would pass for lines M3 dropped.
+    return { skipped: '« Incl. Completed » non coché' };
+  }
+  const search = result.window;
+  if (!search) return { skipped: 'dates de la recherche inconnues' };
+  try {
+    return (await chrome.runtime.sendMessage({ type: 'wb-sweep-end', seen: swept.keys, search })) ?? { skipped: 'pas de réponse' };
+  } catch {
+    return { skipped: 'pas de réponse' };
+  }
 }
 
 // With no request in sight, the first page was taken on a redraw and two
@@ -394,8 +445,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.type === 'wb-scrape') {
     const report = readReport();
     if (!report) return false;
-    send(report, 'manual');
-    respond({ found: true, count: report.count });
+    // The server's answer goes back with the reply, so the verdict can say
+    // what was stored and what was left out rather than what was on screen.
+    send(report, 'manual')
+      .then((result) => respond({ found: true, count: report.count, result }))
+      .catch(() => respond({ found: true, count: report.count }));
     return true;
   }
 
@@ -439,7 +493,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
             reruns = 1;
           }
         }
-        if (swept) swept.reruns = reruns;
+        if (swept) {
+          swept.reruns = reruns;
+          const end = await finishSweep(swept, result);
+          swept.removed = Number(end?.removed) || 0;
+          swept.removedMos = end?.mos ?? [];
+          // Why the lines M3 no longer reports were not looked for, or why
+          // the server would not take them out (too many at once).
+          swept.cleanup = end?.skipped ?? (end?.ok === false ? end.error ?? 'refusé' : null);
+          swept.held = Number(end?.held) || 0;
+          // Not sent back to the popup: a few thousand keys nobody reads.
+          delete swept.keys;
+        }
 
         // The whole run, in order: what was clicked, what the grid did, what
         // the frame received, what was read. One run's worth of evidence.

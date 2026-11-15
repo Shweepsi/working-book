@@ -38,9 +38,10 @@ import {
   type Scrap,
   type UnloadingRow,
 } from '../lib/line';
-import { deleteRecords, lineSync, putRecord, putRecords, useLine, useLineSnapshot } from '../lib/lineSync';
+import { deleteRecords, lineSync, putRecord, putRecords, redoLine, undoLine, useLine, useLineSnapshot } from '../lib/lineSync';
 import type { Partition } from '../lib/sharedGrid';
 import { useToast } from '../lib/toast';
+import { AddIcon, CloseIcon, CommentIcon, MinusIcon } from './icons';
 
 type Side = 'loading' | 'unloading';
 
@@ -125,6 +126,8 @@ function TextInput({ value, onCommit, label, numeric, list, placeholder, autoFoc
       className="ln-input"
       data-nav
       value={text ?? value}
+      // Typed in and not left yet: Ctrl+Z is the field's own until then.
+      data-dirty={text !== null && text !== initial.current ? '' : undefined}
       aria-label={label}
       aria-invalid={invalid || undefined}
       inputMode={numeric ? 'decimal' : undefined}
@@ -169,11 +172,11 @@ function Stepper({ value, onChange, label }: { value: number | null; onChange: (
   return (
     <span className="ln-stepper">
       <button type="button" onClick={() => onChange(Math.max(0, n - 1) || null)} aria-label={`${label} : un de moins`} disabled={n <= 0}>
-        −
+        <MinusIcon size={16} />
       </button>
       <TextInput value={numText(value)} onCommit={(t) => onChange(parseNumber(t))} label={label} numeric />
       <button type="button" onClick={() => onChange(n + 1)} aria-label={`${label} : un de plus`}>
-        +
+        <AddIcon size={16} />
       </button>
     </span>
   );
@@ -182,7 +185,7 @@ function Stepper({ value, onChange, label }: { value: number | null; onChange: (
 function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button type="button" className="ln-remove" onClick={onClick} aria-label={label} title={label}>
-      ✕
+      <CloseIcon size={14} />
     </button>
   );
 }
@@ -268,9 +271,7 @@ function LoadingRowView({ row, draft, onChange, onRemove }: RowProps<LoadingRow>
           aria-expanded={commenting}
           title={row.comment || 'Commentaire'}
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-            <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" />
-          </svg>
+          <CommentIcon size={14} />
         </button>
         <RemoveButton label={draft ? 'Abandonner la ligne' : 'Supprimer la ligne'} onClick={onRemove} />
         {commenting && (
@@ -385,8 +386,10 @@ function blocksOf(d: LineData, drafts: LineRecord[]): Block[] {
   return blocks;
 }
 
-function ColourName({ colour, onRename }: { colour: Colour; onRename: (name: string) => void }) {
+function ColourName({ colour, onRename }: { colour: Colour; onRename?: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
+  // Renamed in Loading only, where colours open.
+  if (!onRename) return <span className="ln-colour-name is-fixed">{colour.name || 'Couleur sans nom'}</span>;
   if (!editing)
     return (
       <button type="button" className="ln-colour-name" onClick={() => setEditing(true)} title="Renommer la couleur">
@@ -518,6 +521,28 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
     if (drafts.some((r) => ids.has(r.id))) setDrafts((ds) => ds.filter((r) => !ids.has(r.id)));
   }, [data, drafts]);
 
+  // Ctrl+Z / Ctrl+Y (Ctrl+Maj+Z): this tablet's steps on the shift, both tabs.
+  // A field being typed in keeps its own; one only focused is left first, so it
+  // shows what comes back.
+  useEffect(() => {
+    if (!part) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const redo = k === 'y' || (k === 'z' && e.shiftKey);
+      if (k !== 'z' && !redo) return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        if (el.hasAttribute('data-dirty') || !el.hasAttribute('data-nav')) return;
+        el.blur();
+      }
+      e.preventDefault();
+      if (!(redo ? redoLine(part) : undoLine(part))) toast.show({ key: 'ln-undo', message: redo ? 'Rien à rétablir' : 'Rien à annuler' });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [part?.date, part?.poste]);
+
   // A row the bilan pointed at: brought into view, and flashed.
   useEffect(() => {
     if (!part || !data) return;
@@ -627,41 +652,15 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
     putRecords(part, existing ? moved : [colour, ...moved]);
   };
 
-  const filled = side === 'loading' ? data.loading.filter(loadingFilled) : data.unloading.filter(unloadingFilled);
-  const scrapsFilled = data.scraps.filter(scrapFilled);
-  const issuesCount =
-    side === 'loading'
-      ? filled.filter((r) => loadingIssues(r as LoadingRow).length).length
-      : filled.filter((r) => unloadingIssues(r as UnloadingRow).length).length + scrapsFilled.filter((s) => scrapIssues(s).length).length;
-
   return (
     <div className={`ln ln-${side} no-print`} ref={root}>
       <Lists d={data} />
-      <div className="ln-bar">
-        <h2>{side === 'loading' ? 'Loading' : 'Unloading'}</h2>
-        <span className="ln-bar-sum">
-          {side === 'loading' ? (
-            <>
-              {plural(filled.length, 'jumbo')} · <strong>{fmtNum(sum((filled as LoadingRow[]).map((r) => r.conso)))}</strong> consommées
-            </>
-          ) : (
-            <>
-              {plural(filled.length, 'rack')} · <strong>{fmtNum(sum((filled as UnloadingRow[]).map((r) => r.lites)))}</strong> lites ·{' '}
-              <strong>{fmtNum(sum(scrapsFilled.map((s) => s.qty)))}</strong> scraps (
-              {pct(sum(scrapsFilled.map((s) => s.qty)), sum((filled as UnloadingRow[]).map((r) => r.lites)) + sum(scrapsFilled.map((s) => s.qty)))})
-            </>
-          )}
-          {issuesCount > 0 && <span className="ln-bar-issues"> · {plural(issuesCount, 'ligne')} à compléter</span>}
-        </span>
-        {snap.pending > 0 && (
-          <span className="ln-bar-sync" role="status">
-            {snap.status === 'offline' ? `${plural(snap.pending, 'saisie')} en attente du réseau` : 'envoi…'}
-          </span>
-        )}
-      </div>
-
       {!colours.length && !blocks.length ? (
-        <NewColour first onStart={startColour} />
+        side === 'loading' ? (
+          <NewColour first onStart={startColour} />
+        ) : (
+          <div className="ln-empty" role="status">Aucune couleur sur ce poste : elles s’ouvrent dans Loading.</div>
+        )
       ) : (
         <>
           {blocks.map((b) => (
@@ -688,7 +687,7 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
                   {b.colour && (
                     <div className="ln-add">
                       <button type="button" className="btn ghost mini" onClick={() => addLoading(b.colour as Colour)}>
-                        + Jumbo
+                        <AddIcon size={14} /> Jumbo
                       </button>
                     </div>
                   )}
@@ -702,7 +701,7 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
                   {b.colour && (
                     <div className="ln-add">
                       <button type="button" className="btn ghost mini" onClick={() => addRack(b.colour as Colour)}>
-                        + Rack
+                        <AddIcon size={14} /> Rack
                       </button>
                     </div>
                   )}
@@ -721,7 +720,8 @@ export default function LineTab({ part, side }: { part: Partition | null; side: 
               )}
             </section>
           ))}
-          <NewColour first={!colours.length} onStart={startColour} />
+          {/* Colours open in Loading: what is loaded in a colour comes out in it. */}
+          {side === 'loading' && <NewColour first={!colours.length} onStart={startColour} />}
         </>
       )}
     </div>
@@ -777,7 +777,7 @@ function QuickScraps({ colour, dims, defects, onAdd, onQuick }: QuickScrapsProps
   return (
     <div className="ln-add ln-quick">
       <button type="button" className="btn ghost mini" onClick={() => onAdd(colour)}>
-        + Scrap
+        <AddIcon size={14} /> Scrap
       </button>
       {defects.map((d) => (
         <button key={d} type="button" className="ln-quick-defect" onClick={() => onQuick(colour, d)} title={`Un scrap de plus : ${d}${at}`}>
@@ -854,11 +854,16 @@ function BlockHead({ block, side, onRename, onRemove, onName, empty }: BlockHead
       : `${plural(racks.length, 'rack')} · ${fmtNum(lites)} lites · ${fmtNum(scrapped)} scraps (${pct(scrapped, lites + scrapped)})`;
   return (
     <header className="ln-block-head">
-      {block.colour ? <ColourName colour={block.colour} onRename={onRename} /> : <span className="ln-colour-name is-none">Sans couleur</span>}
+      {block.colour ? (
+        <ColourName colour={block.colour} onRename={side === 'loading' ? onRename : undefined} />
+      ) : (
+        <span className="ln-colour-name is-none">Sans couleur</span>
+      )}
       <span className="ln-block-sum">{summary}</span>
       <span className="gc-spacer" />
-      {!block.colour && <NameRows onName={onName} />}
-      {block.colour && empty && <RemoveButton label={`Retirer la couleur ${block.colour.name}`} onClick={onRemove} />}
+      {/* Colours open, are renamed and go in Loading only. */}
+      {side === 'loading' && !block.colour && <NameRows onName={onName} />}
+      {side === 'loading' && block.colour && empty && <RemoveButton label={`Retirer la couleur ${block.colour.name}`} onClick={onRemove} />}
     </header>
   );
 }
