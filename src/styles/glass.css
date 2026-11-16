@@ -25,14 +25,61 @@
   :root[data-look='glass'][data-theme='auto'] { --g-glint: color-mix(in srgb, white 55%, transparent); }
 }
 
-/* A soft, slow-moving wash of accent behind everything, so the blur has
-   something to refract. Fixed, so it does not scroll with the table. */
+/* Accent: a soft indigo in place of the classic terracotta. Light and dark each
+   get a tuned value (AA against --accent-ink); `auto` follows the system. */
+:root[data-look='glass'] {
+  --accent: #5b60d1;
+  --accent-ink: #ffffff;
+  --focus-ring: rgba(91, 96, 209, 0.1);
+  --shadow-fab: 0 6px 24px rgba(91, 96, 209, 0.35), 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+:root[data-look='glass'][data-theme='dark'] {
+  --accent: #9da1f2;
+  --accent-ink: #14130f;
+  --focus-ring: rgba(157, 161, 242, 0.14);
+  --shadow-fab: 0 6px 24px rgba(157, 161, 242, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
+    --accent: #9da1f2;
+    --accent-ink: #14130f;
+    --focus-ring: rgba(157, 161, 242, 0.14);
+    --shadow-fab: 0 6px 24px rgba(157, 161, 242, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Wash colours. Light borrows the app's pastel highlights; dark cannot (its
+   highlight tokens are dark browns and greens that turn muddy when blurred), so
+   it gets its own cool glows around the indigo accent. */
+:root[data-look='glass'] {
+  --g-wash-a: color-mix(in srgb, var(--accent) 17%, transparent);
+  --g-wash-b: color-mix(in srgb, var(--hl-blue) 50%, transparent);
+  --g-wash-c: color-mix(in srgb, var(--hl-green) 70%, transparent);
+  --g-wash-d: color-mix(in srgb, var(--hl-yellow) 55%, transparent);
+}
+:root[data-look='glass'][data-theme='dark'] {
+  --g-wash-a: rgba(124, 131, 240, 0.2);
+  --g-wash-b: rgba(56, 120, 220, 0.14);
+  --g-wash-c: rgba(45, 190, 170, 0.08);
+  --g-wash-d: rgba(170, 100, 235, 0.1);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
+    --g-wash-a: rgba(124, 131, 240, 0.2);
+    --g-wash-b: rgba(56, 120, 220, 0.14);
+    --g-wash-c: rgba(45, 190, 170, 0.08);
+    --g-wash-d: rgba(170, 100, 235, 0.1);
+  }
+}
+
+/* A soft wash behind everything, so the blur has something to refract. Fixed,
+   so it does not scroll with the table. */
 :root[data-look='glass'] body {
   background:
-    radial-gradient(60vmax 50vmax at 8% -10%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 62%),
-    radial-gradient(50vmax 45vmax at 105% 10%, color-mix(in srgb, var(--hl-blue) 50%, transparent), transparent 65%),
-    radial-gradient(55vmax 50vmax at 60% 115%, color-mix(in srgb, var(--hl-green) 70%, transparent), transparent 62%),
-    radial-gradient(40vmax 35vmax at 30% 55%, color-mix(in srgb, var(--hl-yellow) 55%, transparent), transparent 65%),
+    radial-gradient(60vmax 50vmax at 8% -10%, var(--g-wash-a), transparent 62%),
+    radial-gradient(50vmax 45vmax at 105% 10%, var(--g-wash-b), transparent 65%),
+    radial-gradient(55vmax 50vmax at 60% 115%, var(--g-wash-c), transparent 62%),
+    radial-gradient(40vmax 35vmax at 30% 55%, var(--g-wash-d), transparent 65%),
     var(--canvas);
   background-attachment: fixed;
 }
@@ -78,6 +125,22 @@
 :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-total { background: var(--g-surface-2); }
 :root[data-look='glass']:not(.is-print-preview) .sch-row:not(.sch-head):not(.sch-total):hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Menus and sheets carry text and controls, so they stay almost opaque: the
+   glass is a hint of what is behind, not a see-through pane. The settings menu
+   lives inside the header, which already blurs — a second backdrop-filter
+   nested in it blurs nothing (it only sees the header), so the popover is made
+   opaque instead of blurred. Sheets are top level and keep their own blur. */
+:root[data-look='glass']:not(.is-print-preview) .popover {
+  background: var(--paper);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-look='glass']:not(.is-print-preview) .sheet {
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
 }
 
 /* The filter/column icons sit in the head's own controls bar; keep it part of
