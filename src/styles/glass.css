@@ -160,20 +160,37 @@
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
-  /* Menus and sheets carry text and controls, so they stay almost opaque: the
-     glass is a hint of what is behind, not a see-through pane. The settings menu
-     lives inside the header, which already blurs — a second backdrop-filter
-     nested in it blurs nothing (it only sees the header), so the popover is made
-     opaque instead of blurred. Sheets are top level and keep their own blur. */
+  /* Menus and sheets carry text and controls, so they are translucent but
+     mostly solid, with a strong blur so nothing behind reads as text. The
+     header's own blur lives on a pseudo-element (below): a backdrop-filter on
+     the header itself would make it a backdrop root and stop the settings menu,
+     which hangs below it, from blurring the page. */
   :root[data-look='glass']:not(.is-print-preview) .popover {
-    background: var(--paper);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sheet {
-    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    background: color-mix(in srgb, var(--paper) 80%, transparent);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     backdrop-filter: blur(28px) saturate(180%);
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sheet {
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+  }
+  :root[data-look='glass']:not(.is-print-preview) .app-header {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  :root[data-look='glass']:not(.is-print-preview) .app-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--g-surface);
+    box-shadow: inset 0 -1px 0 var(--g-edge);
+    -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
   }
 
   /* The filter/column icons sit in the head's own controls bar; keep it part of
@@ -333,6 +350,44 @@
   }
   :root[data-look='glass']:not(.is-print-preview) .sch-stat-tile-value { font-weight: 650; letter-spacing: -0.01em; }
   :root[data-look='glass']:not(.is-print-preview) .sch-detail-head h3 { letter-spacing: -0.02em; }
+
+  /* Scrollbars: thin translucent pills that sit inside the rounded surfaces
+     instead of the browser's grey bars. WebKit/Blink get the pill; Firefox
+     (no ::-webkit-scrollbar) gets the standard thin + colour pair. Chrome
+     ignores ::-webkit-scrollbar once scrollbar-color is set, hence the
+     @supports split. */
+  :root[data-look='glass']:not(.is-print-preview) {
+    --g-thumb: color-mix(in srgb, var(--ink) 22%, transparent);
+    --g-thumb-hover: color-mix(in srgb, var(--ink) 40%, transparent);
+  }
+  @supports selector(::-webkit-scrollbar) {
+    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-track,
+    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-thumb {
+      background: var(--g-thumb);
+      border: 3px solid transparent;
+      background-clip: padding-box;
+      border-radius: 999px;
+      min-height: 36px;
+      min-width: 36px;
+    }
+    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-thumb:hover {
+      background: var(--g-thumb-hover);
+      background-clip: padding-box;
+    }
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list) {
+      scrollbar-width: thin;
+      scrollbar-color: var(--g-thumb) transparent;
+    }
+  }
 
   /* The on-screen paper preview reads as paper, not as glass. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
