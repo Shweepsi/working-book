@@ -29,9 +29,9 @@
    something to refract. Fixed, so it does not scroll with the table. */
 :root[data-look='glass'] body {
   background:
-    radial-gradient(60vmax 50vmax at 8% -10%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 62%),
-    radial-gradient(50vmax 45vmax at 105% 10%, color-mix(in srgb, var(--hl-blue) 95%, transparent), transparent 65%),
-    radial-gradient(55vmax 50vmax at 60% 115%, color-mix(in srgb, var(--hl-green) 90%, transparent), transparent 62%),
+    radial-gradient(60vmax 50vmax at 8% -10%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 62%),
+    radial-gradient(50vmax 45vmax at 105% 10%, color-mix(in srgb, var(--hl-blue) 50%, transparent), transparent 65%),
+    radial-gradient(55vmax 50vmax at 60% 115%, color-mix(in srgb, var(--hl-green) 70%, transparent), transparent 62%),
     radial-gradient(40vmax 35vmax at 30% 55%, color-mix(in srgb, var(--hl-yellow) 55%, transparent), transparent 65%),
     var(--canvas);
   background-attachment: fixed;
@@ -118,10 +118,22 @@
 :root[data-look='glass']:not(.is-print-preview) .sch-rail-item:hover { transform: translateX(2px); }
 :root[data-look='glass']:not(.is-print-preview) .sch-rail-item:active { transform: scale(0.985); }
 :root[data-look='glass']:not(.is-print-preview) .sch-rail-item.active {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), color-mix(in srgb, var(--accent) 5%, transparent));
   border-color: color-mix(in srgb, var(--accent) 38%, transparent);
   box-shadow: inset 0 1px 0 var(--g-glint), 0 6px 18px -10px color-mix(in srgb, var(--accent) 60%, transparent);
 }
+
+/* The selected card's left edge: the classic look runs a square 3px bar flush
+   with the card, which pokes out of a 12px-rounded glass card. Here it becomes
+   a short inset pill. */
+:root[data-look='glass']:not(.is-print-preview) .sch-rail-item.active::before {
+  top: 20%;
+  bottom: 20%;
+  left: 6px;
+  width: 3px;
+  border-radius: 3px;
+}
+:root[data-look='glass']:not(.is-print-preview) .sch-rail-item { padding-left: calc(var(--space-5) + 6px); }
 
 /* Entrances. */
 @keyframes g-rise { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
