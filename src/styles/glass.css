@@ -28,12 +28,34 @@
   /* Accent: a soft indigo in place of the classic terracotta. Light and dark each
      get a tuned value (AA against --accent-ink); `auto` follows the system. */
   :root[data-look='glass'] {
+    --ink: #1b1f2a;
+    --ink-soft: #4a5262;
+    --ink-faint: #667085;
+    --line: #1b1f2a;
+    --line-soft: #c5cad6;
+    --line-faint: #e3e6ee;
+    --paper: #fbfcfe;
+    --paper-2: #f1f3f9;
+    --canvas: #eef0f6;
+    --paper-glass: rgba(238, 240, 246, 0.8);
+    --paper-glass-2: rgba(251, 252, 254, 0.9);
     --accent: #5b60d1;
     --accent-ink: #ffffff;
     --focus-ring: rgba(91, 96, 209, 0.1);
     --shadow-fab: 0 6px 24px rgba(91, 96, 209, 0.35), 0 2px 6px rgba(0, 0, 0, 0.12);
   }
   :root[data-look='glass'][data-theme='dark'] {
+    --ink: #e8eaf2;
+    --ink-soft: #a3a9ba;
+    --ink-faint: #8d93a6;
+    --line: #e8eaf2;
+    --line-soft: #333847;
+    --line-faint: #272b37;
+    --paper: #14161d;
+    --paper-2: #1b1e27;
+    --canvas: #0c0d12;
+    --paper-glass: rgba(12, 13, 18, 0.75);
+    --paper-glass-2: rgba(20, 22, 29, 0.85);
     --accent: #9da1f2;
     --accent-ink: #14130f;
     --focus-ring: rgba(157, 161, 242, 0.14);
@@ -41,6 +63,17 @@
   }
   @media (prefers-color-scheme: dark) {
     :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
+      --ink: #e8eaf2;
+      --ink-soft: #a3a9ba;
+      --ink-faint: #8d93a6;
+      --line: #e8eaf2;
+      --line-soft: #333847;
+      --line-faint: #272b37;
+      --paper: #14161d;
+      --paper-2: #1b1e27;
+      --canvas: #0c0d12;
+      --paper-glass: rgba(12, 13, 18, 0.75);
+      --paper-glass-2: rgba(20, 22, 29, 0.85);
       --accent: #9da1f2;
       --accent-ink: #14130f;
       --focus-ring: rgba(157, 161, 242, 0.14);
@@ -236,6 +269,23 @@
     :root[data-look='glass']::view-transition-old(*),
     :root[data-look='glass']::view-transition-new(*) { animation: none !important; }
   }
+
+  /* Typography: no typewriter. Numbers stay tabular but in the sans, and small
+     headings lose the letterspaced capitals of the paper look. */
+  :root[data-look='glass']:not(.is-print-preview) .sch *,
+  :root[data-look='glass']:not(.is-print-preview) .mono {
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  :root[data-look='glass']:not(.is-print-preview) :is(
+    .sch-row.sch-head, .sch-rail-title, .sch-stat-tile-label, .popover h4, .sch-cols-menu-head, .sch-filter-label
+  ) {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-stat-tile-value { font-weight: 650; letter-spacing: -0.01em; }
+  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head h3 { letter-spacing: -0.02em; }
 
   /* The on-screen paper preview reads as paper, not as glass. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
