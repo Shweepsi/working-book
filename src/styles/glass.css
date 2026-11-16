@@ -270,6 +270,53 @@
     :root[data-look='glass']::view-transition-new(*) { animation: none !important; }
   }
 
+  /* Pastel colour-coding. The highlight and flag tokens are re-tuned to cool
+     pastels (and to deep, desaturated tints in dark), which recolours every
+     cell, chip and flag that already reads them. */
+  :root[data-look='glass'] {
+    --hl-yellow: #ffefc2; --hl-red: #ffd9de; --hl-green: #d3f3e0; --hl-blue: #d6e4ff;
+    --flag-ok-bd: #a6dcc0; --flag-ok-fg: #1d6a47;
+    --flag-sched-bd: #f0d48a; --flag-sched-fg: #7a5a00;
+    --flag-unsched-bd: #f2aab5; --flag-unsched-fg: #b3263e;
+    --flag-note-bd: #a9c2f5; --flag-note-fg: #27418a;
+  }
+  :root[data-look='glass'][data-theme='dark'] {
+    --hl-yellow: #3d3417; --hl-red: #432029; --hl-green: #17372a; --hl-blue: #1c2c52;
+    --flag-ok-bd: #2f6b52; --flag-ok-fg: #b8f0d2;
+    --flag-sched-bd: #7a6a2a; --flag-sched-fg: #ffe9a8;
+    --flag-unsched-bd: #86404e; --flag-unsched-fg: #ffb4c0;
+    --flag-note-bd: #3f5a99; --flag-note-fg: #c9d8ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
+      --hl-yellow: #3d3417; --hl-red: #432029; --hl-green: #17372a; --hl-blue: #1c2c52;
+    --flag-ok-bd: #2f6b52; --flag-ok-fg: #b8f0d2;
+    --flag-sched-bd: #7a6a2a; --flag-sched-fg: #ffe9a8;
+    --flag-unsched-bd: #86404e; --flag-unsched-fg: #ffb4c0;
+    --flag-note-bd: #3f5a99; --flag-note-fg: #c9d8ff;
+    }
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-mto {
+    border-radius: 999px;
+    border-color: transparent;
+    min-width: 0;
+    padding: 2px 7px;
+    letter-spacing: 0;
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-mto[data-mto='MTO'] { background: var(--hl-blue); }
+  :root[data-look='glass']:not(.is-print-preview) .sch-mto[data-mto='MTS'] { background: var(--hl-yellow); }
+  :root[data-look='glass']:not(.is-print-preview) .sch-group-value {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+    color: color-mix(in srgb, var(--accent) 70%, var(--ink));
+    letter-spacing: 0.01em;
+    font-weight: 600;
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-cell.col-m2 {
+    background: color-mix(in srgb, var(--hl-green) 60%, transparent);
+    color: var(--flag-ok-fg);
+  }
+
   /* Typography: no typewriter. Numbers stay tabular but in the sans, and small
      headings lose the letterspaced capitals of the paper look. */
   :root[data-look='glass']:not(.is-print-preview) .sch *,
