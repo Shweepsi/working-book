@@ -6115,3 +6115,73 @@ select.ln-input { padding-right: var(--space-2); }
     padding-bottom: 4px;
   }
 }
+
+/* ---------- Schedule · desktop refresh ----------
+   Desktop only (phone follows in its own pass). Two surface levels with a soft
+   hairline + shadow in place of flat boxes, a wider rail whose names wrap
+   instead of clipping, bigger stat values, and column headers that give their
+   room back to the label. Every colour derives from the theme tokens, so light
+   and dark need no override. Print and the paper preview keep the flat look. */
+@media screen and (min-width: 1281px) {
+  :root:not(.is-print-preview) .sch {
+    --sch-hairline: color-mix(in srgb, var(--ink) 10%, transparent);
+    --sch-lift: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent),
+                0 6px 20px -8px color-mix(in srgb, var(--ink) 14%, transparent);
+  }
+  :root:not(.is-print-preview) .sch-body { grid-template-columns: minmax(240px, 280px) 1fr; }
+
+  :root:not(.is-print-preview) .sch-rail,
+  :root:not(.is-print-preview) .sch-detail-head,
+  :root:not(.is-print-preview) .sch-controls,
+  :root:not(.is-print-preview) .sch-table { border-color: var(--sch-hairline); }
+  :root:not(.is-print-preview) .sch-rail { box-shadow: var(--sch-lift); border-radius: 14px; }
+  :root:not(.is-print-preview) .sch-detail-head { border-radius: 14px 14px 0 0; }
+  :root:not(.is-print-preview) .sch-table { border-radius: 0 0 14px 14px; box-shadow: var(--sch-lift); }
+  :root:not(.is-print-preview) .sch-rail-title,
+  :root:not(.is-print-preview) .sch-row.sch-head { box-shadow: none; border-bottom-color: var(--sch-hairline); }
+
+  /* Rail card: number on top, name wrapping under it. */
+  :root:not(.is-print-preview) .sch-rail-top { flex-direction: column; align-items: flex-start; gap: 2px; }
+  :root:not(.is-print-preview) .sch-rail-root {
+    text-align: left;
+    white-space: normal;
+    text-wrap: balance;
+    overflow: visible;
+  }
+  :root:not(.is-print-preview) .sch-rail-item { border-radius: 10px; }
+  :root:not(.is-print-preview) .sch-rail-item.active {
+    background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  /* Stat tiles: the numbers the planner reads first. */
+  :root:not(.is-print-preview) .sch-stat-tile-value { font-size: calc(var(--fs-lg) * 1.2); }
+  :root:not(.is-print-preview) .sch-stat-tile-label { letter-spacing: 0.06em; }
+  :root:not(.is-print-preview) .sch-detail-head h3 { font-size: calc(var(--fs-xl) * 1.1); text-wrap: balance; }
+
+  /* Header cells: the drag grip no longer reserves 14px of the label's width;
+     it floats over the left edge on hover. */
+  :root:not(.is-print-preview) .sch-row.sch-head .sch-cell { letter-spacing: 0.03em; }
+  :root:not(.is-print-preview) .sch-col-drag-grip {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    width: auto;
+  }
+
+  /* Rows: a calmer hover, and the numbers column gets weight. */
+  :root:not(.is-print-preview) .sch-cell.col-m2 { font-weight: 600; }
+
+  /* The detail eases in when another schedule is picked. */
+  :root:not(.is-print-preview) .sch-detail { animation: sch-detail-in 180ms ease-out; }
+}
+@keyframes sch-detail-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sch-detail { animation: none !important; }
+}

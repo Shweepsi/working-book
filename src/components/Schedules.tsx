@@ -1277,7 +1277,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
             </ul>
           </aside>
 
-          <section className="sch-detail">
+          <section className="sch-detail" key={selected ?? "none"}>
             {/* Provenance + view state, paper only. The sheet leaves the
                 screen without any of the app chrome, so it has to say where
                 its rows came from and whether they are the whole picture.
