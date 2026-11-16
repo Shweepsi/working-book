@@ -39,10 +39,10 @@
     --canvas: #eef0f6;
     --paper-glass: rgba(238, 240, 246, 0.8);
     --paper-glass-2: rgba(251, 252, 254, 0.9);
-    --accent: #5b60d1;
-    --accent-ink: #ffffff;
-    --focus-ring: rgba(91, 96, 209, 0.1);
-    --shadow-fab: 0 6px 24px rgba(91, 96, 209, 0.35), 0 2px 6px rgba(0, 0, 0, 0.12);
+    --accent: #7f85ea;
+    --accent-ink: #14162b;
+    --focus-ring: rgba(127, 133, 234, 0.12);
+    --shadow-fab: 0 6px 24px rgba(127, 133, 234, 0.4), 0 2px 6px rgba(0, 0, 0, 0.12);
   }
   :root[data-look='glass'][data-theme='dark'] {
     --ink: #e8eaf2;
@@ -56,10 +56,10 @@
     --canvas: #0c0d12;
     --paper-glass: rgba(12, 13, 18, 0.75);
     --paper-glass-2: rgba(20, 22, 29, 0.85);
-    --accent: #9da1f2;
+    --accent: #a9aef8;
     --accent-ink: #14130f;
-    --focus-ring: rgba(157, 161, 242, 0.14);
-    --shadow-fab: 0 6px 24px rgba(157, 161, 242, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --focus-ring: rgba(169, 174, 248, 0.14);
+    --shadow-fab: 0 6px 24px rgba(169, 174, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
   }
   @media (prefers-color-scheme: dark) {
     :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
@@ -74,10 +74,10 @@
       --canvas: #0c0d12;
       --paper-glass: rgba(12, 13, 18, 0.75);
       --paper-glass-2: rgba(20, 22, 29, 0.85);
-      --accent: #9da1f2;
+      --accent: #a9aef8;
       --accent-ink: #14130f;
-      --focus-ring: rgba(157, 161, 242, 0.14);
-      --shadow-fab: 0 6px 24px rgba(157, 161, 242, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+      --focus-ring: rgba(169, 174, 248, 0.14);
+      --shadow-fab: 0 6px 24px rgba(169, 174, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
     }
   }
 
