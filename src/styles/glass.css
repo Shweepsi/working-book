@@ -39,10 +39,10 @@
     --canvas: #eef0f6;
     --paper-glass: rgba(238, 240, 246, 0.8);
     --paper-glass-2: rgba(251, 252, 254, 0.9);
-    --accent: #7f85ea;
-    --accent-ink: #14162b;
-    --focus-ring: rgba(127, 133, 234, 0.12);
-    --shadow-fab: 0 6px 24px rgba(127, 133, 234, 0.4), 0 2px 6px rgba(0, 0, 0, 0.12);
+    --accent: #5296ec;
+    --accent-ink: #0d1a2e;
+    --focus-ring: rgba(82, 150, 236, 0.12);
+    --shadow-fab: 0 6px 24px rgba(82, 150, 236, 0.4), 0 2px 6px rgba(0, 0, 0, 0.12);
   }
   :root[data-look='glass'][data-theme='dark'] {
     --ink: #e8eaf2;
@@ -56,10 +56,10 @@
     --canvas: #0c0d12;
     --paper-glass: rgba(12, 13, 18, 0.75);
     --paper-glass-2: rgba(20, 22, 29, 0.85);
-    --accent: #a9aef8;
+    --accent: #8cbdf8;
     --accent-ink: #14130f;
-    --focus-ring: rgba(169, 174, 248, 0.14);
-    --shadow-fab: 0 6px 24px rgba(169, 174, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --focus-ring: rgba(140, 189, 248, 0.14);
+    --shadow-fab: 0 6px 24px rgba(140, 189, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
   }
   @media (prefers-color-scheme: dark) {
     :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
@@ -74,10 +74,10 @@
       --canvas: #0c0d12;
       --paper-glass: rgba(12, 13, 18, 0.75);
       --paper-glass-2: rgba(20, 22, 29, 0.85);
-      --accent: #a9aef8;
+      --accent: #8cbdf8;
       --accent-ink: #14130f;
-      --focus-ring: rgba(169, 174, 248, 0.14);
-      --shadow-fab: 0 6px 24px rgba(169, 174, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+      --focus-ring: rgba(140, 189, 248, 0.14);
+      --shadow-fab: 0 6px 24px rgba(140, 189, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
     }
   }
 
@@ -91,15 +91,15 @@
     --g-wash-d: color-mix(in srgb, var(--hl-yellow) 55%, transparent);
   }
   :root[data-look='glass'][data-theme='dark'] {
-    --g-wash-a: rgba(124, 131, 240, 0.2);
-    --g-wash-b: rgba(56, 120, 220, 0.14);
+    --g-wash-a: rgba(110, 170, 245, 0.2);
+    --g-wash-b: rgba(70, 130, 230, 0.14);
     --g-wash-c: rgba(45, 190, 170, 0.08);
     --g-wash-d: rgba(170, 100, 235, 0.1);
   }
   @media (prefers-color-scheme: dark) {
     :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
-      --g-wash-a: rgba(124, 131, 240, 0.2);
-      --g-wash-b: rgba(56, 120, 220, 0.14);
+      --g-wash-a: rgba(110, 170, 245, 0.2);
+      --g-wash-b: rgba(70, 130, 230, 0.14);
       --g-wash-c: rgba(45, 190, 170, 0.08);
       --g-wash-d: rgba(170, 100, 235, 0.1);
     }
