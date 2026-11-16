@@ -1,0 +1,168 @@
+/* ---------- Glass look (opt-in: Réglages → Style → 2027) ----------
+   Everything lives under :root[data-look='glass'], so the classic look is
+   byte-for-byte what it was. Colours derive from the theme tokens, which means
+   light, dark and auto all work without a second palette. Print and the paper
+   preview are left alone. Blur has an opaque fallback; motion respects
+   prefers-reduced-motion. */
+
+:root[data-look='glass'] {
+  --g-blur: 18px;
+  --g-sat: 170%;
+  --g-surface: color-mix(in srgb, var(--paper) 72%, transparent);
+  --g-surface-2: color-mix(in srgb, var(--paper-2) 62%, transparent);
+  --g-edge: color-mix(in srgb, var(--ink) 11%, transparent);
+  --g-glint: color-mix(in srgb, white 55%, transparent);
+  --g-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent),
+              0 12px 32px -12px color-mix(in srgb, var(--ink) 22%, transparent);
+  --g-spring: cubic-bezier(0.2, 0.9, 0.25, 1.15);
+  --g-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+}
+:root[data-look='glass'][data-theme='dark'],
+:root[data-look='glass'][data-theme='auto'] { --g-glint: color-mix(in srgb, white 10%, transparent); }
+@media (prefers-color-scheme: light) {
+  :root[data-look='glass'][data-theme='auto'] { --g-glint: color-mix(in srgb, white 55%, transparent); }
+}
+
+/* A soft, slow-moving wash of accent behind everything, so the blur has
+   something to refract. Fixed, so it does not scroll with the table. */
+:root[data-look='glass'] body {
+  background:
+    radial-gradient(60vmax 50vmax at 8% -10%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 62%),
+    radial-gradient(50vmax 45vmax at 105% 10%, color-mix(in srgb, var(--hl-blue) 95%, transparent), transparent 65%),
+    radial-gradient(55vmax 50vmax at 60% 115%, color-mix(in srgb, var(--hl-green) 90%, transparent), transparent 62%),
+    radial-gradient(40vmax 35vmax at 30% 55%, color-mix(in srgb, var(--hl-yellow) 55%, transparent), transparent 65%),
+    var(--canvas);
+  background-attachment: fixed;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  :root[data-look='glass']:not(.is-print-preview) :is(
+    .app-header, .popover, .sheet, .toast, .sch-rail, .sch-detail-head, .sch-controls,
+    .sch-table, .sch-summary, .tabs, .seg, .fab
+  ) {
+    -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+  }
+  :root[data-look='glass'] .sheet-backdrop {
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+    backdrop-filter: blur(6px) saturate(120%);
+  }
+}
+
+/* Glass surfaces: translucent fill, hairline edge, inner top highlight, soft
+   long shadow. */
+:root[data-look='glass']:not(.is-print-preview) :is(
+  .app-header, .popover, .sheet, .sch-rail, .sch-detail-head, .sch-controls,
+  .sch-table, .sch-summary, .tabs
+) {
+  background: var(--g-surface);
+  border-color: var(--g-edge);
+  box-shadow: inset 0 1px 0 var(--g-glint), var(--g-shadow);
+}
+:root[data-look='glass']:not(.is-print-preview) .app-header { box-shadow: inset 0 -1px 0 var(--g-edge); border-bottom-color: transparent; }
+:root[data-look='glass']:not(.is-print-preview) .sch-detail-head { background: var(--g-surface-2); }
+:root[data-look='glass']:not(.is-print-preview) :is(.sch-rail-title, .sch-row.sch-head) {
+  background: var(--g-surface-2);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+  backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+}
+:root[data-look='glass'] .sheet { box-shadow: inset 0 1px 0 var(--g-glint), var(--shadow-sheet); }
+:root[data-look='glass'] .toast {
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  border: 1px solid color-mix(in srgb, white 14%, transparent);
+}
+:root[data-look='glass']:not(.is-print-preview) .sch-row.sch-group-break,
+:root[data-look='glass']:not(.is-print-preview) .sch-row.sch-total { background: var(--g-surface-2); }
+:root[data-look='glass']:not(.is-print-preview) .sch-row:not(.sch-head):not(.sch-total):hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* The filter/column icons sit in the head's own controls bar; keep it part of
+   the head instead of a second pane. */
+:root[data-look='glass']:not(.is-print-preview) .sch-detail-head .sch-controls {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Controls: pill shapes, soft borders, a little life under the finger. */
+:root[data-look='glass'] .tabs { border-radius: 14px; }
+:root[data-look='glass'] .tabs .tab { border-radius: 10px; transition: background 180ms var(--g-ease), color 180ms var(--g-ease), transform 180ms var(--g-spring); }
+:root[data-look='glass'] .tabs .tab:active { transform: scale(0.96); }
+:root[data-look='glass'] .btn {
+  border-radius: 12px;
+  border-color: var(--g-edge);
+  background: var(--g-surface);
+  transition: background 160ms var(--g-ease), border-color 160ms var(--g-ease), transform 160ms var(--g-spring), box-shadow 160ms var(--g-ease);
+}
+:root[data-look='glass'] .btn:hover { border-color: color-mix(in srgb, var(--ink) 24%, transparent); box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--ink) 30%, transparent); }
+:root[data-look='glass'] .btn:active { transform: scale(0.965); }
+:root[data-look='glass'] .btn.primary { background: var(--ink); border-color: var(--ink); }
+:root[data-look='glass'] .btn.accent { background: var(--accent); border-color: var(--accent); }
+:root[data-look='glass'] .btn.ghost { background: transparent; border-color: transparent; box-shadow: none; }
+:root[data-look='glass'] .btn.ghost:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+:root[data-look='glass'] .seg { border-radius: 12px; }
+:root[data-look='glass'] .seg button { border-radius: 9px; transition: background 160ms var(--g-ease), color 160ms var(--g-ease), transform 160ms var(--g-spring); }
+:root[data-look='glass'] .seg button:active { transform: scale(0.96); }
+
+/* Rail cards: lift on hover, accent glass when selected. */
+:root[data-look='glass']:not(.is-print-preview) .sch-rail-item {
+  border-radius: 12px;
+  transition: background 180ms var(--g-ease), transform 220ms var(--g-spring), box-shadow 180ms var(--g-ease), border-color 180ms var(--g-ease);
+}
+:root[data-look='glass']:not(.is-print-preview) .sch-rail-item:hover { transform: translateX(2px); }
+:root[data-look='glass']:not(.is-print-preview) .sch-rail-item:active { transform: scale(0.985); }
+:root[data-look='glass']:not(.is-print-preview) .sch-rail-item.active {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: inset 0 1px 0 var(--g-glint), 0 6px 18px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Entrances. */
+@keyframes g-rise { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes g-pop { from { opacity: 0; transform: translate(-50%, -48%) scale(0.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes g-drop { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
+:root[data-look='glass'] .sch-rail-list > li { animation: g-rise 420ms var(--g-spring) both; }
+:root[data-look='glass'] .sch-rail-list > li:nth-child(2) { animation-delay: 50ms; }
+:root[data-look='glass'] .sch-rail-list > li:nth-child(3) { animation-delay: 100ms; }
+:root[data-look='glass'] .sch-rail-list > li:nth-child(4) { animation-delay: 150ms; }
+:root[data-look='glass'] .sch-rail-list > li:nth-child(n+5) { animation-delay: 200ms; }
+:root[data-look='glass'] .popover { animation: g-drop 220ms var(--g-spring); transform-origin: top right; }
+:root[data-look='glass'] .sheet { animation: g-pop 320ms var(--g-spring); }
+:root[data-look='glass'] .sheet-backdrop { animation: fade-in 240ms var(--g-ease); }
+
+/* Schedule switch: the browser cross-fades the detail (see selectSchedule). */
+:root[data-look='glass'] .sch-detail { view-transition-name: sch-detail; animation: none; }
+:root[data-look='glass']::view-transition-old(sch-detail),
+:root[data-look='glass']::view-transition-new(sch-detail) { animation-duration: 260ms; animation-timing-function: var(--g-ease); }
+:root[data-look='glass']::view-transition-group(sch-detail) { animation-duration: 260ms; animation-timing-function: var(--g-spring); }
+
+/* Theme switch cross-fades instead of snapping. */
+:root[data-look='glass'] body,
+:root[data-look='glass'] :is(.app-header, .sch-rail, .sch-detail-head, .sch-controls, .sch-table) {
+  transition: background-color 280ms var(--g-ease), border-color 280ms var(--g-ease), color 280ms var(--g-ease);
+}
+
+/* No blur support → opaque surfaces, same shape. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-look='glass'] { --g-surface: var(--paper); --g-surface-2: var(--paper-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-look='glass'] *,
+  :root[data-look='glass'] *::before,
+  :root[data-look='glass'] *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  :root[data-look='glass']::view-transition-group(*),
+  :root[data-look='glass']::view-transition-old(*),
+  :root[data-look='glass']::view-transition-new(*) { animation: none !important; }
+}
+
+@media print {
+  :root[data-look='glass'] body { background: #fff; }
+  :root[data-look='glass'] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; }
+}

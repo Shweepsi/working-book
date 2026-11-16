@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
@@ -1017,8 +1018,19 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   // work", not "you filtered it away". Changing schedule resets them.
   function selectSchedule(schedule: string) {
     if (schedule === selected) return;
-    setSelected(schedule);
-    clearFilters();
+    const apply = () => {
+      setSelected(schedule);
+      clearFilters();
+    };
+    // Glass look: cross-fade the detail through the browser's view transition.
+    // Everywhere else (classic look, no support, reduced motion) it is the
+    // plain state change it always was.
+    const animate =
+      'startViewTransition' in document &&
+      document.documentElement.getAttribute('data-look') === 'glass' &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (animate) document.startViewTransition(() => flushSync(apply));
+    else apply();
   }
 
   // Retire a schedule from the planning: its rows stay in the report, it moves

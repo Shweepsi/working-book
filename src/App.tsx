@@ -28,7 +28,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
+import type { Density, Look, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
@@ -125,6 +125,7 @@ export default function App() {
 
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
+  const [look, setLook] = useState<Look>(() => load<Look>('wb.look', 'classic'));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
@@ -193,6 +194,11 @@ export default function App() {
   useEffect(() => { save('wb.sched.recapPdp', recapShowPdp); }, [recapShowPdp]);
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-look', look);
+    save('wb.look', look);
+  }, [look]);
 
   // Apply theme + density to <html> and sync the PWA theme-color meta
   useEffect(() => {
@@ -484,6 +490,8 @@ export default function App() {
                 onThemeChange: setTheme,
                 density,
                 onDensityChange: setDensity,
+                look,
+                onLookChange: setLook,
               }}
             />
           </div>
@@ -520,6 +528,8 @@ export default function App() {
               onThemeChange={setTheme}
               density={density}
               onDensityChange={setDensity}
+              look={look}
+              onLookChange={setLook}
             />
           </div>
         )}

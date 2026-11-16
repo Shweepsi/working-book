@@ -60,6 +60,10 @@ export type Theme = 'auto' | 'light' | 'dark';
 
 export type Density = 'compact' | 'normal' | 'advanced';
 
+// The look of the chrome, independent of light/dark: the classic paper, or the
+// glass refresh (blur, translucency, motion). Opt-in, stored on this device.
+export type Look = 'classic' | 'glass';
+
 // The two paper layouts the Schedule view offers. `detail` is the landscape
 // planning table; `recap` is the portrait plate-preparation sheet, grouped by
 // dimension and thickness. Shared between App (which owns the `@page` rule and

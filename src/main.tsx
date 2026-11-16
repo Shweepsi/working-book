@@ -5,6 +5,7 @@ import { initSync } from './lib/sync';
 import { ToastProvider } from './lib/toast';
 import './styles/tokens.css';
 import './styles/app.css';
+import './styles/glass.css';
 
 initSync();
 
