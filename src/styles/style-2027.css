@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Style « 2027 »
+   Style « 2027 » — verre léger
    ==========================================================================
    Un second habillage, proposé dans Réglages à côté du thème et de la densité.
    Il n'est jamais le défaut : sans lui (`data-style` absent ou `classic`),
@@ -7,17 +7,16 @@
    toujours été.
 
    Ce qu'il apporte
-     · du verre dépoli sur un fond pastel très léger — avec un repli plein, sans
-       flou, là où le navigateur ne sait pas flouter ;
+     · du verre dépoli, blanc et gris pastel, sur un fond presque blanc — avec
+       un repli plein, sans flou, là où le navigateur ne sait pas flouter ;
      · un trait net et froid : pas d'effet papier, des chiffres dans la même
        police que le reste (Geist, chiffres à chasse fixe) ;
-     · un codage pastel (pastilles MTO/MTS, colonne des m² restants, puces de
-       dimension) et un bleu pastel pour l'accent ;
-     · du mouvement : arrivée en cascade du rail, menus et fenêtres qui
-       s'animent, retour au toucher, transition d'un schedule à l'autre — le tout
-       éteint par « réduire les animations » ;
-     · des menus translucides mais lisibles, qui floutent vraiment ce qu'ils
-       recouvrent ; des barres de défilement fines ; un sombre bleu nuit.
+     · le bleu pastel en accent seulement (sélection, focus, action principale) ;
+       le codage pastel (MTO/MTS, m² restants, dimensions) ;
+     · un mouvement léger — ce qui apparaît fond et glisse de quelques pixels,
+       rien ne rebondit — éteint par « réduire les animations » ;
+     · des menus translucides qui floutent vraiment ce qu'ils recouvrent ; des
+       barres de défilement fines ; un sombre graphite.
 
    Garde-fous
      · Tout est dans `@media screen` : le papier ne le voit jamais.
@@ -42,95 +41,101 @@
 :root[data-style='2027']:not([data-theme='dark']) {
   color-scheme: light;
 
-  --ink: #0f1a2e;
-  --ink-soft: #3d4b63;
-  --ink-faint: #51607a;
-  --line: #0f1a2e;
-  --line-soft: rgba(28, 52, 98, 0.24);
-  --line-faint: rgba(28, 52, 98, 0.11);
+  --ink: #14171c;
+  --ink-soft: #454a55;
+  --ink-faint: #565c69;
+  --line: #14171c;
+  --line-soft: rgba(20, 23, 28, 0.2);
+  --line-faint: rgba(20, 23, 28, 0.09);
 
   --paper: #ffffff;
-  --paper-2: #eef3fb;
-  --canvas: #e9f0fa;
+  --paper-2: #f1f2f5;
+  --canvas: #f0f1f4;
   --paper-glass: rgba(255, 255, 255, 0.7);
   --paper-glass-2: rgba(255, 255, 255, 0.82);
 
-  --hl-yellow: #fdf0c4;
-  --hl-red: #fddcd6;
-  --hl-green: #d6f2e4;
-  --hl-blue: #d8e7ff;
+  --hl-yellow: #fbf0c9;
+  --hl-red: #fadcd7;
+  --hl-green: #dcf2e6;
+  --hl-blue: #e3ecfa;
 
-  --accent: #86aef5;
-  --accent-ink: #0b2557;
-  --accent-text: #1f4fb0;
+  /* Le bleu pastel est un accent : sélection, focus, action principale, liens.
+     Pas une couleur de fond. */
+  --accent: #8fb3ec;
+  --accent-ink: #12305f;
+  --accent-text: #2d5bb3;
 
   --flag-normal-bg: var(--paper-2);
   --flag-normal-bd: var(--ink-soft);
   --flag-normal-fg: var(--ink);
-  --flag-ok-bd: #8fd3b0;
-  --flag-ok-fg: #14573a;
-  --flag-sched-bd: #efd98b;
-  --flag-sched-fg: #6e5200;
-  --flag-unsched-bd: #f2a79c;
+  --flag-ok-bd: #9bd5b8;
+  --flag-ok-fg: #17573c;
+  --flag-sched-bd: #ecd78e;
+  --flag-sched-fg: #6b4f00;
+  --flag-unsched-bd: #f0aca2;
   --flag-unsched-fg: #8a2418;
-  --flag-note-bd: #9bbcf3;
-  --flag-note-fg: #1d4488;
+  --flag-note-bd: #a9c2ef;
+  --flag-note-fg: #234a8f;
 
-  --shadow-sheet: 0 28px 70px -20px rgba(28, 52, 98, 0.36), 0 2px 10px rgba(28, 52, 98, 0.08);
-  --shadow-fab: 0 10px 28px -6px rgba(80, 130, 230, 0.5), 0 2px 6px rgba(28, 52, 98, 0.12);
-  --shadow-popover: 0 18px 44px -14px rgba(28, 52, 98, 0.34), 0 2px 8px rgba(28, 52, 98, 0.08);
-  --backdrop: rgba(15, 26, 46, 0.26);
-  --focus-ring: rgba(80, 130, 230, 0.22);
+  --shadow-sheet: 0 24px 60px -22px rgba(20, 23, 28, 0.3), 0 2px 8px rgba(20, 23, 28, 0.06);
+  --shadow-fab: 0 8px 22px -6px rgba(80, 125, 215, 0.4), 0 2px 6px rgba(20, 23, 28, 0.1);
+  --shadow-popover: 0 14px 36px -14px rgba(20, 23, 28, 0.28), 0 2px 6px rgba(20, 23, 28, 0.06);
+  --backdrop: rgba(20, 23, 28, 0.2);
+  --focus-ring: rgba(80, 125, 215, 0.22);
 
-  /* Page : un fond pastel très léger, que le verre laisse deviner. */
+  /* Page : presque blanche, trois voiles gris très pâles que le verre laisse deviner. */
   --s27-art:
-    radial-gradient(60rem 42rem at 4% -8%, rgba(134, 174, 245, 0.4), transparent 62%),
-    radial-gradient(52rem 38rem at 98% -4%, rgba(190, 170, 255, 0.32), transparent 58%),
-    radial-gradient(58rem 40rem at 46% 112%, rgba(140, 224, 210, 0.3), transparent 62%);
+    radial-gradient(60rem 42rem at 4% -8%, rgba(206, 211, 222, 0.55), transparent 62%),
+    radial-gradient(52rem 38rem at 98% -4%, rgba(226, 218, 232, 0.4), transparent 58%),
+    radial-gradient(58rem 40rem at 46% 112%, rgba(214, 226, 222, 0.4), transparent 62%);
 
   /* Verre : la version pleine (repli sans flou) et la version translucide. */
-  --s27-solid: #f6f9fe;
-  --s27-solid-2: #edf2fa;
+  --s27-solid: #f8f9fa;
+  --s27-solid-2: #f1f2f5;
   --s27-solid-strong: #ffffff;
-  --s27-glass: rgba(255, 255, 255, 0.56);
-  --s27-glass-2: rgba(255, 255, 255, 0.36);
-  --s27-glass-strong: rgba(255, 255, 255, 0.78);
-  --s27-edge: rgba(28, 52, 98, 0.1);
-  --s27-edge-strong: rgba(28, 52, 98, 0.18);
-  --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --s27-lift: 0 1px 2px rgba(28, 52, 98, 0.06), 0 18px 40px -22px rgba(28, 52, 98, 0.36);
-  --s27-btn: rgba(255, 255, 255, 0.72);
-  --s27-hover: rgba(134, 174, 245, 0.2);
-  --s27-title: rgba(244, 248, 254, 0.84);
+  --s27-glass: rgba(255, 255, 255, 0.62);
+  --s27-glass-2: rgba(255, 255, 255, 0.4);
+  --s27-glass-strong: rgba(255, 255, 255, 0.8);
+  --s27-edge: rgba(20, 23, 28, 0.08);
+  --s27-edge-strong: rgba(20, 23, 28, 0.15);
+  --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --s27-lift: 0 1px 2px rgba(20, 23, 28, 0.05), 0 12px 30px -18px rgba(20, 23, 28, 0.22);
+  --s27-btn: rgba(255, 255, 255, 0.75);
+  --s27-btn-hover: rgba(255, 255, 255, 0.96);
+  --s27-hover: rgba(20, 23, 28, 0.05);
+  --s27-title: rgba(248, 249, 250, 0.86);
+  --s27-selected: rgba(255, 255, 255, 0.96);
+  --s27-selected-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  --s27-nudge: 0 1px 2px rgba(20, 23, 28, 0.1);
 
   /* Tableau : ce qui est collant doit être opaque, le reste se laisse traverser. */
-  --s27-headrow: #edf3fb;
-  --s27-pinned: #f8fbff;
-  --s27-pinned-hover: #ecf3ff;
-  --s27-pinned-qc: #fbf6e6;
-  --s27-band: rgba(150, 170, 230, 0.1);
-  --s27-row-hover: rgba(134, 174, 245, 0.14);
-  --s27-row-line: rgba(28, 52, 98, 0.06);
-  --s27-qc: rgba(255, 205, 96, 0.16);
-  --s27-qc-hover: rgba(255, 205, 96, 0.26);
+  --s27-headrow: #f1f2f5;
+  --s27-pinned: #fafbfb;
+  --s27-pinned-hover: #f1f2f5;
+  --s27-pinned-qc: #fcf8ec;
+  --s27-band: rgba(20, 23, 28, 0.035);
+  --s27-row-hover: rgba(20, 23, 28, 0.035);
+  --s27-row-line: rgba(20, 23, 28, 0.055);
+  --s27-qc: rgba(255, 205, 96, 0.14);
+  --s27-qc-hover: rgba(255, 205, 96, 0.22);
 
   /* Codage pastel. */
-  --s27-m2: rgba(150, 226, 190, 0.3);
-  --s27-m2-head: rgba(150, 226, 190, 0.42);
-  --s27-m2-total: rgba(150, 226, 190, 0.52);
-  --s27-m2-hover: rgba(150, 226, 190, 0.44);
-  --s27-mto-bg: #dbe8ff;
-  --s27-mto-bd: #b9d0fb;
-  --s27-mto-fg: #1f4a9a;
-  --s27-mts-bg: #fdf0c4;
-  --s27-mts-bd: #efdb8f;
-  --s27-mts-fg: #6e5200;
-  --s27-dim-bg: #e8e2ff;
-  --s27-dim-bd: #d0c6ff;
-  --s27-dim-fg: #3d2f8f;
+  --s27-m2: rgba(143, 217, 180, 0.22);
+  --s27-m2-head: rgba(143, 217, 180, 0.32);
+  --s27-m2-total: rgba(143, 217, 180, 0.4);
+  --s27-m2-hover: rgba(143, 217, 180, 0.34);
+  --s27-mto-bg: #e3ecfa;
+  --s27-mto-bd: #c4d6f4;
+  --s27-mto-fg: #224a8f;
+  --s27-mts-bg: #fbf0c9;
+  --s27-mts-bd: #eddb98;
+  --s27-mts-fg: #6b4f00;
+  --s27-dim-bg: #ebe8f2;
+  --s27-dim-bd: #d9d4e6;
+  --s27-dim-fg: #484263;
 
-  --s27-thumb: rgba(40, 70, 130, 0.28);
-  --s27-thumb-hover: rgba(40, 70, 130, 0.5);
+  --s27-thumb: rgba(20, 23, 28, 0.22);
+  --s27-thumb-hover: rgba(20, 23, 28, 0.4);
 }
 
 /* Sombre : le même bloc de jetons deux fois — thème explicite, puis « auto » avec
@@ -138,184 +143,190 @@
 :root[data-style='2027'][data-theme='dark'] {
   color-scheme: dark;
 
-  --ink: #e8edf8;
-  --ink-soft: #b2bdd3;
-  --ink-faint: #93a1bc;
-  --line: #e8edf8;
-  --line-soft: rgba(176, 200, 255, 0.28);
-  --line-faint: rgba(176, 200, 255, 0.13);
+  --ink: #ecedf0;
+  --ink-soft: #b4b8c2;
+  --ink-faint: #9096a3;
+  --line: #ecedf0;
+  --line-soft: rgba(255, 255, 255, 0.22);
+  --line-faint: rgba(255, 255, 255, 0.1);
 
-  --paper: #131a2a;
-  --paper-2: #182036;
-  --canvas: #0a0f19;
-  --paper-glass: rgba(14, 20, 34, 0.72);
-  --paper-glass-2: rgba(14, 20, 34, 0.86);
+  --paper: #16181d;
+  --paper-2: #1c1f25;
+  --canvas: #0e1013;
+  --paper-glass: rgba(14, 16, 19, 0.72);
+  --paper-glass-2: rgba(14, 16, 19, 0.86);
 
-  --hl-yellow: #54491f;
-  --hl-red: #55292f;
-  --hl-green: #1b5445;
-  --hl-blue: #1f3f72;
+  --hl-yellow: #4f4622;
+  --hl-red: #4f2a2e;
+  --hl-green: #1f4a3d;
+  --hl-blue: #26385c;
 
-  --accent: #8db4ff;
-  --accent-ink: #081d45;
-  --accent-text: #a9c6ff;
+  --accent: #9bb9f0;
+  --accent-ink: #0f2a55;
+  --accent-text: #b4cbf5;
 
   --flag-normal-bg: var(--paper-2);
   --flag-normal-bd: var(--ink-soft);
   --flag-normal-fg: var(--ink);
-  --flag-ok-bd: #3e9a78;
-  --flag-ok-fg: #c7f2e0;
-  --flag-sched-bd: #b99a3a;
-  --flag-sched-fg: #ffe9a8;
-  --flag-unsched-bd: #c9675c;
-  --flag-unsched-fg: #ffd0c8;
-  --flag-note-bd: #5d8cd6;
-  --flag-note-fg: #cfe0ff;
+  --flag-ok-bd: #3f9a79;
+  --flag-ok-fg: #c9f1e0;
+  --flag-sched-bd: #b39a45;
+  --flag-sched-fg: #f3e0a0;
+  --flag-unsched-bd: #c46f65;
+  --flag-unsched-fg: #ffd2cb;
+  --flag-note-bd: #6a8fd4;
+  --flag-note-fg: #d0e0fb;
 
-  --shadow-sheet: 0 30px 80px -20px rgba(0, 0, 0, 0.75), 0 2px 10px rgba(0, 0, 0, 0.4);
-  --shadow-fab: 0 10px 28px -6px rgba(110, 160, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5);
-  --shadow-popover: 0 20px 48px -14px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --backdrop: rgba(3, 6, 12, 0.56);
-  --focus-ring: rgba(141, 180, 255, 0.22);
+  --shadow-sheet: 0 26px 70px -22px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-fab: 0 8px 22px -6px rgba(120, 160, 240, 0.4), 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-popover: 0 16px 40px -14px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --backdrop: rgba(0, 0, 0, 0.5);
+  --focus-ring: rgba(155, 185, 240, 0.22);
 
-  /* Page : un bleu nuit net, éclairé de deux halos froids — pas de brun. */
+  /* Page : graphite, avec deux halos gris à peine perceptibles. Pas de teinte. */
   --s27-art:
-    radial-gradient(60rem 44rem at 6% -10%, rgba(76, 120, 230, 0.3), transparent 62%),
-    radial-gradient(52rem 40rem at 98% -6%, rgba(139, 92, 246, 0.2), transparent 58%),
-    radial-gradient(58rem 42rem at 48% 115%, rgba(20, 184, 166, 0.13), transparent 62%);
+    radial-gradient(60rem 44rem at 6% -10%, rgba(120, 140, 180, 0.1), transparent 62%),
+    radial-gradient(52rem 40rem at 98% -6%, rgba(160, 140, 190, 0.06), transparent 58%);
 
-  --s27-solid: #121a2b;
-  --s27-solid-2: #172036;
-  --s27-solid-strong: #182138;
-  --s27-glass: rgba(20, 29, 48, 0.56);
+  --s27-solid: #181a1f;
+  --s27-solid-2: #1c1f25;
+  --s27-solid-strong: #1e2127;
+  --s27-glass: rgba(26, 28, 34, 0.58);
   --s27-glass-2: rgba(255, 255, 255, 0.04);
-  --s27-glass-strong: rgba(22, 31, 52, 0.78);
-  --s27-edge: rgba(176, 200, 255, 0.14);
-  --s27-edge-strong: rgba(176, 200, 255, 0.22);
-  --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  --s27-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 48px -24px rgba(0, 0, 0, 0.75);
-  --s27-btn: rgba(255, 255, 255, 0.06);
-  --s27-hover: rgba(141, 180, 255, 0.16);
-  --s27-title: rgba(20, 29, 48, 0.84);
+  --s27-glass-strong: rgba(28, 31, 38, 0.8);
+  --s27-edge: rgba(255, 255, 255, 0.1);
+  --s27-edge-strong: rgba(255, 255, 255, 0.18);
+  --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --s27-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 36px -20px rgba(0, 0, 0, 0.7);
+  --s27-btn: rgba(255, 255, 255, 0.07);
+  --s27-btn-hover: rgba(255, 255, 255, 0.12);
+  --s27-hover: rgba(255, 255, 255, 0.07);
+  --s27-title: rgba(24, 26, 31, 0.86);
+  --s27-selected: rgba(255, 255, 255, 0.14);
+  --s27-selected-ring: color-mix(in srgb, var(--accent) 50%, transparent);
+  --s27-nudge: 0 1px 2px rgba(0, 0, 0, 0.4);
 
-  --s27-headrow: #172036;
-  --s27-pinned: #121a2b;
-  --s27-pinned-hover: #18233b;
-  --s27-pinned-qc: #1d2030;
-  --s27-band: rgba(255, 255, 255, 0.035);
-  --s27-row-hover: rgba(141, 180, 255, 0.1);
-  --s27-row-line: rgba(176, 200, 255, 0.07);
-  --s27-qc: rgba(255, 205, 96, 0.07);
-  --s27-qc-hover: rgba(255, 205, 96, 0.12);
+  --s27-headrow: #1c1f25;
+  --s27-pinned: #16181d;
+  --s27-pinned-hover: #1d2027;
+  --s27-pinned-qc: #1f2022;
+  --s27-band: rgba(255, 255, 255, 0.03);
+  --s27-row-hover: rgba(255, 255, 255, 0.045);
+  --s27-row-line: rgba(255, 255, 255, 0.06);
+  --s27-qc: rgba(255, 205, 96, 0.06);
+  --s27-qc-hover: rgba(255, 205, 96, 0.1);
 
-  --s27-m2: rgba(110, 223, 180, 0.1);
-  --s27-m2-head: rgba(110, 223, 180, 0.16);
-  --s27-m2-total: rgba(110, 223, 180, 0.22);
-  --s27-m2-hover: rgba(110, 223, 180, 0.17);
-  --s27-mto-bg: rgba(125, 170, 255, 0.16);
-  --s27-mto-bd: rgba(125, 170, 255, 0.4);
-  --s27-mto-fg: #bcd3ff;
-  --s27-mts-bg: rgba(255, 205, 96, 0.14);
-  --s27-mts-bd: rgba(255, 205, 96, 0.4);
-  --s27-mts-fg: #ffdc8a;
-  --s27-dim-bg: rgba(167, 139, 250, 0.16);
-  --s27-dim-bd: rgba(167, 139, 250, 0.42);
-  --s27-dim-fg: #d3c8ff;
+  --s27-m2: rgba(120, 210, 170, 0.08);
+  --s27-m2-head: rgba(120, 210, 170, 0.13);
+  --s27-m2-total: rgba(120, 210, 170, 0.18);
+  --s27-m2-hover: rgba(120, 210, 170, 0.14);
+  --s27-mto-bg: rgba(140, 170, 240, 0.14);
+  --s27-mto-bd: rgba(140, 170, 240, 0.34);
+  --s27-mto-fg: #c3d6fb;
+  --s27-mts-bg: rgba(242, 207, 112, 0.12);
+  --s27-mts-bd: rgba(242, 207, 112, 0.34);
+  --s27-mts-fg: #f6dc95;
+  --s27-dim-bg: rgba(180, 168, 224, 0.12);
+  --s27-dim-bd: rgba(180, 168, 224, 0.32);
+  --s27-dim-fg: #d4cdea;
 
-  --s27-thumb: rgba(176, 200, 255, 0.26);
-  --s27-thumb-hover: rgba(176, 200, 255, 0.5);
+  --s27-thumb: rgba(255, 255, 255, 0.22);
+  --s27-thumb-hover: rgba(255, 255, 255, 0.4);
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-style='2027']:not([data-theme='light']):not([data-theme='dark']) {
     color-scheme: dark;
 
-    --ink: #e8edf8;
-    --ink-soft: #b2bdd3;
-    --ink-faint: #93a1bc;
-    --line: #e8edf8;
-    --line-soft: rgba(176, 200, 255, 0.28);
-    --line-faint: rgba(176, 200, 255, 0.13);
+    --ink: #ecedf0;
+    --ink-soft: #b4b8c2;
+    --ink-faint: #9096a3;
+    --line: #ecedf0;
+    --line-soft: rgba(255, 255, 255, 0.22);
+    --line-faint: rgba(255, 255, 255, 0.1);
 
-    --paper: #131a2a;
-    --paper-2: #182036;
-    --canvas: #0a0f19;
-    --paper-glass: rgba(14, 20, 34, 0.72);
-    --paper-glass-2: rgba(14, 20, 34, 0.86);
+    --paper: #16181d;
+    --paper-2: #1c1f25;
+    --canvas: #0e1013;
+    --paper-glass: rgba(14, 16, 19, 0.72);
+    --paper-glass-2: rgba(14, 16, 19, 0.86);
 
-    --hl-yellow: #54491f;
-    --hl-red: #55292f;
-    --hl-green: #1b5445;
-    --hl-blue: #1f3f72;
+    --hl-yellow: #4f4622;
+    --hl-red: #4f2a2e;
+    --hl-green: #1f4a3d;
+    --hl-blue: #26385c;
 
-    --accent: #8db4ff;
-    --accent-ink: #081d45;
-    --accent-text: #a9c6ff;
+    --accent: #9bb9f0;
+    --accent-ink: #0f2a55;
+    --accent-text: #b4cbf5;
 
     --flag-normal-bg: var(--paper-2);
     --flag-normal-bd: var(--ink-soft);
     --flag-normal-fg: var(--ink);
-    --flag-ok-bd: #3e9a78;
-    --flag-ok-fg: #c7f2e0;
-    --flag-sched-bd: #b99a3a;
-    --flag-sched-fg: #ffe9a8;
-    --flag-unsched-bd: #c9675c;
-    --flag-unsched-fg: #ffd0c8;
-    --flag-note-bd: #5d8cd6;
-    --flag-note-fg: #cfe0ff;
+    --flag-ok-bd: #3f9a79;
+    --flag-ok-fg: #c9f1e0;
+    --flag-sched-bd: #b39a45;
+    --flag-sched-fg: #f3e0a0;
+    --flag-unsched-bd: #c46f65;
+    --flag-unsched-fg: #ffd2cb;
+    --flag-note-bd: #6a8fd4;
+    --flag-note-fg: #d0e0fb;
 
-    --shadow-sheet: 0 30px 80px -20px rgba(0, 0, 0, 0.75), 0 2px 10px rgba(0, 0, 0, 0.4);
-    --shadow-fab: 0 10px 28px -6px rgba(110, 160, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5);
-    --shadow-popover: 0 20px 48px -14px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
-    --backdrop: rgba(3, 6, 12, 0.56);
-    --focus-ring: rgba(141, 180, 255, 0.22);
+    --shadow-sheet: 0 26px 70px -22px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-fab: 0 8px 22px -6px rgba(120, 160, 240, 0.4), 0 2px 6px rgba(0, 0, 0, 0.5);
+    --shadow-popover: 0 16px 40px -14px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --backdrop: rgba(0, 0, 0, 0.5);
+    --focus-ring: rgba(155, 185, 240, 0.22);
 
-    /* Page : un bleu nuit net, éclairé de deux halos froids — pas de brun. */
+    /* Page : graphite, avec deux halos gris à peine perceptibles. Pas de teinte. */
     --s27-art:
-      radial-gradient(60rem 44rem at 6% -10%, rgba(76, 120, 230, 0.3), transparent 62%),
-      radial-gradient(52rem 40rem at 98% -6%, rgba(139, 92, 246, 0.2), transparent 58%),
-      radial-gradient(58rem 42rem at 48% 115%, rgba(20, 184, 166, 0.13), transparent 62%);
+      radial-gradient(60rem 44rem at 6% -10%, rgba(120, 140, 180, 0.1), transparent 62%),
+      radial-gradient(52rem 40rem at 98% -6%, rgba(160, 140, 190, 0.06), transparent 58%);
 
-    --s27-solid: #121a2b;
-    --s27-solid-2: #172036;
-    --s27-solid-strong: #182138;
-    --s27-glass: rgba(20, 29, 48, 0.56);
+    --s27-solid: #181a1f;
+    --s27-solid-2: #1c1f25;
+    --s27-solid-strong: #1e2127;
+    --s27-glass: rgba(26, 28, 34, 0.58);
     --s27-glass-2: rgba(255, 255, 255, 0.04);
-    --s27-glass-strong: rgba(22, 31, 52, 0.78);
-    --s27-edge: rgba(176, 200, 255, 0.14);
-    --s27-edge-strong: rgba(176, 200, 255, 0.22);
-    --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    --s27-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 48px -24px rgba(0, 0, 0, 0.75);
-    --s27-btn: rgba(255, 255, 255, 0.06);
-    --s27-hover: rgba(141, 180, 255, 0.16);
-    --s27-title: rgba(20, 29, 48, 0.84);
+    --s27-glass-strong: rgba(28, 31, 38, 0.8);
+    --s27-edge: rgba(255, 255, 255, 0.1);
+    --s27-edge-strong: rgba(255, 255, 255, 0.18);
+    --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --s27-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 36px -20px rgba(0, 0, 0, 0.7);
+    --s27-btn: rgba(255, 255, 255, 0.07);
+    --s27-btn-hover: rgba(255, 255, 255, 0.12);
+    --s27-hover: rgba(255, 255, 255, 0.07);
+    --s27-title: rgba(24, 26, 31, 0.86);
+    --s27-selected: rgba(255, 255, 255, 0.14);
+    --s27-selected-ring: color-mix(in srgb, var(--accent) 50%, transparent);
+    --s27-nudge: 0 1px 2px rgba(0, 0, 0, 0.4);
 
-    --s27-headrow: #172036;
-    --s27-pinned: #121a2b;
-    --s27-pinned-hover: #18233b;
-    --s27-pinned-qc: #1d2030;
-    --s27-band: rgba(255, 255, 255, 0.035);
-    --s27-row-hover: rgba(141, 180, 255, 0.1);
-    --s27-row-line: rgba(176, 200, 255, 0.07);
-    --s27-qc: rgba(255, 205, 96, 0.07);
-    --s27-qc-hover: rgba(255, 205, 96, 0.12);
+    --s27-headrow: #1c1f25;
+    --s27-pinned: #16181d;
+    --s27-pinned-hover: #1d2027;
+    --s27-pinned-qc: #1f2022;
+    --s27-band: rgba(255, 255, 255, 0.03);
+    --s27-row-hover: rgba(255, 255, 255, 0.045);
+    --s27-row-line: rgba(255, 255, 255, 0.06);
+    --s27-qc: rgba(255, 205, 96, 0.06);
+    --s27-qc-hover: rgba(255, 205, 96, 0.1);
 
-    --s27-m2: rgba(110, 223, 180, 0.1);
-    --s27-m2-head: rgba(110, 223, 180, 0.16);
-    --s27-m2-total: rgba(110, 223, 180, 0.22);
-    --s27-m2-hover: rgba(110, 223, 180, 0.17);
-    --s27-mto-bg: rgba(125, 170, 255, 0.16);
-    --s27-mto-bd: rgba(125, 170, 255, 0.4);
-    --s27-mto-fg: #bcd3ff;
-    --s27-mts-bg: rgba(255, 205, 96, 0.14);
-    --s27-mts-bd: rgba(255, 205, 96, 0.4);
-    --s27-mts-fg: #ffdc8a;
-    --s27-dim-bg: rgba(167, 139, 250, 0.16);
-    --s27-dim-bd: rgba(167, 139, 250, 0.42);
-    --s27-dim-fg: #d3c8ff;
+    --s27-m2: rgba(120, 210, 170, 0.08);
+    --s27-m2-head: rgba(120, 210, 170, 0.13);
+    --s27-m2-total: rgba(120, 210, 170, 0.18);
+    --s27-m2-hover: rgba(120, 210, 170, 0.14);
+    --s27-mto-bg: rgba(140, 170, 240, 0.14);
+    --s27-mto-bd: rgba(140, 170, 240, 0.34);
+    --s27-mto-fg: #c3d6fb;
+    --s27-mts-bg: rgba(242, 207, 112, 0.12);
+    --s27-mts-bd: rgba(242, 207, 112, 0.34);
+    --s27-mts-fg: #f6dc95;
+    --s27-dim-bg: rgba(180, 168, 224, 0.12);
+    --s27-dim-bd: rgba(180, 168, 224, 0.32);
+    --s27-dim-fg: #d4cdea;
 
-    --s27-thumb: rgba(176, 200, 255, 0.26);
-    --s27-thumb-hover: rgba(176, 200, 255, 0.5);
+    --s27-thumb: rgba(255, 255, 255, 0.22);
+    --s27-thumb-hover: rgba(255, 255, 255, 0.4);
   }
 }
 
@@ -332,8 +343,7 @@
   --g-blur-strong: none;
   --g-scrim: none;
 
-  --s27-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --s27-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  --s27-ease: cubic-bezier(0.25, 0.8, 0.25, 1);
 
   /* Plus doux, plus rond. Les rayons sont des jetons : tout l'écran les suit. */
   --radius-xs: 3px;
@@ -350,9 +360,9 @@
     --g-surface: var(--s27-glass);
     --g-surface-2: var(--s27-glass-2);
     --g-strong: var(--s27-glass-strong);
-    --g-blur: blur(18px) saturate(1.5);
-    --g-blur-strong: blur(30px) saturate(1.7);
-    --g-scrim: blur(7px) saturate(1.2);
+    --g-blur: blur(20px) saturate(1.25);
+    --g-blur-strong: blur(28px) saturate(1.35);
+    --g-scrim: blur(6px);
   }
 }
 
@@ -394,7 +404,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-:root[data-style='2027'] ::selection { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+:root[data-style='2027'] ::selection { background: color-mix(in srgb, var(--accent) 40%, transparent); }
 :root[data-style='2027'] :focus-visible { outline-color: var(--accent-text); }
 
 /* Barres de défilement fines, de la couleur de l'encre et presque invisibles
@@ -448,10 +458,12 @@
   border-color: var(--s27-edge);
 }
 :root[data-style='2027'] .tabs .tab:hover { background: var(--s27-hover); }
+/* La sélection est une capsule de verre plus claire que son rail, cerclée d'un
+   filet de bleu pastel : l'accent, pas un aplat. */
 :root[data-style='2027'] .tabs .tab.active {
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 1px 2px rgba(28, 52, 98, 0.18), 0 6px 14px -6px color-mix(in srgb, var(--accent) 80%, transparent);
+  background: var(--s27-selected);
+  color: var(--ink);
+  box-shadow: var(--s27-nudge), 0 0 0 1px var(--s27-selected-ring);
 }
 
 :root[data-style='2027'] .date-nav {
@@ -462,16 +474,16 @@
   background: var(--s27-btn);
   border-color: var(--s27-edge-strong);
 }
-:root[data-style='2027'] .btn:hover { border-color: var(--accent-text); }
+:root[data-style='2027'] .btn:hover { background: var(--s27-btn-hover); border-color: var(--line-soft); }
 :root[data-style='2027'] .btn.primary,
 :root[data-style='2027'] .btn.accent {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: transparent;
-  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--accent) 90%, transparent);
+  box-shadow: var(--s27-nudge);
 }
 :root[data-style='2027'] .btn.primary:hover,
-:root[data-style='2027'] .btn.accent:hover { background: color-mix(in srgb, var(--accent) 82%, white); border-color: transparent; }
+:root[data-style='2027'] .btn.accent:hover { background: color-mix(in srgb, var(--accent) 85%, white); border-color: transparent; }
 :root[data-style='2027'] .btn.ghost { background: transparent; border-color: transparent; }
 :root[data-style='2027'] .btn.ghost:hover { background: var(--s27-hover); }
 :root[data-style='2027'] .btn.danger { color: var(--flag-unsched-fg); }
@@ -479,25 +491,31 @@
 :root[data-style='2027'] .btn.gear[aria-expanded='true'],
 :root[data-style='2027'] .sch-eye-btn.is-on,
 :root[data-style='2027'] .sch-cols-btn.is-open {
-  background: var(--s27-hover);
-  border-color: var(--accent-text);
+  background: var(--s27-selected);
+  border-color: var(--s27-selected-ring);
 }
 
 :root[data-style='2027'] .chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
-:root[data-style='2027'] .chip.active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+:root[data-style='2027'] .chip.active,
+:root[data-style='2027'] .sch-filter-chip.is-on {
+  background: color-mix(in srgb, var(--accent) 24%, var(--s27-selected));
+  color: var(--accent-text);
+  border-color: var(--s27-selected-ring);
+}
 
 :root[data-style='2027'] .shift-chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
-:root[data-style='2027'] .shift-chip:hover { border-color: var(--accent-text); }
-:root[data-style='2027'] .shift-chip.active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-:root[data-style='2027'] .shift-chip .shift-poste { background: color-mix(in srgb, var(--ink) 9%, transparent); }
-:root[data-style='2027'] .shift-chip.active .shift-poste { background: rgba(255, 255, 255, 0.6); color: var(--accent-ink); }
-:root[data-style='2027'] .shift-chip.active .live-dot { background: var(--accent-ink); box-shadow: 0 0 0 3px rgba(11, 37, 87, 0.2); }
+:root[data-style='2027'] .shift-chip:hover { background: var(--s27-btn-hover); border-color: var(--line-soft); }
+/* Pas de box-shadow ici : celui du style classique (la barre colorée du poste) reste. */
+:root[data-style='2027'] .shift-chip.active { background: var(--s27-selected); color: var(--ink); border-color: var(--s27-selected-ring); }
+:root[data-style='2027'] .shift-chip .shift-poste { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+:root[data-style='2027'] .shift-chip.active .shift-poste { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--ink); }
+:root[data-style='2027'] .shift-chip.active .live-dot { background: var(--accent-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 
 :root[data-style='2027'] .seg { background: var(--g-surface-2); border-color: var(--s27-edge); }
 :root[data-style='2027'] .seg button.active {
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 1px 3px rgba(28, 52, 98, 0.22);
+  background: var(--s27-selected);
+  color: var(--ink);
+  box-shadow: var(--s27-nudge), 0 0 0 1px var(--s27-selected-ring);
 }
 
 /* Le texte qui était terracotta : le bleu pastel n'y est pas lisible, son
@@ -610,14 +628,14 @@
 }
 :root[data-style='2027'] .sch-rail-item { border-radius: var(--radius-lg); }
 :root[data-style='2027'] .sch-rail-item:hover { background: var(--s27-hover); }
+/* La carte active : une pièce de verre plus claire que le rail, un filet de
+   bleu pastel et le trait d'accent à gauche. Rien de plus. */
 :root[data-style='2027'] .sch-rail-item.active {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--accent) 90%, transparent);
+  background: var(--s27-selected);
+  border-color: var(--s27-selected-ring);
+  box-shadow: var(--s27-nudge);
 }
-:root[data-style='2027'] .sch-rail-item.active::before {
-  background: linear-gradient(var(--accent), var(--accent-text));
-}
+:root[data-style='2027'] .sch-rail-item.active::before { background: var(--accent); }
 :root[data-style='2027'] .sch-swipe,
 :root[data-style='2027'] .sch-swipe-surface { border-radius: var(--radius-lg); }
 /* Sur du verre la carte n'a pas de fond plein : la bande verte du balayage, en
@@ -697,8 +715,7 @@
 }
 
 :root[data-style='2027'] .sch-filter-chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
-:root[data-style='2027'] .sch-filter-chip:hover { border-color: var(--accent-text); }
-:root[data-style='2027'] .sch-filter-chip.is-on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+:root[data-style='2027'] .sch-filter-chip:not(.is-on):hover { background: var(--s27-btn-hover); border-color: var(--line-soft); }
 
 /* Les lignes. Ce qui colle (en-tête, total, colonnes fixées) est opaque : les
    lignes qui défilent dessous ne doivent pas apparaître à travers. Le reste se
@@ -773,19 +790,22 @@
 }
 
 /* ---------- Mouvement ----------
-   Tout ce qui bouge est ici, et rien ne bouge si l'on a demandé de réduire les
-   animations : les images-clés n'existent que pour ceux qui l'acceptent, et le
-   bloc `reduce` en bas coupe aussi les transitions. Les animations passent par
-   les propriétés individuelles `translate` / `scale` : elles se composent avec
-   le `transform` qu'ont déjà les fenêtres (centrage) et les cartes (glissé).
-   Aucune ne garde son état final (`backwards`, jamais `both`/`forwards`) : une
-   propriété de transformation laissée en place après coup ferait de son élément
-   un contexte d'empilement permanent, et d'un menu un menu masqué par ce qui
-   le suit. */
+   Léger : ce qui apparaît fond et se pose de quelques pixels, en un quart de
+   seconde ; rien ne rebondit, ne grandit ni ne tourne. Tout ce qui bouge est ici,
+   et rien ne bouge si l'on a demandé de réduire les animations : les
+   images-clés n'existent que pour ceux qui l'acceptent, et le bloc `reduce` en
+   bas coupe aussi les transitions.
+
+   Les animations passent par les propriétés individuelles `translate` /
+   `scale` : elles se composent avec le `transform` qu'ont déjà les fenêtres
+   (centrage) et les cartes (glissé). Aucune ne garde son état final
+   (`backwards`, jamais `both`/`forwards`) : une propriété de transformation
+   laissée en place après coup ferait de son élément un contexte d'empilement
+   permanent, et d'un menu un menu masqué par ce qui le suit. */
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Retour au toucher : le contrôle s'enfonce sous le doigt, et ses teintes
-     suivent sans à-coup. */
+  /* Les contrôles : leurs teintes suivent sans à-coup, et ils s'enfoncent à
+     peine sous le doigt. */
   :root[data-style='2027'] :is(
     .btn,
     .chip,
@@ -804,11 +824,11 @@
     .sch-cols-item
   ) {
     transition:
-      background-color 180ms var(--s27-ease),
-      border-color 180ms var(--s27-ease),
-      color 180ms var(--s27-ease),
-      box-shadow 220ms var(--s27-ease),
-      scale 150ms var(--s27-ease);
+      background-color 160ms var(--s27-ease),
+      border-color 160ms var(--s27-ease),
+      color 160ms var(--s27-ease),
+      box-shadow 200ms var(--s27-ease),
+      scale 120ms var(--s27-ease);
   }
   :root[data-style='2027'] :is(
     .btn,
@@ -826,49 +846,47 @@
     .sch-done-item,
     .sch-done-restore
   ):not(:disabled):active {
-    scale: 0.96;
+    scale: 0.975;
   }
-  :root[data-style='2027'] .sch-row-clickable { transition: background-color 120ms ease; }
-  :root[data-style='2027'] .sch-row-clickable:active { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+  :root[data-style='2027'] .sch-row-clickable { transition: background-color 120ms var(--s27-ease); }
+  :root[data-style='2027'] .sch-row-clickable:active { background: var(--s27-hover); }
 
-  /* Le rail arrive en cascade, une carte après l'autre (--i vient de Schedules). */
+  /* Les cartes du rail se posent une à une : un fondu et 4 px, 12 ms d'écart
+     (--i vient de Schedules, plafonné à 10). */
   :root[data-style='2027'] .sch-rail-list > li {
-    animation: s27-rise 520ms var(--s27-ease) backwards;
-    animation-delay: calc(var(--i, 0) * 28ms + 40ms);
+    animation: s27-rise 240ms var(--s27-ease) backwards;
+    animation-delay: calc(var(--i, 0) * 12ms);
   }
-  /* Le trait de la carte active se déploie à son arrivée. */
-  :root[data-style='2027'] .sch-rail-item.active::before { animation: s27-grow 360ms var(--s27-ease) backwards; }
+  /* Le trait de la carte active apparaît avec elle. */
+  :root[data-style='2027'] .sch-rail-item.active::before { animation: s27-fade 200ms var(--s27-ease) backwards; }
 
-  /* D'un schedule à l'autre : l'en-tête puis le tableau glissent et s'allument.
-     On anime les enfants, pas la carte : sa transparence ferait de la carte une
-     « racine » de flou pendant le mouvement, et le verre s'éteindrait. */
+  /* D'un schedule à l'autre : l'en-tête et le tableau se posent ensemble, en
+     un fondu et 3 px. On anime les enfants, pas la carte : sa transparence ferait
+     de la carte une « racine » de flou pendant le mouvement, et le verre
+     s'éteindrait. */
   :root[data-style='2027'] .sch-detail.is-swapping > .sch-detail-head,
-  :root[data-style='2027'] .sch-detail.is-swapping > .sch-controls { animation: s27-swap 360ms var(--s27-ease) backwards; }
-  :root[data-style='2027'] .sch-detail.is-swapping > .sch-table { animation: s27-swap 420ms var(--s27-ease) 50ms backwards; }
+  :root[data-style='2027'] .sch-detail.is-swapping > .sch-controls,
+  :root[data-style='2027'] .sch-detail.is-swapping > .sch-table { animation: s27-swap 200ms var(--s27-ease) backwards; }
 
   /* Menus et fenêtres. */
-  :root[data-style='2027'] .popover { animation: s27-pop 220ms var(--s27-ease) backwards; }
-  :root[data-style='2027'] .sheet-backdrop { animation: s27-fade 240ms ease backwards; }
-  :root[data-style='2027'] .sheet { animation: s27-sheet 340ms var(--s27-ease) backwards; }
-  :root[data-style='2027'] .toast { animation: s27-toast 420ms var(--s27-spring) backwards; }
+  :root[data-style='2027'] .popover { animation: s27-pop 150ms var(--s27-ease) backwards; }
+  :root[data-style='2027'] .sheet-backdrop { animation: s27-fade 180ms var(--s27-ease) backwards; }
+  :root[data-style='2027'] .sheet { animation: s27-sheet 220ms var(--s27-ease) backwards; }
+  :root[data-style='2027'] .toast { animation: s27-toast 220ms var(--s27-ease) backwards; }
   @media (max-width: 600px) {
-    :root[data-style='2027'] .sheet { animation: s27-sheet-phone 380ms var(--s27-ease) backwards; }
+    :root[data-style='2027'] .sheet { animation: s27-sheet-phone 260ms var(--s27-ease) backwards; }
   }
 
   @keyframes s27-rise {
-    from { opacity: 0; translate: -14px 0; scale: 0.97; }
-    to   { opacity: 1; translate: 0 0; scale: 1; }
-  }
-  @keyframes s27-grow {
-    from { scale: 1 0; opacity: 0; }
-    to   { scale: 1 1; opacity: 1; }
+    from { opacity: 0; translate: 0 4px; }
+    to   { opacity: 1; translate: 0 0; }
   }
   @keyframes s27-swap {
-    from { opacity: 0; translate: 16px 0; }
+    from { opacity: 0.4; translate: 0 3px; }
     to   { opacity: 1; translate: 0 0; }
   }
   @keyframes s27-pop {
-    from { opacity: 0; translate: 0 -8px; scale: 0.94; }
+    from { opacity: 0; translate: 0 -4px; scale: 0.985; }
     to   { opacity: 1; translate: 0 0; scale: 1; }
   }
   @keyframes s27-fade {
@@ -876,16 +894,16 @@
     to   { opacity: 1; }
   }
   @keyframes s27-sheet {
-    from { opacity: 0; translate: 0 18px; scale: 0.96; }
+    from { opacity: 0; translate: 0 8px; scale: 0.99; }
     to   { opacity: 1; translate: 0 0; scale: 1; }
   }
   @keyframes s27-sheet-phone {
-    from { opacity: 0.6; translate: 0 100%; }
+    from { opacity: 0.8; translate: 0 100%; }
     to   { opacity: 1; translate: 0 0; }
   }
   @keyframes s27-toast {
-    from { opacity: 0; translate: 0 22px; scale: 0.96; }
-    to   { opacity: 1; translate: 0 0; scale: 1; }
+    from { opacity: 0; translate: 0 8px; }
+    to   { opacity: 1; translate: 0 0; }
   }
 }
 

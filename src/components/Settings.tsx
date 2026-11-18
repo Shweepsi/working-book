@@ -112,7 +112,7 @@ export function SettingsPanel({ theme, onThemeChange, uiStyle, onUiStyleChange, 
           ))}
         </div>
         {uiStyle === '2027' && (
-          <div className="popover-help">Verre dépoli, couleurs pastel et animations. Le papier et l’impression ne changent pas.</div>
+          <div className="popover-help">Verre dépoli clair, tons pastel, animations légères. Le papier et l’impression ne changent pas.</div>
         )}
       </div>
       <div>

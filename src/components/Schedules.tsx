@@ -45,8 +45,8 @@ const LONG_TOAST_TTL = 10_000;
 const SWIPE_RETIRE_PX = 88;
 
 // How many rail cards the 2027 entrance staggers before the rest come in
-// together: 14 steps of 28ms is the longest wait a card ever has.
-const RAIL_STAGGER_MAX = 14;
+// together: 10 steps of 12ms is the longest wait a card ever has.
+const RAIL_STAGGER_MAX = 10;
 
 type DisplayRow = PMS230Record & { mtoMts: string };
 

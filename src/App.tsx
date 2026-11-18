@@ -72,7 +72,7 @@ type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 // canvas colour of each, so the bar melts into the page.
 const META_COLOR: Record<UiStyle, Record<'light' | 'dark', string>> = {
   classic: { light: '#f0eee9', dark: '#14130f' },
-  '2027': { light: '#e9f0fa', dark: '#0a0f19' },
+  '2027': { light: '#f0f1f4', dark: '#0e1013' },
 };
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
