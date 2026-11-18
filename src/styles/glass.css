@@ -413,6 +413,13 @@
   }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
 
+  /* The two horizontal bands of the table, the column-title row and the group
+     breaks, take a deeper tint so they read as bands against the rows. */
+  :root[data-look='glass']:not(.is-print-preview) :is(.sch-row.sch-head, .sch-row.sch-group-break),
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-pinned {
+    background: color-mix(in srgb, var(--ink) 9%, var(--paper));
+  }
+
   /* The on-screen paper preview reads as paper, not as glass. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
 }
