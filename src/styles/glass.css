@@ -408,7 +408,7 @@
   }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable:last-child { border-bottom: 0; }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head {
-    color: var(--ink);
+    color: var(--ink-soft);
     font-weight: 600;
   }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
