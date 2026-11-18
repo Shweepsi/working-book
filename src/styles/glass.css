@@ -81,41 +81,8 @@
     }
   }
 
-  /* Wash colours. Light borrows the app's pastel highlights; dark cannot (its
-     highlight tokens are dark browns and greens that turn muddy when blurred), so
-     it gets its own cool glows around the indigo accent. */
-  :root[data-look='glass'] {
-    --g-wash-a: color-mix(in srgb, var(--accent) 17%, transparent);
-    --g-wash-b: color-mix(in srgb, var(--hl-blue) 50%, transparent);
-    --g-wash-c: color-mix(in srgb, var(--hl-green) 70%, transparent);
-    --g-wash-d: color-mix(in srgb, var(--hl-yellow) 55%, transparent);
-  }
-  :root[data-look='glass'][data-theme='dark'] {
-    --g-wash-a: rgba(110, 170, 245, 0.2);
-    --g-wash-b: rgba(70, 130, 230, 0.14);
-    --g-wash-c: rgba(45, 190, 170, 0.08);
-    --g-wash-d: rgba(170, 100, 235, 0.1);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
-      --g-wash-a: rgba(110, 170, 245, 0.2);
-      --g-wash-b: rgba(70, 130, 230, 0.14);
-      --g-wash-c: rgba(45, 190, 170, 0.08);
-      --g-wash-d: rgba(170, 100, 235, 0.1);
-    }
-  }
-
-  /* A soft wash behind everything, so the blur has something to refract. Fixed,
-     so it does not scroll with the table. */
-  :root[data-look='glass'] body {
-    background:
-      radial-gradient(60vmax 50vmax at 8% -10%, var(--g-wash-a), transparent 62%),
-      radial-gradient(50vmax 45vmax at 105% 10%, var(--g-wash-b), transparent 65%),
-      radial-gradient(55vmax 50vmax at 60% 115%, var(--g-wash-c), transparent 62%),
-      radial-gradient(40vmax 35vmax at 30% 55%, var(--g-wash-d), transparent 65%),
-      var(--canvas);
-    background-attachment: fixed;
-  }
+  /* No coloured wash: the page behind the glass is the plain theme canvas. */
+  :root[data-look='glass'] body { background: var(--canvas); }
 
   @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
     :root[data-look='glass']:not(.is-print-preview) :is(
