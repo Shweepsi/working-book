@@ -415,9 +415,22 @@
 
   /* The two horizontal bands of the table, the column-title row and the group
      breaks, take a deeper tint so they read as bands against the rows. */
-  :root[data-look='glass']:not(.is-print-preview) :is(.sch-row.sch-head, .sch-row.sch-group-break),
+  :root[data-look='glass']:not(.is-print-preview) :is(.sch-row.sch-head),
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-pinned {
     background: color-mix(in srgb, var(--ink) 9%, var(--paper));
+  }
+
+  /* The group separator that carries the dimension chip (« 6 000 MM »): a
+     deeper band than the title row, with a hairline above and below, and the
+     chip itself lifted to the paper colour so it stands out on it. */
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-group-break {
+    background: color-mix(in srgb, var(--ink) 16%, var(--paper));
+    border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-group-break .sch-group-value {
+    background: var(--paper);
+    border-color: color-mix(in srgb, var(--ink) 24%, transparent);
   }
 
   /* The on-screen paper preview reads as paper, not as glass. */
