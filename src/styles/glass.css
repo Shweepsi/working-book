@@ -400,6 +400,19 @@
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
+  /* Row separators and column titles, a notch more contrasted. The classic
+     look draws no line between data rows; here each row gets a hairline, and
+     the column titles move from the faint ink to the soft one. */
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable {
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 11%, transparent);
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable:last-child { border-bottom: 0; }
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head {
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
+
   /* The on-screen paper preview reads as paper, not as glass. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
 }
