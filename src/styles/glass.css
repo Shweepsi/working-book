@@ -206,12 +206,12 @@
     .sch .mono, .sch [class*='mono'], .mono { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .sch, .mono { font-variant-numeric: tabular-nums; }
 
-    /* Import strip: a quiet caption line, not a box. */
+    /* Import strip: a slim card of its own above the rail and the detail. */
     .sch-summary {
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      padding-inline: var(--space-3);
+      background: var(--paper);
+      border: 1px solid var(--g-hair);
+      border-radius: 14px;
+      box-shadow: var(--g-card-shadow);
       color: var(--ink-faint);
     }
 
@@ -245,7 +245,17 @@
       background: color-mix(in srgb, var(--accent) 12%, transparent);
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
     }
-    .sch-rail-item.active::before { display: none; }
+    /* The selected card keeps a short inset pill on its left edge, a second cue
+       beside the tint. */
+    .sch-rail-item { padding-left: calc(var(--space-5) + 6px); }
+    .sch-rail-item.active::before {
+      top: 22%;
+      bottom: 22%;
+      left: 7px;
+      width: 3px;
+      border-radius: 3px;
+      background: var(--accent);
+    }
     .sch-rail-num { font-weight: 650; letter-spacing: -0.01em; }
     .sch-rail-root { color: var(--ink-soft); }
     .sch-rail-meta { color: var(--ink-faint); }
@@ -285,7 +295,7 @@
 
     /* Table: no fills and no zebra. Rhythm comes from space and hairlines. */
     .sch-row.sch-head {
-      background: color-mix(in srgb, var(--paper) 92%, transparent);
+      background: color-mix(in srgb, var(--ink) 4.5%, var(--paper));
       -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
       backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
       box-shadow: inset 0 -1px 0 var(--g-hair);
@@ -294,10 +304,10 @@
       letter-spacing: 0;
       font-size: var(--fs-sm);
       font-weight: 500;
-      color: var(--ink-faint);
+      color: var(--ink-soft);
     }
     .sch-row.sch-head .sch-cell { padding-block: 11px; }
-    .sch-row.sch-head .sch-cell.is-pinned { background: var(--paper); }
+    .sch-row.sch-head .sch-cell.is-pinned { background: color-mix(in srgb, var(--ink) 4.5%, var(--paper)); }
     .sch-row.sch-head .sch-cell:hover { color: var(--ink); }
     .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); font-weight: 600; }
 
@@ -306,13 +316,14 @@
     .sch-row:not(.sch-head):not(.sch-total):hover { background: var(--g-hover); }
     .sch-row:not(.sch-head):not(.sch-total) .sch-cell { padding-block: 9px; }
 
-    /* Group break: a quiet sub-heading, not a band. */
+    /* Group break: a sub-heading on a light tint, with a hairline either side. */
     .sch-row.sch-group-break {
-      background: transparent;
+      background: color-mix(in srgb, var(--ink) 3.5%, var(--paper));
+      border-top: 1px solid var(--g-hair);
       border-bottom: 1px solid var(--g-hair);
       min-height: 0;
     }
-    .sch-row.sch-group-break .sch-group-label { padding: 16px var(--space-5) 6px; }
+    .sch-row.sch-group-break .sch-group-label { padding: 9px var(--space-5); }
     .sch-group-value {
       display: inline-flex;
       align-items: center;
