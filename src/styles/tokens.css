@@ -44,6 +44,8 @@
   --flag-note-fg: #244260;
 
   --shadow-sheet: 0 12px 40px rgba(0, 0, 0, 0.18);
+  /* Resting cards on the canvas (Schedule rail, detail, status bar). */
+  --shadow-card: 0 1px 2px rgba(31, 28, 24, 0.05), 0 8px 24px -14px rgba(31, 28, 24, 0.22);
   --shadow-fab: 0 6px 24px rgba(201, 100, 66, 0.35), 0 2px 6px rgba(0, 0, 0, 0.12);
   --shadow-popover: 0 10px 28px rgba(31, 28, 24, 0.18);
   --backdrop: rgba(31, 28, 24, 0.35);
@@ -89,6 +91,7 @@
     --flag-note-fg: #c8dcef;
 
     --shadow-sheet: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.75);
     --shadow-fab: 0 6px 24px rgba(224, 122, 85, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4);
     --shadow-popover: 0 10px 28px rgba(0, 0, 0, 0.55);
     --backdrop: rgba(0, 0, 0, 0.55);
@@ -133,6 +136,7 @@
   --flag-note-fg: #c8dcef;
 
   --shadow-sheet: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.75);
   --shadow-fab: 0 6px 24px rgba(224, 122, 85, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4);
   --shadow-popover: 0 10px 28px rgba(0, 0, 0, 0.55);
   --backdrop: rgba(0, 0, 0, 0.55);
@@ -224,6 +228,7 @@
   --flag-note-fg: #244260;
 
   --shadow-sheet: none;
+  --shadow-card: none;
   --shadow-fab: none;
   --shadow-popover: none;
   --backdrop: transparent;
@@ -284,6 +289,7 @@
     --flag-note-fg: #244260;
 
     --shadow-sheet: none;
+  --shadow-card: none;
     --shadow-fab: none;
     --shadow-popover: none;
     --backdrop: transparent;

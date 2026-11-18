@@ -1,0 +1,492 @@
+/* ==========================================================================
+   Schedule — habillage écran
+   ==========================================================================
+   Loaded after app.css. Everything here is screen chrome: cards, wells, pills,
+   the phone and tablet layouts. None of it may reach paper, so every rule sits
+   under `@media screen` AND behind the `S` prefix below, which drops out as
+   soon as the aperçu is on. The aperçu and the printout keep running on the
+   base `.sch-*` rules and the paper section at the end of app.css, exactly as
+   before this file existed.
+
+   S = :where(:root:not(.is-print-preview))
+   `:where()` adds no specificity, so a rule here weighs what its own classes
+   weigh: it beats the base rule it restyles by source order, and still loses
+   to the per-density rules in app.css (`:root[data-density=…] .x`), which keep
+   tuning paddings and sizes. Where a density needs a value of its own here, it
+   is written out in full (`:root[data-density=…]:not(.is-print-preview) …`).
+
+   Colours are mixed from the theme tokens (ink over paper), so the same line
+   works in light and dark without a second set. */
+
+@media screen {
+  :root {
+    --sch-radius: 16px;
+    --sch-radius-inner: 12px;
+    /* Hairlines and fills as a share of the ink: visible on both themes, where
+       --line-faint all but vanished on the dark paper. */
+    --sch-hair: color-mix(in srgb, var(--ink) 10%, transparent);
+    --sch-hair-strong: color-mix(in srgb, var(--ink) 16%, transparent);
+    /* Opaque: the table's sticky head, total and pinned cells sit on these. */
+    --sch-well: color-mix(in srgb, var(--ink) 4.5%, var(--paper));
+    --sch-band: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  }
+
+  /* --- Barre d'état (import) -------------------------------------------- */
+
+  :where(:root:not(.is-print-preview)) .sch-summary {
+    border-color: var(--sch-hair);
+    background: var(--paper);
+    box-shadow: var(--shadow-card);
+    padding: 5px 5px 5px 16px;
+  }
+  :where(:root:not(.is-print-preview)) .sch-summary-stats {
+    font-size: var(--fs-md);
+    gap: var(--space-3) var(--space-5);
+  }
+  :where(:root:not(.is-print-preview)) .sch-summary-stats > span + span::before {
+    margin-right: var(--space-5);
+  }
+  /* Readings in the UI face with tabular figures: the mono face is kept for
+     identifiers (schedule, MO, produit), not for quantities. */
+  :where(:root:not(.is-print-preview)) .sch-summary-stats strong {
+    font-family: inherit;
+    font-weight: 600;
+  }
+  :where(:root:not(.is-print-preview)) .sch-summary-actions .btn {
+    border-radius: var(--radius-pill);
+    padding-inline: 12px 14px;
+    min-height: 30px;
+    gap: 7px;
+    font-weight: 500;
+  }
+  :where(:root:not(.is-print-preview)) .sch-policy-chip {
+    border-color: var(--sch-hair);
+    background: var(--sch-well);
+    padding: 1px var(--space-4);
+  }
+
+  :where(:root:not(.is-print-preview)) .sch-hint {
+    border-radius: var(--sch-radius-inner);
+  }
+  :where(:root:not(.is-print-preview)) .sch-hint .btn.mini {
+    border-radius: var(--radius-pill);
+  }
+
+  /* --- État vide ----------------------------------------------------------- */
+
+  :where(:root:not(.is-print-preview)) .sch-empty {
+    align-items: center;
+    text-align: center;
+    gap: var(--space-5);
+    padding: 56px 24px;
+    border: 1px dashed var(--sch-hair-strong);
+    border-radius: var(--sch-radius);
+    background: var(--paper);
+  }
+  :where(:root:not(.is-print-preview)) .sch-empty h3 {
+    color: var(--ink);
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-empty p {
+    color: var(--ink-soft);
+    font-size: var(--fs-base);
+    max-width: 46ch;
+  }
+  :where(:root:not(.is-print-preview)) .sch-empty-glyph {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--sch-well);
+    border: 1px solid var(--sch-hair);
+    color: var(--ink-soft);
+  }
+  :where(:root:not(.is-print-preview)) .sch-empty .btn {
+    margin: var(--space-3) 0 0;
+    border-radius: var(--radius-pill);
+    padding-inline: 16px 18px;
+    min-height: 38px;
+    gap: 8px;
+  }
+
+  /* --- Rail des schedules -------------------------------------------------- */
+
+  :where(:root:not(.is-print-preview)) .sch-rail {
+    border-color: var(--sch-hair);
+    border-radius: var(--sch-radius);
+    box-shadow: var(--shadow-card);
+    scrollbar-width: thin;
+    scrollbar-color: var(--sch-hair-strong) transparent;
+  }
+  /* Frosted rather than a grey slab: the cards slide under it on scroll. */
+  :where(:root:not(.is-print-preview)) .sch-rail-title {
+    padding: 12px 14px 10px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    background: color-mix(in srgb, var(--paper) 84%, transparent);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    border-bottom-color: var(--sch-hair);
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-list {
+    padding: 6px;
+    gap: 2px;
+  }
+  :where(:root:not(.is-print-preview)) .sch-swipe,
+  :where(:root:not(.is-print-preview)) .sch-swipe-surface {
+    border-radius: 10px;
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-item {
+    border-radius: 10px;
+    padding: 9px 10px 9px 12px;
+    gap: 4px;
+    transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-item:hover { background: var(--sch-well); }
+  :where(:root:not(.is-print-preview)) .sch-rail-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-item.active {
+    background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+    border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  /* The edge mark floats inside the card, pill-ended, instead of being sliced
+     flush against its rounded corner. */
+  :where(:root:not(.is-print-preview)) .sch-rail-item.active::before {
+    top: 10px;
+    bottom: 10px;
+    left: 4px;
+    width: 3px;
+    border-radius: 3px;
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-num { font-weight: 500; }
+  :where(:root:not(.is-print-preview)) .sch-rail-item.active .sch-rail-num { font-weight: 700; }
+  /* The product family as a tag: it names the schedule, the number is the key. */
+  :where(:root:not(.is-print-preview)) .sch-rail-root {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 1px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--sch-well);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-item.active .sch-rail-root {
+    background: color-mix(in srgb, var(--accent) 16%, var(--paper));
+  }
+  :where(:root:not(.is-print-preview)) .sch-rail-meta {
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- Détail : une seule carte (en-tête + tableau) ------------------------ */
+
+  /* The head and the table are two boxes laid edge to edge; the card is drawn
+     around them by the shadow on their parent, which follows its radius.
+     No overflow clipping on the parent: the Filtre / Colonnes menus are
+     absolutely positioned popovers inside the head. */
+  :where(:root:not(.is-print-preview)) .sch-detail {
+    border-radius: var(--sch-radius);
+    box-shadow: var(--shadow-card);
+  }
+  :where(:root:not(.is-print-preview)) .sch-detail-head {
+    align-items: center;
+    gap: var(--space-5) var(--space-6);
+    padding: 14px 14px 14px 18px;
+    background: var(--paper);
+    border-color: var(--sch-hair);
+    border-bottom: 1px solid var(--sch-hair);
+    border-radius: var(--sch-radius) var(--sch-radius) 0 0;
+  }
+  :where(:root:not(.is-print-preview)) .sch-detail-head h3 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  /* The dash only held the two halves of the title apart; the tag does that. */
+  :where(:root:not(.is-print-preview)) .sch-detail-head-sep { display: none; }
+  :where(:root:not(.is-print-preview)) .sch-detail-head-name {
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--sch-well);
+    border: 1px solid var(--sch-hair);
+    font-size: var(--fs-base);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ink-soft);
+  }
+
+  /* Readings as wells: each its own rounded surface, no slicing dividers. */
+  :where(:root:not(.is-print-preview)) .sch-detail-head-stats {
+    gap: var(--space-4);
+    padding-right: 0;
+  }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile,
+  :where(:root:not(.is-print-preview)) .sch-stat-tile:first-child,
+  :where(:root:not(.is-print-preview)) .sch-stat-tile:last-child {
+    padding: 7px 12px 8px;
+    gap: 3px;
+    background: var(--sch-well);
+    border: 1px solid var(--sch-hair);
+    border-radius: var(--sch-radius-inner);
+  }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile + .sch-stat-tile::before { content: none; }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile-label {
+    font-size: var(--fs-2xs);
+    letter-spacing: 0.06em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile-value {
+    font-family: inherit;
+    font-size: var(--fs-xl);
+    letter-spacing: -0.01em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile-input .sch-stat-tile-value {
+    border-radius: 8px;
+    padding: 1px var(--space-4);
+  }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile-input .sch-vitesse-input { font-family: inherit; }
+  /* No speed yet: the whole well asks for it, not just the box inside. */
+  :where(:root:not(.is-print-preview)) .sch-stat-tile-input.is-invalid {
+    background: color-mix(in srgb, var(--hl-red) 30%, var(--paper));
+    border-color: color-mix(in srgb, var(--flag-unsched-bd) 45%, transparent);
+  }
+  :where(:root:not(.is-print-preview)) .sch-stat-tile-input.is-invalid .sch-stat-tile-label {
+    color: var(--flag-unsched-fg);
+  }
+
+  /* Filtre / Colonnes close the head as two soft square buttons. */
+  :where(:root:not(.is-print-preview)) .sch-detail-head .sch-controls {
+    align-self: center;
+    padding-left: 0;
+  }
+  :where(:root:not(.is-print-preview)) .sch-detail-head .sch-controls::before { content: none; }
+  :where(:root:not(.is-print-preview)) .sch-detail-head .sch-controls-end { gap: var(--space-2); }
+  :where(:root:not(.is-print-preview)) .sch-detail-head .sch-controls .btn.icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    transition: background 140ms ease, color 140ms ease;
+  }
+  :where(:root:not(.is-print-preview)) .sch-detail-head .sch-controls .btn.icon:hover {
+    background: var(--sch-well);
+  }
+  :where(:root:not(.is-print-preview)) .sch-detail .sch-controls {
+    border-color: var(--sch-hair);
+    border-radius: var(--sch-radius) var(--sch-radius) 0 0;
+  }
+
+  /* --- Tableau ------------------------------------------------------------- */
+
+  :where(:root:not(.is-print-preview)) .sch-table {
+    border-color: var(--sch-hair);
+    border-top: 0;
+    border-radius: 0 0 var(--sch-radius) var(--sch-radius);
+    scrollbar-width: thin;
+    scrollbar-color: var(--sch-hair-strong) transparent;
+  }
+  :where(:root:not(.is-print-preview)) .sch-detail .sch-controls + .sch-table {
+    border-radius: 0 0 var(--sch-radius) var(--sch-radius);
+  }
+
+  :where(:root:not(.is-print-preview)) .sch-row.sch-head {
+    background: var(--sch-band);
+    box-shadow: 0 1px 0 var(--sch-hair);
+    letter-spacing: 0.06em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-row.sch-head .sch-cell.is-pinned { background: var(--sch-band); }
+  :where(:root:not(.is-print-preview)) .sch-row.sch-head .sch-cell.col-m2 {
+    background: color-mix(in srgb, var(--hl-green) 50%, var(--sch-band));
+  }
+
+  /* Dimension breaks: a filled tag and a hairline running to the edge. The tag
+     still lifts off the band (it was made to: see .sch-group-value in app.css),
+     without the outlined-pill look. */
+  :where(:root:not(.is-print-preview)) .sch-row.sch-group-break {
+    min-height: 34px;
+    background: var(--paper);
+    border-bottom: 0;
+  }
+  :where(:root:not(.is-print-preview)) .sch-group-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    padding: 8px 12px 3px;
+  }
+  :where(:root:not(.is-print-preview)) .sch-group-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--sch-hair);
+  }
+  :where(:root:not(.is-print-preview)) .sch-group-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 10px 3px 8px;
+    border: 0;
+    background: var(--sch-well);
+    font-size: var(--fs-sm);
+    letter-spacing: 0.06em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-group-value::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  :where(:root:not(.is-print-preview)) .sch-row.sch-total {
+    background: var(--sch-band);
+    border-top: 1px solid var(--sch-hair-strong);
+    box-shadow: 0 -6px 14px -10px color-mix(in srgb, var(--ink) 30%, transparent);
+  }
+  :where(:root:not(.is-print-preview)) .sch-row.sch-total .sch-cell.is-pinned { background: var(--sch-band); }
+  :where(:root:not(.is-print-preview)) .sch-row.sch-total .sch-cell.col-m2 {
+    background: color-mix(in srgb, var(--hl-green) 70%, var(--sch-band));
+  }
+
+  /* m² restant: the column keeps its green wash — it is the surface still to
+     coat — at a lighter strength, and the figure takes the green ink. */
+  :where(:root:not(.is-print-preview)) .sch-cell.col-m2 {
+    background: color-mix(in srgb, var(--hl-green) 42%, var(--paper));
+    color: var(--flag-ok-fg);
+    font-weight: 600;
+  }
+  :where(:root:not(.is-print-preview)) .sch-row:not(.sch-head):not(.sch-total):hover .sch-cell.col-m2 {
+    background: color-mix(in srgb, var(--hl-green) 56%, var(--paper));
+  }
+  :where(:root:not(.is-print-preview)) .sch-row.sch-head .sch-cell.col-m2,
+  :where(:root:not(.is-print-preview)) .sch-row.sch-total .sch-cell.col-m2 {
+    color: var(--flag-ok-fg);
+  }
+
+  /* MTO / MTS: soft filled pills, no outline. */
+  :where(:root:not(.is-print-preview)) .sch-mto {
+    border-color: transparent;
+    border-radius: var(--radius-pill);
+    /* Base padding kept: the MTO/MTS column is 56 px, the pill must fit it. */
+    letter-spacing: 0.05em;
+  }
+  :where(:root:not(.is-print-preview)) .sch-mto[data-mto='MTO'] {
+    background: color-mix(in srgb, var(--hl-blue) 80%, var(--paper));
+    border-color: transparent;
+  }
+  :where(:root:not(.is-print-preview)) .sch-mto[data-mto='MTS'] {
+    background: color-mix(in srgb, var(--hl-yellow) 85%, var(--paper));
+    border-color: transparent;
+  }
+  :where(:root:not(.is-print-preview)) .sch-mto[data-mto='Inactif'] {
+    background: var(--sch-well);
+    border-color: transparent;
+  }
+  :where(:root:not(.is-print-preview)) .sch-mto[data-mto='?'] { border-color: var(--line-soft); }
+
+  /* --- Densités ------------------------------------------------------------ */
+
+  :root[data-density='compact']:not(.is-print-preview) .sch-detail-head { padding: 8px 10px 8px 14px; }
+  :root[data-density='compact']:not(.is-print-preview) .sch-detail-head h3 { font-size: var(--fs-xl); }
+  :root[data-density='compact']:not(.is-print-preview) .sch-detail-head-name { padding: 1px 8px; font-size: var(--fs-sm); }
+  :root[data-density='compact']:not(.is-print-preview) .sch-stat-tile,
+  :root[data-density='compact']:not(.is-print-preview) .sch-stat-tile:first-child,
+  :root[data-density='compact']:not(.is-print-preview) .sch-stat-tile:last-child { padding: 4px 9px 5px; border-radius: 10px; }
+  :root[data-density='compact']:not(.is-print-preview) .sch-stat-tile-value { font-size: var(--fs-base); }
+  :root[data-density='compact']:not(.is-print-preview) .sch-detail-head .sch-controls .btn.icon { width: 30px; height: 30px; }
+  :root[data-density='compact']:not(.is-print-preview) .sch-rail-item { padding: 5px 8px 5px 12px; }
+  :root[data-density='compact']:not(.is-print-preview) .sch-row.sch-group-break { min-height: 28px; }
+  :root[data-density='compact']:not(.is-print-preview) .sch-group-label { padding: 5px 10px 1px; }
+  :root[data-density='compact']:not(.is-print-preview) .sch-group-value { padding: 1px 8px 1px 7px; font-size: var(--fs-2xs); }
+  :root[data-density='advanced']:not(.is-print-preview) .sch-stat-tile,
+  :root[data-density='advanced']:not(.is-print-preview) .sch-stat-tile:first-child,
+  :root[data-density='advanced']:not(.is-print-preview) .sch-stat-tile:last-child { padding: 8px 14px 9px; }
+  :root[data-density='advanced']:not(.is-print-preview) .sch-rail-item { padding: 10px 12px 10px 14px; }
+
+  /* --- Tablette / téléphone (rail au-dessus du détail) --------------------- */
+
+  /* The rail used to wrap its cards into ragged lines of whatever width each
+     card's text gave it, and to grow with the planning: 26 schedules pushed
+     the table a full screen down. It is now an even grid, capped in height and
+     scrolled inside itself. Vertical scroll only: the cards keep their
+     horizontal swipe-to-retire. */
+  @media (max-width: 1280px) {
+    :where(:root:not(.is-print-preview)) .sch-rail { max-height: min(44vh, 296px); }
+    :where(:root:not(.is-print-preview)) .sch-rail-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 6px;
+      padding: 8px;
+    }
+    :where(:root:not(.is-print-preview)) .sch-rail-item {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+      border-color: var(--sch-hair);
+    }
+    :where(:root:not(.is-print-preview)) .sch-rail-item.active {
+      border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+    }
+  }
+
+  @media (max-width: 640px) {
+    :where(:root:not(.is-print-preview)) .sch-summary {
+      border-radius: 14px;
+      padding: 6px 6px 6px 12px;
+    }
+    :where(:root:not(.is-print-preview)) .sch-summary-actions .btn { min-height: 36px; }
+
+    :where(:root:not(.is-print-preview)) .sch-rail-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    /* Two cards a row leave no room for the number and a long family
+       (« SN70/35HT ») side by side: wrapping only the long ones made the
+       cards uneven, so every card stacks the same three lines. */
+    :where(:root:not(.is-print-preview)) .sch-rail-top {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    :where(:root:not(.is-print-preview)) .sch-rail-root { max-width: 100%; }
+
+    /* Head on a phone: title and the two view buttons on the first line, the
+       three readings as an even row of wells under them. The flex wrap it
+       used left the buttons stranded on a line of their own, behind a divider
+       with nothing on its left. */
+    :where(:root:not(.is-print-preview)) .sch-detail-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: 'id ctl' 'stats stats';
+      align-items: center;
+      row-gap: 12px;
+      padding: 14px 10px 12px 14px;
+    }
+    :where(:root:not(.is-print-preview)) .sch-detail-head-id { grid-area: id; }
+    :where(:root:not(.is-print-preview)) .sch-detail-head .sch-controls { grid-area: ctl; }
+    :where(:root:not(.is-print-preview)) .sch-detail-head-stats {
+      grid-area: stats;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-left: 0;
+      gap: 6px;
+    }
+    :where(:root:not(.is-print-preview)) .sch-detail-head h3 { font-size: 17px; }
+    :where(:root:not(.is-print-preview)) .sch-stat-tile,
+    :where(:root:not(.is-print-preview)) .sch-stat-tile:first-child,
+    :where(:root:not(.is-print-preview)) .sch-stat-tile:last-child { padding: 7px 10px 8px; }
+    :where(:root:not(.is-print-preview)) .sch-stat-tile:not(.sch-stat-tile-input) .sch-stat-tile-value {
+      min-width: 0;
+      white-space: nowrap;
+    }
+    :where(:root:not(.is-print-preview)) .sch-stat-tile-value { font-size: var(--fs-lg); }
+  }
+}

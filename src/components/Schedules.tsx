@@ -1015,6 +1015,22 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   // across a selection change they routinely match nothing in the schedule the
   // operator just opened, and an empty table reads as "this schedule has no
   // work", not "you filtered it away". Changing schedule resets them.
+  // Below 1281px the rail is capped in height and scrolls inside itself (see
+  // styles/schedule.css), so the card on screen can sit out of view — after a
+  // reload, or when picked from the terminés sheet. Bring it in, scrolling the
+  // rail only: the page itself never moves for this.
+  const railRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const rail = railRef.current;
+    const card = rail?.querySelector<HTMLElement>('.sch-rail-item.active');
+    if (!rail || !card) return;
+    const head = rail.querySelector<HTMLElement>('.sch-rail-title')?.offsetHeight ?? 0;
+    const r = rail.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    if (c.top < r.top + head) rail.scrollTop -= r.top + head - c.top + 6;
+    else if (c.bottom > r.bottom) rail.scrollTop += c.bottom - r.bottom + 6;
+  }, [selected]);
+
   function selectSchedule(schedule: string) {
     if (schedule === selected) return;
     setSelected(schedule);
@@ -1208,7 +1224,15 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
 
       {!data && (
         <div className="sch-empty">
+          <span className="sch-empty-glyph no-print" aria-hidden="true"><ImportIcon size={22} /></span>
           <h3>Aucun rapport importé</h3>
+          {/* Screen only: on paper the heading says all there is to say. */}
+          <p className="no-print">
+            Collez le rapport Operator Mashup (Ctrl+A puis Ctrl+C) pour afficher le planning, schedule par schedule.
+          </p>
+          <button type="button" className="btn primary no-print" onClick={() => setImportMode('pms230')}>
+            <ImportIcon size={15} /> Importer le rapport
+          </button>
         </div>
       )}
 
@@ -1223,7 +1247,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
 
       {data && (
         <div className="sch-body">
-          <aside className="sch-rail">
+          <aside className="sch-rail" ref={railRef}>
             <h4 className="sch-rail-title">
               <span>Planning <span className="faint">· {visibleSchedules.length}</span></span>
               {/* Way back to the schedules that have left the rail. Only shown
