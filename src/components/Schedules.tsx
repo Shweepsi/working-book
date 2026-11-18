@@ -44,6 +44,10 @@ const LONG_TOAST_TTL = 10_000;
 // same on the 240px desktop rail and on the wider phone chips.
 const SWIPE_RETIRE_PX = 88;
 
+// How many rail cards the 2027 entrance staggers before the rest come in
+// together: 14 steps of 28ms is the longest wait a card ever has.
+const RAIL_STAGGER_MAX = 14;
+
 type DisplayRow = PMS230Record & { mtoMts: string };
 
 // A row's planning policy, or '?' when the product isn't in the imported table.
@@ -569,6 +573,25 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   const toast = useToast();
 
   useEffect(() => { save(KEY_TABLE, tableSettings); }, [tableSettings]);
+
+  // Picking another schedule swaps the detail with a short transition. All it
+  // does here is restart the `is-swapping` class; the motion is the 2027
+  // style's (style-2027.css) — the classic one defines nothing for the class,
+  // and the first selection (nothing to move away from) plays nothing at all.
+  const detailRef = useRef<HTMLElement>(null);
+  const previousSelected = useRef<string | null>(null);
+  useEffect(() => {
+    const from = previousSelected.current;
+    previousSelected.current = selected;
+    const el = detailRef.current;
+    if (!el || !from || !selected || from === selected) return;
+    el.classList.remove('is-swapping');
+    void el.offsetWidth; // reflow, so a swap still running starts over
+    el.classList.add('is-swapping');
+    // Longer than the longest swap animation; the class is only there to run one.
+    const done = window.setTimeout(() => el.classList.remove('is-swapping'), 800);
+    return () => window.clearTimeout(done);
+  }, [selected]);
 
   const openRow = useMemo(
     () => (data?.records ?? []).find((r) => r.id === openRowId) ?? null,
@@ -1244,10 +1267,13 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
               )}
             </h4>
             <ul className="sch-rail-list">
-              {visibleSchedules.map((s) => {
+              {visibleSchedules.map((s, index) => {
                 const stat = railStats.get(s.schedule) ?? { count: 0, m2: 0, shortName: '' };
                 return (
-                  <li key={s.schedule}>
+                  // --i staggers the rail's entrance in the 2027 style (the
+                  // classic one ignores it); capped, so a long rail doesn't
+                  // make the last card wait for a second.
+                  <li key={s.schedule} style={{ ['--i' as string]: Math.min(index, RAIL_STAGGER_MAX) }}>
                     <SwipeToRetire onRetire={() => setPendingRetire(s.schedule)}>
                       <button
                         type="button"
@@ -1277,7 +1303,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
             </ul>
           </aside>
 
-          <section className="sch-detail">
+          <section className="sch-detail" ref={detailRef}>
             {/* Provenance + view state, paper only. The sheet leaves the
                 screen without any of the app chrome, so it has to say where
                 its rows came from and whether they are the whole picture.
@@ -1370,6 +1396,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
               sortKey={tableSettings.sortKey}
               sortDir={tableSettings.sortDir}
               onSort={toggleSort}
+              density={density}
             />
 
             {/* The second paper layout. Mounted alongside the table rather than
@@ -1820,17 +1847,18 @@ interface ScheduleTableProps {
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
+  density: Density;
 }
 
 const COL_DRAG_MIME = 'application/x-wb-column';
 
 // Best-effort px estimate for grid columns that use minmax/auto, used to compute
 // sticky-left offsets without measuring the DOM.
-function columnPx(key: string, override?: number): number {
+function columnPx(key: string, override?: number, scale = 1): number {
   if (override) return override;
   const w = COL_WIDTHS[key] || '';
   const m = /^(\d+)px$/.exec(w);
-  if (m) return parseInt(m[1], 10);
+  if (m) return Math.round(parseInt(m[1], 10) * (LABEL_SIZED.has(key) ? scale : 1));
   const mm = /minmax\((\d+)px/.exec(w);
   if (mm) return parseInt(mm[1], 10);
   return 80;
@@ -1870,32 +1898,63 @@ function isFlexibleColumn(key: string): boolean {
   return (COL_WIDTHS[key] || '').includes('fr');
 }
 
-// Per-column track widths matching the original fixed grid. Optional columns
-// drop out when hidden, so the grid template is recomposed from `columns`.
+// Per-column track widths on screen. Optional columns drop out when hidden, so
+// the grid template is recomposed from `columns`.
+//
+// A column has to hold its own header label, which is set in capitals with
+// letter-spacing: at 56px "MTO/MTS" read "MT…" and at 62px "Sched" read "SCH…".
+// The widths of the label-sized columns (LABEL_SIZED) are those of Normal, with
+// a few px to spare for the label and its gutters; Compact scales them down
+// with its type (see DENSITY_LABEL_SCALE).
 const COL_WIDTHS: Record<string, string> = {
-  mtoMts: '56px',
+  mtoMts: '80px',
   dateDepart: '80px',
   mo: '100px',
   product: '92px',
   itemName: 'minmax(180px, 1.6fr)',
-  schedLites: '62px',
+  schedLites: '64px',
   prodLites: '62px',
   reqLites: '62px',
   opTm: '72px',
   format: '116px',
-  qualite: '68px',
+  qualite: '74px',
   litesPerPack: '68px',
   packsReq: '68px',
   pdp: 'minmax(100px, 1fr)',
   m2: '88px',
 };
 
-// Track weights used to build the print template. `columnPx` falls back to a
-// flexible column's minmax floor, which under-serves the identity columns on
-// paper: the sheet is narrower than a desktop table, every track shrinks, and
-// Article never gets more than the 180px floor it would only ever hit in the
-// most cramped viewport. These weights buy back a fair share for the columns
-// that carry text.
+// The columns whose width follows their header label rather than what they
+// hold. The data columns (MO, m² rest.…) are sized by their figures, whose type
+// size the density already sets in step with their padding.
+const LABEL_SIZED = new Set(['mtoMts', 'product', 'qualite', 'schedLites', 'prodLites', 'reqLites', 'litesPerPack', 'packsReq']);
+// Compact sets its header in 9.5px with 6px gutters, so these columns shrink
+// with it. Avancé keeps Normal's 10.5px header and 8px gutters (only its cells
+// grow), so it has no reason to widen them.
+const DENSITY_LABEL_SCALE: Record<Density, number> = { compact: 0.88, normal: 1, advanced: 1 };
+
+// What the paper falls back to for a column with no print weight of its own
+// (see COL_PRINT_WEIGHT). These are the screen widths the sheet was drawn
+// against, frozen: the screen widths above grow to fit their headers, and the
+// printed proportions must not move with them.
+const PRINT_BASE_PX: Record<string, number> = {
+  dateDepart: 80,
+  mo: 100,
+  product: 92,
+  schedLites: 62,
+  prodLites: 62,
+  reqLites: 62,
+  opTm: 72,
+  litesPerPack: 68,
+  packsReq: 68,
+};
+
+// Track weights used to build the print template. A flexible column's minmax
+// floor under-serves the identity columns on paper: the sheet is narrower than
+// a desktop table, every track shrinks, and Article never gets more than the
+// 180px floor it would only ever hit in the most cramped viewport. These
+// weights buy back a fair share for the columns that carry text; the others
+// take PRINT_BASE_PX.
 //
 // They are the whole story: the printed sheet ignores column widths dragged on
 // screen. Letting those through meant stretching Article on a wide monitor
@@ -1972,7 +2031,8 @@ function ColumnResizeHandle({ colKey, onResizeStart, onResize }: ColumnResizeHan
   );
 }
 
-function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort }: ScheduleTableProps) {
+function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinned, widths, autoWidths, onResize, onFreezeWidths, onReorder, sortKey, sortDir, onSort, density }: ScheduleTableProps) {
+  const scale = DENSITY_LABEL_SCALE[density];
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -1999,7 +2059,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
     for (const c of columns) {
       if (pinSet.has(c.key)) {
         out.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
-        leftAcc += columnPx(c.key, widths[c.key] ?? autoWidths[c.key]);
+        leftAcc += columnPx(c.key, widths[c.key] ?? autoWidths[c.key], scale);
       } else {
         out.push({ ...c });
       }
@@ -2011,7 +2071,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
       }
     }
     return out;
-  }, [columns, pinned, widths, autoWidths]);
+  }, [columns, pinned, widths, autoWidths, scale]);
 
   const headRef = useRef<HTMLTableRowElement>(null);
 
@@ -2037,8 +2097,8 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
       if (px) freeze[c.key] = px;
     }
     if (Object.keys(freeze).length > 0) onFreezeWidths(freeze);
-    return measured.get(key) ?? columnPx(key, widths[key] ?? autoWidths[key]);
-  }, [columns, widths, autoWidths, onFreezeWidths]);
+    return measured.get(key) ?? columnPx(key, widths[key] ?? autoWidths[key], scale);
+  }, [columns, widths, autoWidths, onFreezeWidths, scale]);
 
   // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
   // minPx keeps the grid from collapsing in narrow viewports.
@@ -2050,16 +2110,20 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
   // screen leaves the printout exactly as it was.
   const { gridTemplate, printCols, minPx } = useMemo(() => {
     const screenPx = (key: string): number | undefined => widths[key] ?? autoWidths[key];
-    const weights = columns.map((c) => columnPx(c.key, COL_PRINT_WEIGHT[c.key]));
+    const weights = columns.map((c) => COL_PRINT_WEIGHT[c.key] ?? PRINT_BASE_PX[c.key] ?? 80);
     const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
     return {
       gridTemplate: columns
-        .map((c) => { const px = screenPx(c.key); return px ? `${px}px` : (COL_WIDTHS[c.key] || 'auto'); })
+        .map((c) => {
+          const px = screenPx(c.key);
+          if (px) return `${px}px`;
+          return LABEL_SIZED.has(c.key) ? `${columnPx(c.key, undefined, scale)}px` : (COL_WIDTHS[c.key] || 'auto');
+        })
         .join(' '),
       printCols: weights.map((w) => `${((w / weightSum) * 100).toFixed(4)}%`),
-      minPx: columns.reduce((acc, c) => acc + columnPx(c.key, screenPx(c.key)), 0),
+      minPx: columns.reduce((acc, c) => acc + columnPx(c.key, screenPx(c.key), scale), 0),
     };
-  }, [columns, widths, autoWidths]);
+  }, [columns, widths, autoWidths, scale]);
 
   // Nothing at all to paint — not even a greyed line. Tested on `items` rather
   // than on the totals: a filter can clear the planning while finished rows

@@ -1,0 +1,906 @@
+/* ==========================================================================
+   Style « 2027 »
+   ==========================================================================
+   Un second habillage, proposé dans Réglages à côté du thème et de la densité.
+   Il n'est jamais le défaut : sans lui (`data-style` absent ou `classic`),
+   rien de ce fichier ne s'applique et l'application est celle qu'elle a
+   toujours été.
+
+   Ce qu'il apporte
+     · du verre dépoli sur un fond pastel très léger — avec un repli plein, sans
+       flou, là où le navigateur ne sait pas flouter ;
+     · un trait net et froid : pas d'effet papier, des chiffres dans la même
+       police que le reste (Geist, chiffres à chasse fixe) ;
+     · un codage pastel (pastilles MTO/MTS, colonne des m² restants, puces de
+       dimension) et un bleu pastel pour l'accent ;
+     · du mouvement : arrivée en cascade du rail, menus et fenêtres qui
+       s'animent, retour au toucher, transition d'un schedule à l'autre — le tout
+       éteint par « réduire les animations » ;
+     · des menus translucides mais lisibles, qui floutent vraiment ce qu'ils
+       recouvrent ; des barres de défilement fines ; un sombre bleu nuit.
+
+   Garde-fous
+     · Tout est dans `@media screen` : le papier ne le voit jamais.
+     · Tout est sous `:root[data-style='2027']`, et App retire l'attribut
+       pendant l'aperçu d'impression : l'aperçu est le papier, pas le verre.
+     · Les couleurs passent par les jetons de tokens.css (--ink, --paper,
+       --accent…), redéfinis ici : les écrans que ce fichier ne décrit pas
+       (Logbook, Test…) en héritent la palette, les rayons et les menus.
+       La page Schedule est la seule dessinée pièce par pièce.
+
+   Une règle de métier du verre : `backdrop-filter` fait de son élément la
+   « racine » de ce que flouent ses enfants. Un menu posé dans un en-tête qui
+   porte lui-même le flou ne verrait donc que l'en-tête, pas la page sous lui.
+   Les conteneurs qui hébergent des menus (en-tête, carte du schedule) portent
+   donc leur verre sur un `::before`, pas sur eux-mêmes.
+   ========================================================================== */
+
+@media screen {
+
+/* ---------- Jetons ---------- */
+
+:root[data-style='2027']:not([data-theme='dark']) {
+  color-scheme: light;
+
+  --ink: #0f1a2e;
+  --ink-soft: #3d4b63;
+  --ink-faint: #51607a;
+  --line: #0f1a2e;
+  --line-soft: rgba(28, 52, 98, 0.24);
+  --line-faint: rgba(28, 52, 98, 0.11);
+
+  --paper: #ffffff;
+  --paper-2: #eef3fb;
+  --canvas: #e9f0fa;
+  --paper-glass: rgba(255, 255, 255, 0.7);
+  --paper-glass-2: rgba(255, 255, 255, 0.82);
+
+  --hl-yellow: #fdf0c4;
+  --hl-red: #fddcd6;
+  --hl-green: #d6f2e4;
+  --hl-blue: #d8e7ff;
+
+  --accent: #86aef5;
+  --accent-ink: #0b2557;
+  --accent-text: #1f4fb0;
+
+  --flag-normal-bg: var(--paper-2);
+  --flag-normal-bd: var(--ink-soft);
+  --flag-normal-fg: var(--ink);
+  --flag-ok-bd: #8fd3b0;
+  --flag-ok-fg: #14573a;
+  --flag-sched-bd: #efd98b;
+  --flag-sched-fg: #6e5200;
+  --flag-unsched-bd: #f2a79c;
+  --flag-unsched-fg: #8a2418;
+  --flag-note-bd: #9bbcf3;
+  --flag-note-fg: #1d4488;
+
+  --shadow-sheet: 0 28px 70px -20px rgba(28, 52, 98, 0.36), 0 2px 10px rgba(28, 52, 98, 0.08);
+  --shadow-fab: 0 10px 28px -6px rgba(80, 130, 230, 0.5), 0 2px 6px rgba(28, 52, 98, 0.12);
+  --shadow-popover: 0 18px 44px -14px rgba(28, 52, 98, 0.34), 0 2px 8px rgba(28, 52, 98, 0.08);
+  --backdrop: rgba(15, 26, 46, 0.26);
+  --focus-ring: rgba(80, 130, 230, 0.22);
+
+  /* Page : un fond pastel très léger, que le verre laisse deviner. */
+  --s27-art:
+    radial-gradient(60rem 42rem at 4% -8%, rgba(134, 174, 245, 0.4), transparent 62%),
+    radial-gradient(52rem 38rem at 98% -4%, rgba(190, 170, 255, 0.32), transparent 58%),
+    radial-gradient(58rem 40rem at 46% 112%, rgba(140, 224, 210, 0.3), transparent 62%);
+
+  /* Verre : la version pleine (repli sans flou) et la version translucide. */
+  --s27-solid: #f6f9fe;
+  --s27-solid-2: #edf2fa;
+  --s27-solid-strong: #ffffff;
+  --s27-glass: rgba(255, 255, 255, 0.56);
+  --s27-glass-2: rgba(255, 255, 255, 0.36);
+  --s27-glass-strong: rgba(255, 255, 255, 0.78);
+  --s27-edge: rgba(28, 52, 98, 0.1);
+  --s27-edge-strong: rgba(28, 52, 98, 0.18);
+  --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --s27-lift: 0 1px 2px rgba(28, 52, 98, 0.06), 0 18px 40px -22px rgba(28, 52, 98, 0.36);
+  --s27-btn: rgba(255, 255, 255, 0.72);
+  --s27-hover: rgba(134, 174, 245, 0.2);
+  --s27-title: rgba(244, 248, 254, 0.84);
+
+  /* Tableau : ce qui est collant doit être opaque, le reste se laisse traverser. */
+  --s27-headrow: #edf3fb;
+  --s27-pinned: #f8fbff;
+  --s27-pinned-hover: #ecf3ff;
+  --s27-pinned-qc: #fbf6e6;
+  --s27-band: rgba(150, 170, 230, 0.1);
+  --s27-row-hover: rgba(134, 174, 245, 0.14);
+  --s27-row-line: rgba(28, 52, 98, 0.06);
+  --s27-qc: rgba(255, 205, 96, 0.16);
+  --s27-qc-hover: rgba(255, 205, 96, 0.26);
+
+  /* Codage pastel. */
+  --s27-m2: rgba(150, 226, 190, 0.3);
+  --s27-m2-head: rgba(150, 226, 190, 0.42);
+  --s27-m2-total: rgba(150, 226, 190, 0.52);
+  --s27-m2-hover: rgba(150, 226, 190, 0.44);
+  --s27-mto-bg: #dbe8ff;
+  --s27-mto-bd: #b9d0fb;
+  --s27-mto-fg: #1f4a9a;
+  --s27-mts-bg: #fdf0c4;
+  --s27-mts-bd: #efdb8f;
+  --s27-mts-fg: #6e5200;
+  --s27-dim-bg: #e8e2ff;
+  --s27-dim-bd: #d0c6ff;
+  --s27-dim-fg: #3d2f8f;
+
+  --s27-thumb: rgba(40, 70, 130, 0.28);
+  --s27-thumb-hover: rgba(40, 70, 130, 0.5);
+}
+
+/* Sombre : le même bloc de jetons deux fois — thème explicite, puis « auto » avec
+   la préférence système — comme dans tokens.css. À garder identiques. */
+:root[data-style='2027'][data-theme='dark'] {
+  color-scheme: dark;
+
+  --ink: #e8edf8;
+  --ink-soft: #b2bdd3;
+  --ink-faint: #93a1bc;
+  --line: #e8edf8;
+  --line-soft: rgba(176, 200, 255, 0.28);
+  --line-faint: rgba(176, 200, 255, 0.13);
+
+  --paper: #131a2a;
+  --paper-2: #182036;
+  --canvas: #0a0f19;
+  --paper-glass: rgba(14, 20, 34, 0.72);
+  --paper-glass-2: rgba(14, 20, 34, 0.86);
+
+  --hl-yellow: #54491f;
+  --hl-red: #55292f;
+  --hl-green: #1b5445;
+  --hl-blue: #1f3f72;
+
+  --accent: #8db4ff;
+  --accent-ink: #081d45;
+  --accent-text: #a9c6ff;
+
+  --flag-normal-bg: var(--paper-2);
+  --flag-normal-bd: var(--ink-soft);
+  --flag-normal-fg: var(--ink);
+  --flag-ok-bd: #3e9a78;
+  --flag-ok-fg: #c7f2e0;
+  --flag-sched-bd: #b99a3a;
+  --flag-sched-fg: #ffe9a8;
+  --flag-unsched-bd: #c9675c;
+  --flag-unsched-fg: #ffd0c8;
+  --flag-note-bd: #5d8cd6;
+  --flag-note-fg: #cfe0ff;
+
+  --shadow-sheet: 0 30px 80px -20px rgba(0, 0, 0, 0.75), 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-fab: 0 10px 28px -6px rgba(110, 160, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-popover: 0 20px 48px -14px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --backdrop: rgba(3, 6, 12, 0.56);
+  --focus-ring: rgba(141, 180, 255, 0.22);
+
+  /* Page : un bleu nuit net, éclairé de deux halos froids — pas de brun. */
+  --s27-art:
+    radial-gradient(60rem 44rem at 6% -10%, rgba(76, 120, 230, 0.3), transparent 62%),
+    radial-gradient(52rem 40rem at 98% -6%, rgba(139, 92, 246, 0.2), transparent 58%),
+    radial-gradient(58rem 42rem at 48% 115%, rgba(20, 184, 166, 0.13), transparent 62%);
+
+  --s27-solid: #121a2b;
+  --s27-solid-2: #172036;
+  --s27-solid-strong: #182138;
+  --s27-glass: rgba(20, 29, 48, 0.56);
+  --s27-glass-2: rgba(255, 255, 255, 0.04);
+  --s27-glass-strong: rgba(22, 31, 52, 0.78);
+  --s27-edge: rgba(176, 200, 255, 0.14);
+  --s27-edge-strong: rgba(176, 200, 255, 0.22);
+  --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --s27-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 48px -24px rgba(0, 0, 0, 0.75);
+  --s27-btn: rgba(255, 255, 255, 0.06);
+  --s27-hover: rgba(141, 180, 255, 0.16);
+  --s27-title: rgba(20, 29, 48, 0.84);
+
+  --s27-headrow: #172036;
+  --s27-pinned: #121a2b;
+  --s27-pinned-hover: #18233b;
+  --s27-pinned-qc: #1d2030;
+  --s27-band: rgba(255, 255, 255, 0.035);
+  --s27-row-hover: rgba(141, 180, 255, 0.1);
+  --s27-row-line: rgba(176, 200, 255, 0.07);
+  --s27-qc: rgba(255, 205, 96, 0.07);
+  --s27-qc-hover: rgba(255, 205, 96, 0.12);
+
+  --s27-m2: rgba(110, 223, 180, 0.1);
+  --s27-m2-head: rgba(110, 223, 180, 0.16);
+  --s27-m2-total: rgba(110, 223, 180, 0.22);
+  --s27-m2-hover: rgba(110, 223, 180, 0.17);
+  --s27-mto-bg: rgba(125, 170, 255, 0.16);
+  --s27-mto-bd: rgba(125, 170, 255, 0.4);
+  --s27-mto-fg: #bcd3ff;
+  --s27-mts-bg: rgba(255, 205, 96, 0.14);
+  --s27-mts-bd: rgba(255, 205, 96, 0.4);
+  --s27-mts-fg: #ffdc8a;
+  --s27-dim-bg: rgba(167, 139, 250, 0.16);
+  --s27-dim-bd: rgba(167, 139, 250, 0.42);
+  --s27-dim-fg: #d3c8ff;
+
+  --s27-thumb: rgba(176, 200, 255, 0.26);
+  --s27-thumb-hover: rgba(176, 200, 255, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-style='2027']:not([data-theme='light']):not([data-theme='dark']) {
+    color-scheme: dark;
+
+    --ink: #e8edf8;
+    --ink-soft: #b2bdd3;
+    --ink-faint: #93a1bc;
+    --line: #e8edf8;
+    --line-soft: rgba(176, 200, 255, 0.28);
+    --line-faint: rgba(176, 200, 255, 0.13);
+
+    --paper: #131a2a;
+    --paper-2: #182036;
+    --canvas: #0a0f19;
+    --paper-glass: rgba(14, 20, 34, 0.72);
+    --paper-glass-2: rgba(14, 20, 34, 0.86);
+
+    --hl-yellow: #54491f;
+    --hl-red: #55292f;
+    --hl-green: #1b5445;
+    --hl-blue: #1f3f72;
+
+    --accent: #8db4ff;
+    --accent-ink: #081d45;
+    --accent-text: #a9c6ff;
+
+    --flag-normal-bg: var(--paper-2);
+    --flag-normal-bd: var(--ink-soft);
+    --flag-normal-fg: var(--ink);
+    --flag-ok-bd: #3e9a78;
+    --flag-ok-fg: #c7f2e0;
+    --flag-sched-bd: #b99a3a;
+    --flag-sched-fg: #ffe9a8;
+    --flag-unsched-bd: #c9675c;
+    --flag-unsched-fg: #ffd0c8;
+    --flag-note-bd: #5d8cd6;
+    --flag-note-fg: #cfe0ff;
+
+    --shadow-sheet: 0 30px 80px -20px rgba(0, 0, 0, 0.75), 0 2px 10px rgba(0, 0, 0, 0.4);
+    --shadow-fab: 0 10px 28px -6px rgba(110, 160, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5);
+    --shadow-popover: 0 20px 48px -14px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
+    --backdrop: rgba(3, 6, 12, 0.56);
+    --focus-ring: rgba(141, 180, 255, 0.22);
+
+    /* Page : un bleu nuit net, éclairé de deux halos froids — pas de brun. */
+    --s27-art:
+      radial-gradient(60rem 44rem at 6% -10%, rgba(76, 120, 230, 0.3), transparent 62%),
+      radial-gradient(52rem 40rem at 98% -6%, rgba(139, 92, 246, 0.2), transparent 58%),
+      radial-gradient(58rem 42rem at 48% 115%, rgba(20, 184, 166, 0.13), transparent 62%);
+
+    --s27-solid: #121a2b;
+    --s27-solid-2: #172036;
+    --s27-solid-strong: #182138;
+    --s27-glass: rgba(20, 29, 48, 0.56);
+    --s27-glass-2: rgba(255, 255, 255, 0.04);
+    --s27-glass-strong: rgba(22, 31, 52, 0.78);
+    --s27-edge: rgba(176, 200, 255, 0.14);
+    --s27-edge-strong: rgba(176, 200, 255, 0.22);
+    --s27-shine: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --s27-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 48px -24px rgba(0, 0, 0, 0.75);
+    --s27-btn: rgba(255, 255, 255, 0.06);
+    --s27-hover: rgba(141, 180, 255, 0.16);
+    --s27-title: rgba(20, 29, 48, 0.84);
+
+    --s27-headrow: #172036;
+    --s27-pinned: #121a2b;
+    --s27-pinned-hover: #18233b;
+    --s27-pinned-qc: #1d2030;
+    --s27-band: rgba(255, 255, 255, 0.035);
+    --s27-row-hover: rgba(141, 180, 255, 0.1);
+    --s27-row-line: rgba(176, 200, 255, 0.07);
+    --s27-qc: rgba(255, 205, 96, 0.07);
+    --s27-qc-hover: rgba(255, 205, 96, 0.12);
+
+    --s27-m2: rgba(110, 223, 180, 0.1);
+    --s27-m2-head: rgba(110, 223, 180, 0.16);
+    --s27-m2-total: rgba(110, 223, 180, 0.22);
+    --s27-m2-hover: rgba(110, 223, 180, 0.17);
+    --s27-mto-bg: rgba(125, 170, 255, 0.16);
+    --s27-mto-bd: rgba(125, 170, 255, 0.4);
+    --s27-mto-fg: #bcd3ff;
+    --s27-mts-bg: rgba(255, 205, 96, 0.14);
+    --s27-mts-bd: rgba(255, 205, 96, 0.4);
+    --s27-mts-fg: #ffdc8a;
+    --s27-dim-bg: rgba(167, 139, 250, 0.16);
+    --s27-dim-bd: rgba(167, 139, 250, 0.42);
+    --s27-dim-fg: #d3c8ff;
+
+    --s27-thumb: rgba(176, 200, 255, 0.26);
+    --s27-thumb-hover: rgba(176, 200, 255, 0.5);
+  }
+}
+
+/* ---------- Verre : plein par défaut, translucide là où le flou existe ----------
+   Les règles plus bas ne lisent que --g-*. Sans `backdrop-filter`, elles
+   retombent sur les teintes pleines et sur « none » : même mise en page, sans
+   transparence ni flou — jamais un texte posé sur du contenu net. */
+
+:root[data-style='2027'] {
+  --g-surface: var(--s27-solid);
+  --g-surface-2: var(--s27-solid-2);
+  --g-strong: var(--s27-solid-strong);
+  --g-blur: none;
+  --g-blur-strong: none;
+  --g-scrim: none;
+
+  --s27-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --s27-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+
+  /* Plus doux, plus rond. Les rayons sont des jetons : tout l'écran les suit. */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :root[data-style='2027'] {
+    --g-surface: var(--s27-glass);
+    --g-surface-2: var(--s27-glass-2);
+    --g-strong: var(--s27-glass-strong);
+    --g-blur: blur(18px) saturate(1.5);
+    --g-blur-strong: blur(30px) saturate(1.7);
+    --g-scrim: blur(7px) saturate(1.2);
+  }
+}
+
+/* ---------- Page ---------- */
+
+:root[data-style='2027'] { background: var(--canvas); }
+:root[data-style='2027'] body { background: transparent; }
+:root[data-style='2027'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--s27-art);
+}
+
+/* Les chiffres sont dans la police du reste (Geist), à chasse fixe pour que les
+   colonnes s'alignent — pas dans la mono du style classique. */
+:root[data-style='2027'] :is(
+  .mono,
+  .evt .time,
+  .evt .dur,
+  .evt .desc .refs,
+  .summary strong,
+  .time-input,
+  .pt-header .field-prefix,
+  .measure-cell .mlabel,
+  .measure-cell input,
+  .lab-grid .head,
+  .lab-grid .rowlabel,
+  .lab-grid .lab-cell input,
+  .date-nav .date-input,
+  .shift-chip .shift-poste,
+  .rest-hint,
+  .sch-summary-stats strong,
+  .sv-stage
+) {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-style='2027'] ::selection { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+:root[data-style='2027'] :focus-visible { outline-color: var(--accent-text); }
+
+/* Barres de défilement fines, de la couleur de l'encre et presque invisibles
+   tant qu'on ne les cherche pas. `scrollbar-width` quand le navigateur le sait,
+   les pseudo-éléments WebKit sinon (les deux ensemble, Chrome ignorerait ceux-ci). */
+:root[data-style='2027'],
+:root[data-style='2027'] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--s27-thumb) transparent;
+}
+@supports not (scrollbar-width: thin) {
+  :root[data-style='2027'] ::-webkit-scrollbar { width: 9px; height: 9px; }
+  :root[data-style='2027'] ::-webkit-scrollbar-track,
+  :root[data-style='2027'] ::-webkit-scrollbar-corner { background: transparent; }
+  :root[data-style='2027'] ::-webkit-scrollbar-thumb {
+    background: var(--s27-thumb);
+    border: 2px solid transparent;
+    border-radius: 9px;
+    background-clip: content-box;
+  }
+  :root[data-style='2027'] ::-webkit-scrollbar-thumb:hover { background: var(--s27-thumb-hover); background-clip: content-box; }
+}
+
+/* ---------- Barre du haut ---------- */
+
+/* Le verre est sur un ::before : un en-tête qui porterait lui-même le flou
+   serait la « racine » de ses menus, qui ne flouteraient plus la page. */
+:root[data-style='2027'] .app-header {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 0;
+  isolation: isolate;
+}
+:root[data-style='2027'] .app-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--g-surface);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-bottom: 1px solid var(--s27-edge);
+  box-shadow: var(--s27-shine);
+}
+:root[data-style='2027'] .app-header .brand { letter-spacing: -0.02em; }
+
+:root[data-style='2027'] .tabs {
+  background: var(--g-surface-2);
+  border-color: var(--s27-edge);
+}
+:root[data-style='2027'] .tabs .tab:hover { background: var(--s27-hover); }
+:root[data-style='2027'] .tabs .tab.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 1px 2px rgba(28, 52, 98, 0.18), 0 6px 14px -6px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+:root[data-style='2027'] .date-nav {
+  background: var(--g-surface-2);
+  border-color: var(--s27-edge);
+}
+:root[data-style='2027'] .btn {
+  background: var(--s27-btn);
+  border-color: var(--s27-edge-strong);
+}
+:root[data-style='2027'] .btn:hover { border-color: var(--accent-text); }
+:root[data-style='2027'] .btn.primary,
+:root[data-style='2027'] .btn.accent {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--accent) 90%, transparent);
+}
+:root[data-style='2027'] .btn.primary:hover,
+:root[data-style='2027'] .btn.accent:hover { background: color-mix(in srgb, var(--accent) 82%, white); border-color: transparent; }
+:root[data-style='2027'] .btn.ghost { background: transparent; border-color: transparent; }
+:root[data-style='2027'] .btn.ghost:hover { background: var(--s27-hover); }
+:root[data-style='2027'] .btn.danger { color: var(--flag-unsched-fg); }
+:root[data-style='2027'] .btn.danger:hover { background: color-mix(in srgb, var(--hl-red) 60%, transparent); }
+:root[data-style='2027'] .btn.gear[aria-expanded='true'],
+:root[data-style='2027'] .sch-eye-btn.is-on,
+:root[data-style='2027'] .sch-cols-btn.is-open {
+  background: var(--s27-hover);
+  border-color: var(--accent-text);
+}
+
+:root[data-style='2027'] .chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
+:root[data-style='2027'] .chip.active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+:root[data-style='2027'] .shift-chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
+:root[data-style='2027'] .shift-chip:hover { border-color: var(--accent-text); }
+:root[data-style='2027'] .shift-chip.active { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+:root[data-style='2027'] .shift-chip .shift-poste { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+:root[data-style='2027'] .shift-chip.active .shift-poste { background: rgba(255, 255, 255, 0.6); color: var(--accent-ink); }
+:root[data-style='2027'] .shift-chip.active .live-dot { background: var(--accent-ink); box-shadow: 0 0 0 3px rgba(11, 37, 87, 0.2); }
+
+:root[data-style='2027'] .seg { background: var(--g-surface-2); border-color: var(--s27-edge); }
+:root[data-style='2027'] .seg button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 1px 3px rgba(28, 52, 98, 0.22);
+}
+
+/* Le texte qui était terracotta : le bleu pastel n'y est pas lisible, son
+   pendant foncé l'est. */
+:root[data-style='2027'] :is(
+  .type-strip button .glyph,
+  .type-strip button.type-add,
+  .pt-test-chip.add,
+  .pt-test-chip.add .glyph,
+  .print-preview-trigger.is-on,
+  .sch-cols-actions .btn.is-on,
+  .sch-sort-arrow,
+  .sb-shifts tr.is-live th,
+  button.sb-check:hover .sb-go,
+  .sv-field-today,
+  .fab-type-btn .glyph,
+  .fab-type-btn.is-add,
+  .ln-note.has-note
+) {
+  color: var(--accent-text);
+}
+
+:root[data-style='2027'] :is(.type-strip button.type-add, .pt-test-chip.add) { border-color: var(--accent-text); }
+:root[data-style='2027'] :is(.type-strip button.type-add, .pt-test-chip.add):hover {
+  background: var(--s27-hover);
+  border-color: var(--accent-text);
+}
+
+/* ---------- Menus, fenêtres, messages ---------- */
+
+/* Translucides, mais assez pleins pour rester lisibles ; le flou est fort pour
+   que ce qui passe derrière ne soit qu'une couleur. */
+:root[data-style='2027'] .popover {
+  background: var(--g-strong);
+  -webkit-backdrop-filter: var(--g-blur-strong);
+  backdrop-filter: var(--g-blur-strong);
+  border: 1px solid var(--s27-edge-strong);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-popover), var(--s27-shine);
+  transform-origin: top right;
+}
+:root[data-style='2027'] .hdr-item:hover,
+:root[data-style='2027'] .hdr-item:focus-visible,
+:root[data-style='2027'] .hdr-item[aria-checked='true'],
+:root[data-style='2027'] .hdr-back:hover,
+:root[data-style='2027'] .sch-cols-item:hover { background: var(--s27-hover); }
+
+:root[data-style='2027'] .sheet-backdrop {
+  -webkit-backdrop-filter: var(--g-scrim);
+  backdrop-filter: var(--g-scrim);
+}
+:root[data-style='2027'] .sheet {
+  background: var(--g-strong);
+  -webkit-backdrop-filter: var(--g-blur-strong);
+  backdrop-filter: var(--g-blur-strong);
+  border: 1px solid var(--s27-edge-strong);
+  border-radius: var(--radius-3xl);
+  box-shadow: var(--shadow-sheet), var(--s27-shine);
+}
+@media (max-width: 600px) {
+  :root[data-style='2027'] .sheet { border-radius: var(--radius-3xl) var(--radius-3xl) 0 0; }
+}
+
+:root[data-style='2027'] .toast {
+  background: color-mix(in srgb, var(--ink) 90%, transparent);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-radius: var(--radius-xl);
+}
+
+:root[data-style='2027'] :is(.sch-empty, .pt-empty) {
+  background: var(--g-surface);
+  border-color: var(--s27-edge);
+}
+
+/* ---------- Schedule ---------- */
+
+/* Les mesures de la retouche grand écran (app.css) passent par ces variables :
+   en 2027 elles prennent les valeurs du verre. */
+:root[data-style='2027'] .sch {
+  --sch-radius: var(--radius-2xl);
+  --sch-edge: var(--s27-edge);
+  --sch-lift: var(--s27-lift);
+}
+
+:root[data-style='2027'] .sch-summary {
+  background: var(--g-surface);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-color: var(--s27-edge);
+  box-shadow: var(--s27-lift), var(--s27-shine);
+}
+:root[data-style='2027'] .sch-policy-chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
+
+/* Le rail : verre sur l'élément lui-même — il n'héberge aucun menu, et c'est
+   lui qui défile, pas un ::before. */
+:root[data-style='2027'] .sch-rail {
+  background: var(--g-surface);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-color: var(--s27-edge);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--s27-lift), var(--s27-shine);
+}
+:root[data-style='2027'] .sch-rail-title {
+  background: var(--s27-title);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-bottom-color: var(--s27-edge);
+}
+:root[data-style='2027'] .sch-rail-item { border-radius: var(--radius-lg); }
+:root[data-style='2027'] .sch-rail-item:hover { background: var(--s27-hover); }
+:root[data-style='2027'] .sch-rail-item.active {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--accent) 90%, transparent);
+}
+:root[data-style='2027'] .sch-rail-item.active::before {
+  background: linear-gradient(var(--accent), var(--accent-text));
+}
+:root[data-style='2027'] .sch-swipe,
+:root[data-style='2027'] .sch-swipe-surface { border-radius: var(--radius-lg); }
+/* Sur du verre la carte n'a pas de fond plein : la bande verte du balayage, en
+   dessous, la laisserait voir. Elle n'existe donc qu'une fois le geste engagé —
+   pendant le glissé, et le temps que la carte revienne. */
+:root[data-style='2027'] .sch-swipe-surface { background: transparent; }
+:root[data-style='2027'] .sch-swipe-action {
+  background: color-mix(in srgb, var(--hl-green) 80%, var(--paper));
+  opacity: 0;
+}
+:root[data-style='2027'] .sch-swipe.is-dragging .sch-swipe-action { opacity: 1; }
+
+/* La carte du schedule : verre sur un ::before (elle héberge les menus des
+   colonnes et des filtres), le contenu posé dessus.
+
+   L'en-tête de la carte (qui porte ces menus) passe au-dessus du tableau quoi
+   qu'il arrive : un tableau qui a un `translate` en cours (la transition d'un
+   schedule à l'autre) est un contexte d'empilement de plus, plus loin dans
+   l'arbre, et se peindrait sinon par-dessus le menu. */
+:root[data-style='2027'] .sch-detail {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--s27-lift);
+}
+:root[data-style='2027'] .sch-detail::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--s27-edge);
+  border-radius: inherit;
+  background: var(--g-surface);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  box-shadow: var(--s27-shine);
+}
+:root[data-style='2027'] .sch-detail-head,
+:root[data-style='2027'] .sch-detail > .sch-controls {
+  position: relative;
+  z-index: 10;
+}
+:root[data-style='2027'] .sch-detail-head {
+  background: var(--g-surface-2);
+  border: 0;
+  border-bottom: 1px solid var(--s27-edge);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+}
+:root[data-style='2027'] .sch-detail > .sch-controls {
+  background: var(--g-surface-2);
+  border: 0;
+  border-bottom: 1px solid var(--s27-edge);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+}
+:root[data-style='2027'] .sch-table,
+:root[data-style='2027'] .sch-detail .sch-controls + .sch-table {
+  background: transparent;
+  background-image: none;
+  border: 0;
+  border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
+}
+
+/* Les chiffres clés. */
+:root[data-style='2027'] .sch-stat-tile + .sch-stat-tile::before,
+:root[data-style='2027'] .sch-detail-head .sch-controls::before { background: var(--s27-edge-strong); }
+:root[data-style='2027'] .sch-stat-tile-input .sch-stat-tile-value {
+  background: var(--s27-btn);
+  border-color: var(--s27-edge-strong);
+}
+:root[data-style='2027'] .sch-stat-tile-input:focus-within .sch-stat-tile-value {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+:root[data-style='2027'] .sch-stat-tile-input.is-invalid .sch-stat-tile-value {
+  background: color-mix(in srgb, var(--hl-red) 70%, transparent);
+}
+
+:root[data-style='2027'] .sch-filter-chip { background: var(--s27-btn); border-color: var(--s27-edge-strong); }
+:root[data-style='2027'] .sch-filter-chip:hover { border-color: var(--accent-text); }
+:root[data-style='2027'] .sch-filter-chip.is-on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+/* Les lignes. Ce qui colle (en-tête, total, colonnes fixées) est opaque : les
+   lignes qui défilent dessous ne doivent pas apparaître à travers. Le reste se
+   laisse traverser par le verre. */
+:root[data-style='2027'] .sch-row.sch-head,
+:root[data-style='2027'] .sch-row.sch-total {
+  background: var(--s27-headrow);
+  box-shadow: 0 1px 0 var(--s27-edge);
+}
+:root[data-style='2027'] .sch-row.sch-total {
+  border-top: 1px solid var(--line-soft);
+  box-shadow: 0 -1px 0 var(--s27-edge);
+}
+:root[data-style='2027'] .sch-row.sch-head .sch-cell.is-pinned,
+:root[data-style='2027'] .sch-row.sch-total .sch-cell.is-pinned { background: var(--s27-headrow); }
+:root[data-style='2027'] .sch-row.sch-group-break {
+  background: var(--s27-band);
+  border-bottom: 1px solid var(--s27-row-line);
+}
+:root[data-style='2027'] .sch-row.sch-row-clickable { border-bottom: 1px solid var(--s27-row-line); }
+:root[data-style='2027'] .sch-row:not(.sch-head):not(.sch-total):hover { background: var(--s27-row-hover); }
+:root[data-style='2027'] .sch-cell.is-pinned { background: var(--s27-pinned); }
+:root[data-style='2027'] .sch-row:hover .sch-cell.is-pinned { background: var(--s27-pinned-hover); }
+:root[data-style='2027'] .sch-row.is-qc { background: var(--s27-qc); }
+:root[data-style='2027'] .sch-row.is-qc:hover { background: var(--s27-qc-hover); }
+:root[data-style='2027'] .sch-row.is-qc .sch-cell.is-pinned { background: var(--s27-pinned-qc); }
+:root[data-style='2027'] .sch-row.is-muted.is-qc,
+:root[data-style='2027'] .sch-row.is-muted.is-qc:hover { background: none; }
+:root[data-style='2027'] .sch-row.is-muted.is-qc .sch-cell.is-pinned { background: var(--s27-pinned); }
+:root[data-style='2027'] .sch-row.sch-head .sch-cell.is-drop-target {
+  box-shadow: inset 2px 0 0 var(--accent-text);
+  background: var(--s27-hover);
+}
+:root[data-style='2027'] .sch-row.sch-head .sch-cell:focus-visible { outline-color: var(--accent-text); }
+:root[data-style='2027'] .sch-row.sch-head .sch-cell .sch-col-resize:hover::before,
+:root[data-style='2027'] .sch-row.sch-head .sch-cell .sch-col-resize:active::before { background: var(--accent-text); }
+
+/* La surface restante : menthe pastel, plus soutenue dans l'en-tête et le total. */
+:root[data-style='2027'] .sch-cell.col-m2 { background: var(--s27-m2); }
+:root[data-style='2027'] .sch-row.sch-head .sch-cell.col-m2 { background: var(--s27-m2-head); }
+:root[data-style='2027'] .sch-row.sch-total .sch-cell.col-m2 { background: var(--s27-m2-total); }
+:root[data-style='2027'] .sch-row:not(.sch-head):not(.sch-total):hover .sch-cell.col-m2 { background: var(--s27-m2-hover); }
+:root[data-style='2027'] .sch-row.is-qc .sch-cell.col-m2 { background: var(--s27-m2); }
+:root[data-style='2027'] .sch-row.is-muted .sch-cell.col-m2 { background: color-mix(in srgb, var(--s27-m2) 45%, transparent); }
+
+/* Pastilles MTO / MTS et puces de dimension. */
+:root[data-style='2027'] .sch-mto {
+  border-radius: var(--radius-pill);
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+:root[data-style='2027'] .sch-mto[data-mto='MTO'] {
+  background: var(--s27-mto-bg);
+  border-color: var(--s27-mto-bd);
+  color: var(--s27-mto-fg);
+}
+:root[data-style='2027'] .sch-mto[data-mto='MTS'] {
+  background: var(--s27-mts-bg);
+  border-color: var(--s27-mts-bd);
+  color: var(--s27-mts-fg);
+}
+:root[data-style='2027'] .sch-mto[data-mto='Inactif'] {
+  background: var(--g-surface-2);
+  border-color: var(--s27-edge);
+  color: var(--ink-faint);
+}
+:root[data-style='2027'] .sch-mto[data-mto='?'] { background: transparent; border-color: var(--s27-edge-strong); }
+:root[data-style='2027'] .sch-group-value {
+  background: var(--s27-dim-bg);
+  border-color: var(--s27-dim-bd);
+  color: var(--s27-dim-fg);
+}
+
+/* ---------- Mouvement ----------
+   Tout ce qui bouge est ici, et rien ne bouge si l'on a demandé de réduire les
+   animations : les images-clés n'existent que pour ceux qui l'acceptent, et le
+   bloc `reduce` en bas coupe aussi les transitions. Les animations passent par
+   les propriétés individuelles `translate` / `scale` : elles se composent avec
+   le `transform` qu'ont déjà les fenêtres (centrage) et les cartes (glissé).
+   Aucune ne garde son état final (`backwards`, jamais `both`/`forwards`) : une
+   propriété de transformation laissée en place après coup ferait de son élément
+   un contexte d'empilement permanent, et d'un menu un menu masqué par ce qui
+   le suit. */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Retour au toucher : le contrôle s'enfonce sous le doigt, et ses teintes
+     suivent sans à-coup. */
+  :root[data-style='2027'] :is(
+    .btn,
+    .chip,
+    .tabs .tab,
+    .shift-chip,
+    .seg button,
+    .sch-rail-item,
+    .sch-filter-chip,
+    .hdr-item,
+    .hdr-back,
+    .toast-undo,
+    .fab,
+    .fab-type-btn,
+    .sch-done-item,
+    .sch-done-restore,
+    .sch-cols-item
+  ) {
+    transition:
+      background-color 180ms var(--s27-ease),
+      border-color 180ms var(--s27-ease),
+      color 180ms var(--s27-ease),
+      box-shadow 220ms var(--s27-ease),
+      scale 150ms var(--s27-ease);
+  }
+  :root[data-style='2027'] :is(
+    .btn,
+    .chip,
+    .tabs .tab,
+    .shift-chip,
+    .seg button,
+    .sch-rail-item,
+    .sch-filter-chip,
+    .hdr-item,
+    .hdr-back,
+    .toast-undo,
+    .fab,
+    .fab-type-btn,
+    .sch-done-item,
+    .sch-done-restore
+  ):not(:disabled):active {
+    scale: 0.96;
+  }
+  :root[data-style='2027'] .sch-row-clickable { transition: background-color 120ms ease; }
+  :root[data-style='2027'] .sch-row-clickable:active { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+
+  /* Le rail arrive en cascade, une carte après l'autre (--i vient de Schedules). */
+  :root[data-style='2027'] .sch-rail-list > li {
+    animation: s27-rise 520ms var(--s27-ease) backwards;
+    animation-delay: calc(var(--i, 0) * 28ms + 40ms);
+  }
+  /* Le trait de la carte active se déploie à son arrivée. */
+  :root[data-style='2027'] .sch-rail-item.active::before { animation: s27-grow 360ms var(--s27-ease) backwards; }
+
+  /* D'un schedule à l'autre : l'en-tête puis le tableau glissent et s'allument.
+     On anime les enfants, pas la carte : sa transparence ferait de la carte une
+     « racine » de flou pendant le mouvement, et le verre s'éteindrait. */
+  :root[data-style='2027'] .sch-detail.is-swapping > .sch-detail-head,
+  :root[data-style='2027'] .sch-detail.is-swapping > .sch-controls { animation: s27-swap 360ms var(--s27-ease) backwards; }
+  :root[data-style='2027'] .sch-detail.is-swapping > .sch-table { animation: s27-swap 420ms var(--s27-ease) 50ms backwards; }
+
+  /* Menus et fenêtres. */
+  :root[data-style='2027'] .popover { animation: s27-pop 220ms var(--s27-ease) backwards; }
+  :root[data-style='2027'] .sheet-backdrop { animation: s27-fade 240ms ease backwards; }
+  :root[data-style='2027'] .sheet { animation: s27-sheet 340ms var(--s27-ease) backwards; }
+  :root[data-style='2027'] .toast { animation: s27-toast 420ms var(--s27-spring) backwards; }
+  @media (max-width: 600px) {
+    :root[data-style='2027'] .sheet { animation: s27-sheet-phone 380ms var(--s27-ease) backwards; }
+  }
+
+  @keyframes s27-rise {
+    from { opacity: 0; translate: -14px 0; scale: 0.97; }
+    to   { opacity: 1; translate: 0 0; scale: 1; }
+  }
+  @keyframes s27-grow {
+    from { scale: 1 0; opacity: 0; }
+    to   { scale: 1 1; opacity: 1; }
+  }
+  @keyframes s27-swap {
+    from { opacity: 0; translate: 16px 0; }
+    to   { opacity: 1; translate: 0 0; }
+  }
+  @keyframes s27-pop {
+    from { opacity: 0; translate: 0 -8px; scale: 0.94; }
+    to   { opacity: 1; translate: 0 0; scale: 1; }
+  }
+  @keyframes s27-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes s27-sheet {
+    from { opacity: 0; translate: 0 18px; scale: 0.96; }
+    to   { opacity: 1; translate: 0 0; scale: 1; }
+  }
+  @keyframes s27-sheet-phone {
+    from { opacity: 0.6; translate: 0 100%; }
+    to   { opacity: 1; translate: 0 0; }
+  }
+  @keyframes s27-toast {
+    from { opacity: 0; translate: 0 22px; scale: 0.96; }
+    to   { opacity: 1; translate: 0 0; scale: 1; }
+  }
+}
+
+/* « Réduire les animations » : rien ne bouge ni ne glisse, les changements
+   d'état sont instantanés. (Les animations ci-dessus n'existent déjà pas ; ceci
+   couvre les transitions et ce que le style classique anime encore.) */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style='2027'] *,
+  :root[data-style='2027'] *::before,
+  :root[data-style='2027'] *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+}

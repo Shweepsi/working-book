@@ -28,7 +28,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
+import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme, UiStyle } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
@@ -68,8 +68,12 @@ const SHIFT_TABS = [
 
 type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 
-// Status-bar color (PWA / mobile chrome) per resolved theme
-const META_COLOR: Record<'light' | 'dark', string> = { light: '#f0eee9', dark: '#14130f' };
+// Status-bar color (PWA / mobile chrome) per style and resolved theme — the
+// canvas colour of each, so the bar melts into the page.
+const META_COLOR: Record<UiStyle, Record<'light' | 'dark', string>> = {
+  classic: { light: '#f0eee9', dark: '#14130f' },
+  '2027': { light: '#e9f0fa', dark: '#0a0f19' },
+};
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
   if (hour >= 6 && hour < 14) return 'M';
@@ -125,6 +129,9 @@ export default function App() {
 
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
+  // Anything but an explicit « 2027 » is the classic look: it stays the default,
+  // and a stored value from some other version can't select a style that isn't there.
+  const [uiStyle, setUiStyle] = useState<UiStyle>(() => (load<string>('wb.style', 'classic') === '2027' ? '2027' : 'classic'));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
@@ -202,7 +209,7 @@ export default function App() {
 
     const meta = document.querySelector('meta[name="theme-color"]');
     const apply = () => {
-      if (meta) meta.setAttribute('content', META_COLOR[resolvedTheme(theme)]);
+      if (meta) meta.setAttribute('content', META_COLOR[uiStyle][resolvedTheme(theme)]);
     };
     apply();
 
@@ -211,7 +218,15 @@ export default function App() {
       mql.addEventListener?.('change', apply);
       return () => mql.removeEventListener?.('change', apply);
     }
-  }, [theme]);
+  }, [theme, uiStyle]);
+
+  // The style rides on <html> like the theme and the density. The paper preview
+  // is the classic look by definition — it shows the sheet as printed — so it
+  // switches the style off while it is on, and the stored choice comes back with it.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-style', printPreview ? 'classic' : uiStyle);
+  }, [uiStyle, printPreview]);
+  useEffect(() => { save('wb.style', uiStyle); }, [uiStyle]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-density', density);
@@ -482,6 +497,8 @@ export default function App() {
               settings={{
                 theme,
                 onThemeChange: setTheme,
+                uiStyle,
+                onUiStyleChange: setUiStyle,
                 density,
                 onDensityChange: setDensity,
               }}
@@ -518,6 +535,8 @@ export default function App() {
               onOpenChange={setSettingsOpen}
               theme={theme}
               onThemeChange={setTheme}
+              uiStyle={uiStyle}
+              onUiStyleChange={setUiStyle}
               density={density}
               onDensityChange={setDensity}
             />

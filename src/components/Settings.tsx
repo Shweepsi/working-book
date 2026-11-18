@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Density, Theme } from '../types';
+import type { Density, Theme, UiStyle } from '../types';
 import { fmtStamp } from '../lib/format';
 import { applyUpdate, checkForUpdate, useUpdateWaiting } from '../lib/pwa';
 import { useToast } from '../lib/toast';
@@ -16,6 +16,12 @@ const THEMES = [
   { key: 'dark', label: 'Sombre', Glyph: ThemeDarkIcon },
 ] as const satisfies readonly { key: Theme; label: string; Glyph: unknown }[];
 
+// Classique is the default and the look the app has always had. 2027 is opt-in.
+const STYLES = [
+  { key: 'classic', label: 'Classique' },
+  { key: '2027', label: '2027' },
+] as const satisfies readonly { key: UiStyle; label: string }[];
+
 const DENSITIES = [
   { key: 'compact', label: 'Compact' },
   { key: 'normal', label: 'Normal' },
@@ -25,6 +31,8 @@ const DENSITIES = [
 export interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
+  uiStyle: UiStyle;
+  onUiStyleChange: (style: UiStyle) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
   /** Closes whatever shows the panel (the gear's popover, the header's menu). */
@@ -36,8 +44,8 @@ interface SettingsProps extends Omit<SettingsPanelProps, 'onClose'> {
   onOpenChange: (open: boolean) => void;
 }
 
-/** The settings themselves: theme, density, version. */
-export function SettingsPanel({ theme, onThemeChange, density, onDensityChange }: SettingsPanelProps) {
+/** The settings themselves: theme, style, density, version. */
+export function SettingsPanel({ theme, onThemeChange, uiStyle, onUiStyleChange, density, onDensityChange }: SettingsPanelProps) {
   const toast = useToast();
   // Mirrors the service worker's "a new version is parked and waiting" state,
   // so the button can promise an update rather than only a search for one.
@@ -87,6 +95,25 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange }
             </button>
           ))}
         </div>
+      </div>
+      <div>
+        <h4>Style</h4>
+        <div className="seg" role="group" aria-label="Style">
+          {STYLES.map((st) => (
+            <button
+              key={st.key}
+              type="button"
+              className={uiStyle === st.key ? 'active' : ''}
+              onClick={() => onUiStyleChange(st.key)}
+              aria-pressed={uiStyle === st.key}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+        {uiStyle === '2027' && (
+          <div className="popover-help">Verre dépoli, couleurs pastel et animations. Le papier et l’impression ne changent pas.</div>
+        )}
       </div>
       <div>
         <h4>Densité</h4>

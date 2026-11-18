@@ -60,6 +60,11 @@ export type Theme = 'auto' | 'light' | 'dark';
 
 export type Density = 'compact' | 'normal' | 'advanced';
 
+// The look of the app, picked in Réglages next to the theme and the density.
+// `classic` is the paper look the app has always had and stays the default;
+// `2027` is the glass one (styles/style-2027.css).
+export type UiStyle = 'classic' | '2027';
+
 // The two paper layouts the Schedule view offers. `detail` is the landscape
 // planning table; `recap` is the portrait plate-preparation sheet, grouped by
 // dimension and thickness. Shared between App (which owns the `@page` rule and

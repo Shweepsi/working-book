@@ -6115,3 +6115,248 @@ select.ln-input { padding-right: var(--space-2); }
     padding-bottom: 4px;
   }
 }
+
+/* ---------- Schedule — lisible à l'atelier ----------
+   Retouche de la page Schedule : texte secondaire contrasté, surfaces plus
+   douces (trait fin, légère profondeur), chiffres clés plus grands, rail dont
+   les noms ne sont jamais coupés, en-têtes de colonnes qui tiennent dans leur
+   colonne.
+
+   Écran seulement, et jamais dans l'aperçu : le papier garde ses règles
+   (`:root:not(.is-print-preview)`, comme les blocs du dessus). Le style 2027
+   (style-2027.css) reprend la main sur ces variables quand il est choisi. */
+
+/* Le texte secondaire (--ink-faint) tombait à 3,2:1 sur le papier et 3,0:1 en
+   sombre : illisible sous les néons. Corrigé sur cette page seulement — c'est
+   elle qu'on lit debout, à distance — à plus de 5:1 sur les trois fonds
+   (papier, bandeaux, canevas). Toutes tailles d'écran : la tablette de l'atelier
+   en a besoin autant que le bureau. */
+@media screen {
+  :root:not(.is-print-preview):not([data-style='2027']) .sch { --ink-faint: #6b665d; }
+  :root[data-theme='dark']:not(.is-print-preview):not([data-style='2027']) .sch { --ink-faint: #9a958b; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']):not([data-theme='dark']):not(.is-print-preview):not([data-style='2027']) .sch {
+      --ink-faint: #9a958b;
+    }
+  }
+}
+
+/* En-têtes de colonnes : tous écrans, tablette comprise — c'est sur la tablette de
+   l'atelier que « MTO/MTS » finissait en « MTO/M… ». */
+@media screen {
+  :root:not(.is-print-preview) .sch {
+    --sch-th: 10.5px;
+    --sch-cell-px: var(--space-4);
+  }
+  :root[data-density='compact'] .sch {
+    --sch-th: 9.5px;
+    --sch-cell-px: 6px;
+  }
+
+  :root:not(.is-print-preview) .sch-row.sch-head {
+    font-size: var(--sch-th);
+    letter-spacing: 0.04em;
+  }
+  /* Même gouttière que les cellules (celles de Normal : 8 px — Avancé garde
+     la sienne pour le libellé, qui n'y grandit pas) : le libellé d'un chiffre
+     finit où finit le chiffre, au lieu de 3 px plus loin. */
+  :root:not(.is-print-preview) .sch-row.sch-head .sch-cell {
+    padding-left: var(--sch-cell-px);
+    padding-right: var(--sch-cell-px);
+    /* La cellule prend toute la hauteur de la ligne (elle n'en faisait que la
+       moitié, centrée) et centre son libellé par l'interligne : la poignée et
+       le chevron ont ainsi un coin où se poser, et le trait de redimensionnement
+       redevient un vrai séparateur au lieu d'un tick de 2 px. */
+    align-self: stretch;
+    line-height: var(--d-ctl-h);
+  }
+  /* La poignée de réordonnancement occupait 12 px dans la ligne du libellé,
+     invisible mais bien là : c'est elle qui coupait « MTO/MTS » et « QUALITÉ ».
+     Elle se pose maintenant sur le bord haut de l'en-tête, sans prendre de
+     place, et n'apparaît qu'au survol. */
+  :root:not(.is-print-preview) .sch-col-drag-grip {
+    position: absolute;
+    top: 1px;
+    left: 50%;
+    width: auto;
+    margin: 0;
+    line-height: 0;
+    translate: -50% 0;
+  }
+  :root:not(.is-print-preview) .sch-col-drag-grip svg { rotate: 90deg; width: 12px; height: 12px; }
+  /* Même chose pour le chevron de tri des colonnes étroites : dans la ligne, il
+     mangeait la fin du libellé (« SCHED ▲ » devenait « SCH… »). Posé dans le
+     coin, il laisse le libellé entier. Les colonnes larges le gardent à la
+     suite du libellé, où il a la place. */
+  :root:not(.is-print-preview) .sch-cell.col-num .sch-sort-arrow,
+  :root:not(.is-print-preview) .sch-cell.col-mto .sch-sort-arrow,
+  :root:not(.is-print-preview) .sch-cell.col-q .sch-sort-arrow,
+  :root:not(.is-print-preview) .sch-cell.col-m2 .sch-sort-arrow,
+  :root:not(.is-print-preview) .sch-cell.col-fmt .sch-sort-arrow {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    margin: 0;
+    line-height: 0;
+  }
+  :root:not(.is-print-preview) .sch-cell .sch-sort-arrow svg { width: 11px; height: 11px; }
+}
+
+@media screen and (min-width: 1281px) {
+  /* Mesures de la page, par densité. Les règles plus bas ne lisent que ces
+     variables. */
+  :root:not(.is-print-preview) .sch {
+    --sch-radius: 12px;
+    /* Le trait fin : l'encre à 10 % sur le papier, au lieu d'un gris chaud plein. */
+    --sch-edge: color-mix(in srgb, var(--ink) 10%, var(--paper));
+    --sch-lift: 0 1px 2px rgba(42, 39, 34, 0.05), 0 10px 24px -14px rgba(42, 39, 34, 0.2);
+    --sch-rail-w: clamp(228px, 16.5vw, 296px);
+    --sch-rail-pad: 6px 10px;
+    --sch-rail-num: var(--fs-base);
+    --sch-rail-name: var(--fs-md);
+    --sch-rail-meta: var(--fs-sm);
+    --sch-key: 18px;
+    --sch-key-label: var(--fs-sm);
+    --sch-unit: var(--fs-md);
+    --sch-vit-w: 44px;
+    --sch-vit-h: 24px;
+    --sch-sum: var(--fs-md);
+  }
+  :root[data-theme='dark']:not(.is-print-preview) .sch {
+    --sch-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -14px rgba(0, 0, 0, 0.65);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']):not([data-theme='dark']):not(.is-print-preview) .sch {
+      --sch-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -14px rgba(0, 0, 0, 0.65);
+    }
+  }
+  :root[data-density='compact'] .sch {
+    --sch-rail-pad: 4px 8px;
+    --sch-rail-num: var(--fs-md);
+    --sch-rail-name: var(--fs-sm);
+    --sch-rail-meta: var(--fs-2xs);
+    --sch-key: 15px;
+    --sch-key-label: var(--fs-2xs);
+    --sch-unit: var(--fs-sm);
+    --sch-vit-w: 36px;
+    --sch-vit-h: 20px;
+    --sch-sum: var(--fs-sm);
+  }
+  :root[data-density='advanced'] .sch {
+    --sch-rail-pad: 10px 12px;
+    --sch-rail-num: var(--fs-lg);
+    --sch-rail-name: var(--fs-base);
+    --sch-rail-meta: var(--fs-md);
+    --sch-key: 20px;
+    --sch-key-label: var(--fs-md);
+    --sch-vit-w: 52px;
+    --sch-vit-h: 28px;
+    --sch-sum: var(--fs-base);
+  }
+
+  /* — Rail : plus large, noms entiers — */
+  :root:not(.is-print-preview) .sch-body { grid-template-columns: var(--sch-rail-w) 1fr; }
+  :root:not(.is-print-preview) .sch-rail {
+    border-color: var(--sch-edge);
+    border-radius: var(--sch-radius);
+    box-shadow: var(--sch-lift);
+  }
+  :root:not(.is-print-preview) .sch-rail-title { border-bottom-color: var(--sch-edge); }
+  :root:not(.is-print-preview) .sch-rail-list { padding: var(--space-3); gap: 2px; }
+  :root:not(.is-print-preview) .sch-swipe,
+  :root:not(.is-print-preview) .sch-swipe-surface { border-radius: var(--radius-lg); }
+  :root:not(.is-print-preview) .sch-rail-item {
+    padding: var(--sch-rail-pad);
+    gap: 2px;
+    border-radius: var(--radius-lg);
+    font-size: var(--sch-rail-num);
+  }
+  /* L'indicateur de la carte active flotte dans la carte au lieu de mordre son
+     bord arrondi. */
+  :root:not(.is-print-preview) .sch-rail-item.active::before {
+    top: 9px;
+    bottom: 9px;
+    left: 4px;
+    width: 3px;
+    border-radius: 3px;
+  }
+  :root:not(.is-print-preview) .sch-rail-num { font-size: var(--sch-rail-num); }
+  /* Le nom passe à la ligne plutôt que de finir en « SN70/35… » : c'est lui
+     qu'on cherche des yeux dans la liste. */
+  :root:not(.is-print-preview) .sch-rail-root {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    font-size: var(--sch-rail-name);
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  :root:not(.is-print-preview) .sch-rail-meta { font-size: var(--sch-rail-meta); }
+
+  /* — Cartes : trait fin, légère profondeur — */
+  :root:not(.is-print-preview) .sch-detail {
+    border-radius: var(--sch-radius);
+    box-shadow: var(--sch-lift);
+  }
+  :root:not(.is-print-preview) .sch-detail-head {
+    border-color: var(--sch-edge);
+    border-radius: var(--sch-radius) var(--sch-radius) 0 0;
+    align-items: center;
+    padding: 12px 18px;
+  }
+  :root:not(.is-print-preview) .sch-table,
+  :root:not(.is-print-preview) .sch-detail .sch-controls + .sch-table {
+    border-color: var(--sch-edge);
+    border-radius: 0 0 var(--sch-radius) var(--sch-radius);
+  }
+  :root:not(.is-print-preview) .sch-detail > .sch-controls {
+    border-color: var(--sch-edge);
+    border-radius: var(--sch-radius) var(--sch-radius) 0 0;
+  }
+  :root:not(.is-print-preview) .sch-summary {
+    border-color: var(--sch-edge);
+    background: color-mix(in srgb, var(--paper-2) 55%, var(--paper));
+    box-shadow: 0 1px 2px rgba(42, 39, 34, 0.04);
+    min-height: 38px;
+    padding-left: 14px;
+  }
+
+  /* — Chiffres clés — */
+  :root:not(.is-print-preview) .sch-summary-stats { font-size: var(--sch-sum); }
+  :root:not(.is-print-preview) .sch-summary-stats strong { font-size: calc(var(--sch-sum) + 1px); }
+  :root:not(.is-print-preview) .sch-summary .btn {
+    height: 26px;
+    font-size: var(--fs-md);
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  :root:not(.is-print-preview) .sch-policy-chip { height: 24px; font-size: var(--sch-sum); }
+  :root:not(.is-print-preview) .sch-detail-head h3 { font-size: calc(var(--sch-key) + 1px); }
+  :root:not(.is-print-preview) .sch-detail-head-stats { align-items: center; }
+  :root:not(.is-print-preview) .sch-stat-tile { padding: 0 var(--space-9); gap: 3px; }
+  :root:not(.is-print-preview) .sch-stat-tile:first-child { padding-left: 0; }
+  :root:not(.is-print-preview) .sch-stat-tile:last-child { padding-right: var(--space-7); }
+  :root:not(.is-print-preview) .sch-stat-tile-label {
+    font-size: var(--sch-key-label);
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  :root:not(.is-print-preview) .sch-stat-tile-value {
+    font-size: var(--sch-key);
+    letter-spacing: -0.01em;
+  }
+  :root:not(.is-print-preview) .sch-stat-tile-unit { font-size: var(--sch-unit); color: var(--ink-soft); }
+  :root:not(.is-print-preview) .sch-stat-tile-input .sch-stat-tile-value {
+    padding: 1px 8px;
+    border-color: var(--line-soft);
+    border-radius: var(--radius-md);
+  }
+  :root:not(.is-print-preview) .sch-stat-tile-input .sch-vitesse-input {
+    width: var(--sch-vit-w);
+    height: var(--sch-vit-h);
+  }
+}
