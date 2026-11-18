@@ -356,6 +356,34 @@
     }
   }
 
+  /* Stacking: the blur makes the detail head, its controls bar and the table
+     separate layers, painted in DOM order, so the table (later) covered the
+     filter and column menus hanging from the head. Lift the head and the
+     controls above the table; the menus inside them keep their own z-index. */
+  :root[data-look='glass']:not(.is-print-preview) :is(.sch-detail-head, .sch-controls) {
+    position: relative;
+    z-index: 5;
+  }
+
+  /* Same trick as the app header: a backdrop-filter on the detail head would
+     make it a backdrop root, so the filter and column menus hanging from it
+     could not blur the table under them and showed its text crisp. The blur
+     moves to a pseudo-element behind the head's content. */
+  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+  }
+
   /* The on-screen paper preview reads as paper, not as glass. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
 }
