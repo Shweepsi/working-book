@@ -391,6 +391,15 @@
     box-shadow: inset 0 1px 0 var(--g-glint);
   }
 
+  /* P/REQ: a light wash down the whole column, a touch stronger on its header
+     and total, so the pack count reads as a column of its own. */
+  :root[data-look='glass']:not(.is-print-preview) .sch-cell[data-col='packsReq']:not(.is-pinned) {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+  :root[data-look='glass']:not(.is-print-preview) :is(.sch-head, .sch-total) .sch-cell[data-col='packsReq']:not(.is-pinned) {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
   /* The on-screen paper preview reads as paper, not as glass. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
 }

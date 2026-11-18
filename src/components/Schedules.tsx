@@ -2136,6 +2136,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
           return (
             <th
               key={c.key}
+              data-col={c.key}
               scope="col"
               className={`sch-cell ${c.cls} ${sortable ? 'is-sortable' : ''} ${isSorted ? 'is-sorted' : ''}${pin.className}${sameGroupDrag ? ' is-drop-target' : ''}${dragKeyRef.current === c.key ? ' is-drag-source' : ''}`}
               aria-sort={isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
@@ -2533,6 +2534,7 @@ const ScheduleRow = memo(function ScheduleRow({ row, onOpen, columns, muted }: S
         return (
           <td
             key={c.key}
+            data-col={c.key}
             className={`sch-cell ${c.cls} ${monoExtra}${pin.className}`}
             title={titleAttr}
             style={pin.style}
@@ -2603,7 +2605,7 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
         const pin = pinnedAttrs(c);
         if (inlineLabel && i === 0) {
           return (
-            <td key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} style={pin.style}>
+            <td key={c.key} data-col={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} style={pin.style}>
               {/* Inner wrapper, not the cell itself: the cell has to stay a
                   table-cell under table layout. */}
               <span className="sch-total-inline">
@@ -2617,7 +2619,7 @@ function TotalRow({ rows, columns }: { rows: DisplayRow[]; columns: ColumnView[]
         if (i === labelStart) content = <strong>Total · {rows.length}</strong>;
         else content = totalFor(c.key) === '' ? '' : <strong>{totalFor(c.key)}</strong>;
         return (
-          <td key={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} style={pin.style}>{content}</td>
+          <td key={c.key} data-col={c.key} className={`sch-cell ${c.cls} mono${pin.className}`} style={pin.style}>{content}</td>
         );
       })}
     </tr>
