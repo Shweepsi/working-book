@@ -404,11 +404,11 @@
      look draws no line between data rows; here each row gets a hairline, and
      the column titles move from the faint ink to the soft one. */
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable {
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 11%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
   }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable:last-child { border-bottom: 0; }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head {
-    color: var(--ink-soft);
+    color: var(--ink);
     font-weight: 600;
   }
   :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
