@@ -1,248 +1,420 @@
-/* ---------- Glass look (opt-in: Réglages → Style → 2027) ----------
-   Everything lives under :root[data-look='glass'], so the classic look is
-   untouched. Colours derive from the theme tokens, so light, dark and auto
-   need no second palette. The whole file sits in @media screen — print is
-   left alone — and the on-screen paper preview is excluded below. Blur has an
-   opaque fallback; motion respects prefers-reduced-motion. */
+/* ---------- 2027 look (opt-in: Réglages → Style → 2027) ----------
+
+   One idea: calm. A cool neutral canvas, white cards with a single soft
+   elevation, one soft-blue accent, and hierarchy made of type size, weight and
+   space rather than of grey bands and heavy rules. Glass (blur + translucency)
+   is kept for what floats — the app header, menus, sheets, toasts — and never
+   for the content itself.
+
+   Scope and safety
+   - Everything lives under :root[data-look='glass'], so the classic look is
+     untouched, and the whole file sits in @media screen, so print is too. The
+     on-screen paper preview (.is-print-preview) opts out.
+   - Colours are declared once with light-dark(), which follows the page's
+     color-scheme (light, dark, or system for `auto`). Browsers without it
+     simply keep the classic palette (@supports guard below).
+   - Native CSS nesting is used for readability; Vite lowers it for older
+     targets. Blur falls back to opaque surfaces; motion respects
+     prefers-reduced-motion. */
+
 @media screen {
-  :root[data-look='glass'] {
-    --g-blur: 18px;
-    --g-sat: 170%;
-    --g-surface: color-mix(in srgb, var(--paper) 72%, transparent);
-    --g-surface-2: color-mix(in srgb, var(--paper-2) 62%, transparent);
-    --g-edge: color-mix(in srgb, var(--ink) 11%, transparent);
-    --g-glint: color-mix(in srgb, white 55%, transparent);
-    --g-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent),
-                0 12px 32px -12px color-mix(in srgb, var(--ink) 22%, transparent);
-    --g-spring: cubic-bezier(0.2, 0.9, 0.25, 1.15);
-    --g-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-    --radius-xl: 16px;
-    --radius-2xl: 22px;
-  }
-  :root[data-look='glass'][data-theme='dark'],
-  :root[data-look='glass'][data-theme='auto'] { --g-glint: color-mix(in srgb, white 10%, transparent); }
-  @media (prefers-color-scheme: light) {
-    :root[data-look='glass'][data-theme='auto'] { --g-glint: color-mix(in srgb, white 55%, transparent); }
-  }
+  /* ===== 1. Palette and tokens ===== */
+  @supports (color: light-dark(#000, #fff)) {
+    :root[data-look='glass']:not(.is-print-preview) {
+      --ink: light-dark(#14171f, #eceef5);
+      --ink-soft: light-dark(#4b5366, #a8aebf);
+      --ink-faint: light-dark(#6b7385, #8e95a8);
+      --line: var(--ink);
+      --line-soft: light-dark(#d5d9e3, #2c303c);
+      --line-faint: light-dark(#e8ebf2, #23262f);
+      --canvas: light-dark(#f3f5f9, #0b0c10);
+      --paper: light-dark(#ffffff, #14161c);
+      --paper-2: light-dark(#f6f8fb, #191c23);
+      --paper-glass: light-dark(rgba(243, 245, 249, 0.78), rgba(11, 12, 16, 0.72));
+      --paper-glass-2: light-dark(rgba(255, 255, 255, 0.88), rgba(20, 22, 28, 0.86));
 
-  /* Accent: a soft indigo in place of the classic terracotta. Light and dark each
-     get a tuned value (AA against --accent-ink); `auto` follows the system. */
-  :root[data-look='glass'] {
-    --ink: #1b1f2a;
-    --ink-soft: #4a5262;
-    --ink-faint: #667085;
-    --line: #1b1f2a;
-    --line-soft: #c5cad6;
-    --line-faint: #e3e6ee;
-    --paper: #fbfcfe;
-    --paper-2: #f1f3f9;
-    --canvas: #eef0f6;
-    --paper-glass: rgba(238, 240, 246, 0.8);
-    --paper-glass-2: rgba(251, 252, 254, 0.9);
-    --accent: #5296ec;
-    --accent-ink: #0d1a2e;
-    --focus-ring: rgba(82, 150, 236, 0.12);
-    --shadow-fab: 0 6px 24px rgba(82, 150, 236, 0.4), 0 2px 6px rgba(0, 0, 0, 0.12);
-  }
-  :root[data-look='glass'][data-theme='dark'] {
-    --ink: #e8eaf2;
-    --ink-soft: #a3a9ba;
-    --ink-faint: #8d93a6;
-    --line: #e8eaf2;
-    --line-soft: #333847;
-    --line-faint: #272b37;
-    --paper: #14161d;
-    --paper-2: #1b1e27;
-    --canvas: #0c0d12;
-    --paper-glass: rgba(12, 13, 18, 0.75);
-    --paper-glass-2: rgba(20, 22, 29, 0.85);
-    --accent: #8cbdf8;
-    --accent-ink: #14130f;
-    --focus-ring: rgba(140, 189, 248, 0.14);
-    --shadow-fab: 0 6px 24px rgba(140, 189, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
-      --ink: #e8eaf2;
-      --ink-soft: #a3a9ba;
-      --ink-faint: #8d93a6;
-      --line: #e8eaf2;
-      --line-soft: #333847;
-      --line-faint: #272b37;
-      --paper: #14161d;
-      --paper-2: #1b1e27;
-      --canvas: #0c0d12;
-      --paper-glass: rgba(12, 13, 18, 0.75);
-      --paper-glass-2: rgba(20, 22, 29, 0.85);
-      --accent: #8cbdf8;
-      --accent-ink: #14130f;
-      --focus-ring: rgba(140, 189, 248, 0.14);
-      --shadow-fab: 0 6px 24px rgba(140, 189, 248, 0.4), 0 2px 6px rgba(0, 0, 0, 0.4);
+      /* Accent: a soft blue. Dark ink on top of it in both themes. */
+      --accent: light-dark(#4f8ff0, #8fbcf7);
+      --accent-ink: light-dark(#ffffff, #0d1a2e);
+      --focus-ring: color-mix(in srgb, var(--accent) 16%, transparent);
+      --shadow-fab: 0 8px 24px color-mix(in srgb, var(--accent) 38%, transparent), 0 2px 6px rgba(0, 0, 0, 0.14);
+
+      /* Pastel colour-coding: tinted fills with a deeper tone of the same hue
+         for text, so chips read as soft badges rather than as filled boxes. */
+      --hl-yellow: light-dark(#fff2cc, #3a3318);
+      --hl-red: light-dark(#ffdde1, #43212a);
+      --hl-green: light-dark(#d9f4e5, #183a2c);
+      --hl-blue: light-dark(#dbe8ff, #1d2e55);
+      --flag-ok-bd: light-dark(#a6dcc0, #2f6b52);
+      --flag-ok-fg: light-dark(#1b6a47, #b8f0d2);
+      --flag-sched-bd: light-dark(#ecd28a, #7a6a2a);
+      --flag-sched-fg: light-dark(#76560a, #ffe9a8);
+      --flag-unsched-bd: light-dark(#f2aab5, #86404e);
+      --flag-unsched-fg: light-dark(#b3263e, #ffb4c0);
+      --flag-note-bd: light-dark(#a9c2f5, #3f5a99);
+      --flag-note-fg: light-dark(#27418a, #c9d8ff);
+
+      --shadow-sheet: 0 24px 64px -16px rgba(10, 14, 26, 0.35);
+      --shadow-popover: 0 16px 40px -12px rgba(10, 14, 26, 0.3);
+      --backdrop: light-dark(rgba(20, 24, 36, 0.28), rgba(0, 0, 0, 0.55));
+
+      /* Local design tokens. */
+      --g-hair: color-mix(in srgb, var(--ink) 8%, transparent);
+      --g-hair-strong: color-mix(in srgb, var(--ink) 16%, transparent);
+      --g-hover: color-mix(in srgb, var(--ink) 4%, transparent);
+      --g-card-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 5%, transparent),
+                       0 10px 30px -14px color-mix(in srgb, var(--ink) 20%, transparent);
+      --g-blur: 20px;
+      --g-sat: 170%;
+      --g-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+      --g-spring: cubic-bezier(0.2, 0.9, 0.25, 1.12);
+      --radius-xl: 14px;
+      --radius-2xl: 22px;
+
+      background: var(--canvas);
     }
+    :root[data-look='glass']:not(.is-print-preview) body { background: var(--canvas); }
   }
 
-  /* No coloured wash: the page behind the glass is the plain theme canvas. */
-  :root[data-look='glass'] body { background: var(--canvas); }
+  :root[data-look='glass']:not(.is-print-preview) {
+    /* ===== 2. Global chrome: header, tabs, buttons ===== */
 
-  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    :root[data-look='glass']:not(.is-print-preview) :is(
-      .app-header, .popover, .sheet, .toast, .sch-rail, .sch-detail-head, .sch-controls,
-      .sch-table, .sch-summary, .tabs, .seg, .fab
-    ) {
+    /* The header's blur sits on a pseudo-element, not on the header: a
+       backdrop-filter on the header would make it a backdrop root, and the
+       settings menu hanging below it could then not blur the page. */
+    .app-header {
+      background: transparent;
+      border-bottom: 0;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .app-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: var(--paper-glass);
+      box-shadow: inset 0 -1px 0 var(--g-hair);
       -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
       backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
     }
-    :root[data-look='glass'] .sheet-backdrop {
-      -webkit-backdrop-filter: blur(6px) saturate(120%);
-      backdrop-filter: blur(6px) saturate(120%);
+    .app-header .brand { font-weight: 650; letter-spacing: -0.02em; }
+
+    .tabs {
+      background: color-mix(in srgb, var(--ink) 5%, transparent);
+      border: 0;
+      border-radius: 12px;
+      padding: 3px;
     }
+    .tabs .tab {
+      border-radius: 9px;
+      color: var(--ink-soft);
+      transition: background 180ms var(--g-ease), color 180ms var(--g-ease), box-shadow 180ms var(--g-ease), transform 180ms var(--g-spring);
+    }
+    .tabs .tab:hover { color: var(--ink); }
+    .tabs .tab.active {
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent), 0 0 0 1px var(--g-hair);
+    }
+    .tabs .tab:active { transform: scale(0.96); }
+
+    /* Date and shift controls: the same soft segmented language as the tabs. */
+    .date-nav {
+      background: color-mix(in srgb, var(--ink) 5%, transparent);
+      border: 0;
+      border-radius: 12px;
+    }
+    .date-nav .date-input { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
+    .shift-chip {
+      background: color-mix(in srgb, var(--ink) 5%, transparent);
+      border: 0;
+      border-radius: 12px;
+      box-shadow: none;
+      color: var(--ink-soft);
+      transition: background 180ms var(--g-ease), color 180ms var(--g-ease), box-shadow 180ms var(--g-ease), transform 180ms var(--g-spring);
+    }
+    .shift-chip:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+    .shift-chip:active { transform: scale(0.97); }
+    .shift-chip .shift-name { font-weight: 500; }
+    .shift-chip .shift-poste {
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      letter-spacing: 0;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--ink) 8%, transparent);
+    }
+    .shift-chip.active,
+    .shift-chip.active.shift-M,
+    .shift-chip.active.shift-A,
+    .shift-chip.active.shift-N {
+      background: var(--paper);
+      color: var(--ink);
+      box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    .shift-chip.active .shift-name { font-weight: 600; }
+    .shift-chip.active .shift-poste { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--ink); }
+    .shift-chip.active .live-dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
+
+    .btn {
+      border-radius: 10px;
+      border-color: var(--g-hair-strong);
+      background: var(--paper);
+      transition: background 160ms var(--g-ease), border-color 160ms var(--g-ease), transform 160ms var(--g-spring), box-shadow 160ms var(--g-ease);
+    }
+    .btn:hover { background: var(--paper-2); border-color: color-mix(in srgb, var(--ink) 28%, transparent); }
+    .btn:active { transform: scale(0.97); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+    .btn.primary:hover { background: color-mix(in srgb, var(--ink) 88%, var(--paper)); }
+    .btn.accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    .btn.ghost { background: transparent; border-color: transparent; }
+    .btn.ghost:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+
+    .seg { background: color-mix(in srgb, var(--ink) 5%, transparent); border: 0; border-radius: 11px; }
+    .seg button { border-radius: 8px; transition: background 160ms var(--g-ease), color 160ms var(--g-ease), box-shadow 160ms var(--g-ease), transform 160ms var(--g-spring); }
+    .seg button.active { background: var(--paper); color: var(--ink); box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent), 0 0 0 1px var(--g-hair); }
+    .seg button:active { transform: scale(0.96); }
+
+    /* ===== 3. Floating layers: menus, sheets, toasts ===== */
+    .popover {
+      background: color-mix(in srgb, var(--paper) 84%, transparent);
+      border: 1px solid var(--g-hair);
+      border-radius: 16px;
+      box-shadow: var(--shadow-popover);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(180%);
+    }
+    .popover h4 { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink-soft); font-size: var(--fs-sm); }
+    .sheet {
+      background: color-mix(in srgb, var(--paper) 90%, transparent);
+      border: 1px solid var(--g-hair);
+      box-shadow: var(--shadow-sheet);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(180%);
+    }
+    .sheet-backdrop { -webkit-backdrop-filter: blur(6px) saturate(120%); backdrop-filter: blur(6px) saturate(120%); }
+    .toast {
+      background: color-mix(in srgb, var(--ink) 86%, transparent);
+      border: 1px solid color-mix(in srgb, var(--paper) 14%, transparent);
+      -webkit-backdrop-filter: blur(var(--g-blur));
+      backdrop-filter: blur(var(--g-blur));
+    }
+
+    /* ===== 4. Schedule ===== */
+    .sch, .sch * { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .sch .mono, .sch [class*='mono'], .mono { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .sch, .mono { font-variant-numeric: tabular-nums; }
+
+    /* Import strip: a quiet caption line, not a box. */
+    .sch-summary {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding-inline: var(--space-3);
+      color: var(--ink-faint);
+    }
+
+    /* Rail */
+    .sch-rail {
+      background: var(--paper);
+      border: 1px solid var(--g-hair);
+      border-radius: 20px;
+      box-shadow: var(--g-card-shadow);
+    }
+    .sch-rail-title {
+      background: var(--paper);
+      border-bottom: 1px solid var(--g-hair);
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 600;
+      font-size: var(--fs-md);
+      color: var(--ink-soft);
+      padding-block: var(--space-6);
+    }
+    .sch-rail-list { gap: 2px; padding: var(--space-3); }
+    .sch-rail-item {
+      border: 0;
+      border-radius: 12px;
+      padding: var(--space-4) var(--space-5);
+      transition: background 160ms var(--g-ease), transform 220ms var(--g-spring);
+    }
+    .sch-rail-item:hover { background: var(--g-hover); }
+    .sch-rail-item:active { transform: scale(0.985); }
+    .sch-rail-item.active {
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+    .sch-rail-item.active::before { display: none; }
+    .sch-rail-num { font-weight: 650; letter-spacing: -0.01em; }
+    .sch-rail-root { color: var(--ink-soft); }
+    .sch-rail-meta { color: var(--ink-faint); }
+
+    /* Detail: head and table are one card. The wrapper carries the radius,
+       border and shadow; head and table inside are flat. */
+    .sch-detail {
+      background: var(--paper);
+      border: 1px solid var(--g-hair);
+      border-radius: 20px;
+      box-shadow: var(--g-card-shadow);
+    }
+    .sch-detail-head,
+    .sch-controls,
+    .sch-table {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    /* The table is its own scroll container, so it clips its rows to the
+       card's bottom corners; the wrapper itself must not clip, or the filter
+       and column menus hanging from the head would be cut off. */
+    .sch-table { border-radius: 0 0 20px 20px; }
+    .sch-detail-head {
+      padding: var(--space-8) var(--space-9) var(--space-6);
+      box-shadow: inset 0 -1px 0 var(--g-hair);
+    }
+    .sch-detail-head h3 { font-size: calc(var(--fs-xl) * 1.25); font-weight: 650; letter-spacing: -0.02em; text-wrap: balance; }
+    .sch-detail-head-num { color: var(--ink-faint); font-weight: 500; }
+    .sch-detail-head-sep { color: var(--ink-faint); }
+    .sch-detail-head-name { font-weight: 650; }
+    .sch-detail-head .sch-controls { padding: 0; }
+    .sch-stat-tile-label { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--ink-faint); font-size: var(--fs-sm); }
+    .sch-stat-tile-value { font-size: calc(var(--fs-lg) * 1.2); font-weight: 650; letter-spacing: -0.015em; }
+    .sch-stat-tile + .sch-stat-tile::before { background: var(--g-hair); }
+
+    /* Table: no fills and no zebra. Rhythm comes from space and hairlines. */
+    .sch-row.sch-head {
+      background: color-mix(in srgb, var(--paper) 92%, transparent);
+      -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+      backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
+      box-shadow: inset 0 -1px 0 var(--g-hair);
+      border-bottom: 0;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--ink-faint);
+    }
+    .sch-row.sch-head .sch-cell { padding-block: 11px; }
+    .sch-row.sch-head .sch-cell.is-pinned { background: var(--paper); }
+    .sch-row.sch-head .sch-cell:hover { color: var(--ink); }
+    .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); font-weight: 600; }
+
+    .sch-row.sch-row-clickable { border-bottom: 1px solid var(--g-hair); }
+    .sch-row.sch-row-clickable:last-child { border-bottom: 0; }
+    .sch-row:not(.sch-head):not(.sch-total):hover { background: var(--g-hover); }
+    .sch-row:not(.sch-head):not(.sch-total) .sch-cell { padding-block: 9px; }
+
+    /* Group break: a quiet sub-heading, not a band. */
+    .sch-row.sch-group-break {
+      background: transparent;
+      border-bottom: 1px solid var(--g-hair);
+      min-height: 0;
+    }
+    .sch-row.sch-group-break .sch-group-label { padding: 16px var(--space-5) 6px; }
+    .sch-group-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: var(--fs-md);
+      font-weight: 650;
+      letter-spacing: -0.005em;
+    }
+    .sch-group-value::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .sch-row.sch-total {
+      background: var(--paper);
+      border-top: 0;
+      box-shadow: inset 0 1px 0 var(--g-hair-strong);
+      font-weight: 600;
+    }
+
+    /* Colour-coding, kept light. */
+    .sch-mto {
+      min-width: 0;
+      padding: 2px 7px;
+      border: 0;
+      border-radius: 999px;
+      font-size: var(--fs-xs, 11px);
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+    .sch-mto[data-mto='MTO'] { background: var(--hl-blue); color: var(--flag-note-fg); }
+    .sch-mto[data-mto='MTS'] { background: var(--hl-yellow); color: var(--flag-sched-fg); }
+    .sch-cell[data-col='packsReq']:not(.is-pinned) { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+    .sch-cell.col-m2 { background: color-mix(in srgb, var(--hl-green) 45%, transparent); color: var(--flag-ok-fg); font-weight: 600; }
+    .sch-row.sch-head .sch-cell.col-m2,
+    .sch-row.sch-head .sch-cell[data-col='packsReq'] { background: transparent; }
+
+    /* Scrollbars: thin translucent pills. WebKit/Blink get the pill, Firefox
+       gets the standard thin pair (Chrome ignores ::-webkit-scrollbar once
+       scrollbar-color is set, hence the @supports split). */
+    --g-thumb: color-mix(in srgb, var(--ink) 22%, transparent);
+    --g-thumb-hover: color-mix(in srgb, var(--ink) 40%, transparent);
+    @supports selector(::-webkit-scrollbar) {
+      :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar { width: 12px; height: 12px; }
+      :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-track,
+      :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-corner { background: transparent; }
+      :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-thumb {
+        background: var(--g-thumb);
+        border: 3px solid transparent;
+        background-clip: padding-box;
+        border-radius: 999px;
+        min-height: 36px;
+        min-width: 36px;
+      }
+      :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-thumb:hover {
+        background: var(--g-thumb-hover);
+        background-clip: padding-box;
+      }
+    }
+    @supports not selector(::-webkit-scrollbar) {
+      :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list) {
+        scrollbar-width: thin;
+        scrollbar-color: var(--g-thumb) transparent;
+      }
+    }
+
+    /* ===== 5. Motion ===== */
+    .sch-rail-list > li { animation: g-rise 380ms var(--g-spring) both; }
+    .sch-rail-list > li:nth-child(2) { animation-delay: 40ms; }
+    .sch-rail-list > li:nth-child(3) { animation-delay: 80ms; }
+    .sch-rail-list > li:nth-child(4) { animation-delay: 120ms; }
+    .sch-rail-list > li:nth-child(n + 5) { animation-delay: 160ms; }
+    .popover { animation: g-drop 200ms var(--g-spring); transform-origin: top right; }
+    .sheet { animation: g-pop 300ms var(--g-spring); }
+    .sheet-backdrop { animation: fade-in 220ms var(--g-ease); }
+
+    /* Schedule switch: the browser cross-fades the detail (see selectSchedule). */
+    .sch-detail { view-transition-name: sch-detail; animation: none; }
   }
 
-  /* Glass surfaces: translucent fill, hairline edge, inner top highlight, soft
-     long shadow. */
-  :root[data-look='glass']:not(.is-print-preview) :is(
-    .app-header, .popover, .sheet, .sch-rail, .sch-detail-head, .sch-controls,
-    .sch-table, .sch-summary, .tabs
-  ) {
-    background: var(--g-surface);
-    border-color: var(--g-edge);
-    box-shadow: inset 0 1px 0 var(--g-glint), var(--g-shadow);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .app-header { box-shadow: inset 0 -1px 0 var(--g-edge); border-bottom-color: transparent; }
-  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head { background: var(--g-surface-2); }
-  :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail-title, .sch-row.sch-head) {
-    background: var(--g-surface-2);
-    box-shadow: none;
-    -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
-    backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
-  }
-  :root[data-look='glass'] .sheet { box-shadow: inset 0 1px 0 var(--g-glint), var(--shadow-sheet); }
-  :root[data-look='glass'] .toast {
-    background: color-mix(in srgb, var(--ink) 82%, transparent);
-    border: 1px solid color-mix(in srgb, white 14%, transparent);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-group-break,
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-total { background: var(--g-surface-2); }
-  :root[data-look='glass']:not(.is-print-preview) .sch-row:not(.sch-head):not(.sch-total):hover {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-  }
+  @keyframes g-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes g-pop { from { opacity: 0; transform: translate(-50%, -48%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes g-drop { from { opacity: 0; transform: translateY(-6px) scale(0.97); } to { opacity: 1; transform: none; } }
 
-  /* Menus and sheets carry text and controls, so they are translucent but
-     mostly solid, with a strong blur so nothing behind reads as text. The
-     header's own blur lives on a pseudo-element (below): a backdrop-filter on
-     the header itself would make it a backdrop root and stop the settings menu,
-     which hangs below it, from blurring the page. */
-  :root[data-look='glass']:not(.is-print-preview) .popover {
-    background: color-mix(in srgb, var(--paper) 80%, transparent);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    backdrop-filter: blur(28px) saturate(180%);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sheet {
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    backdrop-filter: blur(28px) saturate(180%);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .app-header {
-    background: transparent;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .app-header::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: var(--g-surface);
-    box-shadow: inset 0 -1px 0 var(--g-edge);
-    -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
-    backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
-  }
-
-  /* The filter/column icons sit in the head's own controls bar; keep it part of
-     the head instead of a second pane. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head .sch-controls {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  /* Controls: pill shapes, soft borders, a little life under the finger. */
-  :root[data-look='glass'] .tabs { border-radius: 14px; }
-  :root[data-look='glass'] .tabs .tab { border-radius: 10px; transition: background 180ms var(--g-ease), color 180ms var(--g-ease), transform 180ms var(--g-spring); }
-  :root[data-look='glass'] .tabs .tab:active { transform: scale(0.96); }
-  :root[data-look='glass'] .btn {
-    border-radius: 12px;
-    border-color: var(--g-edge);
-    background: var(--g-surface);
-    transition: background 160ms var(--g-ease), border-color 160ms var(--g-ease), transform 160ms var(--g-spring), box-shadow 160ms var(--g-ease);
-  }
-  :root[data-look='glass'] .btn:hover { border-color: color-mix(in srgb, var(--ink) 24%, transparent); box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--ink) 30%, transparent); }
-  :root[data-look='glass'] .btn:active { transform: scale(0.965); }
-  :root[data-look='glass'] .btn.primary { background: var(--ink); border-color: var(--ink); }
-  :root[data-look='glass'] .btn.accent { background: var(--accent); border-color: var(--accent); }
-  :root[data-look='glass'] .btn.ghost { background: transparent; border-color: transparent; box-shadow: none; }
-  :root[data-look='glass'] .btn.ghost:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
-  :root[data-look='glass'] .seg { border-radius: 12px; }
-  :root[data-look='glass'] .seg button { border-radius: 9px; transition: background 160ms var(--g-ease), color 160ms var(--g-ease), transform 160ms var(--g-spring); }
-  :root[data-look='glass'] .seg button:active { transform: scale(0.96); }
-
-  /* Rail cards: lift on hover, accent glass when selected. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-rail-item {
-    border-radius: 12px;
-    transition: background 180ms var(--g-ease), transform 220ms var(--g-spring), box-shadow 180ms var(--g-ease), border-color 180ms var(--g-ease);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-rail-item:hover { transform: translateX(2px); }
-  :root[data-look='glass']:not(.is-print-preview) .sch-rail-item:active { transform: scale(0.985); }
-  :root[data-look='glass']:not(.is-print-preview) .sch-rail-item.active {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), color-mix(in srgb, var(--accent) 5%, transparent));
-    border-color: color-mix(in srgb, var(--accent) 38%, transparent);
-    box-shadow: inset 0 1px 0 var(--g-glint), 0 6px 18px -10px color-mix(in srgb, var(--accent) 60%, transparent);
-  }
-
-  /* The selected card's left edge: the classic look runs a square 3px bar flush
-     with the card, which pokes out of a 12px-rounded glass card. Here it becomes
-     a short inset pill. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-rail-item.active::before {
-    top: 20%;
-    bottom: 20%;
-    left: 6px;
-    width: 3px;
-    border-radius: 3px;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-rail-item { padding-left: calc(var(--space-5) + 6px); }
-
-  /* Entrances. */
-  @keyframes g-rise { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
-  @keyframes g-pop { from { opacity: 0; transform: translate(-50%, -48%) scale(0.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-  @keyframes g-drop { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
-  :root[data-look='glass'] .sch-rail-list > li { animation: g-rise 420ms var(--g-spring) both; }
-  :root[data-look='glass'] .sch-rail-list > li:nth-child(2) { animation-delay: 50ms; }
-  :root[data-look='glass'] .sch-rail-list > li:nth-child(3) { animation-delay: 100ms; }
-  :root[data-look='glass'] .sch-rail-list > li:nth-child(4) { animation-delay: 150ms; }
-  :root[data-look='glass'] .sch-rail-list > li:nth-child(n+5) { animation-delay: 200ms; }
-  :root[data-look='glass'] .popover { animation: g-drop 220ms var(--g-spring); transform-origin: top right; }
-  :root[data-look='glass'] .sheet { animation: g-pop 320ms var(--g-spring); }
-  :root[data-look='glass'] .sheet-backdrop { animation: fade-in 240ms var(--g-ease); }
-
-  /* Schedule switch: the browser cross-fades the detail (see selectSchedule). */
-  :root[data-look='glass'] .sch-detail { view-transition-name: sch-detail; animation: none; }
   :root[data-look='glass']::view-transition-old(sch-detail),
-  :root[data-look='glass']::view-transition-new(sch-detail) { animation-duration: 260ms; animation-timing-function: var(--g-ease); }
-  :root[data-look='glass']::view-transition-group(sch-detail) { animation-duration: 260ms; animation-timing-function: var(--g-spring); }
-
-  /* Theme switch cross-fades instead of snapping. */
-  :root[data-look='glass'] body,
-  :root[data-look='glass'] :is(.app-header, .sch-rail, .sch-detail-head, .sch-controls, .sch-table) {
-    transition: background-color 280ms var(--g-ease), border-color 280ms var(--g-ease), color 280ms var(--g-ease);
-  }
+  :root[data-look='glass']::view-transition-new(sch-detail) { animation-duration: 240ms; animation-timing-function: var(--g-ease); }
+  :root[data-look='glass']::view-transition-group(sch-detail) { animation-duration: 240ms; animation-timing-function: var(--g-spring); }
 
   /* No blur support → opaque surfaces, same shape. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    :root[data-look='glass'] { --g-surface: var(--paper); --g-surface-2: var(--paper-2); }
+    :root[data-look='glass']:not(.is-print-preview) {
+      .app-header::before { background: var(--paper); }
+      .popover, .sheet { background: var(--paper); }
+      .sch-row.sch-head { background: var(--paper); }
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -254,185 +426,6 @@
     :root[data-look='glass']::view-transition-new(*) { animation: none !important; }
   }
 
-  /* Pastel colour-coding. The highlight and flag tokens are re-tuned to cool
-     pastels (and to deep, desaturated tints in dark), which recolours every
-     cell, chip and flag that already reads them. */
-  :root[data-look='glass'] {
-    --hl-yellow: #ffefc2; --hl-red: #ffd9de; --hl-green: #d3f3e0; --hl-blue: #d6e4ff;
-    --flag-ok-bd: #a6dcc0; --flag-ok-fg: #1d6a47;
-    --flag-sched-bd: #f0d48a; --flag-sched-fg: #7a5a00;
-    --flag-unsched-bd: #f2aab5; --flag-unsched-fg: #b3263e;
-    --flag-note-bd: #a9c2f5; --flag-note-fg: #27418a;
-  }
-  :root[data-look='glass'][data-theme='dark'] {
-    --hl-yellow: #3d3417; --hl-red: #432029; --hl-green: #17372a; --hl-blue: #1c2c52;
-    --flag-ok-bd: #2f6b52; --flag-ok-fg: #b8f0d2;
-    --flag-sched-bd: #7a6a2a; --flag-sched-fg: #ffe9a8;
-    --flag-unsched-bd: #86404e; --flag-unsched-fg: #ffb4c0;
-    --flag-note-bd: #3f5a99; --flag-note-fg: #c9d8ff;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root[data-look='glass']:not([data-theme='light']):not([data-theme='dark']) {
-      --hl-yellow: #3d3417; --hl-red: #432029; --hl-green: #17372a; --hl-blue: #1c2c52;
-    --flag-ok-bd: #2f6b52; --flag-ok-fg: #b8f0d2;
-    --flag-sched-bd: #7a6a2a; --flag-sched-fg: #ffe9a8;
-    --flag-unsched-bd: #86404e; --flag-unsched-fg: #ffb4c0;
-    --flag-note-bd: #3f5a99; --flag-note-fg: #c9d8ff;
-    }
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-mto {
-    border-radius: 999px;
-    border-color: transparent;
-    min-width: 0;
-    padding: 2px 7px;
-    letter-spacing: 0;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-mto[data-mto='MTO'] { background: var(--hl-blue); }
-  :root[data-look='glass']:not(.is-print-preview) .sch-mto[data-mto='MTS'] { background: var(--hl-yellow); }
-  :root[data-look='glass']:not(.is-print-preview) .sch-group-value {
-    border-color: color-mix(in srgb, var(--ink) 16%, transparent);
-    background: color-mix(in srgb, var(--ink) 9%, var(--paper));
-    color: var(--ink);
-    letter-spacing: 0.01em;
-    font-weight: 600;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-cell.col-m2 {
-    background: color-mix(in srgb, var(--hl-green) 60%, transparent);
-    color: var(--flag-ok-fg);
-  }
-
-  /* Typography: no typewriter. Numbers stay tabular but in the sans, and small
-     headings lose the letterspaced capitals of the paper look. */
-  :root[data-look='glass']:not(.is-print-preview) .sch *,
-  :root[data-look='glass']:not(.is-print-preview) .mono {
-    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-variant-numeric: tabular-nums;
-  }
-  :root[data-look='glass']:not(.is-print-preview) :is(
-    .sch-row.sch-head, .sch-rail-title, .sch-stat-tile-label, .popover h4, .sch-cols-menu-head, .sch-filter-label
-  ) {
-    text-transform: none;
-    letter-spacing: 0;
-    font-weight: 500;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-stat-tile-value { font-weight: 650; letter-spacing: -0.01em; }
-  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head h3 { letter-spacing: -0.02em; }
-
-  /* Scrollbars: thin translucent pills that sit inside the rounded surfaces
-     instead of the browser's grey bars. WebKit/Blink get the pill; Firefox
-     (no ::-webkit-scrollbar) gets the standard thin + colour pair. Chrome
-     ignores ::-webkit-scrollbar once scrollbar-color is set, hence the
-     @supports split. */
-  :root[data-look='glass']:not(.is-print-preview) {
-    --g-thumb: color-mix(in srgb, var(--ink) 22%, transparent);
-    --g-thumb-hover: color-mix(in srgb, var(--ink) 40%, transparent);
-  }
-  @supports selector(::-webkit-scrollbar) {
-    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar {
-      width: 12px;
-      height: 12px;
-    }
-    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-track,
-    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-corner {
-      background: transparent;
-    }
-    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-thumb {
-      background: var(--g-thumb);
-      border: 3px solid transparent;
-      background-clip: padding-box;
-      border-radius: 999px;
-      min-height: 36px;
-      min-width: 36px;
-    }
-    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list)::-webkit-scrollbar-thumb:hover {
-      background: var(--g-thumb-hover);
-      background-clip: padding-box;
-    }
-  }
-  @supports not selector(::-webkit-scrollbar) {
-    :root[data-look='glass']:not(.is-print-preview) :is(.sch-rail, .sch-table, .sch-cols-list, .sch-done-sheet, .sch-done-list) {
-      scrollbar-width: thin;
-      scrollbar-color: var(--g-thumb) transparent;
-    }
-  }
-
-  /* Stacking: the blur makes the detail head, its controls bar and the table
-     separate layers, painted in DOM order, so the table (later) covered the
-     filter and column menus hanging from the head. Lift the head and the
-     controls above the table; the menus inside them keep their own z-index. */
-  :root[data-look='glass']:not(.is-print-preview) :is(.sch-detail-head, .sch-controls) {
-    position: relative;
-    z-index: 5;
-  }
-
-  /* Same trick as the app header: a backdrop-filter on the detail head would
-     make it a backdrop root, so the filter and column menus hanging from it
-     could not blur the table under them and showed its text crisp. The blur
-     moves to a pseudo-element behind the head's content. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-detail-head::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    pointer-events: none;
-    -webkit-backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
-    backdrop-filter: blur(var(--g-blur)) saturate(var(--g-sat));
-  }
-
-  /* The detail head sits flush on the table. Now that it is stacked above it,
-     its drop shadow fell across the column headers; it keeps only the inner
-     top highlight, and the table below carries the shadow for the pair. */
-  :root[data-look='glass']:not(.is-print-preview) :is(.sch-detail-head, .sch-controls) {
-    box-shadow: inset 0 1px 0 var(--g-glint);
-  }
-
-  /* P/REQ: a light wash down the whole column, a touch stronger on its header
-     and total, so the pack count reads as a column of its own. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-cell[data-col='packsReq']:not(.is-pinned) {
-    background: color-mix(in srgb, var(--accent) 7%, transparent);
-  }
-  :root[data-look='glass']:not(.is-print-preview) :is(.sch-head, .sch-total) .sch-cell[data-col='packsReq']:not(.is-pinned) {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  /* Row separators and column titles, a notch more contrasted. The classic
-     look draws no line between data rows; here each row gets a hairline, and
-     the column titles move from the faint ink to the soft one. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable {
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-row-clickable:last-child { border-bottom: 0; }
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head {
-    color: var(--ink-soft);
-    font-weight: 600;
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
-
-  /* The two horizontal bands of the table, the column-title row and the group
-     breaks, take a deeper tint so they read as bands against the rows. */
-  :root[data-look='glass']:not(.is-print-preview) :is(.sch-row.sch-head),
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-pinned {
-    background: color-mix(in srgb, var(--ink) 9%, var(--paper));
-  }
-
-  /* The group separator that carries the dimension chip (« 6 000 MM »): a
-     deeper band than the title row, with a hairline above and below, and the
-     chip itself lifted to the paper colour so it stands out on it. */
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-group-break {
-    background: color-mix(in srgb, var(--ink) 16%, var(--paper));
-    border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
-  }
-  :root[data-look='glass']:not(.is-print-preview) .sch-row.sch-group-break .sch-group-value {
-    background: var(--paper);
-    border-color: color-mix(in srgb, var(--ink) 24%, transparent);
-  }
-
-  /* The on-screen paper preview reads as paper, not as glass. */
+  /* The on-screen paper preview reads as paper, not as this look. */
   :root[data-look='glass'].is-print-preview body { background: var(--canvas); }
 }
