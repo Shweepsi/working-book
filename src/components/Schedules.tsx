@@ -1735,9 +1735,9 @@ const COL_DRAG_MIME = 'application/x-wb-column';
 
 // Best-effort px estimate for grid columns that use minmax/auto, used to compute
 // sticky-left offsets without measuring the DOM.
-function columnPx(key: string, override?: number): number {
+function columnPx(key: string, override?: number, wide = false): number {
   if (override) return override;
-  const w = COL_WIDTHS[key] || '';
+  const w = (wide && COL_WIDTHS_WIDE[key]) || COL_WIDTHS[key] || '';
   const m = /^(\d+)px$/.exec(w);
   if (m) return parseInt(m[1], 10);
   const mm = /minmax\((\d+)px/.exec(w);
@@ -1798,6 +1798,32 @@ const COL_WIDTHS: Record<string, string> = {
   pdp: 'minmax(100px, 1fr)',
   m2: '88px',
 };
+
+// Above 600px the text scale is 1px larger (tokens.css), and at 13px the
+// default tracks clip "12 400" in the lites columns and "1 219 × 2 438" in
+// Dimension. These wider defaults apply on that screen size only: phones keep
+// COL_WIDTHS, and the printed sheet keeps COL_PRINT_WEIGHT, which reads the
+// base widths.
+const WIDE_SCREEN_QUERY = '(min-width: 601px)';
+const COL_WIDTHS_WIDE: Record<string, string> = {
+  schedLites: '68px',
+  prodLites: '68px',
+  reqLites: '68px',
+  format: '128px',
+};
+
+function useWideScreen(): boolean {
+  const [wide, setWide] = useState(() => window.matchMedia?.(WIDE_SCREEN_QUERY).matches ?? false);
+  useEffect(() => {
+    const mql = window.matchMedia?.(WIDE_SCREEN_QUERY);
+    if (!mql) return;
+    const update = () => setWide(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+  return wide;
+}
 
 // Track weights used to build the print template. `columnPx` falls back to a
 // flexible column's minmax floor, which under-serves the identity columns on
@@ -1885,6 +1911,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  const wide = useWideScreen();
 
   // Toggle .is-scrolled-x once the operator has scrolled past the pinned
   // columns, so the divider shadow only appears when it's actually meaningful.
@@ -1908,7 +1935,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
     for (const c of columns) {
       if (pinSet.has(c.key)) {
         out.push({ ...c, pinnedLeft: leftAcc, pinnedLast: false });
-        leftAcc += columnPx(c.key, widths[c.key] ?? autoWidths[c.key]);
+        leftAcc += columnPx(c.key, widths[c.key] ?? autoWidths[c.key], wide);
       } else {
         out.push({ ...c });
       }
@@ -1920,7 +1947,7 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
       }
     }
     return out;
-  }, [columns, pinned, widths, autoWidths]);
+  }, [columns, pinned, widths, autoWidths, wide]);
 
   const headRef = useRef<HTMLTableRowElement>(null);
 
@@ -1946,8 +1973,8 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
       if (px) freeze[c.key] = px;
     }
     if (Object.keys(freeze).length > 0) onFreezeWidths(freeze);
-    return measured.get(key) ?? columnPx(key, widths[key] ?? autoWidths[key]);
-  }, [columns, widths, autoWidths, onFreezeWidths]);
+    return measured.get(key) ?? columnPx(key, widths[key] ?? autoWidths[key], wide);
+  }, [columns, widths, autoWidths, onFreezeWidths, wide]);
 
   // Compose track widths: user override wins, then COL_WIDTHS default, then auto.
   // minPx keeps the grid from collapsing in narrow viewports.
@@ -1963,12 +1990,12 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
     const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
     return {
       gridTemplate: columns
-        .map((c) => { const px = screenPx(c.key); return px ? `${px}px` : (COL_WIDTHS[c.key] || 'auto'); })
+        .map((c) => { const px = screenPx(c.key); return px ? `${px}px` : ((wide && COL_WIDTHS_WIDE[c.key]) || COL_WIDTHS[c.key] || 'auto'); })
         .join(' '),
       printCols: weights.map((w) => `${((w / weightSum) * 100).toFixed(4)}%`),
-      minPx: columns.reduce((acc, c) => acc + columnPx(c.key, screenPx(c.key)), 0),
+      minPx: columns.reduce((acc, c) => acc + columnPx(c.key, screenPx(c.key), wide), 0),
     };
-  }, [columns, widths, autoWidths]);
+  }, [columns, widths, autoWidths, wide]);
 
   // Nothing at all to paint — not even a greyed line. Tested on `items` rather
   // than on the totals: the planning can be empty while the œillet shows
