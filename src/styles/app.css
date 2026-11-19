@@ -436,7 +436,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .evt.is-danger .desc { color: var(--flag-unsched-fg); }
 
 .evt .time {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-md);
   color: var(--ink-soft);
   white-space: nowrap;
@@ -445,7 +445,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .evt .time .end { color: var(--ink-faint); }
 
 .evt .dur {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-md);
   color: var(--ink-soft);
   text-align: right;
@@ -454,7 +454,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 .evt .desc { line-height: 1.35; min-width: 0; }
 .evt .desc .refs {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--ink-soft);
   font-size: var(--fs-sm);
   margin-left: 6px;
@@ -531,7 +531,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .summary strong {
   color: var(--ink);
   font-weight: 600;
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Editor sheet — centered modal on desktop, bottom sheet on phone */
@@ -805,7 +805,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .time-input {
   width: 72px;
   padding: var(--space-3) var(--space-4);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   text-align: center;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -981,7 +981,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 
 .pt-header .field-prefix {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-lg);
   color: var(--ink-soft);
   user-select: none;
@@ -1028,7 +1028,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .measure-cell:nth-child(2n) { border-right: 0; }
 .measure-cell:hover { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
 .measure-cell .mlabel {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-md);
   padding: var(--space-3) var(--space-6);
   background: var(--paper-2);
@@ -1045,7 +1045,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   outline: 0;
   padding: var(--space-4) var(--space-6);
   font: inherit;
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-lg);
   width: 100%;
   color: var(--ink);
@@ -1064,7 +1064,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .lab-grid .head {
   background: var(--paper-2);
   font-size: var(--fs-sm);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--ink-soft);
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--line-faint);
@@ -1074,7 +1074,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .lab-grid .head:last-child { border-right: 0; }
 
 .lab-grid .rowlabel {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-md);
   background: var(--paper-2);
   color: var(--ink-soft);
@@ -1101,7 +1101,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   background: transparent;
   outline: 0;
   padding: var(--space-4) var(--space-6);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-lg);
   width: 100%;
   color: var(--ink);
@@ -1400,7 +1400,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   background: transparent;
   font: inherit;
   font-size: var(--fs-md);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   padding: var(--space-2) var(--space-3);
@@ -1448,7 +1448,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 
 .shift-chip .shift-poste {
   font-size: var(--fs-2xs);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
@@ -1497,7 +1497,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 
 .rest-hint {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
 
@@ -2139,7 +2139,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 :root[data-density='advanced'] .type-strip button,
 :root[data-density='advanced'] .pt-test-chip {
-  padding: 5px 11px; font-size: 11.5px; min-height: 28px;
+  padding: 5px 11px; font-size: calc(var(--fs-sm) + 0.5px); min-height: 28px;
 }
 
 /* Shift switch chip */
@@ -2147,10 +2147,10 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   padding: 3px 4px 3px 9px; font-size: var(--fs-sm); min-height: 24px;
 }
 :root[data-density='compact'] .shift-chip .shift-poste {
-  padding: 1px 5px; font-size: 9.5px;
+  padding: 1px 5px; font-size: calc(var(--fs-2xs) - 0.5px);
 }
 :root[data-density='advanced'] .shift-chip {
-  padding: 5px 7px 5px 14px; font-size: 12.5px; min-height: 32px;
+  padding: 5px 7px 5px 14px; font-size: calc(var(--fs-md) + 0.5px); min-height: 32px;
 }
 
 /* Date nav */
@@ -2373,7 +2373,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-stamp-short { display: none; }
 .sch-summary-stats strong {
   color: var(--ink);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 .sch-packs-short,
@@ -2682,7 +2682,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   position: absolute;
   right: 2px;
   bottom: 1px;
-  font-size: 9px;
+  font-size: calc(var(--fs-2xs) - 1px);
   font-weight: 600;
   line-height: 1;
   color: var(--ink-faint);
@@ -2768,7 +2768,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 .sch-row.sch-head .sch-cell.is-sorted { color: var(--ink); }
 .sch-sort-arrow {
   margin-left: 4px;
-  font-size: 8px;
+  font-size: calc(var(--fs-2xs) - 2px);
   color: var(--accent);
 }
 
@@ -3304,23 +3304,23 @@ body.is-col-resizing * {
 :root[data-density='compact'] .sch-detail-head { padding: 6px 12px; gap: var(--space-3); }
 :root[data-density='compact'] .sch-detail-head h3 { font-size: var(--fs-base); }
 :root[data-density='compact'] .sch-stat-tile { padding: 0 var(--space-5); }
-:root[data-density='compact'] .sch-stat-tile-label { font-size: 9px; }
+:root[data-density='compact'] .sch-stat-tile-label { font-size: calc(var(--fs-2xs) - 1px); }
 :root[data-density='compact'] .sch-stat-tile-value { font-size: var(--fs-sm); }
 :root[data-density='compact'] .sch-stat-tile-input .sch-stat-tile-value { padding: 1px var(--space-2); }
 :root[data-density='compact'] .sch-stat-tile-input .sch-vitesse-input { width: 26px; }
 :root[data-density='compact'] .sch-rail-title { padding: 6px 10px; }
 :root[data-density='compact'] .sch-rail-item { padding: 4px 8px; gap: 2px; font-size: var(--fs-md); }
 :root[data-density='compact'] .sch-rail-num { font-size: var(--fs-sm); }
-:root[data-density='compact'] .sch-rail-meta { font-size: 9px; }
+:root[data-density='compact'] .sch-rail-meta { font-size: calc(var(--fs-2xs) - 1px); }
 :root[data-density='compact'] .sch-cell { padding: 2px 6px; font-size: var(--fs-sm); line-height: 1.25; }
-:root[data-density='compact'] .sch-row.sch-head { font-size: 9px; }
+:root[data-density='compact'] .sch-row.sch-head { font-size: calc(var(--fs-2xs) - 1px); }
 :root[data-density='compact'] .sch-row.sch-head .sch-cell { padding-top: 4px; padding-bottom: 4px; }
 :root[data-density='compact'] .sch-row.sch-total { font-size: var(--fs-md); }
 :root[data-density='compact'] .sch-row.sch-total .sch-cell { padding-top: 4px; padding-bottom: 4px; }
 :root[data-density='compact'] .sch-name { line-height: 1.2; }
 :root[data-density='compact'] .sch-customer { line-height: 1.2; margin-top: 0; }
-:root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: 9px; }
-:root[data-density='compact'] .sch-customer { font-size: 9px; }
+:root[data-density='compact'] .sch-mto { min-width: 32px; padding: 1px 4px; font-size: calc(var(--fs-2xs) - 1px); }
+:root[data-density='compact'] .sch-customer { font-size: calc(var(--fs-2xs) - 1px); }
 :root[data-density='compact'] .sch-hint { padding: 6px 12px; font-size: var(--fs-sm); }
 
 /* Advanced loosens spacing on top of revealing the customer name (handled
@@ -3883,7 +3883,7 @@ body.is-col-resizing * {
 }
 /* The header's Bilan icon: the rows to look at as a badge on its corner. */
 .btn.sb-open { position: relative; }
-.sb-badge { position: absolute; top: -5px; right: -6px; min-width: 17px; padding: 0 4px; line-height: 17px; font-size: 10px; pointer-events: none; }
+.sb-badge { position: absolute; top: -5px; right: -6px; min-width: 17px; padding: 0 4px; line-height: 17px; font-size: var(--fs-2xs); pointer-events: none; }
 
 /* Tables: numbers right-aligned, the first column a label. */
 .sb-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -4330,7 +4330,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
   width: 26px;
   height: 22px;
   border-radius: var(--radius-sm);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-sm);
   font-weight: 700;
   background: transparent;
@@ -4657,7 +4657,7 @@ button.sb-check:hover .sb-go { color: var(--accent); }
 :root[data-density='compact'] .sv-station-btn { min-height: 40px; padding: 4px; }
 :root[data-density='compact'] .sv-sheet-textarea { min-height: 56px; font-size: var(--fs-md); }
 :root[data-density='compact'] .sv-field input { font-size: var(--fs-base); min-height: 28px; padding: 4px 0; }
-:root[data-density='compact'] .sv-sheet-section-title { font-size: 9px; margin-bottom: 6px; padding-bottom: 4px; }
+:root[data-density='compact'] .sv-sheet-section-title { font-size: calc(var(--fs-2xs) - 1px); margin-bottom: 6px; padding-bottom: 4px; }
 :root[data-density='compact'] .sv-sheet-actions { margin-top: 10px; padding-top: 10px; }
 :root[data-density='compact'] .sv-cmt-dot { width: 6px; height: 6px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
 :root[data-density='compact'] .sv-row.sv-data:hover { box-shadow: inset 2px 0 0 var(--accent); }
@@ -4761,7 +4761,7 @@ button.as-row:focus-visible {
   border-radius: var(--radius-sm);
   background: var(--paper);
   color: var(--ink);
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0;
@@ -6028,5 +6028,60 @@ select.ln-input { padding-right: var(--space-2); }
   :root:not(.is-print-preview) .sch-summary {
     padding-top: 4px;
     padding-bottom: 4px;
+  }
+}
+
+/* ---------- Tab switch (View Transitions) ----------
+   App.tsx wraps a tab change in document.startViewTransition: the page
+   cross-fades while the header, which does not change, stays still. Only
+   runs where the API exists and reduced motion is off (checked in JS). */
+.app-header { view-transition-name: app-header; }
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+  animation-timing-function: ease-out;
+}
+::view-transition-group(app-header) { animation: none; }
+/* Switching schedule: shorter, and the rail on the left stays put so only the
+   detail pane (title, tiles, table) fades. */
+:root[data-vt='schedule']::view-transition-old(root),
+:root[data-vt='schedule']::view-transition-new(root) { animation-duration: 120ms; }
+:root[data-vt='schedule'] .sch-rail { view-transition-name: sch-rail; }
+:root[data-vt='schedule']::view-transition-group(sch-rail) { animation: none; }
+@media print {
+  .app-header { view-transition-name: none; }
+}
+
+/* ---------- Frosted glass: modal backdrop and menus ----------
+   The page behind an open modal is blurred as well as dimmed, and menus
+   (.popover: column picker, tools menu…) let the page show through a frosted
+   paper. Sheets themselves stay opaque: they carry figures to read.
+   Without backdrop-filter, or when the device asks for reduced transparency,
+   everything stays as it was (plain tint, opaque menus). */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .sheet-backdrop {
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+    backdrop-filter: blur(6px) saturate(120%);
+  }
+  .popover {
+    background: color-mix(in srgb, var(--paper) 78%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    backdrop-filter: blur(18px) saturate(170%);
+    border-color: color-mix(in srgb, var(--line-soft) 55%, transparent);
+  }
+  /* The header is itself frosted, which makes it the backdrop root for
+     anything inside it: a menu opened from the header can only blur the
+     header, not the page under it. Keep those menus nearly opaque so the
+     table below doesn't show through sharp. */
+  .app-header .popover {
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sheet-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .popover {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

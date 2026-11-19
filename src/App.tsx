@@ -8,6 +8,7 @@ import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { SYNC_ENABLED } from './lib/api';
 import { IS_DEV_CHANNEL } from './lib/channel';
+import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { prefetchGridcraft } from './lib/sharedGrid';
@@ -109,10 +110,16 @@ function isLiveShiftKey(value: string): value is LiveShiftKey {
 const PAGE_SIZE_STYLE_ID = 'wb-page-size';
 
 export default function App() {
-  const [tab, setTab] = useState<TabKey>(() => {
+  const [tab, setTabState] = useState<TabKey>(() => {
     const hash = window.location.hash.replace('#', '');
     return isVisibleTab(hash) ? hash : TABS[0].key;
   });
+  // Switching tabs cross-fades the page (View Transitions). Browsers without
+  // the API, and devices asking for reduced motion, switch instantly as before.
+  const setTab = (next: TabKey) => {
+    if (next === tab) return;
+    withViewTransition(() => setTabState(next), 'tab');
+  };
 
   const [date, setDate] = useState<string>(
     () => load<string | null>('wb.date', null) || liveDateAndShift().date,
@@ -562,7 +569,7 @@ export default function App() {
           onScope={setBilanScope}
           onClose={() => setBilanOpen(false)}
           onPrint={printBilan}
-          onShowRow={(target) => setTab(target.tab)}
+          onShowRow={(target) => setTabState(target.tab)}
         />
       )}
 

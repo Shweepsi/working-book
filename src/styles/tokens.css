@@ -151,6 +151,9 @@
   --radius-3xl: 18px;
   --radius-pill: 999px;
 
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --fs-2xs: 10px;
   --fs-xs: 10.5px;
   --fs-sm: 11px;
@@ -171,6 +174,22 @@
   --space-8: 16px;
   --space-9: 18px;
   --space-10: 22px;
+}
+
+/* Larger screens: the text scale goes up 1px. Phones (≤ 600px) keep the base
+   scale above. Print and the in-app print preview are excluded, so the
+   printed sheet is unchanged. */
+@media screen and (min-width: 601px) {
+  :root:not(.is-print-preview) {
+    --fs-2xs: 11px;
+    --fs-xs: 11.5px;
+    --fs-sm: 12px;
+    --fs-md: 13px;
+    --fs-base: 14px;
+    --fs-lg: 15px;
+    --fs-xl: 16px;
+    --fs-2xl: 17px;
+  }
 }
 
 /* Print palette — redirects the theme tokens themselves rather than
@@ -378,7 +397,7 @@ body {
   margin: 0;
   padding: 0;
   background: var(--canvas);
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -388,9 +407,13 @@ body {
 button { font-family: inherit; color: inherit; }
 
 .mono {
-  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 .hand { font-family: 'Caveat', cursive; }
+
+/* Headings and short titles break into even lines instead of leaving a
+   single word on the last one. */
+h1, h2, h3, h4 { text-wrap: balance; }
 
 ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
