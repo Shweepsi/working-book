@@ -20,6 +20,13 @@ import { totalM2, totalReqLites } from './coaterMath';
 // app uses for "not set".
 const NO_QUALITE = '—';
 
+// Group key for rows whose article contradicts the qualité the report gives
+// them (`qualiteMismatch`). Neither the report's qualité nor the article's can
+// be trusted for those until PMS230 is corrected, so they leave both and wait
+// in a group of their own, printed last. Not a qualité anyone types: the
+// control character keeps it from ever meeting a real one.
+const CONTESTED_KEY = '\u0000contested';
+
 // Rows whose tail didn't decode (or which the report simply doesn't carry a
 // thickness for) still have lites to produce, so they cannot be dropped. They
 // gather in a bucket of their own, sorted last, that names the gap rather than
@@ -59,10 +66,9 @@ export interface RecapPlateGroup {
   m2: number;
   /** How many planning rows collapsed into this bucket. */
   lines: number;
-  /** The qualité the item code carries when it contradicts the report's
-   *  Qualité column (see `qualiteMismatch`), null otherwise. Such rows get a
-   *  bucket of their own, so the flag names exactly the lites it is about. */
-  codeQualite: string | null;
+  /** In the contested group only: the qualité the report prints and the one
+   *  the item code carries (see `qualiteMismatch`). Null everywhere else. */
+  contested: { report: string; code: string } | null;
 }
 
 export interface RecapDimensionGroup {
@@ -80,6 +86,9 @@ export interface RecapDimensionGroup {
 
 export interface RecapQualityGroup {
   qualite: string;
+  /** The « à vérifier » group: rows whose article contradicts their qualité.
+   *  `qualite` is meaningless there. Always last. */
+  contested: boolean;
   reqLites: number;
   m2: number;
   lines: number;
@@ -216,7 +225,8 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
   const byQualite = new Map<string, Map<string, PlateBuckets>>();
 
   for (const r of rows) {
-    const qualite = r.qualite || NO_QUALITE;
+    const fromCode = qualiteMismatch(r);
+    const qualite = fromCode ? CONTESTED_KEY : r.qualite || NO_QUALITE;
     // A row whose dimension didn't decode gathers in a bucket that names the
     // gap, rather than being dropped: it still carries lites, and a récap whose
     // total no longer matches the detailed sheet's is a récap nobody can check.
@@ -226,10 +236,9 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
     // plates to fetch, and the sheet would send the operator to the wrong rack.
     const thMm = thicknessMm(r.thickness) == null ? NO_THICKNESS_KEY : r.thickness;
     const makeup = glassMakeup(r.itemName);
-    // A row whose article contradicts its qualité stays under the qualité the
-    // report gives it, but apart from the rows that agree: flagged on a line of
-    // its own, its count is the one to check rather than lost inside a pile.
-    const plateKey = `${thMm}|${makeup ?? ''}|${qualiteMismatch(r) ?? ''}`;
+    // In the contested group, the two qualités split the plates too: an
+    // XC → UC and a UC → XC are two different corrections to ask for.
+    const plateKey = `${thMm}|${makeup ?? ''}|${fromCode ? `${r.qualite}>${fromCode}` : ''}`;
 
     let dims = byQualite.get(qualite);
     if (!dims) byQualite.set(qualite, (dims = new Map()));
@@ -249,7 +258,8 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       const plates: RecapPlateGroup[] = [];
 
       for (const [plateKey, bucket] of plateBuckets) {
-        const [rawMm = '', makeup = '', codeQualite = ''] = plateKey.split('|');
+        const [rawMm = '', makeup = '', clash = ''] = plateKey.split('|');
+        const [report = '', code = ''] = clash.split('>');
         plates.push({
           key: plateKey,
           label: thicknessLabel(rawMm),
@@ -259,7 +269,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
           reqLites: totalReqLites(bucket),
           m2: totalM2(bucket),
           lines: bucket.length,
-          codeQualite: codeQualite || null,
+          contested: clash ? { report, code } : null,
         });
       }
 
@@ -271,7 +281,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       plates.sort((a, b) =>
         (b.mm ?? -1) - (a.mm ?? -1) ||
         (a.makeup ?? '').localeCompare(b.makeup ?? '', 'fr') ||
-        (a.codeQualite ?? '').localeCompare(b.codeQualite ?? '', 'fr'));
+        (a.key).localeCompare(b.key, 'fr'));
 
       const first = plateBuckets.values().next().value![0]!;
       const known = !!first.largeur && !!first.longueur;
@@ -296,6 +306,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
 
     qualities.push({
       qualite,
+      contested: qualite === CONTESTED_KEY,
       reqLites: dimensions.reduce((s, d) => s + d.reqLites, 0),
       m2: dimensions.reduce((s, d) => s + d.m2, 0),
       lines: dimensions.reduce((s, d) => s + d.lines, 0),
@@ -303,7 +314,8 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
     });
   }
 
-  qualities.sort((a, b) => a.qualite.localeCompare(b.qualite, 'fr'));
+  qualities.sort((a, b) =>
+    Number(a.contested) - Number(b.contested) || a.qualite.localeCompare(b.qualite, 'fr'));
 
   return {
     qualities,
