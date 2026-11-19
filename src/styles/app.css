@@ -6051,3 +6051,37 @@ select.ln-input { padding-right: var(--space-2); }
 @media print {
   .app-header { view-transition-name: none; }
 }
+
+/* ---------- Frosted glass: modal backdrop and menus ----------
+   The page behind an open modal is blurred as well as dimmed, and menus
+   (.popover: column picker, tools menu…) let the page show through a frosted
+   paper. Sheets themselves stay opaque: they carry figures to read.
+   Without backdrop-filter, or when the device asks for reduced transparency,
+   everything stays as it was (plain tint, opaque menus). */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .sheet-backdrop {
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+    backdrop-filter: blur(6px) saturate(120%);
+  }
+  .popover {
+    background: color-mix(in srgb, var(--paper) 78%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    backdrop-filter: blur(18px) saturate(170%);
+    border-color: color-mix(in srgb, var(--line-soft) 55%, transparent);
+  }
+  /* The header is itself frosted, which makes it the backdrop root for
+     anything inside it: a menu opened from the header can only blur the
+     header, not the page under it. Keep those menus nearly opaque so the
+     table below doesn't show through sharp. */
+  .app-header .popover {
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sheet-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .popover {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
