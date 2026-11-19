@@ -14,6 +14,10 @@ import { buildScheduleRecap } from '../lib/scheduleRecap';
 // working tool — this is a paper form, not a second view of the planning, and
 // showing it on screen would put a column nobody can fill in there.
 
+// Heading of the group holding rows whose article contradicts their qualité:
+// they sit under neither until PMS230 is corrected.
+const CONTESTED_LABEL = 'À vérifier — qualité contestée';
+
 interface ScheduleRecapProps {
   /** The rows the table itself shows: schedule-scoped, filtered, planning only. */
   rows: PMS230Record[];
@@ -118,8 +122,10 @@ export default function ScheduleRecap({
               key={`${q.qualite}-${d.key}`}
               /* The qualité heads the first pile of its qualité only, and rides
                  in that table's `thead` with the dimension: a break inside that
-                 first pile then reopens on both levels. */
-              qualite={i === 0 ? q.qualite : null}
+                 first pile then reopens on both levels. The contested group
+                 (article and qualité disagree) is headed « À vérifier »
+                 instead, and always comes last. */
+              heading={i === 0 ? (q.contested ? CONTESTED_LABEL : `Qualité ${q.qualite}`) : null}
               /* The last pile of a qualité closes on the band that follows it —
                  the qualité banner, or the total — so it drops its own bottom
                  rule rather than doubling theirs. */
@@ -173,12 +179,12 @@ function RecapCols() {
    them at the top of the next sheet when the pile runs over; the plates in the
    `tbody`, free to break between two rows. */
 function DimensionTable({
-  qualite,
+  heading,
   dim,
   qend,
   showPdp,
 }: {
-  qualite: string | null;
+  heading: string | null;
   dim: ReturnType<typeof buildScheduleRecap>['qualities'][number]['dimensions'][number];
   qend: boolean;
   showPdp: boolean;
@@ -194,9 +200,9 @@ function DimensionTable({
         {/* The qualité stays a row of the table, even when the schedule has
             only one: moved up into the title it would leave a sheet whose
             columns no longer say what they are qualifying. */}
-        {qualite != null && (
+        {heading != null && (
           <tr className="sch-recap-q">
-            <th scope="colgroup" colSpan={3}>Qualité {qualite}</th>
+            <th scope="colgroup" colSpan={3}>{heading}</th>
           </tr>
         )}
         <tr className="sch-recap-dim">
@@ -242,6 +248,13 @@ function DimensionTable({
                   quieter type a note wears. */}
               {showPdp && p.pdps.length > 0 && (
                 <span className="sch-recap-pdp-note mono"> ({p.pdps.join(', ')})</span>
+              )}
+              {/* What the report says against what the article says: the
+                  correction to ask for in PMS230. */}
+              {p.contested && (
+                <span className="sch-recap-qmismatch">
+                  {' '}{p.contested.report} → article {p.contested.code}
+                </span>
               )}
             </th>
             <td className="sch-recap-num mono">{fmtNum(p.reqLites)}</td>

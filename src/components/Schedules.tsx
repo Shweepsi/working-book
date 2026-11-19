@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, shortItemName, summariseSchedules, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, qualiteMismatch, shortItemName, summariseSchedules, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -2442,6 +2442,12 @@ interface ScheduleRowProps {
   muted?: boolean;
 }
 
+// The report's Qualité column disagrees with the item code: the column still
+// rules (grouping, filters, récap), the flag only asks for it to be checked.
+function qualiteMismatchText(qualite: string, fromCode: string): string {
+  return `Le code article porte ${fromCode}, PMS230 indique ${qualite} : à vérifier dans PMS230.`;
+}
+
 function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
   switch (col.key) {
     case 'mtoMts':
@@ -2468,7 +2474,15 @@ function renderRowCell(col: ColumnDef, row: DisplayRow): ReactNode {
           {fmtNum(row.longueur, 0)}
         </>
       ) : '';
-    case 'qualite':      return row.qualite;
+    case 'qualite': {
+      const fromCode = qualiteMismatch(row);
+      if (!fromCode) return row.qualite;
+      return (
+        <span className="sch-qualite-mismatch" title={qualiteMismatchText(row.qualite, fromCode)}>
+          {row.qualite} ⚠
+        </span>
+      );
+    }
     case 'litesPerPack': return row.litesPerPack ?? '';
     case 'packsReq': {
       if (!row.litesPerPack || !row.reqLites) return '';
@@ -2681,7 +2695,17 @@ function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps)
           />
           <DetailField label="Centre de travail" value={row.workCenter || '—'} />
           <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
-          <DetailField label="Qualité" value={<span className="mono">{row.qualite || '—'}</span>} />
+          <DetailField
+            label="Qualité"
+            value={qualiteMismatch(row)
+              ? (
+                <>
+                  <span className="mono sch-qualite-mismatch">{row.qualite} ⚠</span>
+                  <div className="faint small">{qualiteMismatchText(row.qualite, qualiteMismatch(row)!)}</div>
+                </>
+              )
+              : <span className="mono">{row.qualite || '—'}</span>}
+          />
           <DetailField label="PDP" value={row.pdp || '—'} />
           {/* Début / Fin sat in a section of their own at the very bottom; they
               are two dates like the ones above them, so they belong in the same
