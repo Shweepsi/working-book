@@ -19,7 +19,7 @@ import ScheduleRecap from './ScheduleRecap';
 import type { SchedPrintMode } from '../types';
 import { useEscapeToClose } from '../lib/hooks';
 import { useToast } from '../lib/toast';
-import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, FilterIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
+import { ArchiveIcon, CloseIcon, CollapseIcon, ColumnsIcon, HiddenIcon, ShownIcon, DownIcon, ExpandIcon, GripIcon, ImportIcon, RefreshIcon, SettingsIcon, UndoIcon, UpIcon } from './icons';
 
 const KEY_DATA     = 'wb.schedules.v1';
 const KEY_POLICY   = 'wb.schedules.policy.v1';
@@ -47,11 +47,11 @@ const SWIPE_RETIRE_PX = 88;
 type DisplayRow = PMS230Record & { mtoMts: string };
 
 // A row's planning policy, or '?' when the product isn't in the imported table.
-type MtoFilter = Policy | '?';
+type MtoValue = Policy | '?';
 
 // MTO/MTS as PMS230 prints it on the row since November 2026; the imported
 // policy table only for rows read before that.
-const policyOf = (r: PMS230Record, map: Record<string, Policy> | undefined): MtoFilter =>
+const policyOf = (r: PMS230Record, map: Record<string, Policy> | undefined): MtoValue =>
   r.policy ?? map?.[r.product] ?? '?';
 
 type GroupedItem =
@@ -189,15 +189,9 @@ interface TableSettings {
   // A separate column layout per density. Switching density swaps the active
   // layout, so the user's per-density customisations are each remembered.
   layouts: Record<Density, ColumnLayout>;
-  // Filters are global — shared across densities.
-  qualite: string[];
-  pdp: string[];
-  mtoMts: MtoFilter[];
   // Whether the œillet is open, greying finished lines back into the table.
-  // Unlike the filters it survives a schedule change: an operator who wants to
-  // see what is already done wants it on every schedule, and — showing rows
-  // rather than hiding them — it can never be mistaken for "this schedule has
-  // no work left".
+  // It survives a schedule change: an operator who wants to see what is
+  // already done wants it on every schedule.
   showFinished: boolean;
 }
 
@@ -336,9 +330,6 @@ function sanitiseTableSettings(raw: Record<string, unknown>): TableSettings {
     })(),
     sortDir: raw.sortDir === 'asc' ? 'asc' : DEFAULT_SORT_DIR,
     layouts,
-    qualite: arr(raw.qualite),
-    pdp: arr(raw.pdp),
-    mtoMts: arr(raw.mtoMts) as MtoFilter[],
     // Absent from every layout stored before the œillet existed, and `false` is
     // exactly what those installs were doing — so no version bump is owed here.
     showFinished: raw.showFinished === true,
@@ -604,27 +595,17 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   // the policy table has nothing left to add, so it is not asked for.
   const policyInline = useMemo(() => !!data && data.records.every((r) => r.policy), [data]);
 
-  // Decorate with the planning policy, apply the user-driven filters
-  // (qualité / pdp / mtoMts) and sort. Shared by the planning rows and by the
-  // finished ones, so the two are narrowed and ordered the same way — finished
-  // lines that ignored the active filters would contradict the rows they sit
-  // between. Default sort matches the planner's Excel formula
-  // (longueur DESC, PDP DESC, name ASC).
+  // Decorate with the planning policy and sort. Shared by the planning rows
+  // and by the finished ones, so the two are ordered the same way. Default
+  // sort matches the planner's Excel formula (longueur DESC, PDP DESC, name ASC).
   //
-  // Pinned to the five settings it actually reads rather than to
+  // Pinned to the two settings it actually reads rather than to
   // `tableSettings` as a whole: dragging a column width or opening the œillet
   // would otherwise rebuild every row for a change no row depends on.
-  const { qualite, pdp, mtoMts, sortKey, sortDir } = tableSettings;
+  const { sortKey, sortDir } = tableSettings;
   const prepareRows = useCallback((records: PMS230Record[]): DisplayRow[] => {
     const policyMap = policy?.map ?? {};
-    const rows: DisplayRow[] = records
-      .map((r) => ({ ...r, mtoMts: policyOf(r, policyMap) }))
-      .filter((r) => {
-        if (qualite.length > 0 && !qualite.includes(r.qualite)) return false;
-        if (pdp.length > 0 && !pdp.includes(r.pdp)) return false;
-        if (mtoMts.length > 0 && !mtoMts.includes(r.mtoMts as MtoFilter)) return false;
-        return true;
-      });
+    const rows: DisplayRow[] = records.map((r) => ({ ...r, mtoMts: policyOf(r, policyMap) }));
 
     rows.sort((a, b) => {
       const primary = compareRows(a, b, sortKey, sortDir);
@@ -636,7 +617,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     });
 
     return rows;
-  }, [policy, qualite, pdp, mtoMts, sortKey, sortDir]);
+  }, [policy, sortKey, sortDir]);
 
   // The rows of the selected schedule worth putting on screen, split into the
   // planning proper and the finished lines the œillet brings back. QC samples
@@ -675,47 +656,12 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     [tableSettings.showFinished, planningRecords, finishedRecords, prepareRows, visibleRows],
   );
 
-  // Available filter values come from the unfiltered, schedule-scoped pool so
-  // the menu doesn't shrink as the user picks options.
-  const availableFilters = useMemo(() => {
-    const policyMap = policy?.map ?? {};
-    const qualites = new Set<string>();
-    const pdps = new Set<string>();
-    const mtos = new Set<string>();
-    for (const r of planningRecords) {
-      if (r.qualite) qualites.add(r.qualite);
-      if (r.pdp) pdps.add(r.pdp);
-      mtos.add(policyOf(r, policyMap));
-    }
-    return {
-      qualites: [...qualites].sort(),
-      pdps: [...pdps].sort(),
-      mtos: [...mtos].sort(),
-    };
-  }, [planningRecords, policy]);
-
-  const filteringActive =
-    tableSettings.qualite.length > 0 ||
-    tableSettings.pdp.length > 0 ||
-    tableSettings.mtoMts.length > 0;
-
-  // The controls bar is no-print, so on paper nothing would otherwise betray
-  // that the rows were narrowed or re-ordered — and the total is computed on
-  // the filtered set, so the sheet would read as a complete planning.
-  const filterSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (tableSettings.mtoMts.length > 0) parts.push(`MTO/MTS ${tableSettings.mtoMts.join(', ')}`);
-    if (tableSettings.qualite.length > 0) parts.push(`Qualité ${tableSettings.qualite.join(', ')}`);
-    if (tableSettings.pdp.length > 0) parts.push(`PDP ${tableSettings.pdp.join(', ')}`);
-    return parts.join(' · ');
-  }, [tableSettings.mtoMts, tableSettings.qualite, tableSettings.pdp]);
-
   const sortSummary = useMemo(() => {
     const col = COLUMNS.find((c) => c.sortKey === tableSettings.sortKey);
     return `${col?.label ?? tableSettings.sortKey} ${tableSettings.sortDir === 'asc' ? '↑' : '↓'}`;
   }, [tableSettings.sortKey, tableSettings.sortDir]);
 
-  // Same job as filterSummary, for the œillet: on paper the grey has to be
+  // On paper the œillet has to say itself: the grey has to be
   // named. A reader who was not the one to open it sees rows the total does not
   // count and nothing to tell them why — the tone alone won't say it, and a
   // photocopy may not keep it at all. Empty when the œillet is shut.
@@ -737,18 +683,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       }
       return { ...s, sortKey: DEFAULT_SORT_KEY, sortDir: DEFAULT_SORT_DIR };
     });
-  }
-
-  function toggleFilterValue(field: 'qualite' | 'pdp' | 'mtoMts', value: string) {
-    setTableSettings((s) => {
-      const list = s[field] as string[];
-      const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-      return { ...s, [field]: next } as TableSettings;
-    });
-  }
-
-  function clearFilters() {
-    setTableSettings((s) => ({ ...s, qualite: [], pdp: [], mtoMts: [] }));
   }
 
   function toggleShowFinished() {
@@ -879,8 +813,7 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   const coaterMin = minutesAt(coaterRows, vitesse);
   const coaterMinDt = coaterMin != null ? coaterMin * DOWNTIME_FACTOR : null;
 
-  // Stats per schedule, recomputed against the same filters so the rail and
-  // detail header mirror what the user actually sees in the table.
+  // Stats per schedule, shared by the rail and the detail header.
   const railStats = useMemo(() => {
     const stats = new Map<string, RailStat>();
     // shortName tallies kept aside — they only feed the dominant-name pick
@@ -991,11 +924,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     if (selected && schedules.some((s) => s.schedule === selected)) return;
     const next = visibleSchedules[0]?.schedule ?? null;
     setSelected(next);
-    // A forced re-pick is a selection change like any other, so the filters go
-    // with it (see selectSchedule). `selected` is null on the first load —
-    // nothing was selected to move away from, and the operator's stored filters
-    // survive a reload.
-    if (selected && next !== selected) clearFilters();
   }, [data, selected, schedules, visibleSchedules]);
 
   // Open a schedule from the terminés sheet in the table. The œillet goes with
@@ -1011,14 +939,9 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
-  // Filters are global — one qualité/PDP/MTO set shared by every schedule. Kept
-  // across a selection change they routinely match nothing in the schedule the
-  // operator just opened, and an empty table reads as "this schedule has no
-  // work", not "you filtered it away". Changing schedule resets them.
   function selectSchedule(schedule: string) {
     if (schedule === selected) return;
     setSelected(schedule);
-    clearFilters();
   }
 
   // Retire a schedule from the planning: its rows stay in the report, it moves
@@ -1028,11 +951,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
   function handleRetireSchedule(schedule: string) {
     if (archives[schedule]) return;
     const snapshotSelected = selected;
-    const snapshotFilters = {
-      qualite: tableSettings.qualite,
-      pdp: tableSettings.pdp,
-      mtoMts: tableSettings.mtoMts,
-    };
     setArchives((prev) => ({ ...prev, [schedule]: new Date().toISOString() }));
     // The schedule is still in the report, so the auto-select effect has no
     // reason to move off it. Move on by hand: the card the operator was reading
@@ -1040,7 +958,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     // schedule nothing points at any more.
     if (selected === schedule) {
       setSelected(visibleSchedules.find((s) => s.schedule !== schedule)?.schedule ?? null);
-      clearFilters();
     }
     toast.show({
       message: `Schedule ${schedule} retiré du planning`,
@@ -1048,7 +965,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
       undo: () => {
         setArchives((prev) => withoutSchedules(prev, new Set([schedule])));
         setSelected(snapshotSelected);
-        setTableSettings((s) => ({ ...s, ...snapshotFilters }));
       },
     });
   }
@@ -1153,23 +1069,18 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
     }
   }
 
-  // Filters, the œillet and Colonnes ride in the schedule's header: a bar of
-  // their own cost a whole row above the table for three small controls.
+  // The œillet and Colonnes ride in the schedule's header: a bar of their own
+  // would cost a whole row above the table for two small controls.
   const tableControls = (
     <TableControls
-      settings={tableSettings}
       layout={layout}
       visibleColumns={visibleColumns}
-      available={availableFilters}
-      filteringActive={filteringActive}
       colsMenuOpen={colsMenuOpen}
       onColsMenuToggle={() => setColsMenuOpen((v) => !v)}
       onColsMenuClose={() => setColsMenuOpen(false)}
       finishedCount={finishedRows.length}
       showFinished={tableSettings.showFinished}
       onToggleFinished={toggleShowFinished}
-      onToggleFilterValue={toggleFilterValue}
-      onClearFilters={clearFilters}
       onToggleColumn={toggleColumnVisibility}
       onMoveColumn={moveColumn}
       onResetLayout={resetTableLayout}
@@ -1288,7 +1199,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
               {data?.importedAt && <span>rapport importé le {fmtStamp(data.importedAt)}</span>}
               <span>tri : {sortSummary}</span>
               {finishedSummary && <span>{finishedSummary}</span>}
-              {filterSummary && <strong>filtré : {filterSummary}</strong>}
             </div>
 
             {selectedSchedule && (() => {
@@ -1382,7 +1292,6 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                 schedule={selectedSchedule}
                 shortName={railStats.get(selectedSchedule.schedule)?.shortName ?? ''}
                 importedAt={data?.importedAt}
-                filterSummary={filterSummary}
                 vitesse={vitesse}
                 coaterMin={coaterMin}
                 coaterMinDt={coaterMinDt}
@@ -2205,56 +2114,33 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
 }
 
 interface TableControlsProps {
-  settings: TableSettings;
   layout: ColumnLayout;
   visibleColumns: ColumnDef[];
-  available: { qualites: string[]; pdps: string[]; mtos: string[] };
-  filteringActive: boolean;
   colsMenuOpen: boolean;
   onColsMenuToggle: () => void;
   onColsMenuClose: () => void;
   finishedCount: number;
   showFinished: boolean;
   onToggleFinished: () => void;
-  onToggleFilterValue: (field: 'qualite' | 'pdp' | 'mtoMts', value: string) => void;
-  onClearFilters: () => void;
   onToggleColumn: (key: string) => void;
   onMoveColumn: (key: string, dir: -1 | 1) => void;
   onResetLayout: () => void;
 }
 
 function TableControls({
-  settings,
   layout,
   visibleColumns,
-  available,
-  filteringActive,
   colsMenuOpen,
   onColsMenuToggle,
   onColsMenuClose,
   finishedCount,
   showFinished,
   onToggleFinished,
-  onToggleFilterValue,
-  onClearFilters,
   onToggleColumn,
   onMoveColumn,
   onResetLayout,
 }: TableControlsProps) {
   const colsBtnRef = useRef<HTMLDivElement>(null);
-  const filterBtnRef = useRef<HTMLDivElement>(null);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const hasFilters = available.mtos.length > 1 || available.qualites.length > 1 || available.pdps.length > 1;
-
-  useEffect(() => {
-    if (!filterMenuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node)) setFilterMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [filterMenuOpen]);
-
   useEffect(() => {
     if (!colsMenuOpen) return;
     function onDoc(e: MouseEvent) {
@@ -2267,55 +2153,6 @@ function TableControls({
   return (
     <div className="sch-controls no-print">
       <div className="sch-controls-end">
-        {hasFilters && (
-          <div className="sch-cols-wrap" ref={filterBtnRef}>
-            <button
-              type="button"
-              className={`btn ghost icon sch-cols-btn ${filterMenuOpen ? 'is-open' : ''} ${filteringActive ? 'is-on' : ''}`}
-              onClick={() => setFilterMenuOpen((v) => !v)}
-              aria-expanded={filterMenuOpen}
-              aria-label={filteringActive ? 'Filtres (actifs)' : 'Filtres'}
-              title="Filtres"
-            >
-              <FilterIcon />
-              {filteringActive && <span className="sch-filter-dot" aria-hidden="true" />}
-            </button>
-            {filterMenuOpen && (
-              <div className="popover sch-cols-menu sch-filter-menu" role="menu">
-                <div className="sch-cols-menu-head">
-                  <h4>Filtres</h4>
-                  {filteringActive && (
-                    <button type="button" className="btn ghost mini" onClick={onClearFilters}>Effacer</button>
-                  )}
-                </div>
-                {available.mtos.length > 1 && (
-                  <FilterGroup
-                    label="MTO/MTS"
-                    options={available.mtos}
-                    selected={settings.mtoMts}
-                    onToggle={(v) => onToggleFilterValue('mtoMts', v)}
-                  />
-                )}
-                {available.qualites.length > 1 && (
-                  <FilterGroup
-                    label="Qualité"
-                    options={available.qualites}
-                    selected={settings.qualite}
-                    onToggle={(v) => onToggleFilterValue('qualite', v)}
-                  />
-                )}
-                {available.pdps.length > 1 && (
-                  <FilterGroup
-                    label="PDP"
-                    options={available.pdps}
-                    selected={settings.pdp}
-                    onToggle={(v) => onToggleFilterValue('pdp', v)}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        )}
         {finishedCount > 0 && (
           // The œillet. Only offered when there is something behind it — on a
           // freshly imported schedule nothing is finished yet, and a control
@@ -2397,37 +2234,6 @@ function TableControls({
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-interface FilterGroupProps {
-  label: string;
-  options: string[];
-  selected: string[];
-  onToggle: (value: string) => void;
-}
-
-function FilterGroup({ label, options, selected, onToggle }: FilterGroupProps) {
-  return (
-    <div className="sch-filter-group">
-      <span className="sch-filter-label">{label}</span>
-      <div className="sch-filter-chips">
-        {options.map((v) => {
-          const on = selected.includes(v);
-          return (
-            <button
-              key={v}
-              type="button"
-              className={`sch-filter-chip ${on ? 'is-on' : ''}`}
-              onClick={() => onToggle(v)}
-              aria-pressed={on}
-            >
-              {v || '—'}
-            </button>
-          );
-        })}
       </div>
     </div>
   );

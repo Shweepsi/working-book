@@ -25,8 +25,6 @@ interface ScheduleRecapProps {
   /** Dominant short article name, as the detail header prints it. */
   shortName: string;
   importedAt?: string;
-  /** Active filters, already summarised by the page ('' when none). */
-  filterSummary: string;
   /** Schedule speed in m/min, 0 when nobody has set one. */
   vitesse: number;
   /** Minutes still needed on the Coater at that speed, null without one. */
@@ -42,7 +40,6 @@ export default function ScheduleRecap({
   schedule,
   shortName,
   importedAt,
-  filterSummary,
   vitesse,
   coaterMin,
   coaterMinDt,
@@ -60,10 +57,9 @@ export default function ScheduleRecap({
           other one's sibling rather than as a document from elsewhere.
           Skipped entirely when it would say nothing: an empty line still costs
           the gap under it. */}
-      {(importedAt || filterSummary) && (
+      {importedAt && (
         <div className="sch-recap-meta">
-          {importedAt && <span>rapport importé le {fmtStamp(importedAt)}</span>}
-          {filterSummary && <strong>filtré : {filterSummary}</strong>}
+          <span>rapport importé le {fmtStamp(importedAt)}</span>
         </div>
       )}
 
