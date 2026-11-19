@@ -1971,8 +1971,8 @@ function ScheduleTable({ items, totals, hiddenFinished, onRowOpen, columns, pinn
   }, [columns, widths, autoWidths]);
 
   // Nothing at all to paint — not even a greyed line. Tested on `items` rather
-  // than on the totals: a filter can clear the planning while finished rows
-  // still pass it, and swapping the table for "aucune ligne" would deny rows
+  // than on the totals: the planning can be empty while the œillet shows
+  // finished rows, and swapping the table for "aucune ligne" would deny rows
   // that are right there.
   //
   // And when the œillet is what is holding them back, say so. On a schedule
@@ -2249,7 +2249,7 @@ interface ScheduleRowProps {
 }
 
 // The report's Qualité column disagrees with the item code: the column still
-// rules (grouping, filters, récap), the flag only asks for it to be checked.
+// rules (grouping, récap), the flag only asks for it to be checked.
 function qualiteMismatchText(qualite: string, fromCode: string): string {
   return `Le code article porte ${fromCode}, PMS230 indique ${qualite} : à vérifier dans PMS230.`;
 }

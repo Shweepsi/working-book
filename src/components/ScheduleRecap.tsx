@@ -19,7 +19,7 @@ import { buildScheduleRecap } from '../lib/scheduleRecap';
 const CONTESTED_LABEL = 'À vérifier — qualité contestée';
 
 interface ScheduleRecapProps {
-  /** The rows the table itself shows: schedule-scoped, filtered, planning only. */
+  /** The rows the table itself shows: schedule-scoped, planning only. */
   rows: PMS230Record[];
   schedule: PMS230Schedule;
   /** Dominant short article name, as the detail header prints it. */
