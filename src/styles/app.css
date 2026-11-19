@@ -6052,7 +6052,7 @@ select.ln-input { padding-right: var(--space-2); }
   .app-header { view-transition-name: none; }
 }
 
-/* ---------- Frosted glass: modal backdrop, menus, Schedule header, toasts ----------
+/* ---------- Frosted glass: modal backdrop and menus ----------
    The page behind an open modal is blurred as well as dimmed, and menus
    (.popover: column picker, tools menu…) let the page show through a frosted
    paper. Sheets themselves stay opaque: they carry figures to read.
@@ -6076,39 +6076,12 @@ select.ln-input { padding-right: var(--space-2); }
   .app-header .popover {
     background: color-mix(in srgb, var(--paper) 94%, transparent);
   }
-
-  /* Schedule column header: it stays on top while the rows scroll, and the
-     rows now pass under it, blurred. Pinned header cells get the same glass
-     (their own blur picks up the columns sliding under them sideways).
-     Screen only: the print preview and paper keep their solid band. */
-  @media screen {
-    :root:not(.is-print-preview) .sch-row.sch-head,
-    :root:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-pinned {
-      background: color-mix(in srgb, var(--paper-2) 72%, transparent);
-      -webkit-backdrop-filter: blur(12px) saturate(160%);
-      backdrop-filter: blur(12px) saturate(160%);
-    }
-  }
-
-  /* Notifications: dark frosted glass instead of solid ink. */
-  .toast {
-    background: color-mix(in srgb, var(--ink) 82%, transparent);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    backdrop-filter: blur(16px) saturate(160%);
-  }
 }
 @media (prefers-reduced-transparency: reduce) {
   .sheet-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .popover,
-  :root:not(.is-print-preview) .sch-row.sch-head,
-  :root:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-pinned,
-  .toast {
+  .popover {
+    background: var(--paper);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .popover { background: var(--paper); }
-  /* Same selectors as the glass rule, so this wins on specificity too. */
-  :root:not(.is-print-preview) .sch-row.sch-head,
-  :root:not(.is-print-preview) .sch-row.sch-head .sch-cell.is-pinned { background: var(--paper-2); }
-  .toast { background: var(--ink); }
 }
