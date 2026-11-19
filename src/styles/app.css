@@ -5715,6 +5715,14 @@ button.as-row:focus-visible {
   font-size: 8pt;
   color: var(--print-ink-soft);
 }
+/* The article contradicts the qualité the report files it under. Bold and
+   underlined like the table's flags: the sheet is often printed black and
+   white, where a colour alone says nothing. */
+.sch-recap-qmismatch {
+  font-size: 8pt;
+  font-weight: 700;
+  text-decoration: underline;
+}
 
 /* Plates are indented under their dimension rather than given a column of
    their own: the sheet is read as a list of racks, and the indent is what says

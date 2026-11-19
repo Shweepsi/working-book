@@ -13,7 +13,7 @@
 // the group labels the sheet prints.
 
 import type { PMS230Record } from './pms230Parser';
-import { glassMakeup } from './pms230Parser';
+import { glassMakeup, qualiteMismatch } from './pms230Parser';
 import { totalM2, totalReqLites } from './coaterMath';
 
 // Label used when a row carries no qualité at all. Same em dash the rest of the
@@ -59,6 +59,10 @@ export interface RecapPlateGroup {
   m2: number;
   /** How many planning rows collapsed into this bucket. */
   lines: number;
+  /** The qualité the item code carries when it contradicts the report's
+   *  Qualité column (see `qualiteMismatch`), null otherwise. Such rows get a
+   *  bucket of their own, so the flag names exactly the lites it is about. */
+  codeQualite: string | null;
 }
 
 export interface RecapDimensionGroup {
@@ -222,7 +226,10 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
     // plates to fetch, and the sheet would send the operator to the wrong rack.
     const thMm = thicknessMm(r.thickness) == null ? NO_THICKNESS_KEY : r.thickness;
     const makeup = glassMakeup(r.itemName);
-    const plateKey = `${thMm}|${makeup ?? ''}`;
+    // A row whose article contradicts its qualité stays under the qualité the
+    // report gives it, but apart from the rows that agree: flagged on a line of
+    // its own, its count is the one to check rather than lost inside a pile.
+    const plateKey = `${thMm}|${makeup ?? ''}|${qualiteMismatch(r) ?? ''}`;
 
     let dims = byQualite.get(qualite);
     if (!dims) byQualite.set(qualite, (dims = new Map()));
@@ -242,7 +249,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       const plates: RecapPlateGroup[] = [];
 
       for (const [plateKey, bucket] of plateBuckets) {
-        const [rawMm = '', makeup = ''] = plateKey.split('|');
+        const [rawMm = '', makeup = '', codeQualite = ''] = plateKey.split('|');
         plates.push({
           key: plateKey,
           label: thicknessLabel(rawMm),
@@ -252,6 +259,7 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
           reqLites: totalReqLites(bucket),
           m2: totalM2(bucket),
           lines: bucket.length,
+          codeQualite: codeQualite || null,
         });
       }
 
@@ -261,7 +269,9 @@ export function buildScheduleRecap(rows: PMS230Record[]): ScheduleRecap {
       // would otherwise have been confused with — side by side is exactly where
       // the difference has to be visible.
       plates.sort((a, b) =>
-        (b.mm ?? -1) - (a.mm ?? -1) || (a.makeup ?? '').localeCompare(b.makeup ?? '', 'fr'));
+        (b.mm ?? -1) - (a.mm ?? -1) ||
+        (a.makeup ?? '').localeCompare(b.makeup ?? '', 'fr') ||
+        (a.codeQualite ?? '').localeCompare(b.codeQualite ?? '', 'fr'));
 
       const first = plateBuckets.values().next().value![0]!;
       const known = !!first.largeur && !!first.longueur;

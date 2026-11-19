@@ -243,6 +243,12 @@ function DimensionTable({
               {showPdp && p.pdps.length > 0 && (
                 <span className="sch-recap-pdp-note mono"> ({p.pdps.join(', ')})</span>
               )}
+              {/* The report files these lites under this qualité, their article
+                  says another: printed so it gets checked before the plates
+                  are fetched, not silently re-filed. */}
+              {p.codeQualite && (
+                <span className="sch-recap-qmismatch"> ⚠ article {p.codeQualite}</span>
+              )}
             </th>
             <td className="sch-recap-num mono">{fmtNum(p.reqLites)}</td>
             <td className="sch-recap-fill" />
