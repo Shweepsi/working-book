@@ -2376,7 +2376,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   font-family: 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;
 }
-.sch-packs-short {
+.sch-packs-short,
+.sch-qualite-mismatch {
   color: var(--flag-unsched-fg);
   font-weight: 600;
 }
@@ -3108,6 +3109,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
    work to come; on a produced line it is history, and it was reading as the
    one live thing left on an otherwise grey row. */
 .sch-row.is-muted .sch-packs-short { color: inherit; font-weight: inherit; }
+.sch-row.is-muted .sch-qualite-mismatch { color: inherit; font-weight: inherit; }
 
 .sch-row.is-qc {
   background: color-mix(in srgb, var(--hl-yellow) 22%, var(--paper));
@@ -5290,10 +5292,12 @@ button.as-row:focus-visible {
   z-index: auto;
   box-shadow: none;
 }
-:root.is-print-preview .sch-packs-short { font-weight: 700; text-decoration: underline; }
+:root.is-print-preview .sch-packs-short,
+:root.is-print-preview .sch-qualite-mismatch { font-weight: 700; text-decoration: underline; }
 /* Underline is this flag's print voice, and a finished line has no packing
    work left to flag — same reasoning as the colour it drops on screen. */
-:root.is-print-preview .sch-row.is-muted .sch-packs-short {
+:root.is-print-preview .sch-row.is-muted .sch-packs-short,
+:root.is-print-preview .sch-row.is-muted .sch-qualite-mismatch {
   font-weight: inherit;
   text-decoration: none;
 }
@@ -5467,10 +5471,12 @@ button.as-row:focus-visible {
     box-shadow: none;
     clip-path: none;
   }
-  .sch-packs-short { font-weight: 700; text-decoration: underline; }
+  .sch-packs-short,
+  .sch-qualite-mismatch { font-weight: 700; text-decoration: underline; }
   /* Underline is this flag's print voice, and a finished line has no packing
      work left to flag — same reasoning as the colour it drops on screen. */
-  .sch-row.is-muted .sch-packs-short { font-weight: inherit; text-decoration: none; }
+  .sch-row.is-muted .sch-packs-short,
+  .sch-row.is-muted .sch-qualite-mismatch { font-weight: inherit; text-decoration: none; }
 }
 
 /* ==========================================================================

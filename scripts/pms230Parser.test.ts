@@ -7,7 +7,7 @@
 // « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dropVanished, mergePMS230, parsePMS230 } from '../src/lib/pms230Parser.ts';
+import { dropVanished, itemQualite, mergePMS230, parsePMS230, qualiteMismatch } from '../src/lib/pms230Parser.ts';
 
 const HEADER = [
   'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
@@ -224,4 +224,23 @@ test('the cells of lost rows never reach the stored report', () => {
   assert.ok(bad.lost?.length);
   assert.ok(!('lost' in mergePMS230(null, bad).result));
   assert.ok(!('lost' in mergePMS230(parsePMS230(paste(ROWS)), bad).result));
+});
+
+// sched 2213000966 (November 2026): a CSGSNX70UC12006.6.2CL that PMS230 printed
+// as XC landed under « Qualité XC ». The column still rules; the disagreement
+// is only named.
+test('qualité du code article', () => {
+  assert.equal(itemQualite('CSGSNX70HUC0600TPF'), 'UC');
+  assert.equal(itemQualite('CSGSNX70UC12006.6.2CL'), 'UC');
+  assert.equal(itemQualite('CSGSN51NEX910005.5.2CL'), 'NEX9');
+  assert.equal(itemQualite('CGSGNRGAR2LI0210'), 'LI');
+  assert.equal(itemQualite('CCG1.0+XC0400'), 'XC');
+  assert.equal(itemQualite('Vacuum Coated QC Sample Item'), null);
+});
+
+test('qualité du rapport contredite par le code article', () => {
+  assert.equal(qualiteMismatch({ itemName: 'CSGSNX70UC12006.6.2CL', qualite: 'XC' }), 'UC');
+  assert.equal(qualiteMismatch({ itemName: 'CSGSNX70UC12006.6.2SR', qualite: 'UC' }), null);
+  assert.equal(qualiteMismatch({ itemName: 'CSGSNX60NEX612006.6.2CL', qualite: 'NEX6' }), null);
+  assert.equal(qualiteMismatch({ itemName: 'CSGSN70/37XC0600', qualite: '' }), null);
 });

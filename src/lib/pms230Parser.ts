@@ -460,6 +460,34 @@ export function shortItemName(itemName: string): string {
   return head;
 }
 
+// The qualité an item code carries: the letters right in front of the four
+// digits of the finished thickness.
+//   CSGSNX70HUC0600TPF    -> "UC"
+//   CSGSNX70UC12006.6.2CL -> "UC"
+//   CSGSN51NEX910005.5.2CL -> "NEX9"   (tried first: "EX9100" also reads as
+//                                       two letters + four digits)
+//   CGSGNRGAR2LI0210      -> "LI"
+// Null when the code doesn't follow that shape.
+export function itemQualite(itemName: string): string | null {
+  const m = itemName?.match(/(NEX\d|[A-Z]{2})\d{4}/);
+  return m ? m[1]! : null;
+}
+
+// The qualité the item code carries when the report's Qualité column says
+// something else, or null when they agree (or either is missing).
+//
+// The column is what the Schedule groups and filters on, and it stays so: it
+// is what PMS230 says. But it is typed separately from the article, and a
+// mistyped one sends a line to the wrong group without anything showing it —
+// a CSGSNX70UC12006.6.2CL printed as XC (sched 2213000966, November 2026)
+// sat under « Qualité XC » on the récap. This only names the disagreement so
+// it can be seen and fixed in PMS230.
+export function qualiteMismatch(r: Pick<PMS230Record, 'itemName' | 'qualite'>): string | null {
+  if (!r.qualite) return null;
+  const fromCode = itemQualite(r.itemName);
+  return fromCode && fromCode !== r.qualite ? fromCode : null;
+}
+
 // Sub-quality that reads as the standard one, so it is left off a make-up:
 // "5.5.2CL" is a 5.5.2, while "5.5.2SR" is its own thing on the racks.
 const STANDARD_GRADE = 'CL';
