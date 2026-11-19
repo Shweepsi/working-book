@@ -438,6 +438,36 @@ function rowM2(r: DecodedRecord): number {
 //
 // Idempotent by design: the UI re-runs it over the cached `itemRoot`, which is
 // itself already a short form, so a second pass has to be a no-op.
+// The row as PMS230 prints it: one cell per report column, in report order.
+// Rebuilt from the decoded record, so a cell the row did not print (no Date
+// Départ, no customer, a QC sample's empty tail) comes back empty. Numbers
+// take the report's own spelling: two decimals for Op Tm and the dimensions.
+export const PMS230_COLUMNS = [
+  'Schedule', 'Sfx', 'Op 1', 'Op 2', 'Op 3', 'Work Center',
+  'Start Date', 'Start Time', 'End Date', 'End Time', 'Date Départ', 'MTO/MTS',
+  'MO', 'Product', 'Item Name', 'Sched', 'Prod', 'Req', 'Op Tm', 'Scrap',
+  'Largeur', 'Longueur', 'Qualité', 'L/Pack', 'PDP', 'Format',
+  'Largeur (in)', 'Longueur (in)', 'Épaisseur', 'Tol. min', 'Tol. max', 'Customer',
+] as const;
+
+// Fields the report has gained over time may be missing from a row stored
+// before them, hence the fallbacks: the card must open on any stored row.
+export function pms230Cells(r: PMS230Record): string[] {
+  const ops = (r.opSteps || '').split('/');
+  const dims = r.largeur || r.longueur;
+  const dec = (n: number | undefined) => (n ?? 0).toFixed(2);
+  return [
+    r.schedule, r.schedSuffix, ops[0] ?? '', ops[1] ?? '', ops[2] ?? '', r.workCenter,
+    r.startDate, r.startTime, r.endDate, r.endTime, r.dateDepart ?? '', r.policy ?? '',
+    r.mo, r.product, r.itemName,
+    String(r.schedLites), String(r.prodLites ?? 0), String(r.reqLites),
+    dec(r.opTm), String(r.scrap ?? 0),
+    dec(r.largeur), dec(r.longueur),
+    dims ? r.qualite : '', r.litesPerPack == null ? '' : String(r.litesPerPack), r.pdp, r.formatCode,
+    r.largeurInch, r.longueurInch, r.thickness, r.thickMin ?? '', r.thickMax ?? '', r.customer,
+  ];
+}
+
 export function shortItemName(itemName: string): string {
   if (!itemName) return '';
   let body = itemName;

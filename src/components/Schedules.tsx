@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { load, save } from '../lib/storage';
 import { useSyncedState } from '../lib/sync';
-import { mergePMS230, parsePMS230, qualiteMismatch, shortItemName, summariseSchedules, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
+import { mergePMS230, parsePMS230, PMS230_COLUMNS, pms230Cells, qualiteMismatch, shortItemName, summariseSchedules, type PMS230Record, type PMS230Result } from '../lib/pms230Parser';
 import { parsePolicy, type Policy, type PolicyResult } from '../lib/policyParser';
 import {
   DOWNTIME_FACTOR,
@@ -2439,30 +2439,35 @@ interface RowDetailSheetProps {
   onDelete: () => void;
 }
 
-function fmtDateLong(yyyymmdd: string | null | undefined): string {
-  if (!yyyymmdd || yyyymmdd.length !== 8) return '—';
-  return `${yyyymmdd.slice(6)}/${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(0, 4)}`;
-}
-
-function fmtTime(hhmm: string | null | undefined): string {
-  if (!hhmm) return '';
-  if (hhmm.length === 4) return `${hhmm.slice(0, 2)}:${hhmm.slice(2)}`;
-  return hhmm;
-}
-
+// The row card shows the line as PMS230 prints it and nothing the app worked
+// out: every figure the Schedule derives is already in the table behind it,
+// and a card that only repeats the report can never contradict it. One header
+// row, one value row, the report's own column order — wide on a computer,
+// scrolled sideways on a phone.
 function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps) {
   useEscapeToClose(onClose);
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
 
   const short = shortItemName(row.itemName);
-  const format = row.largeur && row.longueur
-    ? `${fmtNum(row.largeur, 0)} × ${fmtNum(row.longueur, 0)} mm`
-    : '—';
-  const start = row.startDate || row.startTime
-    ? `${fmtDateLong(row.startDate)} ${fmtTime(row.startTime)}`.trim()
-    : '—';
-  const end = row.endDate || row.endTime
-    ? `${fmtDateLong(row.endDate)} ${fmtTime(row.endTime)}`.trim()
-    : '—';
+  const cells = pms230Cells(row);
+  const mismatch = qualiteMismatch(row);
+  const qualiteCol = PMS230_COLUMNS.indexOf('Qualité');
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(null), 1600);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+
+  // Tab-separated, so it pastes into Excel as one row of cells.
+  async function copyRow() {
+    try {
+      await navigator.clipboard.writeText(cells.join('\t'));
+      setCopied('ok');
+    } catch {
+      setCopied('failed');
+    }
+  }
 
   return (
     <>
@@ -2488,107 +2493,42 @@ function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps)
           <button className="btn ghost icon" onClick={onClose} aria-label="Fermer"><CloseIcon /></button>
         </div>
 
-        <dl className="sch-row-sheet-grid">
-          <DetailField label="Planning" value={<span className="mono">{row.schedule}{row.schedSuffix ? `-${row.schedSuffix}` : ''}</span>} />
-          {/* The report carries three op-step columns; only the second one means
-              anything here — it's the step the whole page filters on (≠ 90). The
-              other two stay in the tooltip rather than in the reader's way. */}
-          <DetailField
-            label="Status"
-            value={row.opStepD
-              ? <span className="sch-status-pill mono" title={row.opSteps ? `Étapes ${row.opSteps}` : undefined}>{row.opStepD}</span>
-              : '—'}
-          />
-          <DetailField label="Centre de travail" value={row.workCenter || '—'} />
-          <DetailField label="Date départ" value={<span className="mono">{fmtDateLong(row.dateDepart)}</span>} />
-          <DetailField
-            label="Qualité"
-            value={qualiteMismatch(row)
-              ? (
-                <>
-                  <span className="mono sch-qualite-mismatch">{row.qualite} ⚠</span>
-                  <div className="faint small">{qualiteMismatchText(row.qualite, qualiteMismatch(row)!)}</div>
-                </>
-              )
-              : <span className="mono">{row.qualite || '—'}</span>}
-          />
-          <DetailField label="PDP" value={row.pdp || '—'} />
-          {/* Début / Fin sat in a section of their own at the very bottom; they
-              are two dates like the ones above them, so they belong in the same
-              grid — and the eight fields fill it exactly. */}
-          <DetailField label="Début" value={<span className="mono">{start}</span>} />
-          <DetailField label="Fin" value={<span className="mono">{end}</span>} />
-        </dl>
-
-        <div className="sch-row-sheet-section">
-          <div className="sch-row-sheet-section-title">Quantités (lites)</div>
-          <div className="sch-row-sheet-stats">
-            <Stat label="L/Pack" value={row.litesPerPack ?? '—'} />
-            <Stat
-              label="P/REQ"
-              value={row.litesPerPack && row.reqLites ? packsReq(row) : '—'}
-              danger={packsReqShort(row)}
-              dangerTitle={packsReqShort(row) ? `${row.reqLites - packsReq(row) * (row.litesPerPack ?? 0)} lite(s) hors pack` : undefined}
-            />
-            <Stat label="Req" value={row.reqLites} highlight />
-            <Stat label="Sched" value={row.schedLites} />
-            <Stat label="Prod" value={row.prodLites ?? 0} />
+        <div className="sch-pms-row">
+          <div className="sch-pms-row-bar">
+            <span>PMS230</span>
+            <button type="button" className="btn ghost mini" onClick={copyRow}>
+              {copied === 'ok' ? 'Copiée' : copied === 'failed' ? 'Copie impossible' : 'Copier la ligne'}
+            </button>
+          </div>
+          <div className="sch-pms-row-scroll" tabIndex={0} role="region" aria-label="Ligne PMS230">
+            <table>
+              <thead>
+                <tr>{PMS230_COLUMNS.map((c) => <th key={c} scope="col">{c}</th>)}</tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {cells.map((v, i) => (
+                    i === qualiteCol && mismatch
+                      ? (
+                        <td key={i} className="mono sch-qualite-mismatch" title={qualiteMismatchText(row.qualite, mismatch)}>
+                          {v} ⚠
+                        </td>
+                      )
+                      : <td key={i} className="mono">{v}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div className="sch-row-sheet-section">
-          <div className="sch-row-sheet-section-title">Dimension</div>
-          <div className="sch-row-sheet-stats">
-            <Stat label="Largeur × Longueur" value={format} wide />
-            {row.thickness && <Stat label="Épaisseur" value={`${row.thickness} mm`} />}
-            {row.formatCode && <Stat label="Code format" value={<span className="mono">{row.formatCode}</span>} />}
-            <Stat label="m² restant" value={fmtNum(row.m2, 2)} highlight />
-          </div>
-        </div>
-
-        <div className="actions">
-          <span style={{ flex: 1 }} />
-          <button className="btn destructive" type="button" onClick={onDelete}>
+        <div className="sch-row-sheet-foot">
+          <button className="sch-row-sheet-delete" type="button" onClick={onDelete}>
             Supprimer la ligne
           </button>
         </div>
       </div>
     </>
-  );
-}
-
-interface DetailFieldProps {
-  label: string;
-  value: ReactNode;
-}
-
-function DetailField({ label, value }: DetailFieldProps) {
-  return (
-    <div className="sch-row-sheet-field">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
-interface StatProps {
-  label: string;
-  value: ReactNode;
-  highlight?: boolean;
-  wide?: boolean;
-  danger?: boolean;
-  dangerTitle?: string;
-}
-
-function Stat({ label, value, highlight, wide, danger, dangerTitle }: StatProps) {
-  return (
-    <div
-      className={`sch-row-sheet-stat ${highlight ? 'is-highlight' : ''} ${wide ? 'is-wide' : ''} ${danger ? 'is-danger' : ''}`}
-      title={dangerTitle}
-    >
-      <span className="sch-row-sheet-stat-label">{label}</span>
-      <strong className="mono">{value}</strong>
-    </div>
   );
 }
 
