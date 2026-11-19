@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
@@ -109,10 +110,21 @@ function isLiveShiftKey(value: string): value is LiveShiftKey {
 const PAGE_SIZE_STYLE_ID = 'wb-page-size';
 
 export default function App() {
-  const [tab, setTab] = useState<TabKey>(() => {
+  const [tab, setTabState] = useState<TabKey>(() => {
     const hash = window.location.hash.replace('#', '');
     return isVisibleTab(hash) ? hash : TABS[0].key;
   });
+  // Switching tabs cross-fades the page (View Transitions). Browsers without
+  // the API, and devices asking for reduced motion, switch instantly as before.
+  const setTab = (next: TabKey) => {
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (next === tab || !doc.startViewTransition || reduce) {
+      setTabState(next);
+      return;
+    }
+    doc.startViewTransition(() => flushSync(() => setTabState(next)));
+  };
 
   const [date, setDate] = useState<string>(
     () => load<string | null>('wb.date', null) || liveDateAndShift().date,
@@ -562,7 +574,7 @@ export default function App() {
           onScope={setBilanScope}
           onClose={() => setBilanOpen(false)}
           onPrint={printBilan}
-          onShowRow={(target) => setTab(target.tab)}
+          onShowRow={(target) => setTabState(target.tab)}
         />
       )}
 

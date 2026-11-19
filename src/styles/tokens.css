@@ -151,6 +151,9 @@
   --radius-3xl: 18px;
   --radius-pill: 999px;
 
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --fs-2xs: 10px;
   --fs-xs: 10.5px;
   --fs-sm: 11px;
@@ -394,7 +397,7 @@ body {
   margin: 0;
   padding: 0;
   background: var(--canvas);
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -404,9 +407,13 @@ body {
 button { font-family: inherit; color: inherit; }
 
 .mono {
-  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 .hand { font-family: 'Caveat', cursive; }
+
+/* Headings and short titles break into even lines instead of leaving a
+   single word on the last one. */
+h1, h2, h3, h4 { text-wrap: balance; }
 
 ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
