@@ -3096,8 +3096,8 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
    pinned cell paints underneath instead of replacing it. */
 .sch-cell.col-preq {
   background-image: linear-gradient(
-    color-mix(in srgb, var(--hl-yellow) 40%, transparent),
-    color-mix(in srgb, var(--hl-yellow) 40%, transparent)
+    color-mix(in srgb, var(--hl-yellow) 18%, transparent),
+    color-mix(in srgb, var(--hl-yellow) 18%, transparent)
   );
 }
 
