@@ -476,6 +476,12 @@ export function itemQualite(itemName: string): string | null {
 // The qualité the item code carries when the report's Qualité column says
 // something else, or null when they agree (or either is missing).
 //
+// Agreement is checked first, on the report's own qualité: an article that
+// spells it out in front of four digits agrees, whatever its length. Only
+// then is the code's qualité read — so a qualité of a shape `itemQualite`
+// doesn't know (three letters, say: « …LIX0600 » would read as « IX ») can't
+// raise a false alarm on a line that is right.
+//
 // The column is what the Schedule groups and filters on, and it stays so: it
 // is what PMS230 says. But it is typed separately from the article, and a
 // mistyped one sends a line to the wrong group without anything showing it —
@@ -484,6 +490,7 @@ export function itemQualite(itemName: string): string | null {
 // it can be seen and fixed in PMS230.
 export function qualiteMismatch(r: Pick<PMS230Record, 'itemName' | 'qualite'>): string | null {
   if (!r.qualite) return null;
+  if (new RegExp(`${r.qualite.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\d{4}`).test(r.itemName ?? '')) return null;
   const fromCode = itemQualite(r.itemName);
   return fromCode && fromCode !== r.qualite ? fromCode : null;
 }

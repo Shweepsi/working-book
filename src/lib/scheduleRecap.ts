@@ -12,9 +12,9 @@
 // Pure functions over rows: no DOM, no state, no formatting decisions beyond
 // the group labels the sheet prints.
 
-import type { PMS230Record } from './pms230Parser';
-import { glassMakeup, qualiteMismatch } from './pms230Parser';
-import { totalM2, totalReqLites } from './coaterMath';
+import type { PMS230Record } from './pms230Parser.ts';
+import { glassMakeup, qualiteMismatch } from './pms230Parser.ts';
+import { totalM2, totalReqLites } from './coaterMath.ts';
 
 // Label used when a row carries no qualité at all. Same em dash the rest of the
 // app uses for "not set".

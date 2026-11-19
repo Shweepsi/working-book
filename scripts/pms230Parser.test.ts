@@ -243,4 +243,8 @@ test('qualité du rapport contredite par le code article', () => {
   assert.equal(qualiteMismatch({ itemName: 'CSGSNX70UC12006.6.2SR', qualite: 'UC' }), null);
   assert.equal(qualiteMismatch({ itemName: 'CSGSNX60NEX612006.6.2CL', qualite: 'NEX6' }), null);
   assert.equal(qualiteMismatch({ itemName: 'CSGSN70/37XC0600', qualite: '' }), null);
+  // A qualité of a shape itemQualite doesn't know agrees when the article
+  // spells it out: no false alarm on a line that is right.
+  assert.equal(qualiteMismatch({ itemName: 'CSGSNX70LIX0600', qualite: 'LIX' }), null);
+  assert.equal(qualiteMismatch({ itemName: 'CSGSNX70LIX0600', qualite: 'XC' }), 'IX');
 });
