@@ -2500,7 +2500,7 @@ function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps)
               {copied === 'ok' ? 'Copiée' : copied === 'failed' ? 'Copie impossible' : 'Copier la ligne'}
             </button>
           </div>
-          <div className="sch-pms-row-scroll">
+          <div className="sch-pms-row-scroll" tabIndex={0} role="region" aria-label="Ligne PMS230">
             <table>
               <thead>
                 <tr>{PMS230_COLUMNS.map((c) => <th key={c} scope="col">{c}</th>)}</tr>
@@ -2524,7 +2524,7 @@ function RowDetailSheet({ row, mtoMts, onClose, onDelete }: RowDetailSheetProps)
 
         <div className="sch-row-sheet-foot">
           <button className="sch-row-sheet-delete" type="button" onClick={onDelete}>
-            Supprimer la ligne…
+            Supprimer la ligne
           </button>
         </div>
       </div>

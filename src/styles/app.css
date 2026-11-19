@@ -3522,6 +3522,7 @@ body.is-col-resizing * {
 }
 .sch-pms-row-bar .btn { text-transform: none; letter-spacing: 0; }
 .sch-pms-row-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.sch-pms-row-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .sch-pms-row table {
   border-collapse: collapse;
   white-space: nowrap;

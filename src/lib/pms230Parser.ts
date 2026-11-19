@@ -450,16 +450,19 @@ export const PMS230_COLUMNS = [
   'Largeur (in)', 'Longueur (in)', 'Épaisseur', 'Tol. min', 'Tol. max', 'Customer',
 ] as const;
 
+// Fields the report has gained over time may be missing from a row stored
+// before them, hence the fallbacks: the card must open on any stored row.
 export function pms230Cells(r: PMS230Record): string[] {
   const ops = (r.opSteps || '').split('/');
   const dims = r.largeur || r.longueur;
+  const dec = (n: number | undefined) => (n ?? 0).toFixed(2);
   return [
     r.schedule, r.schedSuffix, ops[0] ?? '', ops[1] ?? '', ops[2] ?? '', r.workCenter,
     r.startDate, r.startTime, r.endDate, r.endTime, r.dateDepart ?? '', r.policy ?? '',
     r.mo, r.product, r.itemName,
     String(r.schedLites), String(r.prodLites ?? 0), String(r.reqLites),
-    r.opTm.toFixed(2), String(r.scrap ?? 0),
-    r.largeur.toFixed(2), r.longueur.toFixed(2),
+    dec(r.opTm), String(r.scrap ?? 0),
+    dec(r.largeur), dec(r.longueur),
     dims ? r.qualite : '', r.litesPerPack == null ? '' : String(r.litesPerPack), r.pdp, r.formatCode,
     r.largeurInch, r.longueurInch, r.thickness, r.thickMin ?? '', r.thickMax ?? '', r.customer,
   ];

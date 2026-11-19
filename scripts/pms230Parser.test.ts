@@ -257,3 +257,13 @@ test('the row card gives back the cells PMS230 printed, in report order', () => 
     assert.deepEqual(cells.filter(Boolean), ROWS[i]!.split('|'));
   });
 });
+
+test('the row card opens on a row stored before Op Tm and Scrap were read', () => {
+  const r = parsePMS230(paste(ROWS)).records[1]!;
+  const old = { ...r } as Partial<typeof r>;
+  delete old.opTm;
+  delete old.scrap;
+  const cells = pms230Cells(old as typeof r);
+  assert.equal(cells[PMS230_COLUMNS.indexOf('Op Tm')], '0.00');
+  assert.equal(cells[PMS230_COLUMNS.indexOf('Scrap')], '0');
+});
