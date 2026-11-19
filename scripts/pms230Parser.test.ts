@@ -7,7 +7,7 @@
 // « reste » in the Schedule (MO 1000227095: 40/40 produced, shown 0/40).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dropVanished, itemQualite, mergePMS230, parsePMS230, qualiteMismatch } from '../src/lib/pms230Parser.ts';
+import { dropVanished, itemQualite, mergePMS230, parsePMS230, PMS230_COLUMNS, pms230Cells, qualiteMismatch } from '../src/lib/pms230Parser.ts';
 
 const HEADER = [
   'release/176050/2.2 2025-11-14 15:00', 'Facility', '221', 'Work Center',
@@ -247,4 +247,13 @@ test('qualité du rapport contredite par le code article', () => {
   // spells it out: no false alarm on a line that is right.
   assert.equal(qualiteMismatch({ itemName: 'CSGSNX70LIX0600', qualite: 'LIX' }), null);
   assert.equal(qualiteMismatch({ itemName: 'CSGSNX70LIX0600', qualite: 'XC' }), 'IX');
+});
+
+test('the row card gives back the cells PMS230 printed, in report order', () => {
+  const { records } = parsePMS230(paste(ROWS));
+  records.forEach((r, i) => {
+    const cells = pms230Cells(r);
+    assert.equal(cells.length, PMS230_COLUMNS.length);
+    assert.deepEqual(cells.filter(Boolean), ROWS[i]!.split('|'));
+  });
 });
