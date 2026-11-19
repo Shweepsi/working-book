@@ -173,6 +173,22 @@
   --space-10: 22px;
 }
 
+/* Larger screens: the text scale goes up 1px. Phones (≤ 600px) keep the base
+   scale above. Print and the in-app print preview are excluded, so the
+   printed sheet is unchanged. */
+@media screen and (min-width: 601px) {
+  :root:not(.is-print-preview) {
+    --fs-2xs: 11px;
+    --fs-xs: 11.5px;
+    --fs-sm: 12px;
+    --fs-md: 13px;
+    --fs-base: 14px;
+    --fs-lg: 15px;
+    --fs-xl: 16px;
+    --fs-2xl: 17px;
+  }
+}
+
 /* Print palette — redirects the theme tokens themselves rather than
    overriding every component. Highlights are softened so colour-coded cells
    (.col-m2, .sch-mto, .is-highlight, P/REQ short, …) read on paper without
