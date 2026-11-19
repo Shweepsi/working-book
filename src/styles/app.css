@@ -6042,6 +6042,12 @@ select.ln-input { padding-right: var(--space-2); }
   animation-timing-function: ease-out;
 }
 ::view-transition-group(app-header) { animation: none; }
+/* Switching schedule: shorter, and the rail on the left stays put so only the
+   detail pane (title, tiles, table) fades. */
+:root[data-vt='schedule']::view-transition-old(root),
+:root[data-vt='schedule']::view-transition-new(root) { animation-duration: 120ms; }
+:root[data-vt='schedule'] .sch-rail { view-transition-name: sch-rail; }
+:root[data-vt='schedule']::view-transition-group(sch-rail) { animation: none; }
 @media print {
   .app-header { view-transition-name: none; }
 }

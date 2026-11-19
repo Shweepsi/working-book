@@ -13,6 +13,7 @@ import {
   totalReqLites,
 } from '../lib/coaterMath';
 import { fmtNum, fmtStamp } from '../lib/format';
+import { withViewTransition } from '../lib/viewTransition';
 import PasteImport from './PasteImport';
 import PortalImport from './PortalImport';
 import ScheduleRecap from './ScheduleRecap';
@@ -939,9 +940,11 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
 
   const selectedSchedule = schedules.find((s) => s.schedule === selected);
 
+  // Picking another schedule cross-fades the detail pane, so the table visibly
+  // changes instead of swapping in place (see withViewTransition).
   function selectSchedule(schedule: string) {
     if (schedule === selected) return;
-    setSelected(schedule);
+    withViewTransition(() => setSelected(schedule), 'schedule');
   }
 
   // Retire a schedule from the planning: its rows stay in the report, it moves

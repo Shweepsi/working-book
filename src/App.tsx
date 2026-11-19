@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import Gridcraft from './components/Gridcraft';
 import Logbook from './components/Logbook';
 import ProductionTest from './components/ProductionTest';
@@ -9,6 +8,7 @@ import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { SYNC_ENABLED } from './lib/api';
 import { IS_DEV_CHANNEL } from './lib/channel';
+import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { prefetchGridcraft } from './lib/sharedGrid';
@@ -117,13 +117,8 @@ export default function App() {
   // Switching tabs cross-fades the page (View Transitions). Browsers without
   // the API, and devices asking for reduced motion, switch instantly as before.
   const setTab = (next: TabKey) => {
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (next === tab || !doc.startViewTransition || reduce) {
-      setTabState(next);
-      return;
-    }
-    doc.startViewTransition(() => flushSync(() => setTabState(next)));
+    if (next === tab) return;
+    withViewTransition(() => setTabState(next), 'tab');
   };
 
   const [date, setDate] = useState<string>(
