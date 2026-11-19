@@ -145,7 +145,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'format',     label: 'Dimension', cls: 'col-fmt', sortKey: 'longueur'   },
   { key: 'qualite',    label: 'Qualité',  cls: 'col-q',    sortKey: 'qualite'    },
   { key: 'litesPerPack', label: 'L/Pack', cls: 'col-num', sortKey: 'litesPerPack' },
-  { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num',  sortKey: 'packsReq'   },
+  { key: 'packsReq',   label: 'P/REQ',    cls: 'col-num col-preq', sortKey: 'packsReq' },
   { key: 'pdp',        label: 'PDP',      cls: 'col-pdp',                   sortKey: 'pdp'       },
   { key: 'm2',         label: 'm² rest.', cls: 'col-m2',                    sortKey: 'm2'        },
 ];

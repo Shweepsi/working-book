@@ -3091,6 +3091,15 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
 }
 .sch-cell.col-num,
 .sch-cell.col-m2 { text-align: right; }
+/* P/REQ is what the line packs to: a light wash down the whole column, header
+   and total included. Laid as an image so it sits over whatever the row or a
+   pinned cell paints underneath instead of replacing it. */
+.sch-cell.col-preq {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--hl-yellow) 40%, transparent),
+    color-mix(in srgb, var(--hl-yellow) 40%, transparent)
+  );
+}
 
 /* Pinned columns — stay glued to the left while the rest scrolls horizontally.
    Background must be opaque so cells underneath don't bleed through. */
