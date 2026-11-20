@@ -6238,3 +6238,25 @@ select.ln-input { padding-right: var(--space-2); }
   from { transform: scaleY(0.3); opacity: 0; }
   to   { transform: scaleY(1); opacity: 1; }
 }
+
+/* ---------- Badges, the vitesse field and the print-preview bar ----------
+   Small labels read as capsules at this level of rounding: MTO/MTS, the
+   Logbook type tags, the shift's poste number, and the vitesse field in the
+   Schedule header. Suivi stage segments nest in their track (track radius −
+   its 2px padding). Screen only; paper keeps its square tags. */
+@media screen {
+  :root:not(.is-print-preview) :is(
+    .sch-mto,
+    .sch-stat-tile-input .sch-stat-tile-value,
+    .evt-other-tag,
+    .shift-chip .shift-poste,
+    :root[data-density='advanced'] .evt .type
+  ) {
+    border-radius: var(--radius-pill);
+  }
+  :root:not(.is-print-preview) .sv-stage { border-radius: calc(var(--radius-md) - var(--space-1)); }
+  :root:not(.is-print-preview) :is(.kbd, .sch-portal-steps code) { border-radius: 6px; }
+  /* The print-preview bar is screen chrome shown *during* the preview, when
+     the screen radii are switched off: its buttons are pills in a pill bar. */
+  .print-preview-bar .btn { border-radius: var(--radius-pill); }
+}
