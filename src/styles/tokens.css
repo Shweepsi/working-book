@@ -176,6 +176,23 @@
   --space-10: 22px;
 }
 
+/* Corner radii on screen — four roles plus the pill:
+     inner    4px  --radius-sm          a part inside a control (active tab, segment, MTO badge, kbd)
+     control  8px  --radius-md          buttons, inputs, square chips, list rows
+     card    12px  --radius-lg / -xl    cards, lists, blocks, menus
+     surface 18px  --radius-2xl         modals; 22px (--radius-3xl) atop phone bottom sheets
+   The base values above stay for print and the in-app print preview, so the
+   paper sheet keeps its tighter corners. */
+@media screen {
+  :root:not(.is-print-preview) {
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 12px;
+    --radius-2xl: 18px;
+    --radius-3xl: 22px;
+  }
+}
+
 /* Larger screens: the text scale goes up 1px. Phones (≤ 600px) keep the base
    scale above. Print and the in-app print preview are excluded, so the
    printed sheet is unchanged. */

@@ -2194,7 +2194,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   width: 24px;
   height: 24px;
   min-height: 24px;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--line-soft);
   background: var(--paper);
   color: var(--ink-soft);
@@ -5889,7 +5889,7 @@ select.ln-input { padding-right: var(--space-2); }
     --ln-min: 0;
     padding: var(--space-5) var(--space-5) var(--space-4);
     border: 1px solid var(--line-faint);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--paper);
   }
   .ln-row + .ln-row { margin-top: var(--space-3); }
@@ -6083,5 +6083,25 @@ select.ln-input { padding-right: var(--space-2); }
     background: var(--paper);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* ---------- Squircle corners ----------
+   Where the browser supports corner-shape, the larger surfaces get
+   super-ellipse corners: smoother than a circular arc at the same radius.
+   Other browsers keep the plain rounded corners. Small controls are left
+   alone: at 8px the difference is invisible. */
+@supports (corner-shape: squircle) {
+  @media screen {
+    .sheet, .popover, .toast,
+    .evt-list, .evt-filterbar, .pt-header, .pt-section, .pt-empty,
+    .sch-rail, .sch-hint, .sch-summary, .sch-done-row,
+    .sb-kpi, .sb-checks, .sc-card,
+    .sv-empty, .sv-stage-card,
+    .ln-block, .ln-newcolour,
+    /* Two-part boxes (rounded head + rounded table): both halves match. */
+    .sch-detail-head, .sch-table, .sv-toolbar, .sv-table {
+      corner-shape: squircle;
+    }
   }
 }
