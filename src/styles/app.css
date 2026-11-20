@@ -6105,3 +6105,21 @@ select.ln-input { padding-right: var(--space-2); }
     }
   }
 }
+
+/* ---------- Pills and concentric corners (screen only) ----------
+   Buttons, tabs, segmented controls and chips are pills. Items inside a menu
+   follow the menu's corner: menu radius − menu padding, so the curves nest.
+   Print and the print preview keep their own corners (tokens.css). */
+@media screen {
+  :root:not(.is-print-preview) :is(
+    .btn, .btn.icon, .btn.mini, .btn.gear, .evt .row-actions .btn.ghost.icon,
+    .tabs, .tabs .tab, .seg, .seg button, .ln-seg,
+    .shift-chip, .date-nav, .now-btn, .mep-toggle, .fab-type-btn,
+    .toast-undo, .hdr-back
+  ) {
+    border-radius: var(--radius-pill);
+  }
+  /* .popover pads by --space-7 (14px); the header menu by --space-4 (8px). */
+  :root:not(.is-print-preview) .sch-cols-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-7))); }
+  :root:not(.is-print-preview) .hdr-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-4))); }
+}
