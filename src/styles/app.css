@@ -6071,10 +6071,10 @@ select.ln-input { padding-right: var(--space-2); }
   }
   /* The header is itself frosted, which makes it the backdrop root for
      anything inside it: a menu opened from the header can only blur the
-     header, not the page under it. Keep those menus nearly opaque so the
-     table below doesn't show through sharp. */
+     header, not the page under it. Keep those menus opaque: even at 94 % the
+     table below ghosted through, sharp, behind the menu's own text. */
   .app-header .popover {
-    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    background: var(--paper);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
@@ -6283,8 +6283,8 @@ select.ln-input { padding-right: var(--space-2); }
   ) {
     --paper: color-mix(in oklch, var(--paper-solid) 64%, transparent);
     --paper-2: color-mix(in oklch, var(--paper-2-solid) 64%, transparent);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(130%);
+    backdrop-filter: blur(20px) saturate(130%);
     border-color: var(--glass-edge);
     box-shadow: var(--glass-shadow);
   }
@@ -6298,6 +6298,21 @@ select.ln-input { padding-right: var(--space-2); }
     --paper: var(--paper-solid);
     --paper-2: var(--paper-2-solid);
   }
+  /* Opaque boxes (Schedule detail, Cosmétique list) sit at the same depth as
+     the glass cards: same corner, same soft drop shadow, no blur. */
+  :root[data-look='verre']:not(.is-print-preview) :is(.sch-detail, .sv) {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-shadow-outer);
+  }
+  /* Logbook's sticky type strip: a near-clear frosted band instead of a
+     pale rectangle sitting on the wash. Still blurs the list scrolling under. */
+  :root[data-look='verre']:not(.is-print-preview) .type-strip {
+    background: color-mix(in oklch, var(--canvas) 35%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(130%);
+    backdrop-filter: blur(20px) saturate(130%);
+  }
+  /* Suivi's loading state: let the wash show instead of a white page. */
+  :root[data-look='verre']:not(.is-print-preview) .gc-loading { background: transparent; }
   /* Planning rows: the swipe surface is solid paper so the « Terminés »
      action behind it stays hidden. At rest it can be clear (the action is
      hidden too), so the rows read as part of the glass rail. */

@@ -181,7 +181,8 @@
    page, frosted cards (app.css), amber accent, coral alert, softer
    highlighters. Colours are oklch so each tint keeps the same perceived
    lightness in both themes. Screen only: the print preview and paper keep
-   the classic palette. --paper stays opaque (tables, sticky headers and
+   the classic palette. The accent is a golden amber (hue 74): lighter tints
+   of it read as cream, not peach. --paper stays opaque (tables, sticky headers and
    swipe rows sit on it); the frosted look is applied per card in app.css. */
 @media screen {
   :root[data-look='verre']:not(.is-print-preview) {
@@ -205,13 +206,13 @@
     --hl-green: oklch(93.5% 0.048 165);
     --hl-blue: oklch(92.5% 0.04 240);
 
-    --accent: oklch(66% 0.12 62);
-    --accent-ink: oklch(22% 0.03 60);
+    --accent: oklch(68% 0.12 74);
+    --accent-ink: oklch(22% 0.03 70);
 
     --shadow-sheet: 0 12px 40px oklch(45% 0.06 260 / 0.16);
     --shadow-popover: 0 10px 28px oklch(45% 0.06 260 / 0.16);
     --backdrop: oklch(30% 0.03 260 / 0.28);
-    --focus-ring: oklch(66% 0.12 62 / 0.12);
+    --focus-ring: oklch(68% 0.12 74 / 0.12);
 
     --wash:
       radial-gradient(60% 55% at 8% 0%, oklch(91% 0.039 85 / 0.72), transparent 70%),
@@ -220,6 +221,7 @@
       radial-gradient(55% 50% at 0% 95%, oklch(91% 0.033 250 / 0.72), transparent 70%);
     --glass-edge: oklch(100% 0 0 / 0.75);
     --glass-shadow: 0 8px 28px oklch(45% 0.06 260 / 0.1), inset 0 1px 0 oklch(100% 0 0 / 0.8);
+    --glass-shadow-outer: 0 8px 28px oklch(45% 0.06 260 / 0.1);
   }
 }
 @media screen and (prefers-color-scheme: dark) {
@@ -245,21 +247,22 @@
     --hl-green: oklch(41% 0.055 165);
     --hl-blue: oklch(40% 0.055 240);
 
-    --accent: oklch(80% 0.1 68);
-    --accent-ink: oklch(20% 0.03 60);
+    --accent: oklch(82% 0.1 76);
+    --accent-ink: oklch(20% 0.03 70);
 
     --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
     --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
     --backdrop: oklch(5% 0.01 255 / 0.5);
-    --focus-ring: oklch(80% 0.1 68 / 0.14);
+    --focus-ring: oklch(82% 0.1 76 / 0.14);
 
     --wash:
-      radial-gradient(60% 55% at 8% 0%, oklch(36% 0.048 85 / 0.68), transparent 70%),
+      radial-gradient(60% 55% at 8% 0%, oklch(34% 0.04 205 / 0.68), transparent 70%),
       radial-gradient(55% 60% at 100% 10%, oklch(34% 0.048 225 / 0.68), transparent 70%),
       radial-gradient(60% 55% at 85% 100%, oklch(32% 0.039 175 / 0.68), transparent 70%),
       radial-gradient(55% 50% at 0% 95%, oklch(33% 0.042 250 / 0.68), transparent 70%);
     --glass-edge: oklch(100% 0 0 / 0.14);
     --glass-shadow: 0 8px 28px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.12);
+    --glass-shadow-outer: 0 8px 28px oklch(0% 0 0 / 0.35);
   }
 }
 @media screen {
@@ -285,21 +288,22 @@
     --hl-green: oklch(41% 0.055 165);
     --hl-blue: oklch(40% 0.055 240);
 
-    --accent: oklch(80% 0.1 68);
-    --accent-ink: oklch(20% 0.03 60);
+    --accent: oklch(82% 0.1 76);
+    --accent-ink: oklch(20% 0.03 70);
 
     --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
     --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
     --backdrop: oklch(5% 0.01 255 / 0.5);
-    --focus-ring: oklch(80% 0.1 68 / 0.14);
+    --focus-ring: oklch(82% 0.1 76 / 0.14);
 
     --wash:
-      radial-gradient(60% 55% at 8% 0%, oklch(36% 0.048 85 / 0.68), transparent 70%),
+      radial-gradient(60% 55% at 8% 0%, oklch(34% 0.04 205 / 0.68), transparent 70%),
       radial-gradient(55% 60% at 100% 10%, oklch(34% 0.048 225 / 0.68), transparent 70%),
       radial-gradient(60% 55% at 85% 100%, oklch(32% 0.039 175 / 0.68), transparent 70%),
       radial-gradient(55% 50% at 0% 95%, oklch(33% 0.042 250 / 0.68), transparent 70%);
     --glass-edge: oklch(100% 0 0 / 0.14);
     --glass-shadow: 0 8px 28px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.12);
+    --glass-shadow-outer: 0 8px 28px oklch(0% 0 0 / 0.35);
   }
 }
 
