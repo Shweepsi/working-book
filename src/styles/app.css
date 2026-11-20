@@ -6123,3 +6123,38 @@ select.ln-input { padding-right: var(--space-2); }
   :root:not(.is-print-preview) .sch-cols-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-7))); }
   :root:not(.is-print-preview) .hdr-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-4))); }
 }
+
+/* ---------- Scrollbars (mouse/trackpad screens) ----------
+   Native scrollbars are square and grey: inside the rounded cards and modals
+   they ran into the corners. Thin rounded thumb on a transparent track, and
+   the track is pulled in from the rounded corners of the boxes that scroll.
+   Touch screens keep their system overlay scrollbars; print is unaffected. */
+@media screen and (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--ink) 22%, transparent);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: var(--radius-pill);
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 40%, transparent); }
+
+  /* Keep the track clear of rounded corners. */
+  .sheet::-webkit-scrollbar-track { margin-block: var(--radius-2xl); }
+  .sch-rail::-webkit-scrollbar-track { margin-block: var(--radius-xl); }
+  .sch-table::-webkit-scrollbar-track,
+  .sv-table::-webkit-scrollbar-track,
+  .ln-block::-webkit-scrollbar-track { margin-inline: var(--radius-xl); }
+  .sch-pms-row-scroll::-webkit-scrollbar-track { margin-inline: var(--radius-md); }
+
+  /* Firefox has no ::-webkit-scrollbar: the standard properties give it a
+     thin bar in the same colours. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+    }
+  }
+}
