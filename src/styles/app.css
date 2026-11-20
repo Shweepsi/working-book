@@ -3612,7 +3612,7 @@ body.is-col-resizing * {
   display: flex;
   align-items: stretch;
   border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   /* Clips both segments to the rounded corners — neither carries a radius. */
   overflow: hidden;
   transition: border-color 120ms ease;
@@ -3651,7 +3651,7 @@ body.is-col-resizing * {
 .sch-done-row:has(.sch-done-item.is-current) { border-color: var(--ink-faint); }
 .sch-done-item.is-current { background: var(--paper-2); }
 .sch-done-item.is-current .sch-done-go { visibility: hidden; }
-.sch-done-num { font-weight: 600; }
+.sch-done-num { font-weight: 600; white-space: nowrap; flex: none; }
 .sch-done-name {
   min-width: 0;
   overflow: hidden;
@@ -6095,7 +6095,7 @@ select.ln-input { padding-right: var(--space-2); }
   @media screen {
     .sheet, .popover, .toast,
     .evt-list, .evt-filterbar, .pt-header, .pt-section, .pt-empty,
-    .sch-rail, .sch-hint, .sch-summary, .sch-done-row,
+    .sch-rail, .sch-hint, .sch-summary,
     .sb-kpi, .sb-checks, .sc-card,
     .sv-empty, .sv-stage-card,
     .ln-block, .ln-newcolour,
@@ -6196,6 +6196,9 @@ select.ln-input { padding-right: var(--space-2); }
     /* Room for the rows' focus ring, which the scroller would otherwise clip. */
     padding-block: 2px;
   }
+  /* Both lists are flex columns: inside a scroller of fixed height their rows
+     would shrink to fit instead of overflowing. Rows keep their own height. */
+  :root:not(.is-print-preview) :is(.sch-rail-list, .sch-done-list) > li { flex-shrink: 0; }
 }
 @media screen and (hover: hover) and (pointer: fine) {
   .sch-rail-list::-webkit-scrollbar-track { margin-bottom: var(--radius-xl); }
