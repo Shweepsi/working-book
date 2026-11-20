@@ -29,7 +29,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
+import type { Density, Look, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
@@ -132,6 +132,7 @@ export default function App() {
 
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
+  const [look, setLook] = useState<Look>(() => (load<string>('wb.look', 'classique') === 'verre' ? 'verre' : 'classique'));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
@@ -224,6 +225,11 @@ export default function App() {
     document.documentElement.setAttribute('data-density', density);
     save('wb.density', density);
   }, [density]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-look', look);
+    save('wb.look', look);
+  }, [look]);
 
   // Toggle a screen-only class that mirrors the print stylesheet, so the
   // user can validate page layout without touching the OS print dialog.
@@ -491,6 +497,8 @@ export default function App() {
                 onThemeChange: setTheme,
                 density,
                 onDensityChange: setDensity,
+                look,
+                onLookChange: setLook,
               }}
             />
           </div>
@@ -527,6 +535,8 @@ export default function App() {
               onThemeChange={setTheme}
               density={density}
               onDensityChange={setDensity}
+              look={look}
+              onLookChange={setLook}
             />
           </div>
         )}

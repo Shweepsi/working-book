@@ -6264,3 +6264,58 @@ select.ln-input { padding-right: var(--space-2); }
      the screen radii are switched off: its buttons are pills in a pill bar. */
   .print-preview-bar .btn { border-radius: var(--radius-pill); }
 }
+
+/* ---------- Style « Verre 2027 »: frosted cards over the pastel wash ----------
+   Palette in tokens.css. The wash paints the page; the cards below turn to
+   frosted glass by swapping their own --paper / --paper-2 for translucent
+   versions, so their existing rules (and tints mixed into --paper) follow.
+   Children get the opaque values back: rows, inputs and swipe surfaces stay
+   solid where they sit over something else. Tables stay opaque for reading. */
+@media screen {
+  :root[data-look='verre']:not(.is-print-preview) { background: var(--wash) fixed, var(--canvas); }
+  :root[data-look='verre']:not(.is-print-preview) body { background: transparent; }
+  :root[data-look='verre']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
+    .ln-block, .ln-newcolour
+  ) {
+    --paper: color-mix(in oklch, var(--paper-solid) 64%, transparent);
+    --paper-2: color-mix(in oklch, var(--paper-2-solid) 64%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    border-color: var(--glass-edge);
+    box-shadow: var(--glass-shadow);
+  }
+  :root[data-look='verre']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
+    .ln-block, .ln-newcolour
+  ) * {
+    --paper: var(--paper-solid);
+    --paper-2: var(--paper-2-solid);
+  }
+  /* Planning rows: the swipe surface is solid paper so the « Terminés »
+     action behind it stays hidden. At rest it can be clear (the action is
+     hidden too), so the rows read as part of the glass rail. */
+  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background: transparent; }
+  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
+}
+@media screen and (prefers-reduced-transparency: reduce) {
+  :root[data-look='verre'] { background: var(--canvas); }
+  :root[data-look='verre'] :is(
+    .sch-rail, .sch-summary, .sch-hint,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
+    .ln-block, .ln-newcolour
+  ) {
+    --paper: var(--paper-solid);
+    --paper-2: var(--paper-2-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

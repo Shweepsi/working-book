@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Density, Theme } from '../types';
+import type { Density, Look, Theme } from '../types';
 import { fmtStamp } from '../lib/format';
 import { applyUpdate, checkForUpdate, useUpdateWaiting } from '../lib/pwa';
 import { useToast } from '../lib/toast';
@@ -22,11 +22,18 @@ const DENSITIES = [
   { key: 'advanced', label: 'Avancé' },
 ] as const satisfies readonly { key: Density; label: string }[];
 
+const LOOKS = [
+  { key: 'classique', label: 'Classique' },
+  { key: 'verre', label: 'Verre 2027' },
+] as const satisfies readonly { key: Look; label: string }[];
+
 export interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
+  look: Look;
+  onLookChange: (look: Look) => void;
   /** Closes whatever shows the panel (the gear's popover, the header's menu). */
   onClose: () => void;
 }
@@ -36,8 +43,8 @@ interface SettingsProps extends Omit<SettingsPanelProps, 'onClose'> {
   onOpenChange: (open: boolean) => void;
 }
 
-/** The settings themselves: theme, density, version. */
-export function SettingsPanel({ theme, onThemeChange, density, onDensityChange }: SettingsPanelProps) {
+/** The settings themselves: theme, style, density, version. */
+export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, look, onLookChange }: SettingsPanelProps) {
   const toast = useToast();
   // Mirrors the service worker's "a new version is parked and waiting" state,
   // so the button can promise an update rather than only a search for one.
@@ -87,6 +94,25 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange }
             </button>
           ))}
         </div>
+      </div>
+      <div>
+        <h4>Style</h4>
+        <div className="seg" role="group" aria-label="Style">
+          {LOOKS.map((l) => (
+            <button
+              key={l.key}
+              type="button"
+              className={look === l.key ? 'active' : ''}
+              onClick={() => onLookChange(l.key)}
+              aria-pressed={look === l.key}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+        {look === 'verre' && (
+          <div className="popover-help">Fond pastel et cartes en verre dépoli. À l’écran seulement : l’impression ne change pas.</div>
+        )}
       </div>
       <div>
         <h4>Densité</h4>

@@ -176,6 +176,133 @@
   --space-10: 22px;
 }
 
+/* ---------- Style « Verre 2027 » (Réglages → Style) ----------
+   Set by data-look="verre" on <html>. A cool, quiet pastel wash behind the
+   page, frosted cards (app.css), amber accent, coral alert, softer
+   highlighters. Colours are oklch so each tint keeps the same perceived
+   lightness in both themes. Screen only: the print preview and paper keep
+   the classic palette. --paper stays opaque (tables, sticky headers and
+   swipe rows sit on it); the frosted look is applied per card in app.css. */
+@media screen {
+  :root[data-look='verre']:not(.is-print-preview) {
+    --ink: oklch(29% 0.035 268);
+    --ink-soft: oklch(49% 0.03 268);
+    --ink-faint: oklch(66% 0.025 265);
+    --line: oklch(27% 0.03 268);
+    --line-soft: oklch(81% 0.02 255);
+    --line-faint: oklch(89.5% 0.014 250);
+
+    --paper: oklch(99.3% 0.003 250);
+    --paper-2: oklch(96.9% 0.007 250);
+    --canvas: oklch(97.2% 0.008 250);
+    --paper-glass: oklch(98.5% 0.004 250 / 0.7);
+    --paper-glass-2: oklch(99% 0.003 250 / 0.82);
+    --paper-solid: oklch(99.3% 0.003 250);
+    --paper-2-solid: oklch(96.9% 0.007 250);
+
+    --hl-yellow: oklch(95% 0.065 95);
+    --hl-red: oklch(91.5% 0.045 30);
+    --hl-green: oklch(93.5% 0.048 165);
+    --hl-blue: oklch(92.5% 0.04 240);
+
+    --accent: oklch(66% 0.12 62);
+    --accent-ink: oklch(22% 0.03 60);
+
+    --shadow-sheet: 0 12px 40px oklch(45% 0.06 260 / 0.16);
+    --shadow-popover: 0 10px 28px oklch(45% 0.06 260 / 0.16);
+    --backdrop: oklch(30% 0.03 260 / 0.28);
+    --focus-ring: oklch(66% 0.12 62 / 0.12);
+
+    --wash:
+      radial-gradient(60% 55% at 8% 0%, oklch(91% 0.039 85 / 0.72), transparent 70%),
+      radial-gradient(55% 60% at 100% 10%, oklch(89% 0.042 225 / 0.72), transparent 70%),
+      radial-gradient(60% 55% at 85% 100%, oklch(92% 0.036 175 / 0.72), transparent 70%),
+      radial-gradient(55% 50% at 0% 95%, oklch(91% 0.033 250 / 0.72), transparent 70%);
+    --glass-edge: oklch(100% 0 0 / 0.75);
+    --glass-shadow: 0 8px 28px oklch(45% 0.06 260 / 0.1), inset 0 1px 0 oklch(100% 0 0 / 0.8);
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root[data-look='verre']:not(.is-print-preview):not([data-theme='light']) {
+    color-scheme: dark;
+    --ink: oklch(96% 0.01 260);
+    --ink-soft: oklch(81% 0.015 260);
+    --ink-faint: oklch(63% 0.02 260);
+    --line: oklch(94% 0.01 260);
+    --line-soft: oklch(37% 0.02 255);
+    --line-faint: oklch(29.5% 0.02 255);
+
+    --paper: oklch(22% 0.02 255);
+    --paper-2: oklch(26% 0.02 255);
+    --canvas: oklch(16.5% 0.02 255);
+    --paper-glass: oklch(19% 0.02 255 / 0.72);
+    --paper-glass-2: oklch(21% 0.02 255 / 0.85);
+    --paper-solid: oklch(22% 0.02 255);
+    --paper-2-solid: oklch(26% 0.02 255);
+
+    --hl-yellow: oklch(42% 0.06 95);
+    --hl-red: oklch(40% 0.06 30);
+    --hl-green: oklch(41% 0.055 165);
+    --hl-blue: oklch(40% 0.055 240);
+
+    --accent: oklch(80% 0.1 68);
+    --accent-ink: oklch(20% 0.03 60);
+
+    --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
+    --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
+    --backdrop: oklch(5% 0.01 255 / 0.5);
+    --focus-ring: oklch(80% 0.1 68 / 0.14);
+
+    --wash:
+      radial-gradient(60% 55% at 8% 0%, oklch(36% 0.048 85 / 0.68), transparent 70%),
+      radial-gradient(55% 60% at 100% 10%, oklch(34% 0.048 225 / 0.68), transparent 70%),
+      radial-gradient(60% 55% at 85% 100%, oklch(32% 0.039 175 / 0.68), transparent 70%),
+      radial-gradient(55% 50% at 0% 95%, oklch(33% 0.042 250 / 0.68), transparent 70%);
+    --glass-edge: oklch(100% 0 0 / 0.14);
+    --glass-shadow: 0 8px 28px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.12);
+  }
+}
+@media screen {
+  :root[data-look='verre'][data-theme='dark']:not(.is-print-preview) {
+    color-scheme: dark;
+    --ink: oklch(96% 0.01 260);
+    --ink-soft: oklch(81% 0.015 260);
+    --ink-faint: oklch(63% 0.02 260);
+    --line: oklch(94% 0.01 260);
+    --line-soft: oklch(37% 0.02 255);
+    --line-faint: oklch(29.5% 0.02 255);
+
+    --paper: oklch(22% 0.02 255);
+    --paper-2: oklch(26% 0.02 255);
+    --canvas: oklch(16.5% 0.02 255);
+    --paper-glass: oklch(19% 0.02 255 / 0.72);
+    --paper-glass-2: oklch(21% 0.02 255 / 0.85);
+    --paper-solid: oklch(22% 0.02 255);
+    --paper-2-solid: oklch(26% 0.02 255);
+
+    --hl-yellow: oklch(42% 0.06 95);
+    --hl-red: oklch(40% 0.06 30);
+    --hl-green: oklch(41% 0.055 165);
+    --hl-blue: oklch(40% 0.055 240);
+
+    --accent: oklch(80% 0.1 68);
+    --accent-ink: oklch(20% 0.03 60);
+
+    --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
+    --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
+    --backdrop: oklch(5% 0.01 255 / 0.5);
+    --focus-ring: oklch(80% 0.1 68 / 0.14);
+
+    --wash:
+      radial-gradient(60% 55% at 8% 0%, oklch(36% 0.048 85 / 0.68), transparent 70%),
+      radial-gradient(55% 60% at 100% 10%, oklch(34% 0.048 225 / 0.68), transparent 70%),
+      radial-gradient(60% 55% at 85% 100%, oklch(32% 0.039 175 / 0.68), transparent 70%),
+      radial-gradient(55% 50% at 0% 95%, oklch(33% 0.042 250 / 0.68), transparent 70%);
+    --glass-edge: oklch(100% 0 0 / 0.14);
+    --glass-shadow: 0 8px 28px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.12);
+  }
+}
+
 /* Corner radii on screen (very rounded, iOS 26 style):
      inner    4px    --radius-sm          a part inside a control (MTO badge, kbd)
      control  14px   --radius-md          inputs, list rows, textareas
