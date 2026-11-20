@@ -2194,7 +2194,7 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   width: 24px;
   height: 24px;
   min-height: 24px;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--line-soft);
   background: var(--paper);
   color: var(--ink-soft);
@@ -3612,7 +3612,7 @@ body.is-col-resizing * {
   display: flex;
   align-items: stretch;
   border: 1px solid var(--line-faint);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   /* Clips both segments to the rounded corners — neither carries a radius. */
   overflow: hidden;
   transition: border-color 120ms ease;
@@ -3651,7 +3651,7 @@ body.is-col-resizing * {
 .sch-done-row:has(.sch-done-item.is-current) { border-color: var(--ink-faint); }
 .sch-done-item.is-current { background: var(--paper-2); }
 .sch-done-item.is-current .sch-done-go { visibility: hidden; }
-.sch-done-num { font-weight: 600; }
+.sch-done-num { font-weight: 600; white-space: nowrap; flex: none; }
 .sch-done-name {
   min-width: 0;
   overflow: hidden;
@@ -5889,7 +5889,7 @@ select.ln-input { padding-right: var(--space-2); }
     --ln-min: 0;
     padding: var(--space-5) var(--space-5) var(--space-4);
     border: 1px solid var(--line-faint);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--paper);
   }
   .ln-row + .ln-row { margin-top: var(--space-3); }
@@ -6084,4 +6084,183 @@ select.ln-input { padding-right: var(--space-2); }
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+
+/* ---------- Squircle corners ----------
+   Where the browser supports corner-shape, the larger surfaces get
+   super-ellipse corners: smoother than a circular arc at the same radius.
+   Other browsers keep the plain rounded corners. Small controls are left
+   alone: at 8px the difference is invisible. */
+@supports (corner-shape: squircle) {
+  @media screen {
+    .sheet, .popover, .toast,
+    .evt-list, .evt-filterbar, .pt-header, .pt-section, .pt-empty,
+    .sch-rail, .sch-hint, .sch-summary,
+    .sb-kpi, .sb-checks, .sc-card,
+    .sv-empty, .sv-stage-card,
+    .ln-block, .ln-newcolour,
+    .sch-rail-item, .sch-swipe, .sch-swipe-surface,
+    /* Two-part boxes (rounded head + rounded table): both halves match. */
+    .sch-detail-head, .sch-table, .sv-toolbar, .sv-table {
+      corner-shape: squircle;
+    }
+  }
+}
+
+/* ---------- Pills and concentric corners (screen only) ----------
+   Buttons, tabs, segmented controls and chips are pills. Items inside a menu
+   follow the menu's corner: menu radius − menu padding, so the curves nest.
+   Print and the print preview keep their own corners (tokens.css). */
+@media screen {
+  :root:not(.is-print-preview) :is(
+    .btn, .btn.icon, .btn.mini, .btn.gear, .evt .row-actions .btn.ghost.icon,
+    .tabs, .tabs .tab, .seg, .seg button, .ln-seg,
+    .shift-chip, .date-nav, .now-btn, .mep-toggle, .fab-type-btn,
+    .toast-undo, .hdr-back
+  ) {
+    border-radius: var(--radius-pill);
+  }
+  /* .popover pads by --space-7 (14px); the header menu by --space-4 (8px). */
+  /* The time field and its « maintenant » button form one control: keep the
+     seam square and round only the outer ends. */
+  :root:not(.is-print-preview) .time-input-group .time-input { border-radius: var(--radius-pill) 0 0 var(--radius-pill); }
+  :root:not(.is-print-preview) .time-input-group .now-btn { border-radius: 0 var(--radius-pill) var(--radius-pill) 0; }
+  :root:not(.is-print-preview) .sch-cols-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-7))); }
+  :root:not(.is-print-preview) .hdr-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-4))); }
+}
+
+/* ---------- Scrollbars (mouse/trackpad screens) ----------
+   Native scrollbars are square and grey: inside the rounded cards and modals
+   they ran into the corners. Thin rounded thumb on a transparent track, and
+   the track is pulled in from the rounded corners of the boxes that scroll.
+   Touch screens keep their system overlay scrollbars; print is unaffected. */
+@media screen and (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--ink) 22%, transparent);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: var(--radius-pill);
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 40%, transparent); }
+
+  /* Keep the track clear of rounded corners. */
+  .sheet::-webkit-scrollbar-track { margin-block: var(--radius-2xl); }
+  .sch-rail::-webkit-scrollbar-track { margin-block: var(--radius-xl); } /* page-height rail on narrow layouts */
+  .sch-table::-webkit-scrollbar-track,
+  .sv-table::-webkit-scrollbar-track,
+  .ln-block::-webkit-scrollbar-track { margin-inline: var(--radius-xl); }
+  .sch-pms-row-scroll::-webkit-scrollbar-track { margin-inline: var(--radius-md); }
+
+  /* Firefox has no ::-webkit-scrollbar: the standard properties give it a
+     thin bar in the same colours. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+    }
+  }
+}
+
+/* ---------- Lists that scroll under a fixed header ----------
+   The planning rail and the terminés sheet used to scroll as a whole, their
+   header held in place with position: sticky — so the scrollbar ran the full
+   height, beside the header too. Now the header sits outside the scroller and
+   only the list scrolls: the scrollbar starts below the header. */
+@media screen {
+  :root:not(.is-print-preview) .sch-rail {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  :root:not(.is-print-preview) .sch-rail-title { position: static; flex: none; }
+  :root:not(.is-print-preview) .sch-rail-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  :root:not(.is-print-preview) .sheet.sch-done-sheet {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  :root:not(.is-print-preview) .sch-done-head { position: static; flex: none; }
+  /* The list's scrollbar sits in the sheet's side gutter, not over the rows,
+     and stops short of the sheet's rounded bottom corner. */
+  :root:not(.is-print-preview) .sch-done-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-right: calc(var(--sheet-pad-x) * -1);
+    padding-right: var(--sheet-pad-x);
+    /* Room for the rows' focus ring, which the scroller would otherwise clip. */
+    padding-block: 2px;
+  }
+  /* Both lists are flex columns: inside a scroller of fixed height their rows
+     would shrink to fit instead of overflowing. Rows keep their own height. */
+  :root:not(.is-print-preview) :is(.sch-rail-list, .sch-done-list) > li { flex-shrink: 0; }
+}
+@media screen and (hover: hover) and (pointer: fine) {
+  .sch-rail-list::-webkit-scrollbar-track { margin-bottom: var(--radius-xl); }
+  .sch-done-list::-webkit-scrollbar-track { margin-bottom: var(--space-4); }
+}
+
+/* ---------- Selected schedule in the planning rail ----------
+   Rows nest in the rail's corner: rail radius − list padding. The accent is a
+   short rounded mark inset from the row's edge (a 3px bar with the row's
+   radius on one side read as a sliver once rows got this round).
+   Switching schedule: the tint cross-fades with the detail pane and the mark
+   grows in place on the new row (no slide between rows). */
+@media screen {
+  :root:not(.is-print-preview) :is(.sch-rail-item, .sch-swipe, .sch-swipe-surface) {
+    border-radius: max(var(--radius-md), calc(var(--radius-xl) - var(--space-2)));
+  }
+  :root:not(.is-print-preview) .sch-rail-item.active::before { content: none; }
+}
+.sch-rail-mark { display: none; }
+@media screen {
+  :root:not(.is-print-preview) .sch-rail-mark {
+    display: block;
+    position: absolute;
+    /* Kept to the middle of the row, clear of its rounded corners, and left
+       of the text even at compact density (8px padding). */
+    left: 3px;
+    top: 26%;
+    bottom: 26%;
+    width: 3px;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+  }
+  .sch-rail-mark { animation: sch-rail-mark-in 220ms cubic-bezier(0.2, 0.8, 0.3, 1); }
+}
+@keyframes sch-rail-mark-in {
+  from { transform: scaleY(0.3); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+/* ---------- Badges, the vitesse field and the print-preview bar ----------
+   Small labels read as capsules at this level of rounding: MTO/MTS, the
+   Logbook type tags, the shift's poste number, and the vitesse field in the
+   Schedule header. Suivi stage segments nest in their track (track radius −
+   its 2px padding). Screen only; paper keeps its square tags. */
+@media screen {
+  :root:not(.is-print-preview) :is(
+    .sch-mto,
+    .sch-stat-tile-input .sch-stat-tile-value,
+    .evt-other-tag,
+    .shift-chip .shift-poste
+  ) {
+    border-radius: var(--radius-pill);
+  }
+  :root:not(.is-print-preview)[data-density='advanced'] .evt .type { border-radius: var(--radius-pill); }
+  :root:not(.is-print-preview) .sv-stage { border-radius: calc(var(--radius-md) - var(--space-1)); }
+  :root:not(.is-print-preview) :is(.kbd, .sch-portal-steps code) { border-radius: 6px; }
+  /* The print-preview bar is screen chrome shown *during* the preview, when
+     the screen radii are switched off: its buttons are pills in a pill bar. */
+  .print-preview-bar .btn { border-radius: var(--radius-pill); }
 }

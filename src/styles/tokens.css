@@ -176,6 +176,35 @@
   --space-10: 22px;
 }
 
+/* Corner radii on screen (very rounded, iOS 26 style):
+     inner    4px    --radius-sm          a part inside a control (MTO badge, kbd)
+     control  14px   --radius-md          inputs, list rows, textareas
+     pill            --radius-pill        buttons, tabs, segmented controls, chips (app.css)
+     card     24px   --radius-lg / -xl    cards, lists, blocks, menus
+     surface  32px   --radius-2xl         modals; 38px (--radius-3xl) atop phone bottom sheets
+   Where corner-shape: squircle applies (cards, menus, modals: see app.css),
+   the super-ellipse reads tighter than a circular arc, so the radius goes up
+   there to look the same in every browser.
+   The base values above stay for print and the in-app print preview, so the
+   paper sheet keeps its tighter corners. */
+@media screen {
+  :root:not(.is-print-preview) {
+    --radius-md: 14px;
+    --radius-lg: 24px;
+    --radius-xl: 24px;
+    --radius-2xl: 32px;
+    --radius-3xl: 38px;
+  }
+  @supports (corner-shape: squircle) {
+    :root:not(.is-print-preview) {
+      --radius-lg: 30px;
+      --radius-xl: 30px;
+      --radius-2xl: 40px;
+      --radius-3xl: 46px;
+    }
+  }
+}
+
 /* Larger screens: the text scale goes up 1px. Phones (≤ 600px) keep the base
    scale above. Print and the in-app print preview are excluded, so the
    printed sheet is unchanged. */
