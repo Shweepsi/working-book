@@ -6099,6 +6099,7 @@ select.ln-input { padding-right: var(--space-2); }
     .sb-kpi, .sb-checks, .sc-card,
     .sv-empty, .sv-stage-card,
     .ln-block, .ln-newcolour,
+    .sch-rail-item, .sch-swipe, .sch-swipe-surface,
     /* Two-part boxes (rounded head + rounded table): both halves match. */
     .sch-detail-head, .sch-table, .sv-toolbar, .sv-table {
       corner-shape: squircle;
@@ -6203,4 +6204,43 @@ select.ln-input { padding-right: var(--space-2); }
 @media screen and (hover: hover) and (pointer: fine) {
   .sch-rail-list::-webkit-scrollbar-track { margin-bottom: var(--radius-xl); }
   .sch-done-list::-webkit-scrollbar-track { margin-bottom: var(--space-4); }
+}
+
+/* ---------- Selected schedule in the planning rail ----------
+   Rows nest in the rail's corner: rail radius − list padding. The accent is a
+   short rounded mark inset from the row's edge (a 3px bar with the row's
+   radius on one side read as a sliver once rows got this round).
+   Switching schedule runs in a view transition (Schedules.tsx): the mark gets
+   a name for it and slides from the old row to the new one while the tint
+   cross-fades. Without View Transitions it grows in place instead. */
+@media screen {
+  :root:not(.is-print-preview) :is(.sch-rail-item, .sch-swipe, .sch-swipe-surface) {
+    border-radius: max(var(--radius-md), calc(var(--radius-xl) - var(--space-2)));
+  }
+  :root:not(.is-print-preview) .sch-rail-item.active::before { content: none; }
+}
+.sch-rail-mark { display: none; }
+@media screen {
+  :root:not(.is-print-preview) .sch-rail-mark {
+    display: block;
+    position: absolute;
+    /* Kept to the middle of the row, clear of its rounded corners, and left
+       of the text even at compact density (8px padding). */
+    left: 3px;
+    top: 26%;
+    bottom: 26%;
+    width: 3px;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+  }
+  :root:not([data-vt]) .sch-rail-mark { animation: sch-rail-mark-in 220ms cubic-bezier(0.2, 0.8, 0.3, 1); }
+  :root[data-vt='schedule'] .sch-rail-mark { view-transition-name: sch-rail-mark; }
+  ::view-transition-group(sch-rail-mark) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+}
+@keyframes sch-rail-mark-in {
+  from { transform: scaleY(0.3); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
 }

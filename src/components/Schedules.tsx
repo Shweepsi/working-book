@@ -1176,6 +1176,10 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                         }}
                         title={`Schedule ${s.schedule} — glisser vers la gauche (ou touche Suppr) pour le retirer du planning ; il rejoint les terminés`}
                       >
+                        {/* Accent mark of the selected schedule. A real element,
+                            not ::before, so the schedule switch can slide it
+                            from the old row to the new one (see app.css). */}
+                        {selected === s.schedule && <span className="sch-rail-mark" aria-hidden="true" />}
                         <div className="sch-rail-top">
                           <span className="mono sch-rail-num">{s.schedule}</span>
                           <span className="sch-rail-root">{stat.shortName || shortItemName(s.itemRoot) || s.itemRoot || '—'}</span>
