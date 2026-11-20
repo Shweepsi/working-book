@@ -6121,6 +6121,10 @@ select.ln-input { padding-right: var(--space-2); }
     border-radius: var(--radius-pill);
   }
   /* .popover pads by --space-7 (14px); the header menu by --space-4 (8px). */
+  /* The time field and its « maintenant » button form one control: keep the
+     seam square and round only the outer ends. */
+  :root:not(.is-print-preview) .time-input-group .time-input { border-radius: var(--radius-pill) 0 0 var(--radius-pill); }
+  :root:not(.is-print-preview) .time-input-group .now-btn { border-radius: 0 var(--radius-pill) var(--radius-pill) 0; }
   :root:not(.is-print-preview) .sch-cols-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-7))); }
   :root:not(.is-print-preview) .hdr-item { border-radius: max(var(--radius-sm), calc(var(--radius-xl) - var(--space-4))); }
 }
@@ -6249,11 +6253,11 @@ select.ln-input { padding-right: var(--space-2); }
     .sch-mto,
     .sch-stat-tile-input .sch-stat-tile-value,
     .evt-other-tag,
-    .shift-chip .shift-poste,
-    :root[data-density='advanced'] .evt .type
+    .shift-chip .shift-poste
   ) {
     border-radius: var(--radius-pill);
   }
+  :root:not(.is-print-preview)[data-density='advanced'] .evt .type { border-radius: var(--radius-pill); }
   :root:not(.is-print-preview) .sv-stage { border-radius: calc(var(--radius-md) - var(--space-1)); }
   :root:not(.is-print-preview) :is(.kbd, .sch-portal-steps code) { border-radius: 6px; }
   /* The print-preview bar is screen chrome shown *during* the preview, when
