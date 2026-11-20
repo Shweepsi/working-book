@@ -23,8 +23,8 @@ const DENSITIES = [
 ] as const satisfies readonly { key: Density; label: string }[];
 
 const LOOKS = [
-  { key: 'classique', label: 'Classique' },
-  { key: 'verre', label: 'Verre 2027' },
+  { key: 'papier', label: 'Papier' },
+  { key: 'verre', label: 'Verre' },
 ] as const satisfies readonly { key: Look; label: string }[];
 
 export interface SettingsPanelProps {

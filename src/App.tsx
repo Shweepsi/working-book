@@ -69,8 +69,12 @@ const SHIFT_TABS = [
 
 type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 
-// Status-bar color (PWA / mobile chrome) per resolved theme
-const META_COLOR: Record<'light' | 'dark', string> = { light: '#f0eee9', dark: '#14130f' };
+// Status-bar color (PWA / mobile chrome) per style and resolved theme: the
+// canvas behind the app, so the bar reads as part of the page.
+const META_COLOR: Record<Look, Record<'light' | 'dark', string>> = {
+  papier: { light: '#f0eee9', dark: '#14130f' },
+  verre: { light: '#f2f5f9', dark: '#0d1217' },
+};
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
   if (hour >= 6 && hour < 14) return 'M';
@@ -132,7 +136,7 @@ export default function App() {
 
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
-  const [look, setLook] = useState<Look>(() => (load<string>('wb.look', 'classique') === 'verre' ? 'verre' : 'classique'));
+  const [look, setLook] = useState<Look>(() => (load<string>('wb.look', 'papier') === 'verre' ? 'verre' : 'papier'));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
@@ -210,7 +214,7 @@ export default function App() {
 
     const meta = document.querySelector('meta[name="theme-color"]');
     const apply = () => {
-      if (meta) meta.setAttribute('content', META_COLOR[resolvedTheme(theme)]);
+      if (meta) meta.setAttribute('content', META_COLOR[look][resolvedTheme(theme)]);
     };
     apply();
 
@@ -219,7 +223,7 @@ export default function App() {
       mql.addEventListener?.('change', apply);
       return () => mql.removeEventListener?.('change', apply);
     }
-  }, [theme]);
+  }, [theme, look]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-density', density);

@@ -6265,7 +6265,7 @@ select.ln-input { padding-right: var(--space-2); }
   .print-preview-bar .btn { border-radius: var(--radius-pill); }
 }
 
-/* ---------- Style « Verre 2027 »: frosted cards over the pastel wash ----------
+/* ---------- Style « Verre »: frosted cards over the pastel wash ----------
    Palette in tokens.css. The wash paints the page; the cards below turn to
    frosted glass by swapping their own --paper / --paper-2 for translucent
    versions, so their existing rules (and tints mixed into --paper) follow.
@@ -6326,9 +6326,12 @@ select.ln-input { padding-right: var(--space-2); }
   :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background: transparent; }
   :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
 }
+/* Reduced transparency: plain canvas, opaque cards, no blur. Same selectors
+   as the glass rules above (and later in the file), so they win. The type
+   strip gets a solid band back: without blur, rows would show behind it. */
 @media screen and (prefers-reduced-transparency: reduce) {
-  :root[data-look='verre'] { background: var(--canvas); }
-  :root[data-look='verre'] :is(
+  :root[data-look='verre']:not(.is-print-preview) { background: var(--canvas); }
+  :root[data-look='verre']:not(.is-print-preview) :is(
     .sch-rail, .sch-summary, .sch-hint,
     .evt-list, .evt-filterbar,
     .pt-header, .pt-section, .pt-empty,
@@ -6337,6 +6340,11 @@ select.ln-input { padding-right: var(--space-2); }
   ) {
     --paper: var(--paper-solid);
     --paper-2: var(--paper-2-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root[data-look='verre']:not(.is-print-preview) .type-strip {
+    background: var(--canvas);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
