@@ -6143,7 +6143,7 @@ select.ln-input { padding-right: var(--space-2); }
 
   /* Keep the track clear of rounded corners. */
   .sheet::-webkit-scrollbar-track { margin-block: var(--radius-2xl); }
-  .sch-rail::-webkit-scrollbar-track { margin-block: var(--radius-xl); }
+  .sch-rail::-webkit-scrollbar-track { margin-block: var(--radius-xl); } /* page-height rail on narrow layouts */
   .sch-table::-webkit-scrollbar-track,
   .sv-table::-webkit-scrollbar-track,
   .ln-block::-webkit-scrollbar-track { margin-inline: var(--radius-xl); }
@@ -6157,4 +6157,47 @@ select.ln-input { padding-right: var(--space-2); }
       scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
     }
   }
+}
+
+/* ---------- Lists that scroll under a fixed header ----------
+   The planning rail and the terminés sheet used to scroll as a whole, their
+   header held in place with position: sticky — so the scrollbar ran the full
+   height, beside the header too. Now the header sits outside the scroller and
+   only the list scrolls: the scrollbar starts below the header. */
+@media screen {
+  :root:not(.is-print-preview) .sch-rail {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  :root:not(.is-print-preview) .sch-rail-title { position: static; flex: none; }
+  :root:not(.is-print-preview) .sch-rail-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  :root:not(.is-print-preview) .sheet.sch-done-sheet {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  :root:not(.is-print-preview) .sch-done-head { position: static; flex: none; }
+  /* The list's scrollbar sits in the sheet's side gutter, not over the rows,
+     and stops short of the sheet's rounded bottom corner. */
+  :root:not(.is-print-preview) .sch-done-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-right: calc(var(--sheet-pad-x) * -1);
+    padding-right: var(--sheet-pad-x);
+    /* Room for the rows' focus ring, which the scroller would otherwise clip. */
+    padding-block: 2px;
+  }
+}
+@media screen and (hover: hover) and (pointer: fine) {
+  .sch-rail-list::-webkit-scrollbar-track { margin-bottom: var(--radius-xl); }
+  .sch-done-list::-webkit-scrollbar-track { margin-bottom: var(--space-4); }
 }
