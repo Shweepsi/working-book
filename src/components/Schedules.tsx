@@ -1176,9 +1176,8 @@ export default function Schedules({ density, printMode, recapShowPdp }: Schedule
                         }}
                         title={`Schedule ${s.schedule} — glisser vers la gauche (ou touche Suppr) pour le retirer du planning ; il rejoint les terminés`}
                       >
-                        {/* Accent mark of the selected schedule. A real element,
-                            not ::before, so the schedule switch can slide it
-                            from the old row to the new one (see app.css). */}
+                        {/* Accent mark of the selected schedule; it grows in
+                            when the row becomes the selected one (app.css). */}
                         {selected === s.schedule && <span className="sch-rail-mark" aria-hidden="true" />}
                         <div className="sch-rail-top">
                           <span className="mono sch-rail-num">{s.schedule}</span>
