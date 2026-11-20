@@ -6304,12 +6304,19 @@ select.ln-input { padding-right: var(--space-2); }
     border-radius: var(--radius-xl);
     box-shadow: var(--glass-shadow-outer);
   }
-  /* Logbook's sticky type strip: a near-clear frosted band instead of a
-     pale rectangle sitting on the wash. Still blurs the list scrolling under. */
+  /* Logbook's sticky type strip: clear, blur only. Over the even wash the blur
+     is invisible (no pale rectangle); over the list scrolling under it, it
+     softens the rows behind the chips. */
   :root[data-look='verre']:not(.is-print-preview) .type-strip {
-    background: color-mix(in oklch, var(--canvas) 35%, transparent);
+    background: transparent;
     -webkit-backdrop-filter: blur(20px) saturate(130%);
     backdrop-filter: blur(20px) saturate(130%);
+  }
+  /* Selected schedule: a cream tint of the amber. The generic mix (accent in
+     sRGB toward paper) read as peach on the cool paper. */
+  :root[data-look='verre']:not(.is-print-preview) .sch-rail-item.active {
+    background: var(--sel-bg);
+    border-color: var(--sel-bd);
   }
   /* Suivi's loading state: let the wash show instead of a white page. */
   :root[data-look='verre']:not(.is-print-preview) .gc-loading { background: transparent; }
