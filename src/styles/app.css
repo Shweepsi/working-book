@@ -6366,8 +6366,15 @@ select.ln-input { padding-right: var(--space-2); }
   }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail { background: var(--paper-2); }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background: transparent; border-bottom-color: transparent; }
-  :root[data-look='ceramique']:not(.is-print-preview) .app-header { border-bottom-color: transparent; }
-  :root[data-look='ceramique']:not(.is-print-preview) .tabs { background: var(--paper-2); border-color: transparent; }
+  /* Top app bar: its own tone (container), not the canvas it sits on. The tab
+     strip drops to the canvas tone so it still reads inset. Opaque, no blur. */
+  :root[data-look='ceramique']:not(.is-print-preview) .app-header {
+    background: var(--paper-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-bottom-color: transparent;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .tabs { background: var(--canvas); border-color: transparent; }
   :root[data-look='ceramique']:not(.is-print-preview) .tabs .tab.active { background: var(--tonal); color: var(--on-tonal); font-weight: 600; }
   :root[data-look='ceramique']:not(.is-print-preview) .btn:not(.primary):not(.ghost):not(.accent):not(.danger):not(.destructive) {
     background: var(--tonal);
