@@ -6350,73 +6350,185 @@ select.ln-input { padding-right: var(--space-2); }
   }
 }
 
-/* ---------- Style « Céramique »: tonal surfaces, no outlines ----------
-   Palette in tokens.css. Cards lose their outline (depth comes from tone);
-   the active tab, the selected schedule and secondary buttons take the tonal
-   fill. Tables keep their row dividers. */
+/* ---------- Style « Céramique »: Material Design 3 ----------
+   Colours and type in tokens.css; the ripple in lib/ripple.ts. Standard M3
+   (not « Expressive »): surfaces without outlines, depth from tone, selected
+   things on the tonal fill, state layers on everything pressable.
+   Backgrounds are set with background-color, never the shorthand: the
+   shorthand would also clear the state layer's background-image. A few
+   selectors repeat a class: the pill rule above carries (0,7,0) through its
+   :is() list, and these have to outrank it. */
 @media screen {
+  /* Shapes, M3 scale: extra-small 4 (menus, snackbar), small 8 (fields,
+     chips), medium 12 (cards), extra-large 28 (dialogs, bottom sheets), full
+     (buttons, tabs, segmented buttons, the selected row). Circular corners:
+     M3 has no squircle. */
+  :root[data-look='ceramique']:not(.is-print-preview) {
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 12px;
+    --radius-2xl: 28px;
+    --radius-3xl: 28px;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) * { corner-shape: round; }
+  :root[data-look='ceramique']:not(.is-print-preview) :is(.popover, .toast) { border-radius: var(--radius-sm); }
+  :root[data-look='ceramique']:not(.is-print-preview) .shift-switch .shift-chip.shift-chip.shift-chip.shift-chip { border-radius: 8px; }
+  :root[data-look='ceramique']:not(.is-print-preview) :is(.sch-rail-item, .sch-swipe, .sch-swipe-surface) { border-radius: var(--radius-pill); }
+
+  /* No outlines: tone separates the page (surface) from what sits on it
+     (surface-container). Tables keep their row dividers. */
   :root[data-look='ceramique']:not(.is-print-preview) :is(
     .sch-rail, .sch-summary, .sch-hint, .sch-detail-head, .sch-table,
     .evt-list, .evt-filterbar,
     .pt-header, .pt-section, .pt-empty,
     .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty, .sv-toolbar, .sv-table,
-    .ln-block, .ln-newcolour, .popover, .sheet
+    .ln-block, .ln-newcolour, .popover, .sheet, .toast
   ) {
     border-color: transparent;
   }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail { background: var(--paper-2); }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background: transparent; border-bottom-color: transparent; }
-  /* Top app bar: its own tone (container), not the canvas it sits on. The tab
-     strip drops to the canvas tone so it still reads inset. Opaque, no blur. */
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background-color: transparent; border-bottom-color: transparent; }
+
+  /* Top app bar (scrolled state): surface-container, opaque. */
   :root[data-look='ceramique']:not(.is-print-preview) .app-header {
-    background: var(--paper-2);
+    background-color: var(--paper);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     border-bottom-color: transparent;
   }
-  :root[data-look='ceramique']:not(.is-print-preview) .tabs { background: var(--canvas); border-color: transparent; }
-  :root[data-look='ceramique']:not(.is-print-preview) .tabs .tab.active { background: var(--tonal); color: var(--on-tonal); font-weight: 600; }
-  :root[data-look='ceramique']:not(.is-print-preview) .btn:not(.primary):not(.ghost):not(.accent):not(.danger):not(.destructive) {
-    background: var(--tonal);
-    border-color: transparent;
-    color: var(--on-tonal);
-  }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active {
-    background: var(--tonal);
-    border-color: transparent;
-    color: var(--on-tonal);
-  }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-root,
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-meta { color: color-mix(in oklab, var(--on-tonal) 78%, transparent); }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-mark { display: none; }
-}
-@media screen {
-  /* Primary actions take the source colour (filled button), not ink. */
+  /* Navigation: no track, a pill indicator on the active destination. */
+  :root[data-look='ceramique']:not(.is-print-preview) .tabs { background-color: transparent; border-color: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .tabs .tab { font-weight: 500; }
+  :root[data-look='ceramique']:not(.is-print-preview) .tabs .tab.active { background-color: var(--tonal); color: var(--on-tonal); font-weight: 600; }
+
+  /* Buttons: filled (primary), filled tonal (the others), text (ghost, in the
+     primary colour), standard icon buttons (on-surface-variant). */
+  :root[data-look='ceramique']:not(.is-print-preview) .btn { font-weight: 500; }
   :root[data-look='ceramique']:not(.is-print-preview) .btn.primary {
-    background: var(--accent);
+    background-color: var(--accent);
     border-color: var(--accent);
     color: var(--accent-ink);
   }
-  /* The active shift is a selected filter chip: tonal, like the active tab. */
+  :root[data-look='ceramique']:not(.is-print-preview) .btn:not(.primary):not(.ghost):not(.accent):not(.danger):not(.destructive) {
+    background-color: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .btn.ghost:not(.icon) { color: var(--accent); }
+  :root[data-look='ceramique']:not(.is-print-preview) .btn.ghost.icon { color: var(--ink-soft); }
+
+  /* Filter chips (the shifts): outlined, tonal once selected. */
   :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active {
-    background: var(--tonal);
+    background-color: var(--tonal);
     border-color: transparent;
     color: var(--on-tonal);
   }
   :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active .shift-poste {
-    background: var(--on-tonal);
+    background-color: var(--on-tonal);
     color: var(--tonal);
   }
   /* The base active chip is ink with paper-coloured details; on the pale
      tonal fill those paper details (live dot, night edge) vanish. */
   :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active .live-dot {
-    background: var(--on-tonal);
+    background-color: var(--on-tonal);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--on-tonal) 22%, transparent);
   }
   :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active.shift-N { box-shadow: inset 3px 0 0 var(--on-tonal); }
-  /* Planning rows read as one flat list on the tonal rail, not stacked cards:
-     the swipe surface is clear at rest (the « Terminés » action is hidden too)
-     and solid only while a row is dragged. */
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background: transparent; }
+
+  /* Segmented buttons: outlined, segments split by the outline, the selected
+     one tonal with a check mark in place of its icon. */
+  :root[data-look='ceramique']:not(.is-print-preview) .seg {
+    background-color: transparent;
+    border-color: var(--ink-faint);
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .seg.seg.seg.seg button {
+    border-radius: 0;
+    min-height: 36px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .seg button + button { border-left: 1px solid var(--ink-faint); }
+  :root[data-look='ceramique']:not(.is-print-preview) .seg button.active {
+    background-color: var(--tonal);
+    color: var(--on-tonal);
+    box-shadow: none;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .seg button.active .glyph { display: none; }
+  :root[data-look='ceramique']:not(.is-print-preview) .seg button.active::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+    vertical-align: -2px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .ln-seg { background-color: transparent; border-color: var(--ink-faint); }
+  :root[data-look='ceramique']:not(.is-print-preview) .ln-seg button + button { border-left-color: var(--ink-faint); }
+  :root[data-look='ceramique']:not(.is-print-preview) .ln-seg button.active { background-color: var(--tonal); color: var(--on-tonal); }
+
+  /* Planning: a navigation-drawer list. The selected schedule is the pill
+     indicator (no accent mark); rows are clear at rest, so the « Terminés »
+     action behind the swipe surface stays hidden until a row is dragged. */
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active {
+    background-color: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item:not(.active):hover { background-color: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-root,
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-meta { color: color-mix(in oklab, var(--on-tonal) 78%, transparent); }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-mark { display: none; }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background-color: transparent; }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
+
+  /* Labels in sentence case: M3 type has no spaced capitals. */
+  :root[data-look='ceramique']:not(.is-print-preview) :is(
+    .sv-field-label, .pt-header label, .evt-head, .evt-other-title, .popover h4,
+    .sch-rail-title, .sch-stat-tile-label, .sch-row.sch-head, .sch-group-label,
+    .sch-pms-row-bar, .sb h4, .sv-row.sv-head, .sv-sheet-section-title,
+    .sync-chip, .sch-recap-stat-label, .ln-head, .ln-f-label
+  ) {
+    text-transform: none;
+    letter-spacing: 0.1px;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+  }
+
+  /* State layers: an overlay of the content colour, 8 % on hover, 10 % on
+     focus and press (the ripple adds its own on top while pressed). */
+  :root[data-look='ceramique']:not(.is-print-preview) :is(
+    .btn, .tabs .tab, .shift-chip, .sch-rail-item, .seg button, .ln-seg button, .hdr-item
+  ):hover:not(:disabled) {
+    background-image: linear-gradient(color-mix(in srgb, currentColor 8%, transparent), color-mix(in srgb, currentColor 8%, transparent));
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) :is(
+    .btn, .tabs .tab, .shift-chip, .sch-rail-item, .seg button, .ln-seg button, .hdr-item
+  ):is(:focus-visible, :active):not(:disabled) {
+    background-image: linear-gradient(color-mix(in srgb, currentColor 10%, transparent), color-mix(in srgb, currentColor 10%, transparent));
+  }
 }
+
+/* Ripple (lib/ripple.ts): a fixed layer over the pressed control, clipped to
+   its box and corners, so the control itself is never restyled. */
+.m3-ripple {
+  position: fixed;
+  z-index: 2147483000;
+  pointer-events: none;
+  overflow: hidden;
+  transition: opacity 260ms linear;
+}
+.m3-ripple > span {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.12;
+  transform: scale(0);
+  animation: m3-ripple-grow 380ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+.m3-ripple.is-out { opacity: 0; }
+@keyframes m3-ripple-grow { to { transform: scale(1); } }
+@media print { .m3-ripple { display: none; } }

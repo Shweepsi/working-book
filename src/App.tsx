@@ -12,6 +12,7 @@ import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { prefetchGridcraft } from './lib/sharedGrid';
+import { installRipple } from './lib/ripple';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
@@ -74,7 +75,7 @@ type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 const META_COLOR: Record<Look, Record<'light' | 'dark', string>> = {
   papier: { light: '#f0eee9', dark: '#14130f' },
   verre: { light: '#f2f5f9', dark: '#0d1217' },
-  ceramique: { light: '#e2e5e9', dark: '#252729' },
+  ceramique: { light: '#ededf4', dark: '#1d2024' }, // M3 surface-container (the top bar)
 };
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
@@ -241,6 +242,8 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-look', look);
     save('wb.look', look);
+    // Material ripple: Céramique only.
+    return look === 'ceramique' ? installRipple() : undefined;
   }, [look]);
 
   // Toggle a screen-only class that mirrors the print stylesheet, so the
