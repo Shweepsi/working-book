@@ -135,7 +135,7 @@ export default function App() {
     return liveDateAndShift().shiftKey;
   });
 
-  const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
+  const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'light'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
   const [look, setLook] = useState<Look>(() => {
     const v = load<string>('wb.look', 'papier');
