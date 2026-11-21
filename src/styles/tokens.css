@@ -327,7 +327,9 @@
 @media screen {
   :root[data-look='ceramique']:not(.is-print-preview) {
     --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* No monospace in M3: figures come from Roboto itself, tabular (app.css),
+       so columns of numbers still line up. */
+    --font-mono: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
     --ink: #191c20;            /* on-surface */
     --ink-soft: #44474e;       /* on-surface-variant */

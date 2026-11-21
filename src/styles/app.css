@@ -6371,6 +6371,7 @@ select.ln-input { padding-right: var(--space-2); }
     --radius-3xl: 28px;
   }
   :root[data-look='ceramique']:not(.is-print-preview) * { corner-shape: round; }
+  :root[data-look='ceramique']:not(.is-print-preview) body { font-variant-numeric: tabular-nums; }
   :root[data-look='ceramique']:not(.is-print-preview) :is(.popover, .toast) { border-radius: var(--radius-sm); }
   :root[data-look='ceramique']:not(.is-print-preview) .shift-switch .shift-chip.shift-chip.shift-chip.shift-chip { border-radius: 8px; }
   :root[data-look='ceramique']:not(.is-print-preview) :is(.sch-rail-item, .sch-swipe, .sch-swipe-surface) { border-radius: var(--radius-pill); }
@@ -6413,7 +6414,7 @@ select.ln-input { padding-right: var(--space-2); }
     border-color: transparent;
     color: var(--on-tonal);
   }
-  :root[data-look='ceramique']:not(.is-print-preview) .btn.ghost:not(.icon) { color: var(--accent); }
+  :root[data-look='ceramique']:not(.is-print-preview) .btn.ghost:not(.icon):not(:disabled) { color: var(--accent); }
   :root[data-look='ceramique']:not(.is-print-preview) .btn.ghost.icon { color: var(--ink-soft); }
 
   /* Filter chips (the shifts): outlined, tonal once selected. */
@@ -6444,8 +6445,13 @@ select.ln-input { padding-right: var(--space-2); }
     overflow: hidden;
   }
   :root[data-look='ceramique']:not(.is-print-preview) .seg.seg.seg.seg button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
     border-radius: 0;
     min-height: 36px;
+    padding-inline: var(--space-3);
     color: var(--ink);
     font-weight: 500;
   }
@@ -6461,8 +6467,8 @@ select.ln-input { padding-right: var(--space-2); }
     display: inline-block;
     width: 14px;
     height: 14px;
-    margin-right: 6px;
-    vertical-align: -2px;
+    flex: none;
+    margin-right: 4px;
     background-color: currentColor;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E") center / contain no-repeat;
