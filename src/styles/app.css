@@ -6383,3 +6383,26 @@ select.ln-input { padding-right: var(--space-2); }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-meta { color: color-mix(in oklab, var(--on-tonal) 78%, transparent); }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-mark { display: none; }
 }
+@media screen {
+  /* Primary actions take the source colour (filled button), not ink. */
+  :root[data-look='ceramique']:not(.is-print-preview) .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  /* The active shift is a selected filter chip: tonal, like the active tab. */
+  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active {
+    background: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active .shift-poste {
+    background: var(--on-tonal);
+    color: var(--tonal);
+  }
+  /* Planning rows read as one flat list on the tonal rail, not stacked cards:
+     the swipe surface is clear at rest (the « Terminés » action is hidden too)
+     and solid only while a row is dragged. */
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
+}
