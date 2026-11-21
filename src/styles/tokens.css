@@ -322,7 +322,7 @@
    table heads and pressed rows `surface-container-high`. Selected things take
    `secondary-container` (--tonal), the main action `primary` (--accent).
    No blur, no transparency: as light as Papier. Highlighters keep their
-   meaning. State layers: app.css. Shapes and type stay the app's own.
+   meaning. Shapes, type and controls stay the app's own (app.css).
    Screen only, like Verre: print keeps Papier. */
 @media screen {
   :root[data-look='ceramique']:not(.is-print-preview) {
