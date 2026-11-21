@@ -315,104 +315,105 @@
 
 /* ---------- Style « Céramique » (Réglages → Style) ----------
    Set by data-look="ceramique". Material 3 / Android: every surface is a
-   solid tone of one source colour (here the Pixel blue, hue 258), no
+   solid tone of one source colour (here the Pixel blue, hue 258, kept
+   low in chroma so the surfaces read as tinted greys), no
    outlines, depth from tone (canvas → cards → containers). Tonal fills
    (--tonal / --on-tonal) mark the active tab, the selected schedule and
    secondary buttons (app.css). No blur, no transparency: as light as Papier.
    Highlighters keep their meaning. Screen only, like Verre. */
 @media screen {
   :root[data-look='ceramique']:not(.is-print-preview) {
-    --ink: oklch(24% 0.022 258);
-    --ink-soft: oklch(43% 0.022 258);
-    --ink-faint: oklch(60% 0.02 258);
-    --line: oklch(26% 0.022 258);
-    --line-soft: oklch(80% 0.022 258);
-    --line-faint: oklch(89% 0.0165 258);
+    --ink: oklch(24% 0.0132 258);
+    --ink-soft: oklch(43% 0.0132 258);
+    --ink-faint: oklch(60% 0.012 258);
+    --line: oklch(26% 0.0132 258);
+    --line-soft: oklch(80% 0.0132 258);
+    --line-faint: oklch(89% 0.0099 258);
 
-    --paper: oklch(99.4% 0.0044 258);
-    --paper-2: oklch(94.3% 0.0187 258);
-    --canvas: oklch(96.8% 0.0132 258);
-    --paper-glass: oklch(96.8% 0.0132 258 / 0.9);
-    --paper-glass-2: oklch(97.5% 0.01 258 / 0.94);
+    --paper: oklch(99.4% 0.0026 258);
+    --paper-2: oklch(94.3% 0.0112 258);
+    --canvas: oklch(96.8% 0.0079 258);
+    --paper-glass: oklch(96.8% 0.0079 258 / 0.9);
+    --paper-glass-2: oklch(97.5% 0.006 258 / 0.94);
 
     --hl-yellow: oklch(93% 0.07 95);
     --hl-red: oklch(90.5% 0.05 25);
     --hl-green: oklch(91.5% 0.055 150);
     --hl-blue: oklch(91.5% 0.04 235);
 
-    --accent: oklch(50% 0.085 258);
+    --accent: oklch(50% 0.0638 258);
     --accent-ink: oklch(99% 0 0);
-    --tonal: oklch(90% 0.045 258);
-    --on-tonal: oklch(27% 0.05 258);
+    --tonal: oklch(90% 0.0338 258);
+    --on-tonal: oklch(27% 0.0375 258);
 
-    --shadow-sheet: 0 12px 40px oklch(30% 0.04 258 / 0.16);
-    --shadow-popover: 0 10px 28px oklch(30% 0.04 258 / 0.16);
-    --backdrop: oklch(25% 0.03 258 / 0.3);
-    --focus-ring: oklch(50% 0.085 258 / 0.12);
+    --shadow-sheet: 0 12px 40px oklch(30% 0.024 258 / 0.16);
+    --shadow-popover: 0 10px 28px oklch(30% 0.024 258 / 0.16);
+    --backdrop: oklch(25% 0.018 258 / 0.3);
+    --focus-ring: oklch(50% 0.0638 258 / 0.12);
   }
 }
 @media screen and (prefers-color-scheme: dark) {
   :root[data-look='ceramique']:not(.is-print-preview):not([data-theme='light']) {
     color-scheme: dark;
-    --ink: oklch(93% 0.013 258);
-    --ink-soft: oklch(78% 0.0165 258);
-    --ink-faint: oklch(60% 0.0165 258);
-    --line: oklch(93% 0.013 258);
-    --line-soft: oklch(40% 0.02 258);
-    --line-faint: oklch(31% 0.0165 258);
+    --ink: oklch(93% 0.0078 258);
+    --ink-soft: oklch(78% 0.0099 258);
+    --ink-faint: oklch(60% 0.0099 258);
+    --line: oklch(93% 0.0078 258);
+    --line-soft: oklch(40% 0.012 258);
+    --line-faint: oklch(31% 0.0099 258);
 
-    --paper: oklch(20.5% 0.0154 258);
-    --paper-2: oklch(25% 0.0187 258);
-    --canvas: oklch(16.5% 0.0132 258);
-    --paper-glass: oklch(16.5% 0.0132 258 / 0.9);
-    --paper-glass-2: oklch(19% 0.014 258 / 0.94);
+    --paper: oklch(20.5% 0.0092 258);
+    --paper-2: oklch(25% 0.0112 258);
+    --canvas: oklch(16.5% 0.0079 258);
+    --paper-glass: oklch(16.5% 0.0079 258 / 0.9);
+    --paper-glass-2: oklch(19% 0.0084 258 / 0.94);
 
     --hl-yellow: oklch(38% 0.06 95);
     --hl-red: oklch(36% 0.065 25);
     --hl-green: oklch(37% 0.06 150);
     --hl-blue: oklch(36% 0.055 235);
 
-    --accent: oklch(78% 0.085 258);
-    --accent-ink: oklch(22% 0.04 258);
-    --tonal: oklch(33% 0.05 258);
-    --on-tonal: oklch(89% 0.05 258);
+    --accent: oklch(78% 0.0638 258);
+    --accent-ink: oklch(22% 0.03 258);
+    --tonal: oklch(33% 0.0375 258);
+    --on-tonal: oklch(89% 0.0375 258);
 
     --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
     --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
-    --backdrop: oklch(5% 0.01 258 / 0.5);
-    --focus-ring: oklch(78% 0.085 258 / 0.14);
+    --backdrop: oklch(5% 0.006 258 / 0.5);
+    --focus-ring: oklch(78% 0.0638 258 / 0.14);
   }
 }
 @media screen {
   :root[data-look='ceramique'][data-theme='dark']:not(.is-print-preview) {
     color-scheme: dark;
-    --ink: oklch(93% 0.013 258);
-    --ink-soft: oklch(78% 0.0165 258);
-    --ink-faint: oklch(60% 0.0165 258);
-    --line: oklch(93% 0.013 258);
-    --line-soft: oklch(40% 0.02 258);
-    --line-faint: oklch(31% 0.0165 258);
+    --ink: oklch(93% 0.0078 258);
+    --ink-soft: oklch(78% 0.0099 258);
+    --ink-faint: oklch(60% 0.0099 258);
+    --line: oklch(93% 0.0078 258);
+    --line-soft: oklch(40% 0.012 258);
+    --line-faint: oklch(31% 0.0099 258);
 
-    --paper: oklch(20.5% 0.0154 258);
-    --paper-2: oklch(25% 0.0187 258);
-    --canvas: oklch(16.5% 0.0132 258);
-    --paper-glass: oklch(16.5% 0.0132 258 / 0.9);
-    --paper-glass-2: oklch(19% 0.014 258 / 0.94);
+    --paper: oklch(20.5% 0.0092 258);
+    --paper-2: oklch(25% 0.0112 258);
+    --canvas: oklch(16.5% 0.0079 258);
+    --paper-glass: oklch(16.5% 0.0079 258 / 0.9);
+    --paper-glass-2: oklch(19% 0.0084 258 / 0.94);
 
     --hl-yellow: oklch(38% 0.06 95);
     --hl-red: oklch(36% 0.065 25);
     --hl-green: oklch(37% 0.06 150);
     --hl-blue: oklch(36% 0.055 235);
 
-    --accent: oklch(78% 0.085 258);
-    --accent-ink: oklch(22% 0.04 258);
-    --tonal: oklch(33% 0.05 258);
-    --on-tonal: oklch(89% 0.05 258);
+    --accent: oklch(78% 0.0638 258);
+    --accent-ink: oklch(22% 0.03 258);
+    --tonal: oklch(33% 0.0375 258);
+    --on-tonal: oklch(89% 0.0375 258);
 
     --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
     --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
-    --backdrop: oklch(5% 0.01 258 / 0.5);
-    --focus-ring: oklch(78% 0.085 258 / 0.14);
+    --backdrop: oklch(5% 0.006 258 / 0.5);
+    --focus-ring: oklch(78% 0.0638 258 / 0.14);
   }
 }
 
