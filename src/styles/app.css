@@ -6372,6 +6372,9 @@ select.ln-input { padding-right: var(--space-2); }
   }
   :root[data-look='ceramique']:not(.is-print-preview) * { corner-shape: round; }
   :root[data-look='ceramique']:not(.is-print-preview) body { font-variant-numeric: tabular-nums; }
+  /* Roboto's capitals run wider than Geist's: « MTO » no longer fit its 56px
+     column and was cut to an ellipsis. Tighter tracking and padding. */
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-mto { letter-spacing: 0.1px; min-width: 0; padding-inline: 6px; }
   :root[data-look='ceramique']:not(.is-print-preview) :is(.popover, .toast) { border-radius: var(--radius-sm); }
   :root[data-look='ceramique']:not(.is-print-preview) .shift-switch .shift-chip.shift-chip.shift-chip.shift-chip { border-radius: 8px; }
   :root[data-look='ceramique']:not(.is-print-preview) :is(.sch-rail-item, .sch-swipe, .sch-swipe-surface) { border-radius: var(--radius-pill); }
