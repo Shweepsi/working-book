@@ -6367,6 +6367,8 @@ select.ln-input { padding-right: var(--space-2); }
     border-color: transparent;
   }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background: transparent; border-bottom-color: transparent; }
+  /* The summary bar is a card like the others: same level (base: --paper-2). */
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-summary { background: var(--paper); }
   /* Top app bar: surface-container, like the cards, opaque. */
   :root[data-look='ceramique']:not(.is-print-preview) .app-header {
     background: var(--paper);

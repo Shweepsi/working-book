@@ -335,7 +335,9 @@
 
     --canvas: #f9f9ff;         /* surface */
     --paper: #ededf4;          /* surface-container */
-    --paper-2: #e7e8ee;        /* surface-container-high */
+    /* surface-container-highest: -high (#e7e8ee) sat too close to the cards
+       to read as a step (contrast 1.05 against 1.14 in dark). */
+    --paper-2: #e2e2e9;        /* surface-container-highest */
     --paper-glass: #f9f9ff;    /* sticky strips over the page: surface */
     --paper-glass-2: #ededf4;  /* phone bottom bar: surface-container */
 
