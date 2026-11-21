@@ -182,8 +182,9 @@
    highlighters. Colours are oklch so each tint keeps the same perceived
    lightness in both themes. Screen only: the print preview and paper keep
    the classic palette. The accent is a golden amber (hue 74): lighter tints
-   of it read as cream, not peach. --paper stays opaque (tables, sticky headers and
-   swipe rows sit on it); the frosted look is applied per card in app.css. */
+   of it read as cream, not peach. --paper is opaque here; app.css turns it
+   translucent on the cards only (--paper-solid gives it back to their
+   children: tables, sticky headers and swipe rows sit on it). */
 @media screen {
   :root[data-look='verre']:not(.is-print-preview) {
     --ink: oklch(29% 0.035 268);
@@ -384,9 +385,7 @@
     --tonal: #3e4759;
     --on-tonal: #dae2f9;
 
-    --shadow-popover: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
-    --shadow-sheet: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
-    --backdrop: rgb(0 0 0 / 0.32);
+    /* Shadows and scrim: same as light (M3 uses black in both). */
     --focus-ring: rgb(170 199 255 / 0.16);
   }
 }
@@ -416,9 +415,7 @@
     --tonal: #3e4759;
     --on-tonal: #dae2f9;
 
-    --shadow-popover: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
-    --shadow-sheet: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
-    --backdrop: rgb(0 0 0 / 0.32);
+    /* Shadows and scrim: same as light (M3 uses black in both). */
     --focus-ring: rgb(170 199 255 / 0.16);
   }
 }

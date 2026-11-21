@@ -29,7 +29,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Look, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
+import { isLook, type Density, type Look, type Poste, type SchedPrintMode, type ShiftKey, type ShiftMeta, type Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
@@ -139,7 +139,7 @@ export default function App() {
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
   const [look, setLook] = useState<Look>(() => {
     const v = load<string>('wb.look', 'papier');
-    return v === 'verre' || v === 'ceramique' ? v : 'papier';
+    return isLook(v) ? v : 'papier';
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -210,12 +210,13 @@ export default function App() {
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
-  // Apply theme + density to <html> and sync the PWA theme-color meta
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
     save('wb.theme', theme);
+  }, [theme]);
 
+  // Sync the PWA theme-color meta with the resolved theme and style.
+  useEffect(() => {
     // index.html ships one tag per OS scheme (media queries). The app decides the
     // theme itself, so both get the resolved colour: otherwise the dark-OS tag
     // kept its static value whatever the theme or style.

@@ -2579,8 +2579,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--flag-ok-fg);
   font-size: var(--fs-sm);
   font-weight: 600;
-  transition: background 120ms ease, color 120ms ease;
+  /* visibility waits out the snap-back (180 ms): styles that hide the strip
+     at rest (Verre, Céramique) keep it covered until the row is home. */
+  transition: background 120ms ease, color 120ms ease, visibility 0s 180ms;
 }
+.sch-swipe.is-dragging .sch-swipe-action { transition: background 120ms ease, color 120ms ease; }
 /* Past the release threshold the strip goes solid: the card tells the operator
    the gesture is armed before they lift their finger. */
 .sch-swipe.is-armed .sch-swipe-action {
@@ -2593,7 +2596,9 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   position: relative;
   background: var(--paper);
   border-radius: var(--radius-md);
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* Same wait for the background: a surface cleared at rest stays solid
+     while it slides back over the strip. */
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1), background-color 0s 180ms;
 }
 .sch-swipe.is-dragging .sch-swipe-surface { transition: none; }
 
@@ -6294,7 +6299,7 @@ select.ln-input { padding-right: var(--space-2); }
     .pt-header, .pt-section, .pt-empty,
     .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
     .ln-block, .ln-newcolour
-  ) * {
+  ) > * {
     --paper: var(--paper-solid);
     --paper-2: var(--paper-2-solid);
   }
@@ -6323,8 +6328,6 @@ select.ln-input { padding-right: var(--space-2); }
   /* Planning rows: the swipe surface is solid paper so the « Terminés »
      action behind it stays hidden. At rest it can be clear (the action is
      hidden too), so the rows read as part of the glass rail. */
-  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-surface { background: transparent; }
-  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-action { visibility: hidden; }
 }
 /* Reduced transparency: plain canvas, opaque cards, no blur. Same selectors
    as the glass rules above (and later in the file), so they win. The type
@@ -6402,6 +6405,6 @@ select.ln-input { padding-right: var(--space-2); }
   /* Planning rows read as one flat list on the rail, not stacked cards: the
      swipe surface is clear at rest (the « Terminés » action is hidden too)
      and solid only while a row is dragged. */
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-surface { background: transparent; }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-action { visibility: hidden; }
+  :root:is([data-look='verre'], [data-look='ceramique']):not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background-color: transparent; }
+  :root:is([data-look='verre'], [data-look='ceramique']):not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
 }
