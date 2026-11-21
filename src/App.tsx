@@ -74,7 +74,7 @@ type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 const META_COLOR: Record<Look, Record<'light' | 'dark', string>> = {
   papier: { light: '#f0eee9', dark: '#14130f' },
   verre: { light: '#f2f5f9', dark: '#0d1217' },
-  ceramique: { light: '#e8edf4', dark: '#1e2227' },
+  ceramique: { light: '#dbe5f5', dark: '#1d2430' },
 };
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
