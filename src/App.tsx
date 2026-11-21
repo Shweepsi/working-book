@@ -74,6 +74,7 @@ type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 const META_COLOR: Record<Look, Record<'light' | 'dark', string>> = {
   papier: { light: '#f0eee9', dark: '#14130f' },
   verre: { light: '#f2f5f9', dark: '#0d1217' },
+  ceramique: { light: '#eff3f9', dark: '#0c1016' },
 };
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
@@ -136,7 +137,10 @@ export default function App() {
 
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
-  const [look, setLook] = useState<Look>(() => (load<string>('wb.look', 'papier') === 'verre' ? 'verre' : 'papier'));
+  const [look, setLook] = useState<Look>(() => {
+    const v = load<string>('wb.look', 'papier');
+    return v === 'verre' || v === 'ceramique' ? v : 'papier';
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);

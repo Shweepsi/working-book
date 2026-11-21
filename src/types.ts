@@ -60,8 +60,9 @@ export type Theme = 'auto' | 'light' | 'dark';
 
 export type Density = 'compact' | 'normal' | 'advanced';
 
-/** Visual style: the original paper look, or the frosted pastel one. */
-export type Look = 'papier' | 'verre';
+/** Visual style: the original paper look, the frosted pastel one, or the
+ *  solid tonal one (Material 3 / Android, Pixel blue source colour). */
+export type Look = 'papier' | 'verre' | 'ceramique';
 
 // The two paper layouts the Schedule view offers. `detail` is the landscape
 // planning table; `recap` is the portrait plate-preparation sheet, grouped by

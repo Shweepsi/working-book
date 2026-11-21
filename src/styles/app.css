@@ -6349,3 +6349,37 @@ select.ln-input { padding-right: var(--space-2); }
     backdrop-filter: none;
   }
 }
+
+/* ---------- Style « Céramique »: tonal surfaces, no outlines ----------
+   Palette in tokens.css. Cards lose their outline (depth comes from tone);
+   the active tab, the selected schedule and secondary buttons take the tonal
+   fill. Tables keep their row dividers. */
+@media screen {
+  :root[data-look='ceramique']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint, .sch-detail-head, .sch-table,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty, .sv-toolbar, .sv-table,
+    .ln-block, .ln-newcolour, .popover, .sheet
+  ) {
+    border-color: transparent;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail { background: var(--paper-2); }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background: transparent; border-bottom-color: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .app-header { border-bottom-color: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .tabs { background: var(--paper-2); border-color: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .tabs .tab.active { background: var(--tonal); color: var(--on-tonal); font-weight: 600; }
+  :root[data-look='ceramique']:not(.is-print-preview) .btn:not(.primary):not(.ghost):not(.accent):not(.danger):not(.destructive) {
+    background: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active {
+    background: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-root,
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-meta { color: color-mix(in oklab, var(--on-tonal) 78%, transparent); }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-mark { display: none; }
+}

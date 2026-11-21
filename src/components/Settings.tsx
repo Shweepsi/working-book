@@ -25,6 +25,7 @@ const DENSITIES = [
 const LOOKS = [
   { key: 'papier', label: 'Papier' },
   { key: 'verre', label: 'Verre' },
+  { key: 'ceramique', label: 'Céramique' },
 ] as const satisfies readonly { key: Look; label: string }[];
 
 export interface SettingsPanelProps {
@@ -110,8 +111,13 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
             </button>
           ))}
         </div>
-        {look === 'verre' && (
-          <div className="popover-help">Fond pastel et cartes en verre dépoli. À l’écran seulement : l’impression ne change pas.</div>
+        {look !== 'papier' && (
+          <div className="popover-help">
+            {look === 'verre'
+              ? 'Fond pastel et cartes en verre dépoli.'
+              : 'Surfaces pleines teintées de bleu, sans contour, à la manière d’Android.'}
+            {' '}À l’écran seulement : l’impression ne change pas.
+          </div>
         )}
       </div>
       <div>
