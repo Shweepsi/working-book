@@ -216,9 +216,13 @@ export default function App() {
     root.setAttribute('data-theme', theme);
     save('wb.theme', theme);
 
-    const meta = document.querySelector('meta[name="theme-color"]');
+    // index.html ships one tag per OS scheme (media queries). The app decides the
+    // theme itself, so both get the resolved colour: otherwise the dark-OS tag
+    // kept its static value whatever the theme or style.
+    const metas = document.querySelectorAll('meta[name="theme-color"]');
     const apply = () => {
-      if (meta) meta.setAttribute('content', META_COLOR[look][resolvedTheme(theme)]);
+      const color = META_COLOR[look][resolvedTheme(theme)];
+      metas.forEach((m) => m.setAttribute('content', color));
     };
     apply();
 

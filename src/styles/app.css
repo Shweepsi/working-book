@@ -6400,6 +6400,13 @@ select.ln-input { padding-right: var(--space-2); }
     background: var(--on-tonal);
     color: var(--tonal);
   }
+  /* The base active chip is ink with paper-coloured details; on the pale
+     tonal fill those paper details (live dot, night edge) vanish. */
+  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active .live-dot {
+    background: var(--on-tonal);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--on-tonal) 22%, transparent);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active.shift-N { box-shadow: inset 3px 0 0 var(--on-tonal); }
   /* Planning rows read as one flat list on the tonal rail, not stacked cards:
      the swipe surface is clear at rest (the « Terminés » action is hidden too)
      and solid only while a row is dragged. */
