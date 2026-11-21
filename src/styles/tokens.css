@@ -322,15 +322,10 @@
    table heads and pressed rows `surface-container-high`. Selected things take
    `secondary-container` (--tonal), the main action `primary` (--accent).
    No blur, no transparency: as light as Papier. Highlighters keep their
-   meaning. Shapes, type (Roboto), state layers and the ripple: app.css and
-   lib/ripple.ts. Screen only, like Verre: print keeps Papier. */
+   meaning. State layers: app.css. Shapes and type stay the app's own.
+   Screen only, like Verre: print keeps Papier. */
 @media screen {
   :root[data-look='ceramique']:not(.is-print-preview) {
-    --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    /* No monospace in M3: figures come from Roboto itself, tabular (app.css),
-       so columns of numbers still line up. */
-    --font-mono: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
-
     --ink: #191c20;            /* on-surface */
     --ink-soft: #44474e;       /* on-surface-variant */
     --ink-faint: #74777f;      /* outline */

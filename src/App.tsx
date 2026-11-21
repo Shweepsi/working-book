@@ -12,7 +12,6 @@ import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { prefetchGridcraft } from './lib/sharedGrid';
-import { installRipple } from './lib/ripple';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
@@ -242,8 +241,6 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-look', look);
     save('wb.look', look);
-    // Material ripple: Céramique only.
-    return look === 'ceramique' ? installRipple() : undefined;
   }, [look]);
 
   // Toggle a screen-only class that mirrors the print stylesheet, so the

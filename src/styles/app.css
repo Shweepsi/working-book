@@ -6351,34 +6351,15 @@ select.ln-input { padding-right: var(--space-2); }
 }
 
 /* ---------- Style « Céramique »: Material Design 3 ----------
-   Colours and type in tokens.css; the ripple in lib/ripple.ts. Standard M3
-   (not « Expressive »): surfaces without outlines, depth from tone, selected
-   things on the tonal fill, state layers on everything pressable.
+   Colours in tokens.css. Standard M3 (not « Expressive ») for colour and
+   surfaces: no outlines, depth from tone, selected things on the tonal fill,
+   state layers on everything pressable. Shapes, type and motion stay the
+   app's own (same corners, Geist, no ripple).
    Backgrounds are set with background-color, never the shorthand: the
-   shorthand would also clear the state layer's background-image. A few
-   selectors repeat a class: the pill rule above carries (0,7,0) through its
-   :is() list, and these have to outrank it. */
+   shorthand would also clear the state layer's background-image. The
+   segmented buttons repeat a class: the pill rule above carries (0,7,0)
+   through its :is() list, and their square segments have to outrank it. */
 @media screen {
-  /* Shapes, M3 scale: extra-small 4 (menus, snackbar), small 8 (fields,
-     chips), medium 12 (cards), extra-large 28 (dialogs, bottom sheets), full
-     (buttons, tabs, segmented buttons, the selected row). Circular corners:
-     M3 has no squircle. */
-  :root[data-look='ceramique']:not(.is-print-preview) {
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 12px;
-    --radius-2xl: 28px;
-    --radius-3xl: 28px;
-  }
-  :root[data-look='ceramique']:not(.is-print-preview) * { corner-shape: round; }
-  :root[data-look='ceramique']:not(.is-print-preview) body { font-variant-numeric: tabular-nums; }
-  /* Roboto's capitals run wider than Geist's: « MTO » no longer fit its 56px
-     column and was cut to an ellipsis. Tighter tracking and padding. */
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-mto { letter-spacing: 0.1px; min-width: 0; padding-inline: 6px; }
-  :root[data-look='ceramique']:not(.is-print-preview) :is(.popover, .toast) { border-radius: var(--radius-sm); }
-  :root[data-look='ceramique']:not(.is-print-preview) .shift-switch .shift-chip.shift-chip.shift-chip.shift-chip { border-radius: 8px; }
-  :root[data-look='ceramique']:not(.is-print-preview) :is(.sch-rail-item, .sch-swipe, .sch-swipe-surface) { border-radius: var(--radius-pill); }
-
   /* No outlines: tone separates the page (surface) from what sits on it
      (surface-container). Tables keep their row dividers. */
   :root[data-look='ceramique']:not(.is-print-preview) :is(
@@ -6509,7 +6490,7 @@ select.ln-input { padding-right: var(--space-2); }
   }
 
   /* State layers: an overlay of the content colour, 8 % on hover, 10 % on
-     focus and press (the ripple adds its own on top while pressed). */
+     focus and press. */
   :root[data-look='ceramique']:not(.is-print-preview) :is(
     .btn, .tabs .tab, .shift-chip, .sch-rail-item, .seg button, .ln-seg button, .hdr-item
   ):hover:not(:disabled) {
@@ -6521,23 +6502,3 @@ select.ln-input { padding-right: var(--space-2); }
     background-image: linear-gradient(color-mix(in srgb, currentColor 10%, transparent), color-mix(in srgb, currentColor 10%, transparent));
   }
 }
-
-/* Ripple (lib/ripple.ts): a fixed layer over the pressed control, clipped to
-   its box and corners, so the control itself is never restyled. */
-.m3-ripple {
-  position: fixed;
-  z-index: 2147483000;
-  pointer-events: none;
-  overflow: hidden;
-  transition: opacity 260ms linear;
-}
-.m3-ripple > span {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.12;
-  transform: scale(0);
-  animation: m3-ripple-grow 380ms cubic-bezier(0.2, 0, 0, 1) forwards;
-}
-.m3-ripple.is-out { opacity: 0; }
-@keyframes m3-ripple-grow { to { transform: scale(1); } }
-@media print { .m3-ripple { display: none; } }

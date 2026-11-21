@@ -115,7 +115,7 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
           <div className="popover-help">
             {look === 'verre'
               ? 'Fond pastel et cartes en verre dépoli.'
-              : 'Material Design 3, comme sur Android : surfaces tonales, Roboto, effet d’onde au toucher.'}
+              : 'Couleurs Material Design 3, comme sur Android : surfaces tonales, sans contour.'}
             {' '}À l’écran seulement : l’impression ne change pas.
           </div>
         )}
