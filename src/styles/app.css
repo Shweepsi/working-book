@@ -6323,8 +6323,8 @@ select.ln-input { padding-right: var(--space-2); }
   /* Planning rows: the swipe surface is solid paper so the « Terminés »
      action behind it stays hidden. At rest it can be clear (the action is
      hidden too), so the rows read as part of the glass rail. */
-  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background: transparent; }
-  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
+  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-surface { background: transparent; }
+  :root[data-look='verre']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-action { visibility: hidden; }
 }
 /* Reduced transparency: plain canvas, opaque cards, no blur. Same selectors
    as the glass rules above (and later in the file), so they win. The type
@@ -6376,11 +6376,20 @@ select.ln-input { padding-right: var(--space-2); }
     backdrop-filter: none;
     border-bottom-color: transparent;
   }
-  :root[data-look='ceramique']:not(.is-print-preview) .btn:not(.primary):not(.ghost):not(.accent):not(.danger):not(.destructive) {
+  /* :where() keeps the variant exclusions out of the specificity; the states
+     this rule would still outrank (hover, an open gear menu) get their own
+     tonal step below. */
+  :root[data-look='ceramique']:not(.is-print-preview) .btn:where(:not(.primary, .ghost, .accent, .danger, .destructive)) {
     background: var(--tonal);
     border-color: transparent;
     color: var(--on-tonal);
   }
+  :root[data-look='ceramique']:not(.is-print-preview) .btn:where(:not(.primary, .ghost, .accent, .danger, .destructive)):is(:hover, [aria-expanded='true']) {
+    background: color-mix(in oklab, var(--tonal), var(--on-tonal) 12%);
+  }
+  /* Header menus drop from a bar of their own tone: one step darker (lighter
+     in dark) so they read as a separate layer, not only by their shadow. */
+  :root[data-look='ceramique']:not(.is-print-preview) .app-header .popover { background: var(--paper-2); }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active {
     background: var(--tonal);
     border-color: transparent;
@@ -6393,6 +6402,6 @@ select.ln-input { padding-right: var(--space-2); }
   /* Planning rows read as one flat list on the rail, not stacked cards: the
      swipe surface is clear at rest (the « Terminés » action is hidden too)
      and solid only while a row is dragged. */
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background: transparent; }
-  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-surface { background: transparent; }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-swipe:not(.is-dragging):not(.is-settling) .sch-swipe-action { visibility: hidden; }
 }

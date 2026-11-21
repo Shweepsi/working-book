@@ -1523,6 +1523,9 @@ function FinishedSheet({
 function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children: ReactNode }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
+  // Between release and the end of the snap-back: the surface is still moving,
+  // so styles that clear it at rest (Verre, Céramique) must keep it solid.
+  const [settling, setSettling] = useState(false);
   // Mirrors `dx` for the release decision: pointerup can land in the same batch
   // as the last pointermove, and the ref is current where the state may not be.
   const offset = useRef(0);
@@ -1535,6 +1538,12 @@ function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children:
     const s = start.current;
     start.current = null;
     setDragging(false);
+    // A timer rather than transitionend: with reduced motion there is no
+    // transition, and the row would stay solid for good. 180 ms snap-back.
+    if (offset.current !== 0) {
+      setSettling(true);
+      window.setTimeout(() => setSettling(false), 220);
+    }
     offset.current = 0;
     setDx(0);
     if (s && e.currentTarget.hasPointerCapture(s.id)) e.currentTarget.releasePointerCapture(s.id);
@@ -1579,7 +1588,7 @@ function SwipeToRetire({ onRetire, children }: { onRetire: () => void; children:
 
   return (
     <div
-      className={`sch-swipe${dragging ? ' is-dragging' : ''}${dx <= -SWIPE_RETIRE_PX ? ' is-armed' : ''}`}
+      className={`sch-swipe${dragging ? ' is-dragging' : ''}${settling ? ' is-settling' : ''}${dx <= -SWIPE_RETIRE_PX ? ' is-armed' : ''}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

@@ -221,7 +221,8 @@ export default function App() {
     // kept its static value whatever the theme or style.
     const metas = document.querySelectorAll('meta[name="theme-color"]');
     const apply = () => {
-      const color = META_COLOR[look][resolvedTheme(theme)];
+      // The print preview turns the styles off (tokens.css): the bar follows.
+      const color = META_COLOR[printPreview ? 'papier' : look][resolvedTheme(theme)];
       metas.forEach((m) => m.setAttribute('content', color));
     };
     apply();
@@ -231,7 +232,7 @@ export default function App() {
       mql.addEventListener?.('change', apply);
       return () => mql.removeEventListener?.('change', apply);
     }
-  }, [theme, look]);
+  }, [theme, look, printPreview]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-density', density);
