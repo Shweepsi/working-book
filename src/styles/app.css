@@ -6353,9 +6353,9 @@ select.ln-input { padding-right: var(--space-2); }
 /* ---------- Style « Céramique »: Material 3 colours, tonal surfaces ----------
    Palette in tokens.css (M3 colour roles). The page is the lightest tone;
    cards, the rail, menus and the top bar sit one step darker, with no
-   outline. The active tab, the selected schedule, the active shift and
-   secondary buttons take the tonal fill. Shapes, type, labels and controls
-   otherwise stay the app's own. Tables keep their row dividers. */
+   outline. The selected schedule and secondary buttons take the tonal fill.
+   Tabs, shift chips, the primary button, shapes, type and labels stay the
+   app's own. Tables keep their row dividers. */
 @media screen {
   :root[data-look='ceramique']:not(.is-print-preview) :is(
     .sch-rail, .sch-summary, .sch-hint, .sch-detail-head, .sch-table,
@@ -6367,16 +6367,13 @@ select.ln-input { padding-right: var(--space-2); }
     border-color: transparent;
   }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background: transparent; border-bottom-color: transparent; }
-  /* Top app bar: surface-container, like the cards, opaque. The tab strip
-     takes the page tone so it still reads inset. */
+  /* Top app bar: surface-container, like the cards, opaque. */
   :root[data-look='ceramique']:not(.is-print-preview) .app-header {
     background: var(--paper);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     border-bottom-color: transparent;
   }
-  :root[data-look='ceramique']:not(.is-print-preview) .tabs { background: var(--canvas); border-color: transparent; }
-  :root[data-look='ceramique']:not(.is-print-preview) .tabs .tab.active { background: var(--tonal); color: var(--on-tonal); font-weight: 600; }
   :root[data-look='ceramique']:not(.is-print-preview) .btn:not(.primary):not(.ghost):not(.accent):not(.danger):not(.destructive) {
     background: var(--tonal);
     border-color: transparent;
@@ -6391,29 +6388,6 @@ select.ln-input { padding-right: var(--space-2); }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-meta { color: color-mix(in oklab, var(--on-tonal) 78%, transparent); }
   :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-mark { display: none; }
 
-  /* Primary actions take the primary colour (filled button), not ink. */
-  :root[data-look='ceramique']:not(.is-print-preview) .btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-  }
-  /* The active shift is a selected filter chip: tonal, like the active tab. */
-  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active {
-    background: var(--tonal);
-    border-color: transparent;
-    color: var(--on-tonal);
-  }
-  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active .shift-poste {
-    background: var(--on-tonal);
-    color: var(--tonal);
-  }
-  /* The base active chip is ink with paper-coloured details; on the pale
-     tonal fill those paper details (live dot, night edge) vanish. */
-  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active .live-dot {
-    background: var(--on-tonal);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--on-tonal) 22%, transparent);
-  }
-  :root[data-look='ceramique']:not(.is-print-preview) .shift-chip.active.shift-N { box-shadow: inset 3px 0 0 var(--on-tonal); }
   /* Planning rows read as one flat list on the rail, not stacked cards: the
      swipe surface is clear at rest (the « Terminés » action is hidden too)
      and solid only while a row is dragged. */
