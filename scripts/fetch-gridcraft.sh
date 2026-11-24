@@ -3,7 +3,7 @@
 # embeds it in an iframe.
 #
 # The build comes from Shweepsi/gridcraft, a fork of storytold/gridcraft
-# (MIT OR Apache-2.0) whose `shared-cells` branch adds cell-by-cell sharing to
+# (MIT OR Apache-2.0) whose `shared-cells-0.19` branch (v0.19.1 of the upstream) adds cell-by-cell sharing to
 # the `?host=parent` bridge (gridcraft:changes / gridcraft:apply). To follow an
 # upstream release: rebase shared-cells onto its tag, build, publish
 # v<version>-shared on the fork, then bump TAG and SHA256 here.
@@ -14,9 +14,9 @@
 # so a re-uploaded asset fails the build instead of shipping.
 set -euo pipefail
 
-TAG=v0.7.0-shared.14
-ASSET=gridcraft-web-0.7.0-shared.14-glow.zip
-SHA256=6fef9a5097652994cef588dfb3f8af6394ee0402679bf1b401fa7fab4bafd8fd
+TAG=v0.19.1-shared.1
+ASSET=gridcraft-web-0.19.1-shared.1.zip
+SHA256=7fb882d0d29ff62526021c92dc67451fd0a160873a6113e17d241b7cffeb2f33
 REPO=Shweepsi/gridcraft
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -51,6 +51,8 @@ mkdir -p "$DEST"
 cp "$SRC"/index.html "$SRC"/*.js "$SRC"/*.wasm "$SRC"/*.ico "$DEST"/
 # The cell fonts (Carlito, OFL) GridCraft fetches before starting.
 cp -R "$SRC"/fonts "$DEST"/
+# wasm-bindgen's JavaScript snippets (eframe's), which index.html preloads with an integrity check.
+if [ -d "$SRC/snippets" ]; then cp -R "$SRC"/snippets "$DEST"/; fi
 for lic in LICENSE-MIT LICENSE-APACHE; do
   curl -fsSL --retry 3 -o "$DEST/$lic" "https://raw.githubusercontent.com/$REPO/$TAG/$lic"
 done

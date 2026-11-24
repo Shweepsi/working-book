@@ -4,9 +4,9 @@
 # Built by that repo's "Worker engine" workflow, never on this machine.
 set -euo pipefail
 
-TAG=v0.7.0-shared.9
-ASSET=gridcraft-worker-0.7.0-shared.9.zip
-SHA256=5c0ae9a6fe20611928ec137c82d28fa84cf1e4850775378cd1aaf1c6a9d4a4e9
+TAG=v0.19.1-shared.1
+ASSET=gridcraft-worker-0.19.1-shared.1.zip
+SHA256=84f4582150decfbf088e675e586cf0255f6b7949c6a998b3395ba2566eee0aa4
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="$HERE/src/mcp/engine"

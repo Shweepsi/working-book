@@ -11,15 +11,14 @@ import { IS_DEV_BUILD, SHOWS_ADVANCED } from './lib/channel';
 import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
-import { prefetchGridcraft } from './lib/sharedGrid';
+import { prefetchGridcraft, sharedGrid } from './lib/sharedGrid';
 import { load, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
 import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
 import LineTab from './components/LineTabs';
 import ToolsMenu from './components/ToolsMenu';
-import { CalcIcon, CloseIcon, NextIcon, PrevIcon, PrintIcon, RedoIcon, UndoIcon } from './components/icons';
-import { redoLine, undoLine, useLineSnapshot } from './lib/lineSync';
+import { CalcIcon, CloseIcon, NextIcon, PrevIcon, PrintIcon } from './components/icons';
 import {
   POSTES,
   SHIFT_TYPES,
@@ -50,7 +49,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'suivi', label: 'Cosmétique', preview: true },
   { key: 'sched', label: 'Schedule' },
   { key: 'grid', label: 'Suivi', preview: true, shiftScoped: true },
-  // The line's own input, without a spreadsheet (components/LineTabs.tsx).
+  // The line's rows as lists, read off the Suivi workbook (components/LineTabs.tsx).
   { key: 'loading', label: 'Loading', preview: true, shiftScoped: true },
   { key: 'unloading', label: 'Unloading', preview: true, shiftScoped: true },
 ];
@@ -152,6 +151,13 @@ export default function App() {
   const [bilanOpen, setBilanOpen] = useState(false);
   const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
   const showBilan = SHOWS_ADVANCED && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
+  // Loading, Unloading and the bilan read the shift's Suivi: a row they point
+  // at is brought up there, once the workbook has opened the shift.
+  const showInSuivi = (range: string) => {
+    if (!poste) return;
+    sharedGrid.select({ date, poste }, range);
+    setTab('grid');
+  };
   // Once opened, the Suivi workbook stays mounted (hidden behind the other
   // tabs): coming back is instant, with no wasm to start again and no cells
   // to replay. Its files are fetched ahead, so the first open is quick too.
@@ -379,22 +385,6 @@ export default function App() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const toolsWidth = useRef(0);
   const [toolsMenu, setToolsMenu] = useState(false);
-  // Annuler / Rétablir for tablets (Ctrl+Z / Ctrl+Y otherwise): the line's input only.
-  const lineSnap = useLineSnapshot();
-  const linePart = poste && (tab === 'loading' || tab === 'unloading') ? { date, poste } : null;
-  const history = linePart
-    ? { canUndo: lineSnap.canUndo, canRedo: lineSnap.canRedo, onUndo: () => undoLine(linePart), onRedo: () => redoLine(linePart) }
-    : null;
-  const historyButtons = history && (
-    <span className="hdr-history" role="group" aria-label="Historique">
-      <button type="button" className="btn ghost icon" onClick={history.onUndo} disabled={!history.canUndo} aria-label="Annuler" title="Annuler (Ctrl+Z)">
-        <UndoIcon />
-      </button>
-      <button type="button" className="btn ghost icon" onClick={history.onRedo} disabled={!history.canRedo} aria-label="Rétablir" title="Rétablir (Ctrl+Y)">
-        <RedoIcon />
-      </button>
-    </span>
-  );
   useLayoutEffect(() => {
     const h = headerRef.current;
     if (!h || typeof ResizeObserver === 'undefined') return;
@@ -499,9 +489,7 @@ export default function App() {
         )}
 
         {toolsMenu ? (
-          // Annuler / Rétablir stay out of the menu: a step back is one tap, as often as needed.
           <div className="hdr-tools hdr-end">
-            {historyButtons}
             <ToolsMenu
               bilan={showBilan ? { part: poste ? { date, poste } : null, onOpen: () => setBilanOpen(true) } : null}
               onCalc={() => setCalcOpen(true)}
@@ -520,7 +508,6 @@ export default function App() {
         ) : (
           <div className="shift-meta hdr-tools" ref={toolsRef}>
             <SyncIndicator />
-            {historyButtons}
             {showBilan && <BilanHeaderButton part={poste ? { date, poste } : null} onOpen={() => setBilanOpen(true)} />}
             <button
               type="button"
@@ -579,7 +566,7 @@ export default function App() {
         )}
         {tab === 'suivi' && <Suivi />}
         {gridSeen && <Gridcraft poste={poste} shiftMeta={shiftMeta} theme={theme} hidden={tab !== 'grid'} />}
-        {(tab === 'loading' || tab === 'unloading') && <LineTab part={poste ? { date, poste } : null} side={tab} />}
+        {(tab === 'loading' || tab === 'unloading') && <LineTab part={poste ? { date, poste } : null} side={tab} onShow={showInSuivi} />}
         {showBilan && poste && (
           <div className={`sb-print-host${tab === 'grid' || tab === 'loading' || tab === 'unloading' ? ' is-tab' : ''}`}>
             <BilanPrint part={{ date, poste }} shiftLabel={shiftMeta.shift.label} dateLabel={shiftMeta.dateLabel} scope={bilanScope} />
@@ -594,7 +581,7 @@ export default function App() {
           onScope={setBilanScope}
           onClose={() => setBilanOpen(false)}
           onPrint={printBilan}
-          onShowRow={(target) => setTabState(target.tab)}
+          onShowRow={showInSuivi}
         />
       )}
 

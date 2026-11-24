@@ -233,6 +233,11 @@ class SharedGrid {
 
   /** The frame is on screen or not. Off screen, polling pauses (edits still
    * go out); back on screen, it resumes at once and the frame takes focus. */
+  /** Whether the workbook is on screen: hidden behind another tab it stops reading the Worker. */
+  get isVisible(): boolean {
+    return this.visible;
+  }
+
   setVisible(visible: boolean): void {
     if (visible === this.visible) return;
     this.visible = visible;

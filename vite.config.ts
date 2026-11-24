@@ -92,9 +92,11 @@ export default defineConfig(({ command }) => ({
           // network first. With the shift's template, the workbook then opens
           // without network too.
           {
-            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/gridcraft/gridcraft-'),
+            // The hashed files, wasm-bindgen's snippets (preloaded with an integrity check) and the cell fonts.
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && (url.pathname.startsWith('/gridcraft/gridcraft-') || /^\/gridcraft\/(snippets|fonts)\//.test(url.pathname)),
             handler: 'CacheFirst',
-            options: { cacheName: 'gridcraft-app', expiration: { maxEntries: 6 } },
+            options: { cacheName: 'gridcraft-app', expiration: { maxEntries: 16 } },
           },
           {
             urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/gridcraft\/(index\.html)?$/.test(url.pathname),

@@ -1,5 +1,5 @@
-// The shift's bilan, computed from its Loading and Unloading tabs
-// (lib/lineBilan.ts) and up to date as they change, or the day's, 06:00 to
+// The shift's bilan, computed from its Loading and Unloading records
+// (lib/lineBilan.ts, read off the Suivi workbook) and up to date as they change, or the day's, 06:00 to
 // 06:00 (lib/dayBilan.ts): a sheet over any page (BilanSheet), the same
 // content laid out for paper (BilanPrint), and the header's button with the
 // count of rows to look at (BilanHeaderButton).
@@ -13,14 +13,11 @@ import type { Partition } from '../lib/sharedGrid';
 import { dayShifts, refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
 import type { LineData } from '../lib/line';
 import { computeLineBilan } from '../lib/lineBilan';
-import { lineSync, useLine } from '../lib/lineSync';
+import { useShiftLine } from '../lib/shiftLine';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { addDaysISO } from '../lib/shiftCalendar';
 import { AddIcon, BilanIcon, CloseIcon, MinusIcon, NextIcon } from './icons';
 import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
-
-/** A row the bilan points at: its tab and record. */
-export type BilanTarget = NonNullable<BilanCheck['target']>;
 
 /** What the bilan covers: the shift on screen, or its whole day. */
 export type BilanScope = 'poste' | 'jour';
@@ -37,7 +34,7 @@ let cache: { data: LineData; bilan: SuiviBilan } | null = null;
 
 /** The bilan of `part`, followed (every 2 s while `live`, as when the sheet is open); null before it's known. */
 export function useBilan(part: Partition | null, live = false): SuiviBilan | null {
-  const data = useLine(part, live);
+  const { data } = useShiftLine(part, live);
   if (!data) return null;
   if (cache?.data !== data) cache = { data, bilan: computeLineBilan(data) };
   return cache.bilan;
@@ -165,15 +162,15 @@ function Rejects({ r }: { r: BilanRejects }) {
   );
 }
 
-/** The rows to look at; with `onPick` (on screen), each one brings its row up in its tab. */
-function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (target: BilanTarget) => void }) {
+/** The rows to look at; with `onPick` (on screen), each one brings its cells up in Suivi. */
+function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (range: string) => void }) {
   if (!checks.length) return <p className="sb-none">Rien à signaler.</p>;
   return (
     <ul className="sb-checks">
       {checks.map((x, i) => (
         <li key={i}>
-          {onPick && x.target ? (
-            <button type="button" className="sb-check" onClick={() => onPick(x.target as BilanTarget)} title={`Voir la ligne dans ${x.target.tab === 'loading' ? 'Loading' : 'Unloading'}`}>
+          {onPick && x.range ? (
+            <button type="button" className="sb-check" onClick={() => onPick(x.range as string)} title="Voir la ligne dans Suivi">
               <span>{x.text}</span>
               <span className="sb-go" aria-hidden="true">
                 <NextIcon size={14} />
@@ -203,7 +200,7 @@ function Section({ title, count, aside, children }: { title: string; count?: num
 
 /** A tab's content: a colour's own figures above its rejects, or the whole shift's; then the
  * rows to look at, on screen only (`checks` isn't given on paper). */
-function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks?: BilanCheck[]; onPick?: (target: BilanTarget) => void }) {
+function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; rejects: BilanRejects; checks?: BilanCheck[]; onPick?: (range: string) => void }) {
   return (
     <>
       {colour && <Kpis t={colour.totals} sides={{ dl: colour.inDl, fl: colour.inFl }} compact />}
@@ -312,7 +309,7 @@ const ALL = -1;
 const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
 
 /** The figures on top, then a tab per colour after the whole (when there are several). */
-function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (target: BilanTarget) => void; showChecks: boolean; children?: ReactNode }) {
+function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; children?: ReactNode }) {
   const [tab, setTab] = useState(ALL);
   const colours = bilan.colours;
   const several = colours.length > 1;
@@ -429,7 +426,8 @@ interface BilanSheetProps {
   /** Prints the bilan alone, whatever page is under the sheet. */
   onPrint: () => void;
   /** A row to look at was picked: bring its tab up (the row comes into view there). */
-  onShowRow: (target: BilanTarget) => void;
+  /** Brings `range` up in Suivi ("Suivi!N47:AA47"). */
+  onShowRow: (range: string) => void;
 }
 
 export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint, onShowRow }: BilanSheetProps) {
@@ -445,10 +443,9 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   // A row to look at: the sheet makes way for its tab, on that row.
-  const pick = (target: BilanTarget) => {
+  const pick = (range: string) => {
     onClose();
-    lineSync.requestFocus(part, target.id);
-    onShowRow(target);
+    onShowRow(range);
   };
   const single = bilan && bilan.colours.length === 1 ? bilan.colours[0] : undefined;
   const printable = scope === 'jour' ? !!day && !day.bilan.empty : !!bilan && !bilan.empty;
