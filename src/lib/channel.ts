@@ -24,6 +24,11 @@ export const DEV_MODE_FORCED = !BUILT_DEV && readDevMode();
 
 export const IS_DEV_CHANNEL: boolean = BUILT_DEV || DEV_MODE_FORCED;
 
+// Mode dev on a prod build opens only Suivi (with its Bilan) and the Style
+// choice. The rest of the work in progress, and editing the Suivi template,
+// stays with the real dev builds, which talk to the dev Worker.
+export const FULL_DEV: boolean = BUILT_DEV;
+
 export function setDevMode(on: boolean): void {
   try {
     if (on) localStorage.setItem(DEV_MODE_KEY, '1');

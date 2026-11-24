@@ -7,7 +7,7 @@ import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { SYNC_ENABLED } from './lib/api';
-import { IS_DEV_CHANNEL } from './lib/channel';
+import { FULL_DEV, IS_DEV_CHANNEL } from './lib/channel';
 import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
@@ -55,7 +55,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'unloading', label: 'Unloading', preview: true, shiftScoped: true },
 ];
 
-const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
+const TABS = ALL_TABS.filter((t) => !t.preview || FULL_DEV || (IS_DEV_CHANNEL && t.key === 'grid'));
 
 // The date picker and the shift chips exist for the shift-scoped tabs. Once
 // those are filtered out they steer nothing on screen, so they go with them.
@@ -138,6 +138,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'light'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
   const [look, setLook] = useState<Look>(() => {
+    if (!IS_DEV_CHANNEL) return 'papier';
     const v = load<string>('wb.look', 'papier');
     return isLook(v) ? v : 'papier';
   });

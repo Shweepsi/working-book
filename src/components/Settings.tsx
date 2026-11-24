@@ -114,6 +114,7 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
           ))}
         </div>
       </div>
+      {IS_DEV_CHANNEL && (
       <div>
         <h4>Style</h4>
         <div className="seg" role="group" aria-label="Style">
@@ -130,6 +131,7 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
           ))}
         </div>
       </div>
+      )}
       <div>
         <h4>Densité</h4>
         <div className="seg" role="group" aria-label="Densité">
