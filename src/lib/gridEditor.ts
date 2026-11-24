@@ -1,7 +1,7 @@
 // Changing the Suivi template: Worker calls behind « Modifier le modèle ».
 //
-// Only preview builds (the dev channel) offer it, like the Suivi tab itself:
-// production has neither, and only the dev Worker serves /api/grid/.
+// Only preview builds (the dev channel) offer it. Production shows Suivi
+// behind the hidden dev mode, but never lets the template be changed.
 
 import { API_BASE } from './api';
 import { FULL_DEV } from './channel';
