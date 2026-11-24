@@ -3,7 +3,7 @@ import type { Density, Look, Theme } from '../types';
 import { fmtStamp } from '../lib/format';
 import { applyUpdate, checkForUpdate, useUpdateWaiting } from '../lib/pwa';
 import { useToast } from '../lib/toast';
-import { ADVANCED, SHOWS_ADVANCED, setAdvanced } from '../lib/channel';
+import { ADVANCED, IS_DEV_BUILD, SHOWS_ADVANCED, setAdvanced } from '../lib/channel';
 import { SettingsIcon, ThemeAutoIcon, ThemeDarkIcon, ThemeLightIcon } from './icons';
 
 // The build stamp, formatted once: it is a compile-time constant, and the
@@ -57,7 +57,7 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
   // build already shows everything, so it has nothing to toggle.
   const taps = useRef({ n: 0, at: 0 });
   function tapVersion() {
-    if (SHOWS_ADVANCED && !ADVANCED) return;
+    if (IS_DEV_BUILD) return;
     const now = Date.now();
     const t = taps.current;
     t.n = now - t.at < 600 ? t.n + 1 : 1;
