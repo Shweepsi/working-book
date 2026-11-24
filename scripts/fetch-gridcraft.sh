@@ -51,6 +51,8 @@ mkdir -p "$DEST"
 cp "$SRC"/index.html "$SRC"/*.js "$SRC"/*.wasm "$SRC"/*.ico "$DEST"/
 # The cell fonts (Carlito, OFL) GridCraft fetches before starting.
 cp -R "$SRC"/fonts "$DEST"/
+# wasm-bindgen's JavaScript snippets (eframe's), which index.html preloads with an integrity check.
+if [ -d "$SRC/snippets" ]; then cp -R "$SRC"/snippets "$DEST"/; fi
 for lic in LICENSE-MIT LICENSE-APACHE; do
   curl -fsSL --retry 3 -o "$DEST/$lic" "https://raw.githubusercontent.com/$REPO/$TAG/$lic"
 done
