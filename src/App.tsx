@@ -7,7 +7,7 @@ import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { SYNC_ENABLED } from './lib/api';
-import { FULL_DEV, IS_DEV_CHANNEL } from './lib/channel';
+import { IS_DEV_BUILD, SHOWS_ADVANCED } from './lib/channel';
 import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
@@ -55,7 +55,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'unloading', label: 'Unloading', preview: true, shiftScoped: true },
 ];
 
-const TABS = ALL_TABS.filter((t) => !t.preview || FULL_DEV || (IS_DEV_CHANNEL && t.key === 'grid'));
+const TABS = ALL_TABS.filter((t) => !t.preview || IS_DEV_BUILD || (SHOWS_ADVANCED && t.key === 'grid'));
 
 // The date picker and the shift chips exist for the shift-scoped tabs. Once
 // those are filtered out they steer nothing on screen, so they go with them.
@@ -138,7 +138,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'light'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
   const [look, setLook] = useState<Look>(() => {
-    if (!IS_DEV_CHANNEL) return 'papier';
+    if (!SHOWS_ADVANCED) return 'papier';
     const v = load<string>('wb.look', 'papier');
     return isLook(v) ? v : 'papier';
   });
@@ -151,7 +151,7 @@ export default function App() {
   // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
   const [bilanOpen, setBilanOpen] = useState(false);
   const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
-  const showBilan = IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
+  const showBilan = SHOWS_ADVANCED && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
   // Once opened, the Suivi workbook stays mounted (hidden behind the other
   // tabs): coming back is instant, with no wasm to start again and no cells
   // to replay. Its files are fetched ahead, so the first open is quick too.
@@ -160,7 +160,7 @@ export default function App() {
     if (tab === 'grid') setGridSeen(true);
   }, [tab]);
   useEffect(() => {
-    if (!IS_DEV_CHANNEL || !SYNC_ENABLED) return;
+    if (!SHOWS_ADVANCED || !SYNC_ENABLED) return;
     const t = setTimeout(() => void prefetchGridcraft(), 4000);
     return () => clearTimeout(t);
   }, []);

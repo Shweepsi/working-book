@@ -161,7 +161,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       # Suivi runs on every channel: in production it sits behind the hidden
-      # dev mode. The ~18 Mo of wasm stay out of the PWA precache (vite.config).
+      # mode Avancé. The ~18 Mo of wasm stay out of the PWA precache (vite.config).
       - name: Fetch GridCraft web build
         run: npm run fetch:gridcraft
       - run: npm run build

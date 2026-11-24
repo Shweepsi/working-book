@@ -28,7 +28,7 @@ name = "working-book-api"
 
 [env.production.vars]
 ALLOWED_ORIGINS = "https://working-book.pages.dev,*.working-book.pages.dev"
-# Suivi, behind the hidden dev mode (7 taps on the version in Réglages).
+# Suivi, behind the hidden mode Avancé (7 taps on the version in Réglages).
 GRID = "on"
 
 [[env.production.d1_databases]]
