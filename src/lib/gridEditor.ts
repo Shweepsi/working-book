@@ -1,14 +1,14 @@
 // Changing the Suivi template: Worker calls behind « Modifier le modèle ».
 //
-// Only preview builds (the dev channel) offer it, like the Suivi tab itself:
-// production has neither, and only the dev Worker serves /api/grid/.
+// Only preview builds (the dev channel) offer it. Production shows Suivi
+// behind the hidden mode Avancé, but never lets the template be changed.
 
 import { API_BASE } from './api';
-import { IS_DEV_CHANNEL } from './channel';
+import { IS_DEV_BUILD } from './channel';
 import type { Partition } from './sharedGrid';
 
 /** Whether this build lets the template be edited. */
-export const CAN_EDIT_TEMPLATE = IS_DEV_CHANNEL;
+export const CAN_EDIT_TEMPLATE = IS_DEV_BUILD;
 
 /** A template's bytes (immutable per id). */
 export async function fetchTemplate(id: number): Promise<ArrayBuffer> {

@@ -8,4 +8,33 @@
 // progress, and showing it to the plant by accident is the worse mistake.
 const RAW = (import.meta.env.VITE_CHANNEL ?? '').trim();
 
-export const IS_DEV_CHANNEL: boolean = RAW ? RAW === 'dev' : import.meta.env.DEV;
+// Three modes:
+// - Dev: preview builds (dev Worker and D1), everything shown, template editable.
+// - Avancé: a production build after seven taps on the version in Réglages;
+//   adds Suivi, its Bilan and the Style choice, on the real data. Per device,
+//   read once at load, so toggling reloads the app.
+// - Standard: a production build otherwise, Schedule only.
+export const IS_DEV_BUILD: boolean = RAW ? RAW === 'dev' : import.meta.env.DEV;
+
+const ADVANCED_KEY = 'wb.advanced';
+function readAdvanced(): boolean {
+  try {
+    return localStorage.getItem(ADVANCED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+export const ADVANCED = !IS_DEV_BUILD && readAdvanced();
+
+/** Avancé features are on: mode Avancé, or a Dev build (which has them all). */
+export const SHOWS_ADVANCED: boolean = IS_DEV_BUILD || ADVANCED;
+
+export function setAdvanced(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(ADVANCED_KEY, '1');
+    else localStorage.removeItem(ADVANCED_KEY);
+  } catch {
+    /* storage blocked: nothing to persist */
+  }
+  location.reload();
+}

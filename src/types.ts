@@ -60,6 +60,12 @@ export type Theme = 'auto' | 'light' | 'dark';
 
 export type Density = 'compact' | 'normal' | 'advanced';
 
+/** Visual style: the original paper look, the frosted pastel one, or the
+ *  solid tonal one (Material 3 / Android, Pixel blue source colour). */
+export const LOOK_KEYS = ['papier', 'verre', 'ceramique'] as const;
+export type Look = (typeof LOOK_KEYS)[number];
+export const isLook = (v: unknown): v is Look => (LOOK_KEYS as readonly unknown[]).includes(v);
+
 // The two paper layouts the Schedule view offers. `detail` is the landscape
 // planning table; `recap` is the portrait plate-preparation sheet, grouped by
 // dimension and thickness. Shared between App (which owns the `@page` rule and

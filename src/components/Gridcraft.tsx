@@ -1,7 +1,7 @@
 // GridCraft (github.com/Shweepsi/gridcraft, a fork of storytold/gridcraft) — a
 // Rust/wasm spreadsheet served under /gridcraft/ by scripts/fetch-gridcraft.sh.
-// Dev channel only: the tab is a `preview` one, and production builds don't
-// fetch the app.
+// Preview builds show it; production only behind the hidden mode Avancé (7 taps
+// on the version in Réglages).
 //
 // One workbook per shift (date + poste, like the logbook), started from the
 // shift's .xlsx template and shared cell by cell between the devices that have
