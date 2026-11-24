@@ -83,7 +83,8 @@ export function cellsToLine(cells: ReadonlyMap<string, unknown>): LineData {
         row: r,
         range: `Suivi!${DL_FIRST}${r}:${DL_LAST}${r}`,
         colour,
-        tag: colourRow ? text(tag) : noSpaces(tag),
+        // The colour row's N° TAG cell holds its name, not a tag: the row is reported as having none.
+        tag: colourRow ? '' : noSpaces(tag),
         lites: numOrNull(at(DL.lites, r)),
         dim: numOrNull(at(DL.dim, r)),
         ep: normEp(text(at(DL.ep, r))),
@@ -142,7 +143,7 @@ export function cellsToLine(cells: ReadonlyMap<string, unknown>): LineData {
           row: r,
           range: `Suivi!${FL_FIRST}${r}:${FL_LAST}${r}`,
           colour,
-          tag: colourRow ? text(tag) : noSpaces(tag),
+          tag: colourRow ? '' : noSpaces(tag),
           frame: text(at(FL.frame, r)),
           dim,
           ep,

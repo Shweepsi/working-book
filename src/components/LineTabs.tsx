@@ -264,6 +264,11 @@ export default function LineTab({ part, side, onShow }: { part: Partition | null
   const blocks = blocksOf(data);
   return (
     <div className={`ln ln-${side} no-print`}>
+      {status === 'error' && (
+        <p className="ln-stale" role="status">
+          {navigator.onLine ? 'Le serveur ne répond pas' : 'Hors ligne'} : ces lignes sont celles de la dernière lecture et peuvent ne plus être à jour.
+        </p>
+      )}
       <p className="ln-readonly">Lecture seule : les lignes se tapent dans Suivi. Touche une ligne pour l’y retrouver.</p>
       {blocks.map((b) => (
         <section key={b.colour?.id ?? 'none'} className={`ln-block${b.colour ? '' : ' is-none'}`}>

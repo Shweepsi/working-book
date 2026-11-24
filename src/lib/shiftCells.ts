@@ -100,8 +100,13 @@ export function shiftReadStatus(p: Partition): { status: ReadStatus; at: number 
   return { status: s?.status ?? 'loading', at: s?.at ?? 0 };
 }
 
-/** The workbook on screen's cells for `p`, once it has them all (not while it replays them). */
+/**
+ * The workbook on screen's cells for `p`, once it has them all (not while it replays them). Only
+ * while it is on screen: kept mounted behind another tab, it stops reading the Worker, so its
+ * cells would stay as they were when it was hidden while the other tablets go on typing.
+ */
 function liveCells(p: Partition): ReadonlyMap<string, unknown> | null {
+  if (!grid.isVisible) return null;
   const status = grid.getSnapshot().status;
   if (status === 'loading' || status === 'no-template') return null;
   return grid.cells(p);

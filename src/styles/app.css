@@ -5709,6 +5709,7 @@ button.as-row:focus-visible {
 .ln-empty-body { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 .ln-empty-body p { margin: 0; }
 .ln-hint { color: var(--ink-faint); font-size: var(--fs-base); }
+.ln-stale { margin: 0; padding: var(--space-3) var(--space-5); border: 1px solid var(--flag-unsched-bd); border-radius: var(--radius-md); color: var(--flag-unsched-fg); font-size: var(--fs-base); }
 .ln-readonly { margin: 0; color: var(--ink-faint); font-size: var(--fs-base); }
 
 .ln-block {
