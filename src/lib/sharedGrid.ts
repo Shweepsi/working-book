@@ -42,6 +42,9 @@ interface DocPage {
   more?: boolean;
 }
 
+/** A cell as the Worker has it: `seq` is its place in the Worker's order (absent in older snapshots). */
+type ServerCell = CellChange & { seq?: number };
+
 export type GridTheme = 'light' | 'dark' | 'system';
 
 export type GridStatus = 'loading' | 'no-template' | 'ready' | 'syncing' | 'offline' | 'error' | 'disabled';
@@ -57,6 +60,8 @@ export interface GridSnapshot {
   held: number;
   /** The frame holds the shift asked for. False while it is loading, and when it couldn't open. */
   opened: boolean;
+  /** The shift couldn't open (no network and never opened here / the server is down). */
+  blocked: null | 'offline' | 'error';
 }
 
 const POLL_MS = 2_000;
@@ -95,12 +100,25 @@ function readList(key: string): CellChange[] {
   }
 }
 
+/** Stores `value`; a full storage first gives up the oldest offline snapshots,
+ * which only cost an offline opening, never the edits waiting to be sent. */
+function setItem(key: string, value: string): boolean {
+  for (;;) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      if (!evictOldestSnapshot()) return false;
+    }
+  }
+}
+
 function writeList(key: string, changes: CellChange[]): void {
   try {
-    if (changes.length) localStorage.setItem(key, JSON.stringify(changes));
+    if (changes.length) setItem(key, JSON.stringify(changes));
     else localStorage.removeItem(key);
   } catch {
-    // A full or blocked storage only costs the offline safety net.
+    // A blocked storage only costs the offline safety net.
   }
 }
 
@@ -135,7 +153,7 @@ function loadBatch(p: Partition): SentBatch | null {
 
 function saveBatch(p: Partition, b: SentBatch | null): void {
   try {
-    if (b) localStorage.setItem(batchKey(p), JSON.stringify(b));
+    if (b) setItem(batchKey(p), JSON.stringify(b));
     else localStorage.removeItem(batchKey(p));
   } catch {
     // Without it a reload resends under a new id: as before ids existed.
@@ -168,6 +186,9 @@ const SNAPSHOT_KEY = 'wb.grid.snapshot'; // before there were several: one shift
 const SNAPSHOT_PREFIX = 'wb.grid.snapshot.';
 const SNAPSHOT_INDEX = 'wb.grid.snapshots';
 const SNAPSHOT_KEEP = 6;
+// All the snapshots together, in characters (the origin's storage is about
+// 5 M): the edits waiting to be sent must always have room next to them.
+const SNAPSHOT_BUDGET = 1_500_000;
 
 interface Snapshot {
   part: string;
@@ -185,6 +206,20 @@ function snapshotIndex(): string[] {
   } catch {
     return [];
   }
+}
+
+/** Drops the oldest snapshot; false when there is none left. */
+function evictOldestSnapshot(): boolean {
+  const index = snapshotIndex();
+  const oldest = index.pop();
+  if (oldest === undefined) return false;
+  try {
+    localStorage.removeItem(SNAPSHOT_PREFIX + oldest);
+    localStorage.setItem(SNAPSHOT_INDEX, JSON.stringify(index));
+  } catch {
+    // The entry is gone, which is what matters here.
+  }
+  return true;
 }
 
 function loadSnapshot(p: Partition): Snapshot | null {
@@ -220,6 +255,20 @@ function saveSnapshot(s: Snapshot): void {
   };
   while (index.length > SNAPSHOT_KEEP) evict(index.pop() as string);
   while (!write() && index.length > 1) evict(index.pop() as string);
+  // Over the budget: the oldest go, never the one just written.
+  const size = (k: string) => {
+    try {
+      return localStorage.getItem(SNAPSHOT_PREFIX + k)?.length ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+  let total = index.reduce((n, k) => n + size(k), 0);
+  while (total > SNAPSHOT_BUDGET && index.length > 1) {
+    const last = index.pop() as string;
+    total -= size(last);
+    evict(last);
+  }
   try {
     localStorage.setItem(SNAPSHOT_INDEX, JSON.stringify(index));
     localStorage.removeItem(SNAPSHOT_KEY);
@@ -237,16 +286,16 @@ const NEIGHBOUR_FRESH_MS = 10 * 60_000;
 async function fetchDoc(
   p: Partition,
   peek = false,
-): Promise<{ templateId: number | null; since: number; cells: Map<string, CellChange> }> {
+): Promise<{ templateId: number | null; since: number; cells: Map<string, ServerCell> }> {
   let templateId: number | null = null;
   let since = 0;
-  const cells = new Map<string, CellChange>();
+  const cells = new Map<string, ServerCell>();
   for (;;) {
     const r = await fetch(`${API_BASE}/api/grid/doc?${qs(p, `&since=${since}${peek ? '&peek=1' : ''}`)}`, peek ? { priority: 'low' } : undefined);
     if (!r.ok) throw new HttpError(r.status);
     const page = (await r.json()) as DocPage;
     templateId = page.template_id;
-    for (const ch of page.changes) cells.set(keyOf(ch), { sheet: ch.sheet, cell: ch.cell, c: ch.c });
+    for (const ch of page.changes) cells.set(keyOf(ch), { sheet: ch.sheet, cell: ch.cell, c: ch.c, seq: ch.seq });
     since = page.seq;
     if (!page.more) break;
   }
@@ -268,12 +317,12 @@ class SharedGrid {
   private shown: Partition | null = null;
   // Bumped by every load: replies to requests made before it are stale.
   private loadToken = 0;
-  private initial: CellChange[] = [];
+  private initial: ServerCell[] = [];
   // The shift's date and poste in the template's named cells (lib/shiftContext.ts).
   private context: CellChange[] = [];
   private cursor = 0;
   // The shown shift's cells as the Worker has them up to `cursor`.
-  private server = new Map<string, CellChange>();
+  private server = new Map<string, ServerCell>();
   private openedOffline = false;
   private pollFailed = false;
   // Per cell: Infinity while our write is unsent or in flight, then its seq.
@@ -310,6 +359,7 @@ class SharedGrid {
     rev: 0,
     held: 0,
     opened: false,
+    blocked: null,
   };
   private fileName = 'classeur.xlsx';
   private theme: GridTheme = 'system';
@@ -422,10 +472,11 @@ class SharedGrid {
   retryHeld(): void {
     const p = this.shown;
     if (!p || !this.held.length) return;
+    const onItsWay = new Set(this.inflight.map(keyOf));
     for (const ch of this.held) {
       const k = keyOf(ch);
       // Edited again since: the newer edit is the one that counts.
-      if (this.outbox.has(k)) continue;
+      if (this.outbox.has(k) || onItsWay.has(k)) continue;
       this.outbox.set(k, ch);
       this.own.set(k, Infinity);
     }
@@ -450,6 +501,11 @@ class SharedGrid {
     if (!changes.length) return;
     const shown = !!this.shown && partKey(this.shown) === partKey(p);
     const held = shown ? this.held : loadHeld(p);
+    // An edit made since replaces the refused one: sending the old one again
+    // later would put it over the new.
+    const newer = new Set(shown ? this.outbox.keys() : loadOutbox(p).map(keyOf));
+    changes = changes.filter((ch) => !newer.has(keyOf(ch)));
+    if (!changes.length) return;
     const keys = new Set(changes.map(keyOf));
     const next = [...held.filter((ch) => !keys.has(keyOf(ch))), ...changes];
     saveHeld(p, next);
@@ -461,10 +517,10 @@ class SharedGrid {
     const token = ++this.loadToken;
     clearTimeout(this.pollTimer);
     clearTimeout(this.loadTimer);
-    this.set({ status: 'loading', error: null });
+    this.set({ status: 'loading', error: null, blocked: null });
     let templateId: number | null = null;
     let since = 0;
-    let cells = new Map<string, CellChange>();
+    let cells = new Map<string, ServerCell>();
     try {
       // Everything stored for the shift, page by page.
       ({ templateId, since, cells } = await fetchDoc(p));
@@ -539,7 +595,8 @@ class SharedGrid {
   /** Says why the shift didn't open, and tries again: by itself after a
    * while, and as soon as the network is back. */
   private loadFailed(p: Partition, e: unknown): void {
-    this.set({ status: navigator.onLine ? 'error' : 'offline', error: String(e) });
+    const down = navigator.onLine ? 'error' : 'offline';
+    this.set({ status: down, error: String(e), blocked: down });
     clearTimeout(this.loadTimer);
     if (!this.connected) return;
     const delay = RETRY_MS[Math.min(this.loadAttempts++, RETRY_MS.length - 1)];
@@ -595,6 +652,16 @@ class SharedGrid {
     for (const k of [...this.outbox.keys(), ...this.inflight.map(keyOf)]) this.own.set(k, Infinity);
     const pending = this.pendingEdits();
     const pendingKeys = new Set(pending.map(keyOf));
+    // A batch on its way may be one the Worker already stored (the answer was
+    // lost) under a seq a peer's write has overtaken since: its ack must not
+    // leave our value on screen over theirs. Held back like a peer write
+    // skipped while ours was in flight, it is adopted when our seq is older.
+    for (const ch of this.initial) {
+      const k = keyOf(ch);
+      if (ch.seq !== undefined && this.inflight.some((s) => keyOf(s) === k)) {
+        this.deferred.set(k, { sheet: ch.sheet, cell: ch.cell, c: ch.c, seq: ch.seq, client: '' });
+      }
+    }
     const base = this.initial.filter((ch) => !pendingKeys.has(keyOf(ch)));
     this.initial = [];
     this.view = new Map();
@@ -604,7 +671,7 @@ class SharedGrid {
       this.pendingSelect = null;
     }
     this.lastActivity = Date.now();
-    this.set({ status: this.openedOffline ? 'offline' : 'ready', error: null });
+    this.set({ status: this.openedOffline ? 'offline' : 'ready', error: null, blocked: null });
     // Not when another tab is showing: the operator is typing there.
     if (this.visible) this.focusFrame();
     void this.flush();
@@ -689,7 +756,7 @@ class SharedGrid {
         if (data.bytes) download(data.name ?? this.fileName, data.bytes);
         break;
       case 'gridcraft:failed':
-        this.set({ status: 'error', error: data.error ?? 'GridCraft n’a pas démarré' });
+        this.set({ status: 'error', error: data.error ?? 'GridCraft n’a pas démarré', blocked: 'error' });
         break;
     }
   };
@@ -698,6 +765,15 @@ class SharedGrid {
 
   private queue(changes: CellChange[]): void {
     this.see(changes);
+    // Typed again: the refused value of that cell is no longer the one to keep.
+    if (this.held.length && this.shown) {
+      const keys = new Set(changes.map(keyOf));
+      const rest = this.held.filter((h) => !keys.has(keyOf(h)));
+      if (rest.length !== this.held.length) {
+        this.held = rest;
+        saveHeld(this.shown, rest);
+      }
+    }
     for (const ch of changes) {
       const k = keyOf(ch);
       this.own.set(k, Infinity);
@@ -826,7 +902,7 @@ class SharedGrid {
     if (retry) {
       clearTimeout(this.retryTimer);
       this.retryTimer = setTimeout(() => void this.flush(), RETRY_MS[Math.min(this.attempts - 1, RETRY_MS.length - 1)]);
-    } else if (this.outbox.size) {
+    } else if (this.outbox.size || this.inflight.length) {
       void this.flush();
     }
   }
@@ -861,7 +937,7 @@ class SharedGrid {
       const adopt: CellChange[] = [];
       for (const ch of page.changes) {
         const k = keyOf(ch);
-        this.server.set(k, { sheet: ch.sheet, cell: ch.cell, c: ch.c });
+        this.server.set(k, { sheet: ch.sheet, cell: ch.cell, c: ch.c, seq: ch.seq });
         const mine = this.own.get(k);
         if (mine === Infinity) {
           this.deferred.set(k, ch);
@@ -878,6 +954,15 @@ class SharedGrid {
         saveSnapshot({ part: partKey(p), templateId: this.snap.templateId ?? 0, seq: this.cursor, cells: [...this.server.values()] });
       }
       if (adopt.length) this.lastActivity = Date.now();
+      if (adopt.length && this.held.length) {
+        // A peer's write now shows where we had a refused one: that one is stale.
+        const taken = new Set(adopt.map(keyOf));
+        const rest = this.held.filter((h) => !taken.has(keyOf(h)));
+        if (rest.length !== this.held.length) {
+          this.held = rest;
+          saveHeld(p, rest);
+        }
+      }
       this.apply(adopt);
       // Reachable again. A sending error stays until the next send settles it.
       if ((this.pollFailed || this.openedOffline) && !this.flushing && this.outbox.size === 0) {

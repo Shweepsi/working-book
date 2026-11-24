@@ -189,6 +189,31 @@ check(!!cell, 'the edit reached the Worker');
 check(reached === 1 && cell && cell[1].seq === d.seq && d.seq === afterResend.seq + 1, 'the retry did not write it a second time (seq advanced once)');
 await r.ctx.close();
 
+// ---- 5. Worker: the same batch twice — even at once — is written once --------
+const post = (batch) =>
+  fetch(`${API}/api/grid/doc?date=${DATE}&poste=${pR}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client: 'e2e',
+      batch,
+      changes: [
+        { sheet: 'Suivi', cell: 'F6', c: { v: { t: 'Text', v: 'a' } } },
+        { sheet: 'Suivi', cell: 'bad', c: null },
+        { sheet: 'Suivi', cell: 'F7', c: { v: { t: 'Text', v: 'b' } } },
+      ],
+    }),
+  }).then((res) => res.json());
+const before = (await doc(pR)).seq;
+const [x, y] = await Promise.all([post(`t${Date.now()}`.slice(0, 20)), Promise.resolve(null)]);
+const id = `u${Date.now()}`;
+const [p1, p2] = await Promise.all([post(id), post(id)]);
+const p3 = await post(id);
+const want = JSON.stringify([before + 3, null, before + 4]);
+log('seqs', JSON.stringify(p1.seqs), JSON.stringify(p2.seqs), JSON.stringify(p3.seqs), 'before', before, 'first', JSON.stringify(x.seqs));
+check(JSON.stringify(p1.seqs) === JSON.stringify(p2.seqs) && JSON.stringify(p2.seqs) === JSON.stringify(p3.seqs), 'two sends at once and a third later all get the same answer');
+check(JSON.stringify(p1.seqs) === want && (await doc(pR)).seq === before + 4, 'and the cells were written once (a refused cell takes no number)');
+
 await browser.close();
 log(failures ? `${failures} FAILED` : 'ALL PASSED');
 process.exit(failures ? 1 : 0);

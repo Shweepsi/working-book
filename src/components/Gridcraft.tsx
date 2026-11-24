@@ -94,16 +94,19 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
   useEffect(() => grid.setTheme(GRID_THEME[theme]), [theme]);
   // Stable, so React doesn't detach and reattach the frame on every render.
   const frameRef = useRef<HTMLIFrameElement | null>(null);
-  const attachFrame = useCallback((el: HTMLIFrameElement | null) => {
-    frameRef.current = el;
-    grid.attach(el);
-  }, []);
   // The shift couldn't open (no network and never opened here, or the server
   // is down): what the frame shows isn't that shift's workbook, so it is
   // covered, and nothing typed in it can be taken for an edit.
-  const blocked = !snap.opened && (snap.status === 'offline' || snap.status === 'error');
+  const blocked = snap.blocked;
+  const blockedRef = useRef(blocked);
+  blockedRef.current = blocked;
+  const attachFrame = useCallback((el: HTMLIFrameElement | null) => {
+    frameRef.current = el;
+    if (el) el.inert = blockedRef.current !== null;
+    grid.attach(el);
+  }, []);
   useEffect(() => {
-    if (frameRef.current) frameRef.current.inert = blocked;
+    if (frameRef.current) frameRef.current.inert = blocked !== null;
   }, [blocked]);
 
   const [editing, setEditing] = useState(false);
@@ -229,9 +232,9 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
           {blocked && (
             <div className="gc-loading gc-blocked no-print" role="alert">
               <p>
-                <strong>{snap.status === 'offline' ? 'Hors ligne' : 'Serveur injoignable'}</strong>
+                <strong>{blocked === 'offline' ? 'Hors ligne' : 'Serveur injoignable'}</strong>
                 {' — '}
-                {snap.status === 'offline'
+                {blocked === 'offline'
                   ? 'le classeur de ce poste n’a encore jamais été ouvert sur cet appareil.'
                   : 'le classeur de ce poste ne s’est pas ouvert.'}
               </p>
