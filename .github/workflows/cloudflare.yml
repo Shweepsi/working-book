@@ -160,10 +160,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      # The GridCraft tab is dev-channel only (see VITE_CHANNEL below), so
-      # production neither downloads nor serves its ~18 Mo of wasm.
-      - name: Fetch GridCraft web build (dev channel)
-        if: github.ref != 'refs/heads/main'
+      # Suivi runs on every channel: in production it sits behind the hidden
+      # mode Avancé. The ~18 Mo of wasm stay out of the PWA precache (vite.config).
+      - name: Fetch GridCraft web build
         run: npm run fetch:gridcraft
       - run: npm run build
         env:

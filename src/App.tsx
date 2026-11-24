@@ -7,7 +7,7 @@ import Settings from './components/Settings';
 import Suivi from './components/Suivi';
 import SyncIndicator from './components/SyncIndicator';
 import { SYNC_ENABLED } from './lib/api';
-import { IS_DEV_CHANNEL } from './lib/channel';
+import { IS_DEV_BUILD, SHOWS_ADVANCED } from './lib/channel';
 import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
@@ -28,7 +28,7 @@ import {
   shiftFor,
   todayISO,
 } from './lib/shiftCalendar';
-import type { Density, Poste, SchedPrintMode, ShiftKey, ShiftMeta, Theme } from './types';
+import { isLook, type Density, type Look, type Poste, type SchedPrintMode, type ShiftKey, type ShiftMeta, type Theme } from './types';
 
 type TabKey = 'logbook' | 'test' | 'sched' | 'suivi' | 'grid' | 'loading' | 'unloading';
 
@@ -54,7 +54,7 @@ const ALL_TABS: readonly TabDef[] = [
   { key: 'unloading', label: 'Unloading', preview: true, shiftScoped: true },
 ];
 
-const TABS = ALL_TABS.filter((t) => IS_DEV_CHANNEL || !t.preview);
+const TABS = ALL_TABS.filter((t) => !t.preview || IS_DEV_BUILD || (SHOWS_ADVANCED && t.key === 'grid'));
 
 // The date picker and the shift chips exist for the shift-scoped tabs. Once
 // those are filtered out they steer nothing on screen, so they go with them.
@@ -68,8 +68,13 @@ const SHIFT_TABS = [
 
 type LiveShiftKey = (typeof SHIFT_TABS)[number]['key'];
 
-// Status-bar color (PWA / mobile chrome) per resolved theme
-const META_COLOR: Record<'light' | 'dark', string> = { light: '#f0eee9', dark: '#14130f' };
+// Status-bar color (PWA / mobile chrome) per style and resolved theme: the
+// canvas behind the app, so the bar reads as part of the page.
+const META_COLOR: Record<Look, Record<'light' | 'dark', string>> = {
+  papier: { light: '#f0eee9', dark: '#14130f' },
+  verre: { light: '#f2f5f9', dark: '#0d1217' },
+  ceramique: { light: '#ededf4', dark: '#1d2024' }, // M3 surface-container (the top bar)
+};
 
 function shiftKeyForHour(hour: number): LiveShiftKey {
   if (hour >= 6 && hour < 14) return 'M';
@@ -129,8 +134,13 @@ export default function App() {
     return liveDateAndShift().shiftKey;
   });
 
-  const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'auto'));
+  const [theme, setTheme] = useState<Theme>(() => load<Theme>('wb.theme', 'light'));
   const [density, setDensity] = useState<Density>(() => load<Density>('wb.density', 'normal'));
+  const [look, setLook] = useState<Look>(() => {
+    if (!SHOWS_ADVANCED) return 'papier';
+    const v = load<string>('wb.look', 'papier');
+    return isLook(v) ? v : 'papier';
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(false);
@@ -140,7 +150,7 @@ export default function App() {
   // shift's or its day's; printed alone from the sheet, with the Suivi tab otherwise.
   const [bilanOpen, setBilanOpen] = useState(false);
   const [bilanScope, setBilanScope] = useState<BilanScope>('poste');
-  const showBilan = IS_DEV_CHANNEL && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
+  const showBilan = SHOWS_ADVANCED && SYNC_ENABLED && TABS.some((t) => t.key === 'grid');
   // Loading, Unloading and the bilan read the shift's Suivi: a row they point
   // at is brought up there, once the workbook has opened the shift.
   const showInSuivi = (range: string) => {
@@ -156,7 +166,7 @@ export default function App() {
     if (tab === 'grid') setGridSeen(true);
   }, [tab]);
   useEffect(() => {
-    if (!IS_DEV_CHANNEL || !SYNC_ENABLED) return;
+    if (!SHOWS_ADVANCED || !SYNC_ENABLED) return;
     const t = setTimeout(() => void prefetchGridcraft(), 4000);
     return () => clearTimeout(t);
   }, []);
@@ -207,15 +217,21 @@ export default function App() {
   useEffect(() => { save('wb.shiftKey', shiftKey); }, [shiftKey]);
   useEffect(() => { save('wb.date', date); }, [date]);
 
-  // Apply theme + density to <html> and sync the PWA theme-color meta
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
     save('wb.theme', theme);
+  }, [theme]);
 
-    const meta = document.querySelector('meta[name="theme-color"]');
+  // Sync the PWA theme-color meta with the resolved theme and style.
+  useEffect(() => {
+    // index.html ships one tag per OS scheme (media queries). The app decides the
+    // theme itself, so both get the resolved colour: otherwise the dark-OS tag
+    // kept its static value whatever the theme or style.
+    const metas = document.querySelectorAll('meta[name="theme-color"]');
     const apply = () => {
-      if (meta) meta.setAttribute('content', META_COLOR[resolvedTheme(theme)]);
+      // The print preview turns the styles off (tokens.css): the bar follows.
+      const color = META_COLOR[printPreview ? 'papier' : look][resolvedTheme(theme)];
+      metas.forEach((m) => m.setAttribute('content', color));
     };
     apply();
 
@@ -224,12 +240,17 @@ export default function App() {
       mql.addEventListener?.('change', apply);
       return () => mql.removeEventListener?.('change', apply);
     }
-  }, [theme]);
+  }, [theme, look, printPreview]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-density', density);
     save('wb.density', density);
   }, [density]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-look', look);
+    save('wb.look', look);
+  }, [look]);
 
   // Toggle a screen-only class that mirrors the print stylesheet, so the
   // user can validate page layout without touching the OS print dialog.
@@ -479,6 +500,8 @@ export default function App() {
                 onThemeChange: setTheme,
                 density,
                 onDensityChange: setDensity,
+                look,
+                onLookChange: setLook,
               }}
             />
           </div>
@@ -514,6 +537,8 @@ export default function App() {
               onThemeChange={setTheme}
               density={density}
               onDensityChange={setDensity}
+              look={look}
+              onLookChange={setLook}
             />
           </div>
         )}

@@ -2579,8 +2579,11 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   color: var(--flag-ok-fg);
   font-size: var(--fs-sm);
   font-weight: 600;
-  transition: background 120ms ease, color 120ms ease;
+  /* visibility waits out the snap-back (180 ms): styles that hide the strip
+     at rest (Verre, Céramique) keep it covered until the row is home. */
+  transition: background 120ms ease, color 120ms ease, visibility 0s 180ms;
 }
+.sch-swipe.is-dragging .sch-swipe-action { transition: background 120ms ease, color 120ms ease; }
 /* Past the release threshold the strip goes solid: the card tells the operator
    the gesture is armed before they lift their finger. */
 .sch-swipe.is-armed .sch-swipe-action {
@@ -2593,7 +2596,9 @@ input, textarea, select, [contenteditable], .evt .desc, .sv-cell, .mono {
   position: relative;
   background: var(--paper);
   border-radius: var(--radius-md);
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* Same wait for the background: a surface cleared at rest stays solid
+     while it slides back over the strip. */
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1), background-color 0s 180ms;
 }
 .sch-swipe.is-dragging .sch-swipe-surface { transition: none; }
 
@@ -5957,10 +5962,10 @@ button.as-row:focus-visible {
   }
   /* The header is itself frosted, which makes it the backdrop root for
      anything inside it: a menu opened from the header can only blur the
-     header, not the page under it. Keep those menus nearly opaque so the
-     table below doesn't show through sharp. */
+     header, not the page under it. Keep those menus opaque: even at 94 % the
+     table below ghosted through, sharp, behind the menu's own text. */
   .app-header .popover {
-    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    background: var(--paper);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
@@ -6149,4 +6154,143 @@ button.as-row:focus-visible {
   /* The print-preview bar is screen chrome shown *during* the preview, when
      the screen radii are switched off: its buttons are pills in a pill bar. */
   .print-preview-bar .btn { border-radius: var(--radius-pill); }
+}
+
+/* ---------- Style « Verre »: frosted cards over the pastel wash ----------
+   Palette in tokens.css. The wash paints the page; the cards below turn to
+   frosted glass by swapping their own --paper / --paper-2 for translucent
+   versions, so their existing rules (and tints mixed into --paper) follow.
+   Children get the opaque values back: rows, inputs and swipe surfaces stay
+   solid where they sit over something else. Tables stay opaque for reading. */
+@media screen {
+  :root[data-look='verre']:not(.is-print-preview) { background: var(--wash) fixed, var(--canvas); }
+  :root[data-look='verre']:not(.is-print-preview) body { background: transparent; }
+  :root[data-look='verre']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
+    .ln-block, .ln-newcolour
+  ) {
+    --paper: color-mix(in oklch, var(--paper-solid) 64%, transparent);
+    --paper-2: color-mix(in oklch, var(--paper-2-solid) 64%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(130%);
+    backdrop-filter: blur(20px) saturate(130%);
+    border-color: var(--glass-edge);
+    box-shadow: var(--glass-shadow);
+  }
+  :root[data-look='verre']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
+    .ln-block, .ln-newcolour
+  ) > * {
+    --paper: var(--paper-solid);
+    --paper-2: var(--paper-2-solid);
+  }
+  /* Opaque boxes (Schedule detail, Cosmétique list) sit at the same depth as
+     the glass cards: same corner, same soft drop shadow, no blur. */
+  :root[data-look='verre']:not(.is-print-preview) :is(.sch-detail, .sv) {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--glass-shadow-outer);
+  }
+  /* Logbook's sticky type strip: clear, blur only. Over the even wash the blur
+     is invisible (no pale rectangle); over the list scrolling under it, it
+     softens the rows behind the chips. */
+  :root[data-look='verre']:not(.is-print-preview) .type-strip {
+    background: transparent;
+    -webkit-backdrop-filter: blur(20px) saturate(130%);
+    backdrop-filter: blur(20px) saturate(130%);
+  }
+  /* Selected schedule: a cream tint of the amber. The generic mix (accent in
+     sRGB toward paper) read as peach on the cool paper. */
+  :root[data-look='verre']:not(.is-print-preview) .sch-rail-item.active {
+    background: var(--sel-bg);
+    border-color: var(--sel-bd);
+  }
+  /* Suivi's loading state: let the wash show instead of a white page. */
+  :root[data-look='verre']:not(.is-print-preview) .gc-loading { background: transparent; }
+  /* Planning rows: the swipe surface is solid paper so the « Terminés »
+     action behind it stays hidden. At rest it can be clear (the action is
+     hidden too), so the rows read as part of the glass rail. */
+}
+/* Reduced transparency: plain canvas, opaque cards, no blur. Same selectors
+   as the glass rules above (and later in the file), so they win. The type
+   strip gets a solid band back: without blur, rows would show behind it. */
+@media screen and (prefers-reduced-transparency: reduce) {
+  :root[data-look='verre']:not(.is-print-preview) { background: var(--canvas); }
+  :root[data-look='verre']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty,
+    .ln-block, .ln-newcolour
+  ) {
+    --paper: var(--paper-solid);
+    --paper-2: var(--paper-2-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root[data-look='verre']:not(.is-print-preview) .type-strip {
+    background: var(--canvas);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ---------- Style « Céramique »: Material 3 colours, tonal surfaces ----------
+   Palette in tokens.css (M3 colour roles). The page is the lightest tone;
+   cards, the rail, menus and the top bar sit one step darker, with no
+   outline. The selected schedule and secondary buttons take the tonal fill.
+   Tabs, shift chips, the primary button, shapes, type and labels stay the
+   app's own. Tables keep their row dividers. */
+@media screen {
+  :root[data-look='ceramique']:not(.is-print-preview) :is(
+    .sch-rail, .sch-summary, .sch-hint, .sch-detail-head, .sch-table,
+    .evt-list, .evt-filterbar,
+    .pt-header, .pt-section, .pt-empty,
+    .sb-kpi, .sb-checks, .sc-card, .sv-stage-card, .sv-empty, .sv-toolbar, .sv-table,
+    .ln-block, .ln-newcolour, .popover, .sheet, .toast
+  ) {
+    border-color: transparent;
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-title { background: transparent; border-bottom-color: transparent; }
+  /* The summary bar is a card like the others: same level (base: --paper-2). */
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-summary { background: var(--paper); }
+  /* Top app bar: surface-container, like the cards, opaque. */
+  :root[data-look='ceramique']:not(.is-print-preview) .app-header {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-bottom-color: transparent;
+  }
+  /* :where() keeps the variant exclusions out of the specificity; the states
+     this rule would still outrank (hover, an open gear menu) get their own
+     tonal step below. */
+  :root[data-look='ceramique']:not(.is-print-preview) .btn:where(:not(.primary, .ghost, .accent, .danger, .destructive)) {
+    background: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .btn:where(:not(.primary, .ghost, .accent, .danger, .destructive)):is(:hover, [aria-expanded='true']) {
+    background: color-mix(in oklab, var(--tonal), var(--on-tonal) 12%);
+  }
+  /* Header menus drop from a bar of their own tone: one step darker (lighter
+     in dark) so they read as a separate layer, not only by their shadow. */
+  :root[data-look='ceramique']:not(.is-print-preview) .app-header .popover { background: var(--paper-2); }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active {
+    background: var(--tonal);
+    border-color: transparent;
+    color: var(--on-tonal);
+  }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-root,
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-item.active .sch-rail-meta { color: color-mix(in oklab, var(--on-tonal) 78%, transparent); }
+  :root[data-look='ceramique']:not(.is-print-preview) .sch-rail-mark { display: none; }
+
+  /* Planning rows read as one flat list on the rail, not stacked cards: the
+     swipe surface is clear at rest (the « Terminés » action is hidden too)
+     and solid only while a row is dragged. */
+  :root:is([data-look='verre'], [data-look='ceramique']):not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-surface { background-color: transparent; }
+  :root:is([data-look='verre'], [data-look='ceramique']):not(.is-print-preview) .sch-swipe:not(.is-dragging) .sch-swipe-action { visibility: hidden; }
 }

@@ -35,3 +35,6 @@ PWA React/Vite (front, `src/`) + Cloudflare Worker/D1 (`worker/`) + extension na
 ## Branches supprimées (récupérables par SHA)
 Abandonnées (PR #77 et #88 fermées sans fusion), supprimées de GitHub le 2026-11-15 :
 `claude/header-improvement-ideas-0shv7x` = `a7489e0` (boîte à idées), `claude/test-cosmetic-page-repatriation-48rxnx` = `4bbf0e7` (Logbook en sections). `git fetch origin <sha>` ou `refs/pull/<n>/head` les restaure.
+
+Style 2027, remplacé par Papier / Verre / Céramique (PR #133), supprimées de GitHub le 2026-11-24 :
+`claude/gracious-ramanujan-9bl9j6` = `23d4a15` (PR #125), `claude/modest-bell-86u3ox` = `3b0d2f5` (PR #124), `claude/practical-bardeen-gbviph` = `7e6643d` (PR #126).

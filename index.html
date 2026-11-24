@@ -17,6 +17,20 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Working Book</title>
+    <script>
+      // Theme, style and density before the first paint (App re-applies them):
+      // otherwise a saved Verre or Céramique flashes Papier on every launch.
+      // Mirrors storage.ts load() and the App defaults / LOOK_KEYS (types.ts).
+      // Above the font stylesheet: a script after a pending stylesheet waits for it.
+      try {
+        var d = document.documentElement;
+        var get = function (k, f) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? f : v; } catch (e) { return f; } };
+        var look = get('wb.look', 'papier');
+        d.setAttribute('data-theme', get('wb.theme', 'light'));
+        d.setAttribute('data-look', look === 'verre' || look === 'ceramique' ? look : 'papier');
+        d.setAttribute('data-density', get('wb.density', 'normal'));
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

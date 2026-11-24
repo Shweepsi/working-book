@@ -176,6 +176,250 @@
   --space-10: 22px;
 }
 
+/* ---------- Style « Verre » (Réglages → Style) ----------
+   Set by data-look="verre" on <html>. A cool, quiet pastel wash behind the
+   page, frosted cards (app.css), amber accent, coral alert, softer
+   highlighters. Colours are oklch so each tint keeps the same perceived
+   lightness in both themes. Screen only: the print preview and paper keep
+   the classic palette. The accent is a golden amber (hue 74): lighter tints
+   of it read as cream, not peach. --paper is opaque here; app.css turns it
+   translucent on the cards only (--paper-solid gives it back to their
+   children: tables, sticky headers and swipe rows sit on it). */
+@media screen {
+  :root[data-look='verre']:not(.is-print-preview) {
+    --ink: oklch(29% 0.035 268);
+    --ink-soft: oklch(49% 0.03 268);
+    --ink-faint: oklch(66% 0.025 265);
+    --line: oklch(27% 0.03 268);
+    --line-soft: oklch(81% 0.02 255);
+    --line-faint: oklch(89.5% 0.014 250);
+
+    --paper: oklch(99.3% 0.003 250);
+    --paper-2: oklch(96.9% 0.007 250);
+    --canvas: oklch(97.2% 0.008 250);
+    --paper-glass: oklch(98.5% 0.004 250 / 0.7);
+    --paper-glass-2: oklch(99% 0.003 250 / 0.82);
+    --paper-solid: oklch(99.3% 0.003 250);
+    --paper-2-solid: oklch(96.9% 0.007 250);
+
+    --hl-yellow: oklch(95% 0.065 95);
+    --hl-red: oklch(91.5% 0.045 30);
+    --hl-green: oklch(93.5% 0.048 165);
+    --hl-blue: oklch(92.5% 0.04 240);
+
+    --accent: oklch(68% 0.12 74);
+    --accent-ink: oklch(22% 0.03 70);
+
+    --shadow-sheet: 0 12px 40px oklch(45% 0.06 260 / 0.16);
+    --shadow-popover: 0 10px 28px oklch(45% 0.06 260 / 0.16);
+    --backdrop: oklch(30% 0.03 260 / 0.28);
+    --focus-ring: oklch(68% 0.12 74 / 0.12);
+
+    --wash:
+      radial-gradient(60% 55% at 8% 0%, oklch(91% 0.039 85 / 0.72), transparent 70%),
+      radial-gradient(55% 60% at 100% 10%, oklch(89% 0.042 225 / 0.72), transparent 70%),
+      radial-gradient(60% 55% at 85% 100%, oklch(92% 0.036 175 / 0.72), transparent 70%),
+      radial-gradient(55% 50% at 0% 95%, oklch(91% 0.033 250 / 0.72), transparent 70%);
+    --glass-edge: oklch(100% 0 0 / 0.75);
+    --glass-shadow: 0 8px 28px oklch(45% 0.06 260 / 0.1), inset 0 1px 0 oklch(100% 0 0 / 0.8);
+    --glass-shadow-outer: 0 8px 28px oklch(45% 0.06 260 / 0.1);
+    --sel-bg: oklch(95.5% 0.032 86);
+    --sel-bd: oklch(86% 0.06 82);
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root[data-look='verre']:not(.is-print-preview):not([data-theme='light']) {
+    color-scheme: dark;
+    --ink: oklch(96% 0.01 260);
+    --ink-soft: oklch(81% 0.015 260);
+    --ink-faint: oklch(63% 0.02 260);
+    --line: oklch(94% 0.01 260);
+    --line-soft: oklch(37% 0.02 255);
+    --line-faint: oklch(29.5% 0.02 255);
+
+    --paper: oklch(22% 0.02 255);
+    --paper-2: oklch(26% 0.02 255);
+    --canvas: oklch(16.5% 0.02 255);
+    --paper-glass: oklch(19% 0.02 255 / 0.72);
+    --paper-glass-2: oklch(21% 0.02 255 / 0.85);
+    --paper-solid: oklch(22% 0.02 255);
+    --paper-2-solid: oklch(26% 0.02 255);
+
+    --hl-yellow: oklch(42% 0.06 95);
+    --hl-red: oklch(40% 0.06 30);
+    --hl-green: oklch(41% 0.055 165);
+    --hl-blue: oklch(40% 0.055 240);
+
+    --accent: oklch(82% 0.1 76);
+    --accent-ink: oklch(20% 0.03 70);
+
+    --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
+    --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
+    --backdrop: oklch(5% 0.01 255 / 0.5);
+    --focus-ring: oklch(82% 0.1 76 / 0.14);
+
+    --wash:
+      radial-gradient(60% 55% at 8% 0%, oklch(34% 0.04 205 / 0.68), transparent 70%),
+      radial-gradient(55% 60% at 100% 10%, oklch(34% 0.048 225 / 0.68), transparent 70%),
+      radial-gradient(60% 55% at 85% 100%, oklch(32% 0.039 175 / 0.68), transparent 70%),
+      radial-gradient(55% 50% at 0% 95%, oklch(33% 0.042 250 / 0.68), transparent 70%);
+    --glass-edge: oklch(100% 0 0 / 0.14);
+    --glass-shadow: 0 8px 28px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.12);
+    --glass-shadow-outer: 0 8px 28px oklch(0% 0 0 / 0.35);
+    --sel-bg: oklch(33% 0.045 78);
+    --sel-bd: oklch(46% 0.06 78);
+  }
+}
+@media screen {
+  :root[data-look='verre'][data-theme='dark']:not(.is-print-preview) {
+    color-scheme: dark;
+    --ink: oklch(96% 0.01 260);
+    --ink-soft: oklch(81% 0.015 260);
+    --ink-faint: oklch(63% 0.02 260);
+    --line: oklch(94% 0.01 260);
+    --line-soft: oklch(37% 0.02 255);
+    --line-faint: oklch(29.5% 0.02 255);
+
+    --paper: oklch(22% 0.02 255);
+    --paper-2: oklch(26% 0.02 255);
+    --canvas: oklch(16.5% 0.02 255);
+    --paper-glass: oklch(19% 0.02 255 / 0.72);
+    --paper-glass-2: oklch(21% 0.02 255 / 0.85);
+    --paper-solid: oklch(22% 0.02 255);
+    --paper-2-solid: oklch(26% 0.02 255);
+
+    --hl-yellow: oklch(42% 0.06 95);
+    --hl-red: oklch(40% 0.06 30);
+    --hl-green: oklch(41% 0.055 165);
+    --hl-blue: oklch(40% 0.055 240);
+
+    --accent: oklch(82% 0.1 76);
+    --accent-ink: oklch(20% 0.03 70);
+
+    --shadow-sheet: 0 12px 40px oklch(0% 0 0 / 0.5);
+    --shadow-popover: 0 10px 28px oklch(0% 0 0 / 0.45);
+    --backdrop: oklch(5% 0.01 255 / 0.5);
+    --focus-ring: oklch(82% 0.1 76 / 0.14);
+
+    --wash:
+      radial-gradient(60% 55% at 8% 0%, oklch(34% 0.04 205 / 0.68), transparent 70%),
+      radial-gradient(55% 60% at 100% 10%, oklch(34% 0.048 225 / 0.68), transparent 70%),
+      radial-gradient(60% 55% at 85% 100%, oklch(32% 0.039 175 / 0.68), transparent 70%),
+      radial-gradient(55% 50% at 0% 95%, oklch(33% 0.042 250 / 0.68), transparent 70%);
+    --glass-edge: oklch(100% 0 0 / 0.14);
+    --glass-shadow: 0 8px 28px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.12);
+    --glass-shadow-outer: 0 8px 28px oklch(0% 0 0 / 0.35);
+    --sel-bg: oklch(33% 0.045 78);
+    --sel-bd: oklch(46% 0.06 78);
+  }
+}
+
+/* ---------- Style « Céramique » (Réglages → Style) ----------
+   Set by data-look="ceramique". Material Design 3 (the standard, non
+   « Expressive » one), as on Android: the colours below are M3 colour roles
+   of a blue scheme (primary #415F91), named in the comments. Surfaces are
+   solid tones with no outline: the page is `surface`, the lightest; cards,
+   the rail, menus and the top bar are `surface-container`, one step darker;
+   table heads and pressed rows `surface-container-high`. Selected things take
+   `secondary-container` (--tonal), the main action `primary` (--accent).
+   No blur, no transparency: as light as Papier. Highlighters keep their
+   meaning. Shapes, type and controls stay the app's own (app.css).
+   Screen only, like Verre: print keeps Papier. */
+@media screen {
+  :root[data-look='ceramique']:not(.is-print-preview) {
+    --ink: #191c20;            /* on-surface */
+    --ink-soft: #44474e;       /* on-surface-variant */
+    --ink-faint: #74777f;      /* outline */
+    --line: #191c20;
+    --line-soft: #c4c6d0;      /* outline-variant */
+    --line-faint: #d6d8e0;     /* outline-variant over surface-container */
+
+    --canvas: #f9f9ff;         /* surface */
+    --paper: #ededf4;          /* surface-container */
+    /* surface-container-highest: -high (#e7e8ee) sat too close to the cards
+       to read as a step (contrast 1.05 against 1.14 in dark). */
+    --paper-2: #e2e2e9;        /* surface-container-highest */
+    --paper-glass: #f9f9ff;    /* sticky strips over the page: surface */
+    --paper-glass-2: #ededf4;  /* phone bottom bar: surface-container */
+
+    --hl-yellow: oklch(93% 0.07 95);
+    --hl-red: oklch(90.5% 0.05 25);
+    --hl-green: oklch(91.5% 0.055 150);
+    --hl-blue: oklch(91.5% 0.04 235);
+
+    --accent: #415f91;         /* primary */
+    --accent-ink: #ffffff;     /* on-primary */
+    --tonal: #dae2f9;          /* secondary-container */
+    --on-tonal: #131c2b;       /* on-secondary-container */
+
+    /* M3 elevation: level 2 (menus), level 3 (dialogs). */
+    --shadow-popover: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+    --shadow-sheet: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
+    --backdrop: rgb(0 0 0 / 0.32); /* scrim */
+    --focus-ring: rgb(65 95 145 / 0.14);
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root[data-look='ceramique']:not(.is-print-preview):not([data-theme='light']) {
+    color-scheme: dark;
+    --ink: #e2e2e9;
+    --ink-soft: #c4c6d0;
+    --ink-faint: #8e9099;
+    --line: #e2e2e9;
+    --line-soft: #44474e;
+    --line-faint: #32353b;
+
+    --canvas: #111318;
+    --paper: #1d2024;
+    --paper-2: #282a2f;
+    --paper-glass: #111318;
+    --paper-glass-2: #1d2024;
+
+    --hl-yellow: oklch(38% 0.06 95);
+    --hl-red: oklch(36% 0.065 25);
+    --hl-green: oklch(37% 0.06 150);
+    --hl-blue: oklch(36% 0.055 235);
+
+    --accent: #aac7ff;
+    --accent-ink: #0a305f;
+    --tonal: #3e4759;
+    --on-tonal: #dae2f9;
+
+    /* Shadows and scrim: same as light (M3 uses black in both). */
+    --focus-ring: rgb(170 199 255 / 0.16);
+  }
+}
+@media screen {
+  :root[data-look='ceramique'][data-theme='dark']:not(.is-print-preview) {
+    color-scheme: dark;
+    --ink: #e2e2e9;
+    --ink-soft: #c4c6d0;
+    --ink-faint: #8e9099;
+    --line: #e2e2e9;
+    --line-soft: #44474e;
+    --line-faint: #32353b;
+
+    --canvas: #111318;
+    --paper: #1d2024;
+    --paper-2: #282a2f;
+    --paper-glass: #111318;
+    --paper-glass-2: #1d2024;
+
+    --hl-yellow: oklch(38% 0.06 95);
+    --hl-red: oklch(36% 0.065 25);
+    --hl-green: oklch(37% 0.06 150);
+    --hl-blue: oklch(36% 0.055 235);
+
+    --accent: #aac7ff;
+    --accent-ink: #0a305f;
+    --tonal: #3e4759;
+    --on-tonal: #dae2f9;
+
+    /* Shadows and scrim: same as light (M3 uses black in both). */
+    --focus-ring: rgb(170 199 255 / 0.16);
+  }
+}
+
 /* Corner radii on screen (very rounded, iOS 26 style):
      inner    4px    --radius-sm          a part inside a control (MTO badge, kbd)
      control  14px   --radius-md          inputs, list rows, textareas
