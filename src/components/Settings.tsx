@@ -3,6 +3,7 @@ import type { Density, Look, Theme } from '../types';
 import { fmtStamp } from '../lib/format';
 import { applyUpdate, checkForUpdate, useUpdateWaiting } from '../lib/pwa';
 import { useToast } from '../lib/toast';
+import { DEV_MODE_FORCED, IS_DEV_CHANNEL, setDevMode } from '../lib/channel';
 import { SettingsIcon, ThemeAutoIcon, ThemeDarkIcon, ThemeLightIcon } from './icons';
 
 // The build stamp, formatted once: it is a compile-time constant, and the
@@ -51,6 +52,23 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
   // so the button can promise an update rather than only a search for one.
   const updateWaiting = useUpdateWaiting();
   const [checking, setChecking] = useState(false);
+
+  // Seven quick taps on the version toggle dev mode (Android-style). A build
+  // that is already dev has nothing to toggle.
+  const taps = useRef({ n: 0, at: 0 });
+  function tapVersion() {
+    if (IS_DEV_CHANNEL && !DEV_MODE_FORCED) return;
+    const now = Date.now();
+    const t = taps.current;
+    t.n = now - t.at < 600 ? t.n + 1 : 1;
+    t.at = now;
+    if (t.n >= 7) {
+      t.n = 0;
+      setDevMode(!DEV_MODE_FORCED);
+    } else if (t.n >= 4) {
+      toast.show({ message: `Encore ${7 - t.n} pour ${DEV_MODE_FORCED ? 'quitter' : 'activer'} le mode dev` });
+    }
+  }
 
   // One button, one meaning: « mets-moi à jour ». A version already parked is
   // reported as `ready` on the spot; otherwise we go look for one and apply
@@ -130,8 +148,9 @@ export function SettingsPanel({ theme, onThemeChange, density, onDensityChange, 
       </div>
       <div>
         <h4>Version</h4>
-        <div className="popover-help popover-version mono">
+        <div className="popover-help popover-version mono" onClick={tapVersion}>
           {__APP_VERSION__} · {__APP_COMMIT__}
+          {DEV_MODE_FORCED && ' · mode dev'}
           {BUILT_AT && (
             <>
               <br />
