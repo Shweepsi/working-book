@@ -16,7 +16,7 @@ PWA React/Vite (front, `src/`) + Cloudflare Worker/D1 (`worker/`) + extension na
 
 ## Carte du dépôt
 - `src/components/` : un fichier par écran/onglet (Schedules, Suivi, Logbook, ProductionTest, LineTabs…). Les plus gros (à découper un jour) : `Schedules.tsx`, `LineTabs.tsx`, `SuiviBilan.tsx`.
-- `src/lib/` : logique sans UI. Sync : `sync.ts`, `lineSync.ts`, `sharedGrid.ts`. Parsing : `pms230Parser.ts`, `policyParser.ts`. Bilans : `suiviBilan.ts`, `lineBilan.ts`, `dayBilan.ts`.
+- `src/lib/` : logique sans UI. Sync : `sync.ts`, `sharedGrid.ts` (classeur Suivi), `shiftCells.ts` (lecture des cellules d'un poste hors de l'onglet Suivi). Parsing : `pms230Parser.ts`, `policyParser.ts`. Loading/Unloading = vues en lecture seule du classeur Suivi : `suiviCells.ts` (cellules → lignes, colonnes du modèle), `shiftLine.ts` (hook), `line.ts` (types et règles). Bilans : `lineBilan.ts`, `dayBilan.ts`, `suiviBilan.ts` (types et totaux communs).
 - `src/styles/` : `tokens.css` (variables) et `app.css` (monolithe, tout le CSS des écrans).
 - `worker/src/` : API (`index.ts`), `mcp/` = serveur MCP + moteur GridCraft (wasm). `worker/migrations/` : SQL D1 numéroté, ne jamais réécrire une migration appliquée.
 - `docs/` : guides d'usage à la racine, `audits/` = audits terminés (statut « corrigé »).

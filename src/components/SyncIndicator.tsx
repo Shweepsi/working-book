@@ -1,12 +1,11 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { lineSync, type LineSnapshot } from '../lib/lineSync';
 import { sharedGrid, type GridSnapshot } from '../lib/sharedGrid';
 import { useSyncStatus, type SyncSnapshot, type SyncStatus } from '../lib/sync';
 import { CheckIcon, LocalIcon, OfflineIcon, RefreshIcon, UpIcon, WarnIcon } from './icons';
 
 // One chip for everything that syncs, whatever tab is showing: the app's data
-// (logbook, schedule, protection…), the shift's GridCraft workbook (Suivi) and
-// its Loading and Unloading records, each on its own channel. It shows the
+// (logbook, schedule, protection…) and the shift's GridCraft workbook (Suivi,
+// which Loading and Unloading read), each on its own channel. It shows the
 // state that most needs a look and the writes still waiting, all together;
 // its title says where each one stands.
 
@@ -69,23 +68,6 @@ function gridChannel(g: GridSnapshot): Channel | null {
   }
 }
 
-// The records count once a shift is followed (or writes wait from an earlier visit).
-function lineChannel(l: LineSnapshot): Channel | null {
-  if (l.status === 'disabled' || (!l.part && !l.pending)) return null;
-  const name = 'Loading et Unloading';
-  switch (l.status) {
-    case 'ready':
-      return { name, status: 'idle', pending: 0, text: 'à jour' };
-    case 'loading':
-    case 'syncing':
-      return { name, status: 'syncing', pending: l.pending, text: l.pending ? `envoi en cours (${l.pending})` : 'chargement' };
-    case 'offline':
-      return { name, status: 'offline', pending: l.pending, text: `hors ligne${l.pending ? `, ${waiting(l.pending)}` : ''}` };
-    default:
-      return { name, status: 'error', pending: l.pending, text: l.error ?? 'échec' };
-  }
-}
-
 function relTime(ts: number, now: number): string {
   const sec = Math.max(0, Math.round((now - ts) / 1000));
   if (sec < 5) return 'à l’instant';
@@ -110,7 +92,6 @@ export interface SyncSummary {
 export function useSyncSummary(): SyncSummary | null {
   const snap = useSyncStatus();
   const gridSnap = useSyncExternalStore(sharedGrid.subscribe, sharedGrid.getSnapshot);
-  const lineSnap = useSyncExternalStore(lineSync.subscribe, lineSync.getSnapshot);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -119,7 +100,7 @@ export function useSyncSummary(): SyncSummary | null {
   }, []);
 
   if (snap.status === 'disabled') return null;
-  const channels = [dataChannel(snap), gridChannel(gridSnap), lineChannel(lineSnap)].filter((c): c is Channel => !!c);
+  const channels = [dataChannel(snap), gridChannel(gridSnap)].filter((c): c is Channel => !!c);
   const status = channels.reduce<SyncStatus>((worst, c) => (RANK[c.status] > RANK[worst] ? c.status : worst), 'idle');
   const pending = channels.reduce((n, c) => n + c.pending, 0);
   const last = snap.lastSuccessAt ? ` · ${relTime(snap.lastSuccessAt, now)}` : '';

@@ -1,16 +1,19 @@
 // The day's bilan, 06:00 to 06:00: the Matin, Après-midi and Nuit shifts of
-// one date (the night belongs to the day it starts), from what the Loading and
-// Unloading tabs hold for each (lib/lineBilan.ts). The shift followed on this
-// device counts as it stands; the other two are read from the Worker, and read
-// again when they're older than STALE_MS or on demand.
+// one date (the night belongs to the day it starts), from what each one's
+// Suivi workbook holds (lib/suiviCells.ts, lib/lineBilan.ts). The shift on
+// screen counts as its workbook stands; the others are read from the Worker
+// (lib/shiftCells.ts), and read again when they're older than STALE_MS or on
+// demand.
 
 import { useEffect, useSyncExternalStore } from 'react';
-import type { LineData } from './line';
+import { EMPTY_LINE, hasRecords, type LineData } from './line';
 import { computeLineBilan } from './lineBilan';
-import { lineSync, readLine } from './lineSync';
 import type { Partition } from './sharedGrid';
+import { pullShift, readsVersion, shiftCellsNow, shiftReadStatus, subscribeReads } from './shiftCells';
 import { POSTES, shiftFor } from './shiftCalendar';
+import { cellsToLine } from './suiviCells';
 import { mergeBilans, type SuiviBilan } from './suiviBilan';
+import { sharedGrid as grid } from './sharedGrid';
 import type { Poste, ShiftKey } from '../types';
 
 const STALE_MS = 30_000;
@@ -48,68 +51,45 @@ export function dayShifts(date: string): { key: ShiftKey; label: string; hours: 
   });
 }
 
-// The other shifts, as last read.
-interface Read {
-  date: string;
-  at: number;
-  status: 'loading' | 'ready' | 'error';
-  error?: string;
-  data: Map<Poste, LineData>;
-}
-let read: Read | null = null;
-let version = 0;
-let token = 0;
-const listeners = new Set<() => void>();
-const emit = () => {
-  version++;
-  listeners.forEach((l) => l());
-};
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => listeners.delete(l);
-};
-
 /** Reads the day's shifts again. */
 export async function refreshDay(date: string): Promise<void> {
-  const mine = ++token;
-  read = { date, at: Date.now(), status: 'loading', data: read?.date === date ? read.data : new Map() };
-  emit();
-  try {
-    const shifts = dayShifts(date);
-    const all = await Promise.all(shifts.map((s) => readLine(date, s.poste)));
-    if (mine !== token) return;
-    read = { date, at: Date.now(), status: 'ready', data: new Map(shifts.map((s, i) => [s.poste, all[i]])) };
-  } catch (e) {
-    if (mine !== token) return;
-    read = { ...(read as Read), status: 'error', error: navigator.onLine ? String(e instanceof Error ? e.message : e) : 'pas de réseau' };
-  }
-  emit();
+  await Promise.all(dayShifts(date).map((s) => pullShift({ date, poste: s.poste })));
 }
-
-const hasRecords = (d: LineData) => d.colours.length + d.loading.length + d.unloading.length + d.scraps.length > 0;
 
 let cache: { key: string; value: DayBilan } | null = null;
 
 /** The day of `date`, with `live` (the shift followed here) as it stands; null when not `enabled`. */
 export function useDayBilan(date: string, live: Partition | null, enabled: boolean): DayBilan | null {
-  const v = useSyncExternalStore(subscribe, () => version);
-  const snap = useSyncExternalStore(lineSync.subscribe, lineSync.getSnapshot);
+  const reads = useSyncExternalStore(subscribeReads, readsVersion);
+  // The workbook on screen: its cells change under it, the reads above don't say so.
+  const grids = useSyncExternalStore(grid.subscribe, grid.getSnapshot);
   useEffect(() => {
-    if (enabled && (!read || read.date !== date || (read.status !== 'loading' && Date.now() - read.at > STALE_MS))) void refreshDay(date);
+    if (!enabled) return;
+    for (const s of dayShifts(date)) {
+      const p = { date, poste: s.poste };
+      if (Date.now() - shiftReadStatus(p).at > STALE_MS) void pullShift(p);
+    }
   }, [enabled, date]);
   if (!enabled) return null;
-  const key = `${date}|${live?.poste ?? ''}|${v}|${snap.part}|${snap.rev}|${snap.loaded}`;
+  const key = `${date}|${live?.poste ?? ''}|${reads}|${grids.rev}|${grids.status}`;
   if (cache?.key === key) return cache.value;
-  const r = read?.date === date ? read : null;
+  let unread = false;
+  let failed = false;
   const shifts: DayShift[] = dayShifts(date).map((s) => {
-    const liveData = live && live.date === date && live.poste === s.poste ? lineSync.data(live) : null;
-    const data = liveData ?? r?.data.get(s.poste) ?? null;
+    const read = shiftReadStatus({ date, poste: s.poste });
+    const cells = shiftCellsNow({ date, poste: s.poste });
+    // No cells once read: the shift was never opened in Suivi, nothing is typed.
+    const data: LineData | null = cells ? cellsToLine(cells) : read.status === 'ready' ? EMPTY_LINE : null;
+    if (!data) {
+      unread = true;
+      failed ||= read.status === 'error';
+    }
     return { ...s, bilan: data ? computeLineBilan(data) : null, started: !!data && hasRecords(data) };
   });
   const value: DayBilan = {
     date,
-    status: r?.status ?? 'loading',
-    error: r?.error,
+    status: failed ? 'error' : unread ? 'loading' : 'ready',
+    error: failed ? (navigator.onLine ? 'lecture impossible' : 'pas de réseau') : undefined,
     shifts,
     bilan: mergeBilans(shifts.flatMap((s) => (s.bilan ? [s.bilan] : []))),
   };

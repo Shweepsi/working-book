@@ -1,46 +1,19 @@
-// The shift's bilan, computed from the Suivi sheet's cells: what the template's
-// Rapport sheet did with formulas (template #26 and earlier), now done here so
-// the app can lay it out, colour by colour, and print it.
-//
-// The same rules as those formulas:
-//   - a row whose N° TAG is a text, not a number, opens a colour's block
-//     (EstCouleur: its first three characters aren't a number); the
-//     template's « COULEUR » placeholder opens a block with no colour;
-//   - numbers typed as text count (Nombre: IFERROR(--x, 0));
+// The shift's bilan: its shape, and the sums every way of reading a shift
+// shares. The figures come from the Loading and Unloading records
+// (lib/lineBilan.ts), which lib/suiviCells.ts reads off the Suivi workbook by
+// the rules of the template's former Rapport sheet:
 //   - Début de Ligne = Consommées (J), Fin de Ligne = Lites (R), Rejets = the
 //     three Quantité columns (U, X, AA); DELTA = début − fin − rejets;
 //   - m² = Dimension (mm) × 3210 mm × lites;
 //   - a defect's dimension is « Dimension x Epaisseur » of its FL row.
-// Plus what the Rapport didn't say: the rows that look incomplete.
-//
-// The columns are the template's (row 2's headings): if Suivi's layout ever
-// changes, so must COLS.
+// The cell helpers below (valueOf, num, isColour…) are those formulas' own.
 
-export const WIDTH_MM = 3210;
-const FIRST_ROW = 3;
-const LAST_ROW = 100;
-// A N° TAG's lengths: 11 digits, or 10 (some write it without the leading 2).
-const TAG_DIGITS = [10, 11];
-const PLACEHOLDER = 'COULEUR';
+export const FIRST_ROW = 3;
+export const LAST_ROW = 100;
+export const PLACEHOLDER = 'COULEUR';
 // The template's own content in Suivi's data rows (everything else is empty
-// there, or Restantes' formula, computed below).
-const TEMPLATE: Record<string, string> = { B3: PLACEHOLDER, N3: PLACEHOLDER };
-
-const COLS = {
-  dl: { tag: 'B', lites: 'C', dim: 'D', ep: 'E', date: 'I', conso: 'J', inputs: ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'L'] },
-  fl: {
-    tag: 'N',
-    dim: 'P',
-    ep: 'Q',
-    lites: 'R',
-    defects: [
-      ['S', 'U'],
-      ['V', 'X'],
-      ['Y', 'AA'],
-    ] as const,
-    inputs: ['N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA'],
-  },
-};
+// there, or Restantes' formula, which isn't read: lib/line.ts computes it).
+export const TEMPLATE: Record<string, string> = { B3: PLACEHOLDER, N3: PLACEHOLDER };
 
 export interface BilanTotals {
   /** Lites: Début de Ligne (consumed), Fin de Ligne, rejected, and the gap. */
@@ -99,10 +72,8 @@ export interface BilanColour {
 /** A row to look at: one sentence, and where it is, to bring it up there. */
 export interface BilanCheck {
   text: string;
-  /** "Suivi!N47:AA47"; none for a remark about the whole block. */
+  /** Where it is in Suivi ("Suivi!N47:AA47"); none for a remark about the whole block. */
   range?: string;
-  /** The Loading or Unloading tab's record (lib/lineBilan.ts). */
-  target?: { tab: 'loading' | 'unloading'; id: string };
 }
 
 export interface SuiviBilan {
@@ -118,10 +89,10 @@ export interface SuiviBilan {
 
 export const NO_COLOUR = 'Sans couleur';
 
-type Value = number | string | boolean | null;
+export type Value = number | string | boolean | null;
 
 /** A cell's value from GridCraft's shared content ({ v: { t, v }, … }). */
-function valueOf(content: unknown): Value {
+export function valueOf(content: unknown): Value {
   if (!content || typeof content !== 'object') return null;
   const v = (content as { v?: { t?: string; v?: unknown } }).v;
   if (!v || typeof v !== 'object') return null;
@@ -137,10 +108,10 @@ function valueOf(content: unknown): Value {
   }
 }
 
-const filled = (v: Value) => v !== null && !(typeof v === 'string' && v.trim() === '');
+export const filled = (v: Value) => v !== null && !(typeof v === 'string' && v.trim() === '');
 
 /** The template's Nombre: a number, or a text that reads as one; 0 otherwise. */
-function num(v: Value): number {
+export function num(v: Value): number {
   if (typeof v === 'number') return v;
   if (typeof v === 'string') {
     const t = v.trim().replace(/\s/g, '').replace(',', '.');
@@ -152,7 +123,7 @@ function num(v: Value): number {
 }
 
 /** The template's EstCouleur: a text whose first three characters aren't a number. */
-function isColour(v: Value): v is string {
+export function isColour(v: Value): v is string {
   if (typeof v !== 'string') return false;
   const head = v.slice(0, 3).trim();
   return head !== '' && Number.isNaN(Number(head.replace(',', '.')));
@@ -160,7 +131,7 @@ function isColour(v: Value): v is string {
 
 const round = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d;
 
-const text = (v: Value) => (v === null ? '' : typeof v === 'number' ? String(round(v, 3)) : String(v).trim());
+export const text = (v: Value) => (v === null ? '' : typeof v === 'number' ? String(round(v, 3)) : String(v).trim());
 
 export const emptyTotals = (): BilanTotals => ({ dl: 0, fl: 0, rejets: 0, delta: 0, dlM2: 0, flM2: 0, rejetsM2: 0, deltaM2: 0 });
 
@@ -176,13 +147,6 @@ export function closeTotals(t: BilanTotals): BilanTotals {
     rejetsM2: round(t.rejetsM2, 3),
     deltaM2: round(t.dlM2 - t.flM2 - t.rejetsM2, 2) || 0,
   };
-}
-
-/** A N° TAG that is a number of the wrong length, as a sentence; '' when it looks right. */
-function tagIssue(tag: Value): string {
-  const digits = typeof tag === 'number' ? String(Math.round(tag)) : typeof tag === 'string' && /^\d+$/.test(tag.trim()) ? tag.trim() : null;
-  if (digits === null || TAG_DIGITS.includes(digits.length)) return '';
-  return `N° TAG ${digits} à ${digits.length} chiffres (${TAG_DIGITS.join(' ou ')} attendus)`;
 }
 
 export interface RejectAcc {
@@ -219,162 +183,6 @@ export function closeRejects(accs: RejectAcc[], m2: number): BilanRejects {
       .map((d) => ({ ...d, total: round(d.total, 3), m2: round(d.m2, 3) }))
       .sort((a, b) => b.total - a.total || a.defect.localeCompare(b.defect)),
     dims: dimList.filter((d) => d.passees > 0).sort((a, b) => b.passees - a.passees || a.dim.localeCompare(b.dim)),
-  };
-}
-
-const list = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`);
-
-export function computeBilan(cells: ReadonlyMap<string, unknown>): SuiviBilan {
-  const at = (col: string, row: number): Value => {
-    const key = `Suivi!${col}${row}`;
-    if (cells.has(key)) return valueOf(cells.get(key));
-    return TEMPLATE[`${col}${row}`] ?? null;
-  };
-
-  type Acc = Omit<BilanColour, 'rejects'> & { raw: BilanTotals; acc: RejectAcc };
-  const colours = new Map<string, Acc>();
-  const colourOf = (name: string | null) => {
-    const key = name ?? NO_COLOUR;
-    let c = colours.get(key);
-    if (!c) {
-      c = { name: key, none: name === null, inDl: false, inFl: false, totals: emptyTotals(), raw: emptyTotals(), checks: [], acc: rejectAcc() };
-      colours.set(key, c);
-    }
-    return c;
-  };
-  // Colour names as typed (trimmed); the placeholder is no colour.
-  const blockName = (v: string) => (v.trim().toUpperCase() === PLACEHOLDER ? null : v.trim());
-  let empty = true;
-
-  // Fin de Ligne first: the Rapport listed the colours in that order.
-  {
-    const c = COLS.fl;
-    let current: string | null = null;
-    for (let r = FIRST_ROW; r <= LAST_ROW; r++) {
-      const tag = at(c.tag, r);
-      // A colour's row opens its block, and counts in it like the Rapport did
-      // if anything else was typed on it.
-      const colourRow = isColour(tag);
-      if (colourRow) {
-        current = blockName(tag);
-        if (current !== null) colourOf(current).inFl = true;
-      }
-      if (!c.inputs.some((col) => (!colourRow || col !== c.tag) && filled(at(col, r)))) continue;
-      empty = false;
-      const colour = colourOf(current);
-      colour.inFl = true;
-      const dim = num(at(c.dim, r));
-      const lites = num(at(c.lites, r));
-      let rejets = 0;
-      const [len, ep] = [text(at(c.dim, r)), text(at(c.ep, r))];
-      const dimLabel = len || ep ? `${len || '?'} x ${ep || '?'}` : 'Sans dimension';
-      const issues: string[] = [];
-      for (const [dc, qc] of c.defects) {
-        const name = text(at(dc, r));
-        const q = num(at(qc, r));
-        rejets += q;
-        if (name && q) {
-          const d = colour.acc.defects.get(name) ?? { defect: name, total: 0, m2: 0, byDim: {} };
-          d.total += q;
-          d.m2 += (dim * WIDTH_MM * q) / 1e6;
-          d.byDim[dimLabel] = (d.byDim[dimLabel] ?? 0) + q;
-          colour.acc.defects.set(name, d);
-        } else if (name && !filled(at(qc, r))) issues.push(`« ${name} » sans quantité`);
-        else if (!name && q) issues.push(`une quantité de ${q} sans défaut`);
-      }
-      const dimStat = colour.acc.dims.get(dimLabel) ?? { dim: dimLabel, passees: 0, rejets: 0 };
-      dimStat.passees += lites + rejets;
-      dimStat.rejets += rejets;
-      colour.acc.dims.set(dimLabel, dimStat);
-
-      colour.raw.fl += lites;
-      colour.raw.flM2 += (dim * WIDTH_MM * lites) / 1e6;
-      colour.raw.rejets += rejets;
-      colour.raw.rejetsM2 += (dim * WIDTH_MM * rejets) / 1e6;
-
-      const t = at(c.tag, r);
-      if (colourRow) issues.unshift('la ligne de la couleur porte aussi des valeurs');
-      else if (!filled(t)) issues.unshift('N° TAG manquant');
-      else {
-        const bad = tagIssue(t);
-        if (bad) issues.unshift(bad);
-        const missing = [!filled(at(c.dim, r)) && 'dimension', !filled(at(c.ep, r)) && 'épaisseur', !filled(at(c.lites, r)) && !rejets && 'lites'].filter(
-          (x): x is string => !!x,
-        );
-        if (missing.length) issues.push(`${list(missing)} manquante${missing.length > 1 ? 's' : ''}`);
-      }
-      if (issues.length) colour.checks.push({ text: `Ligne ${r} FL : ${issues.join(', ')}.`, range: `Suivi!${c.tag}${r}:${c.inputs[c.inputs.length - 1]}${r}` });
-    }
-  }
-
-  // Début de Ligne.
-  {
-    const c = COLS.dl;
-    let current: string | null = null;
-    for (let r = FIRST_ROW; r <= LAST_ROW; r++) {
-      const tag = at(c.tag, r);
-      const colourRow = isColour(tag);
-      if (colourRow) {
-        current = blockName(tag);
-        if (current !== null) colourOf(current).inDl = true;
-      }
-      if (!c.inputs.some((col) => (!colourRow || col !== c.tag) && filled(at(col, r)))) continue;
-      empty = false;
-      const colour = colourOf(current);
-      colour.inDl = true;
-      const conso = num(at(c.conso, r));
-      const lites = num(at(c.lites, r));
-      colour.raw.dl += conso;
-      colour.raw.dlM2 += (num(at(c.dim, r)) * WIDTH_MM * conso) / 1e6;
-
-      const issues: string[] = [];
-      if (colourRow) issues.push('la ligne de la couleur porte aussi des valeurs');
-      else if (!filled(tag)) issues.push('N° TAG manquant');
-      else {
-        const bad = tagIssue(tag);
-        if (bad) issues.push(bad);
-        const missing = [
-          !filled(at(c.lites, r)) && 'lites',
-          !filled(at(c.dim, r)) && 'dimension',
-          !filled(at(c.ep, r)) && 'épaisseur',
-          !filled(at(c.date, r)) && 'date',
-        ].filter((x): x is string => !!x);
-        if (missing.length) issues.push(`${list(missing)} manquante${missing.length > 1 ? 's' : ''}`);
-      }
-      if (filled(at(c.lites, r)) && conso > lites) issues.push(`${round(conso, 3)} consommées pour ${round(lites, 3)} lites`);
-      if (issues.length) colour.checks.push({ text: `Ligne ${r} DL : ${issues.join(', ')}.`, range: `Suivi!${c.tag}${r}:${c.inputs[c.inputs.length - 1]}${r}` });
-    }
-  }
-
-  // Rows to look at by row, Début de Ligne before Fin de Ligne on the same row.
-  const order = (x: BilanCheck) => {
-    const m = x.text.match(/^Ligne (\d+) (DL|FL)/);
-    return m ? Number(m[1]) * 2 + (m[2] === 'FL' ? 1 : 0) : 0;
-  };
-  const all = emptyTotals();
-  const out: BilanColour[] = [];
-  const used: Acc[] = [];
-  for (const c of colours.values()) {
-    // A colour named in a block but with nothing under it on either side.
-    if (!(c.raw.dl || c.raw.fl || c.raw.rejets || c.checks.length || c.acc.dims.size)) continue;
-    used.push(c);
-    for (const k of Object.keys(all) as (keyof BilanTotals)[]) all[k] += c.raw[k];
-    const { raw, acc, ...rest } = c;
-    rest.checks = [...rest.checks].sort((x, y) => order(x) - order(y));
-    if (c.none) rest.checks.unshift({ text: 'Ces lignes ne sont sous aucune couleur : écris la couleur en N° TAG sur la ligne au-dessus d’elles.' });
-    out.push({ ...rest, totals: closeTotals(raw), rejects: closeRejects([acc], raw.rejetsM2) });
-  }
-  // Rows under no colour last: what to fix, after the production.
-  out.sort((a, b) => Number(a.none) - Number(b.none));
-  return {
-    totals: closeTotals(all),
-    rejects: closeRejects(
-      used.map((c) => c.acc),
-      all.rejetsM2,
-    ),
-    checks: out.flatMap((c) => c.checks).sort((x, y) => order(x) - order(y)),
-    colours: out,
-    empty,
   };
 }
 

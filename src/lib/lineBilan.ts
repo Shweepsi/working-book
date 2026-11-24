@@ -1,5 +1,6 @@
-// The shift's bilan from the Loading and Unloading tabs (lib/line.ts), in the
-// same shape and by the same rules as the workbook's (lib/suiviBilan.ts):
+// The shift's bilan from its Loading and Unloading records (lib/line.ts, read
+// off the Suivi workbook by lib/suiviCells.ts), by the Rapport's rules
+// (lib/suiviBilan.ts):
 //   - Loading = Consommées of the jumbos, Unloading = Lites of the racks,
 //     Scraps = the scraps' quantities; delta = loading − unloading − scraps;
 //   - m² = length × 3210 mm × lites;
@@ -28,7 +29,8 @@ interface Acc {
   inFl: boolean;
   raw: BilanTotals;
   acc: RejectAcc;
-  checks: BilanCheck[];
+  /** Rows to look at, with where they sit: Début de Ligne before Fin de Ligne on a row. */
+  checks: { at: number; check: BilanCheck }[];
 }
 
 const short = (defect: string) => defect.split(' - ')[0] || defect;
@@ -49,13 +51,8 @@ export function computeLineBilan(d: LineData): SuiviBilan {
   // The colours in the order they started, whatever was typed first.
   for (const c of d.colours) if (c.name.trim()) colourOf(c.id);
 
-  // A row's number within its colour, on its tab (what the operator sees).
-  const counter = new Map<string, number>();
-  const nth = (tab: string, c: Acc) => {
-    const k = `${tab}|${c.name}`;
-    const n = (counter.get(k) ?? 0) + 1;
-    counter.set(k, n);
-    return n;
+  const look = (c: Acc, side: number, r: { row: number; range: string }, label: string, issues: string[]) => {
+    if (issues.length) c.checks.push({ at: r.row * 3 + side, check: { text: `${label} : ${issues.join(', ')}.`, range: r.range } });
   };
   let empty = true;
 
@@ -66,9 +63,7 @@ export function computeLineBilan(d: LineData): SuiviBilan {
     c.inDl = true;
     c.raw.dl += r.conso ?? 0;
     c.raw.dlM2 += area(r.dim, r.conso);
-    const n = nth('loading', c);
-    const issues = loadingIssues(r);
-    if (issues.length) c.checks.push({ text: `Loading, ligne ${n}${r.tag.trim() ? ` (${r.tag.trim()})` : ''} : ${issues.join(', ')}.`, target: { tab: 'loading', id: r.id } });
+    look(c, 0, r, `Loading, ligne ${r.row}${r.tag.trim() ? ` (${r.tag.trim()})` : ''}`, loadingIssues(r));
   }
 
   for (const r of d.unloading) {
@@ -82,9 +77,7 @@ export function computeLineBilan(d: LineData): SuiviBilan {
     const dim = c.acc.dims.get(label) ?? { dim: label, passees: 0, rejets: 0 };
     dim.passees += r.lites ?? 0;
     c.acc.dims.set(label, dim);
-    const n = nth('unloading', c);
-    const issues = unloadingIssues(r);
-    if (issues.length) c.checks.push({ text: `Unloading, rack ${n}${r.tag.trim() ? ` (${r.tag.trim()})` : ''} : ${issues.join(', ')}.`, target: { tab: 'unloading', id: r.id } });
+    look(c, 1, r, `Unloading, ligne ${r.row}${r.tag.trim() ? ` (${r.tag.trim()})` : ''}`, unloadingIssues(r));
   }
 
   for (const s of d.scraps) {
@@ -108,12 +101,8 @@ export function computeLineBilan(d: LineData): SuiviBilan {
     dim.passees += q;
     dim.rejets += q;
     c.acc.dims.set(label, dim);
-    const n = nth('scrap', c);
-    const issues = scrapIssues(s);
-    if (issues.length) {
-      const what = name ? short(name) : q ? `${fmtNum(q)} lites` : '';
-      c.checks.push({ text: `Scrap ${n}${what ? ` (${what})` : ''} : ${issues.join(', ')}.`, target: { tab: 'unloading', id: s.id } });
-    }
+    const what = name ? short(name) : q ? `${fmtNum(q)} lites` : '';
+    look(c, 2, s, `Scrap, ligne ${s.row}${what ? ` (${what})` : ''}`, scrapIssues(s));
   }
 
   const all = emptyTotals();
@@ -124,8 +113,8 @@ export function computeLineBilan(d: LineData): SuiviBilan {
     if (!(c.raw.dl || c.raw.fl || c.raw.rejets || c.checks.length || c.acc.dims.size || c.inDl || c.inFl)) continue;
     used.push(c);
     for (const k of Object.keys(all) as (keyof BilanTotals)[]) all[k] += c.raw[k];
-    const checks = [...c.checks];
-    if (c.none) checks.unshift({ text: 'Ces lignes n’ont pas de couleur : indique-la en tête du bloc « Sans couleur », dans Loading ou Unloading.' });
+    const checks = c.checks.sort((a, b) => a.at - b.at).map((x) => x.check);
+    if (c.none) checks.unshift({ text: 'Ces lignes ne sont sous aucune couleur : écris la couleur en N° TAG sur la ligne au-dessus d’elles.' });
     out.push({ name: c.name, none: c.none, inDl: c.inDl, inFl: c.inFl, totals: closeTotals(c.raw), rejects: closeRejects([c.acc], c.raw.rejetsM2), checks });
   }
   // Rows under no colour last: what to fix, after the production.

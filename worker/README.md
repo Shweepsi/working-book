@@ -114,7 +114,7 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `POST /api/uploads?name=…[&note=…]` body: the file's raw bytes — up to 25 MB (see below)
 - `DELETE /api/uploads?id=…`
 - `GET  /api/uploads/file?id=…` + `Authorization: Bearer <token>` → the file's bytes — the one route with a key
-- `GET  /api/line/doc?date=…&poste=…[&since=n]` → `{ seq, records, more }` — Loading/Unloading records (dev only, `GRID = "on"`; `src/line.ts`)
+- `GET  /api/line/doc?date=…&poste=…[&since=n]` → `{ seq, records, more }` — Loading/Unloading records (dev only, `GRID = "on"`; `src/line.ts`). **Dormant since the tabs became read-only views of the Suivi workbook** (`src/lib/suiviCells.ts`): the app no longer reads or writes it, the table `line_records` is kept
 - `POST /api/line/doc?date=…&poste=…` body: `{ client, records: [{ id, kind, v }] }` → `{ seqs }` — last write wins per record, `v: null` deletes
 
 Conflict policy is last-write-wins per partition; the Worker overwrites the
