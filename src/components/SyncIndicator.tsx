@@ -55,8 +55,10 @@ function dataChannel(s: SyncSnapshot): Channel {
 function gridChannel(g: GridSnapshot): Channel | null {
   if (g.status === 'disabled' || (g.templateId === null && !g.pending)) return null;
   const name = 'Classeur Suivi';
+  const held = g.held ? `${g.held} saisie${g.held > 1 ? 's' : ''} refusée${g.held > 1 ? 's' : ''}, gardée${g.held > 1 ? 's' : ''} sur cet appareil` : '';
   switch (g.status) {
     case 'ready':
+      if (held) return { name, status: 'error', pending: g.pending, text: held };
       return { name, status: 'idle', pending: 0, text: 'à jour' };
     case 'loading':
     case 'syncing':

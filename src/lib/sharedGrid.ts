@@ -53,6 +53,10 @@ export interface GridSnapshot {
   error: string | null;
   /** Bumped whenever a cell on screen changes: what `cells` returns is new. */
   rev: number;
+  /** Edits the Worker refused, kept on this device (see `retryHeld`). */
+  held: number;
+  /** The frame holds the shift asked for. False while it is loading, and when it couldn't open. */
+  opened: boolean;
 }
 
 const POLL_MS = 2_000;
@@ -82,23 +86,63 @@ class HttpError extends Error {
 // A refusal that sending again won't change (unlike a timeout or a rate limit).
 const refused = (e: unknown) => e instanceof HttpError && e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429;
 
-function loadOutbox(p: Partition): CellChange[] {
+function readList(key: string): CellChange[] {
   try {
-    const raw = localStorage.getItem(outboxKey(p));
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as CellChange[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveOutbox(p: Partition, changes: CellChange[]): void {
+function writeList(key: string, changes: CellChange[]): void {
   try {
-    if (changes.length) localStorage.setItem(outboxKey(p), JSON.stringify(changes));
-    else localStorage.removeItem(outboxKey(p));
+    if (changes.length) localStorage.setItem(key, JSON.stringify(changes));
+    else localStorage.removeItem(key);
   } catch {
     // A full or blocked storage only costs the offline safety net.
   }
 }
+
+const loadOutbox = (p: Partition) => readList(outboxKey(p));
+const saveOutbox = (p: Partition, changes: CellChange[]) => writeList(outboxKey(p), changes);
+
+// Edits the Worker refused (a 4xx, or a cell it can't store). They are not sent
+// again by themselves — that would be refused again — but they are not thrown
+// away either: they stay here until the operator sends them again or lets them go.
+const heldKey = (p: Partition) => `wb.grid.held.${partKey(p)}`;
+const loadHeld = (p: Partition) => readList(heldKey(p));
+const saveHeld = (p: Partition, changes: CellChange[]) => writeList(heldKey(p), changes);
+
+/** The batch on its way, as it was sent: sending it again after a reload or a
+ * lost answer keeps its id, so the Worker can tell it already has it. */
+interface SentBatch {
+  client: string;
+  id: string;
+  changes: CellChange[];
+}
+
+const batchKey = (p: Partition) => `wb.grid.batch.${partKey(p)}`;
+
+function loadBatch(p: Partition): SentBatch | null {
+  try {
+    const b = JSON.parse(localStorage.getItem(batchKey(p)) ?? 'null') as SentBatch | null;
+    return b && typeof b.id === 'string' && typeof b.client === 'string' && Array.isArray(b.changes) ? b : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBatch(p: Partition, b: SentBatch | null): void {
+  try {
+    if (b) localStorage.setItem(batchKey(p), JSON.stringify(b));
+    else localStorage.removeItem(batchKey(p));
+  } catch {
+    // Without it a reload resends under a new id: as before ids existed.
+  }
+}
+
+const newBatchId = () => `b_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 /** Drops `sent` from a shift's stored queue, edit by edit: a newer edit of
  * the same cell queued after them stays. */
@@ -115,32 +159,98 @@ function forgetSent(p: Partition, sent: CellChange[]): void {
   );
 }
 
-// The shift last opened here as the Worker had it, so that it still opens
-// without network. One shift per device: the one in use.
-const SNAPSHOT_KEY = 'wb.grid.snapshot';
+// The shifts last opened here, as the Worker had them, so that they still open
+// without network: the last few opened, and the day's other postes (fetched
+// ahead, see `prefetchNeighbours`). One entry each, so a poll that brings a
+// cell rewrites one shift, not all of them; `SNAPSHOT_INDEX` lists them,
+// newest first.
+const SNAPSHOT_KEY = 'wb.grid.snapshot'; // before there were several: one shift
+const SNAPSHOT_PREFIX = 'wb.grid.snapshot.';
+const SNAPSHOT_INDEX = 'wb.grid.snapshots';
+const SNAPSHOT_KEEP = 6;
 
 interface Snapshot {
   part: string;
   templateId: number;
   seq: number;
   cells: CellChange[];
+  /** When it was taken (ms): a neighbour is fetched again once it is old. */
+  at?: number;
+}
+
+function snapshotIndex(): string[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(SNAPSHOT_INDEX) ?? '[]') as unknown;
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 function loadSnapshot(p: Partition): Snapshot | null {
   try {
-    const s = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null') as Snapshot | null;
-    return s && s.part === partKey(p) ? s : null;
+    const s = JSON.parse(localStorage.getItem(SNAPSHOT_PREFIX + partKey(p)) ?? 'null') as Snapshot | null;
+    if (s && s.part === partKey(p)) return s;
+    const old = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null') as Snapshot | null;
+    return old && old.part === partKey(p) ? old : null;
   } catch {
     return null;
   }
 }
 
 function saveSnapshot(s: Snapshot): void {
+  const entry = { ...s, at: s.at ?? Date.now() };
+  const write = (): boolean => {
+    try {
+      localStorage.setItem(SNAPSHOT_PREFIX + s.part, JSON.stringify(entry));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const index = [s.part, ...snapshotIndex().filter((k) => k !== s.part)];
+  // Oldest out, and the full storage gets the same treatment before giving up:
+  // only the offline opening of that shift is lost, never an edit.
+  const evict = (k: string) => {
+    try {
+      localStorage.removeItem(SNAPSHOT_PREFIX + k);
+    } catch {
+      // nothing to do
+    }
+  };
+  while (index.length > SNAPSHOT_KEEP) evict(index.pop() as string);
+  while (!write() && index.length > 1) evict(index.pop() as string);
   try {
-    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(s));
+    localStorage.setItem(SNAPSHOT_INDEX, JSON.stringify(index));
+    localStorage.removeItem(SNAPSHOT_KEY);
   } catch {
-    // Same as the outbox: only the offline opening is lost.
+    // Same as the outbox.
   }
+}
+
+const POSTES = ['A', 'B', 'C', 'D'];
+// A neighbour read ahead is read again once it is this old.
+const NEIGHBOUR_FRESH_MS = 10 * 60_000;
+
+/** Everything stored for a shift, page by page. `peek` looks without starting
+ * the shift (no template yet stays so) and at low priority. */
+async function fetchDoc(
+  p: Partition,
+  peek = false,
+): Promise<{ templateId: number | null; since: number; cells: Map<string, CellChange> }> {
+  let templateId: number | null = null;
+  let since = 0;
+  const cells = new Map<string, CellChange>();
+  for (;;) {
+    const r = await fetch(`${API_BASE}/api/grid/doc?${qs(p, `&since=${since}${peek ? '&peek=1' : ''}`)}`, peek ? { priority: 'low' } : undefined);
+    if (!r.ok) throw new HttpError(r.status);
+    const page = (await r.json()) as DocPage;
+    templateId = page.template_id;
+    for (const ch of page.changes) cells.set(keyOf(ch), { sheet: ch.sheet, cell: ch.cell, c: ch.c });
+    since = page.seq;
+    if (!page.more) break;
+  }
+  return { templateId, since, cells };
 }
 
 // One id per page load: pending writes live in this page's memory.
@@ -176,7 +286,13 @@ class SharedGrid {
   // What the frame shows on top of the template, by "Sheet!A1": every cell the
   // frame was sent (`apply`) or edited here (`queue`), as GridCraft shares it.
   private view = new Map<string, unknown>();
+  // The batch on its way, or sent and not answered: it is sent again as it is
+  // (same id) until the Worker answers, and before anything newer.
   private inflight: CellChange[] = [];
+  private inflightId = '';
+  private inflightClient = CLIENT;
+  // Edits the Worker refused (see `heldKey`), for the shown shift.
+  private held: CellChange[] = [];
   private flushing = false;
   private attempts = 0;
   private loadAttempts = 0;
@@ -186,7 +302,15 @@ class SharedGrid {
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private loadTimer: ReturnType<typeof setTimeout> | undefined;
   private listeners = new Set<() => void>();
-  private snap: GridSnapshot = { status: SYNC_ENABLED ? 'loading' : 'disabled', pending: 0, templateId: null, error: null, rev: 0 };
+  private snap: GridSnapshot = {
+    status: SYNC_ENABLED ? 'loading' : 'disabled',
+    pending: 0,
+    templateId: null,
+    error: null,
+    rev: 0,
+    held: 0,
+    opened: false,
+  };
   private fileName = 'classeur.xlsx';
   private theme: GridTheme = 'system';
 
@@ -227,7 +351,8 @@ class SharedGrid {
   getSnapshot = (): GridSnapshot => this.snap;
 
   private set(patch: Partial<GridSnapshot>): void {
-    this.snap = { ...this.snap, ...patch, pending: this.outbox.size + this.inflight.length };
+    const opened = !!this.shown && !!this.wanted && !this.pendingOpen && partKey(this.shown) === partKey(this.wanted);
+    this.snap = { ...this.snap, ...patch, pending: this.outbox.size + this.inflight.length, held: this.held.length, opened };
     this.listeners.forEach((l) => l());
   }
 
@@ -285,6 +410,52 @@ class SharedGrid {
     if (this.wanted) void this.load(this.wanted);
   }
 
+  /** Tries again now a shift that didn't open (the operator's « Réessayer »). */
+  retryOpen(): void {
+    if (!this.wanted) return;
+    this.loadAttempts = 0;
+    void this.load(this.wanted);
+  }
+
+  /** Sends again the edits the Worker refused (it may be a Worker that was
+   * being updated), after anything newer. Refused again, they come back held. */
+  retryHeld(): void {
+    const p = this.shown;
+    if (!p || !this.held.length) return;
+    for (const ch of this.held) {
+      const k = keyOf(ch);
+      // Edited again since: the newer edit is the one that counts.
+      if (this.outbox.has(k)) continue;
+      this.outbox.set(k, ch);
+      this.own.set(k, Infinity);
+    }
+    this.held = [];
+    saveHeld(p, []);
+    saveOutbox(p, this.pendingEdits());
+    this.set({});
+    void this.flush();
+  }
+
+  /** Lets go of the refused edits: they stay on screen until the sheet is reloaded. */
+  dropHeld(): void {
+    const p = this.shown;
+    if (!p) return;
+    this.held = [];
+    saveHeld(p, []);
+    this.set({});
+  }
+
+  /** Keeps `changes` for `p` as refused (in storage, and here when `p` is on screen). */
+  private hold(p: Partition, changes: CellChange[]): void {
+    if (!changes.length) return;
+    const shown = !!this.shown && partKey(this.shown) === partKey(p);
+    const held = shown ? this.held : loadHeld(p);
+    const keys = new Set(changes.map(keyOf));
+    const next = [...held.filter((ch) => !keys.has(keyOf(ch))), ...changes];
+    saveHeld(p, next);
+    if (shown) this.held = next;
+  }
+
   private async load(p: Partition): Promise<void> {
     if (!SYNC_ENABLED) return;
     const token = ++this.loadToken;
@@ -293,18 +464,10 @@ class SharedGrid {
     this.set({ status: 'loading', error: null });
     let templateId: number | null = null;
     let since = 0;
-    const cells = new Map<string, CellChange>();
+    let cells = new Map<string, CellChange>();
     try {
       // Everything stored for the shift, page by page.
-      for (;;) {
-        const r = await fetch(`${API_BASE}/api/grid/doc?${qs(p, `&since=${since}`)}`);
-        if (!r.ok) throw new HttpError(r.status);
-        const page = (await r.json()) as DocPage;
-        templateId = page.template_id;
-        for (const ch of page.changes) cells.set(keyOf(ch), { sheet: ch.sheet, cell: ch.cell, c: ch.c });
-        since = page.seq;
-        if (!page.more) break;
-      }
+      ({ templateId, since, cells } = await fetchDoc(p));
       if (token !== this.loadToken) return;
       if (templateId === null) {
         this.set({ status: 'no-template', templateId: null });
@@ -345,6 +508,34 @@ class SharedGrid {
     }
   }
 
+  // Templates already fetched ahead in this page, by id.
+  private warmed = new Set<number>();
+
+  /** The day's other postes, read ahead and kept: they then open without
+   * network on this device even if nobody opened them here. Best effort, and
+   * not on a data-saver connection. */
+  private async prefetchNeighbours(p: Partition): Promise<void> {
+    if ((navigator as { connection?: { saveData?: boolean } }).connection?.saveData) return;
+    for (const poste of POSTES) {
+      if (poste === p.poste) continue;
+      if (!this.shown || this.shown.date !== p.date || !navigator.onLine) return;
+      const q = { date: p.date, poste };
+      const known = loadSnapshot(q);
+      if (known && Date.now() - (known.at ?? 0) < NEIGHBOUR_FRESH_MS) continue;
+      try {
+        const { templateId, since, cells } = await fetchDoc(q, true);
+        if (templateId === null) continue;
+        saveSnapshot({ part: partKey(q), templateId, seq: since, cells: [...cells.values()] });
+        if (!this.warmed.has(templateId)) {
+          this.warmed.add(templateId);
+          await (await fetch(`${API_BASE}/api/grid/template?id=${templateId}`, { priority: 'low' })).blob();
+        }
+      } catch {
+        // Nothing lost: that poste opens from the network when it is asked for.
+      }
+    }
+  }
+
   /** Says why the shift didn't open, and tries again: by itself after a
    * while, and as soon as the network is back. */
   private loadFailed(p: Partition, e: unknown): void {
@@ -378,6 +569,15 @@ class SharedGrid {
       saveOutbox(this.shown, this.pendingEdits());
       this.inflight = [];
     }
+    if (!sameShift) {
+      // A batch this device sent and never saw answered (reload, lost reply):
+      // it goes again as it was, under its id.
+      const sent = loadBatch(next);
+      this.inflight = sent?.changes ?? [];
+      this.inflightId = sent?.id ?? '';
+      this.inflightClient = sent?.client ?? CLIENT;
+      this.held = loadHeld(next);
+    }
     this.shown = next;
     this.own.clear();
     this.deferred.clear();
@@ -385,7 +585,7 @@ class SharedGrid {
     // the Worker has, and then on their way. Reopening the same shift with a
     // batch in flight: that batch is already on its way.
     const stored = loadOutbox(next);
-    const inflight = sameShift ? [...this.inflight] : [];
+    const inflight = [...this.inflight];
     this.outbox = new Map();
     for (const ch of stored) {
       const i = inflight.findIndex((s) => sameEdit(s, ch));
@@ -409,6 +609,8 @@ class SharedGrid {
     if (this.visible) this.focusFrame();
     void this.flush();
     this.schedulePoll(this.openedOffline ? 0 : POLL_MS);
+    // Once the shift is up: the day's other postes, for the day the network drops.
+    if (!this.openedOffline) setTimeout(() => void this.prefetchNeighbours(next), 3_000);
   }
 
   // --- Frame messages --------------------------------------------------------
@@ -527,13 +729,21 @@ class SharedGrid {
 
   private async flush(): Promise<void> {
     const p = this.shown;
-    if (!p || this.flushing || this.outbox.size === 0 || !navigator.onLine) {
-      if (!navigator.onLine && this.outbox.size) this.set({ status: 'offline' });
+    // A batch sent and not answered goes first, as it was.
+    const resend = this.inflight.length > 0;
+    if (!p || this.flushing || (this.outbox.size === 0 && !resend) || !navigator.onLine) {
+      if (!navigator.onLine && (this.outbox.size || resend)) this.set({ status: 'offline' });
       return;
     }
     this.flushing = true;
-    const batch = this.takeBatch();
-    this.inflight = batch;
+    if (!resend) {
+      this.inflight = this.takeBatch();
+      this.inflightId = newBatchId();
+      this.inflightClient = CLIENT;
+    }
+    const batch = this.inflight;
+    const sent: SentBatch = { client: this.inflightClient, id: this.inflightId, changes: batch };
+    saveBatch(p, sent);
     this.set({ status: 'syncing' });
     const stillShown = () => !!this.shown && partKey(this.shown) === partKey(p);
     let retry = false;
@@ -541,22 +751,24 @@ class SharedGrid {
       const r = await fetch(`${API_BASE}/api/grid/doc?${qs(p)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client: CLIENT, changes: batch }),
+        body: JSON.stringify({ client: sent.client, batch: sent.id, changes: batch }),
       });
       if (!r.ok) throw new HttpError(r.status);
       const { seqs } = (await r.json()) as { seqs: (number | null)[] };
+      saveBatch(p, null);
+      const refusedCells = batch.filter((_, i) => seqs[i] === null || seqs[i] === undefined);
       if (stillShown()) {
         this.inflight = [];
         const adopt: CellChange[] = [];
-        let skipped = 0;
+        const lost: CellChange[] = [];
         batch.forEach((ch, i) => {
           const k = keyOf(ch);
           const seq = seqs[i];
-          if (seq === null || seq === undefined) skipped++;
           // Edited again since: that newer write is still ours to send.
           if (this.outbox.has(k)) return;
           // A cell the Worker refused is no longer ours: the next peer write wins.
           this.own.set(k, seq ?? 0);
+          if (seq === null || seq === undefined) lost.push(ch);
           const peer = this.deferred.get(k);
           if (peer) {
             this.deferred.delete(k);
@@ -564,22 +776,26 @@ class SharedGrid {
           }
         });
         this.apply(adopt);
+        this.hold(p, lost);
         saveOutbox(p, this.pendingEdits());
-        this.set(skipped ? { status: 'error', error: `${skipped} cellule(s) refusée(s) par le serveur` } : { status: 'ready', error: null });
+        this.set({ status: 'ready', error: null });
       } else {
         // The frame moved to another shift meanwhile; that shift's stored
         // queue still lists these edits, which are now on the Worker.
         forgetSent(p, batch);
+        this.hold(p, refusedCells);
         this.set({ status: 'ready', error: null });
       }
       this.attempts = 0;
     } catch (e) {
       const dropped = refused(e);
-      if (stillShown()) {
-        this.inflight = [];
-        if (dropped) {
-          // Sending this batch again would be refused again, and hold every
-          // later edit behind it: it stays on this device only.
+      if (dropped) {
+        // Sending this batch again would be refused again, and hold every
+        // later edit behind it: it is kept apart, on this device, for the
+        // operator to send again or let go (see `retryHeld`).
+        saveBatch(p, null);
+        if (stillShown()) {
+          this.inflight = [];
           for (const ch of batch) {
             const k = keyOf(ch);
             if (this.outbox.has(k)) continue;
@@ -590,20 +806,16 @@ class SharedGrid {
               this.apply([peer]);
             }
           }
+          this.hold(p, batch.filter((ch) => !this.outbox.has(keyOf(ch))));
           saveOutbox(p, this.pendingEdits());
         } else {
-          // Back to the front, unless the cell was edited again meanwhile.
-          const front = new Map<string, CellChange>();
-          for (const ch of batch) if (!this.outbox.has(keyOf(ch))) front.set(keyOf(ch), ch);
-          this.outbox = new Map([...front, ...this.outbox]);
+          forgetSent(p, batch);
+          this.hold(p, batch);
         }
-      } else if (dropped) {
-        forgetSent(p, batch);
-      }
-      if (dropped) {
         this.attempts = 0;
-        this.set({ status: 'error', error: `${batch.length} cellule(s) refusée(s) par le serveur (${String(e)})` });
+        this.set({ status: 'ready', error: null });
       } else {
+        // Same batch, same id, next time: if the Worker did get it, it says so.
         this.attempts++;
         retry = true;
         this.set({ status: navigator.onLine ? 'error' : 'offline', error: String(e) });

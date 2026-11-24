@@ -12,7 +12,7 @@ import { withViewTransition } from './lib/viewTransition';
 import { useKeyBindings, type KeyBinding } from './lib/hooks';
 import { applyUpdate, registerServiceWorker } from './lib/pwa';
 import { prefetchGridcraft, sharedGrid } from './lib/sharedGrid';
-import { load, save } from './lib/storage';
+import { load, requestPersistentStorage, save } from './lib/storage';
 import { useToast } from './lib/toast';
 import SuiviCalculs from './components/SuiviCalculs';
 import { BilanHeaderButton, BilanPrint, BilanSheet, type BilanScope } from './components/SuiviBilan';
@@ -168,6 +168,12 @@ export default function App() {
   useEffect(() => {
     if (!SHOWS_ADVANCED || !SYNC_ENABLED) return;
     const t = setTimeout(() => void prefetchGridcraft(), 4000);
+    return () => clearTimeout(t);
+  }, []);
+  // The queued edits and the workbooks kept for offline must outlive a low-space clean-up.
+  useEffect(() => {
+    if (!SYNC_ENABLED) return;
+    const t = setTimeout(() => void requestPersistentStorage(), 10_000);
     return () => clearTimeout(t);
   }, []);
   // Which paper layout the Schedule view prints as. Kept here, next to the

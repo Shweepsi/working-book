@@ -9,7 +9,8 @@
 //   GET  /api/grid/template?id=…              → the .xlsx bytes (immutable, cached for good)
 //   GET  /api/grid/doc?date&poste[&since=n]   → { template_id, seq, changes }
 //        …&peek=1: a shift nobody opened yet stays so (template_id null)
-//   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
+//   POST /api/grid/doc?date&poste             ← { client, batch?, changes } → { seqs } (null: cell refused)
+//        …a batch already stored under the same client + batch answers with its seqs, unwritten
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
 
 export interface GridEnv {
@@ -204,15 +205,45 @@ function storedContent(x: unknown): string | null | undefined {
   return content.length > MAX_CONTENT_BYTES ? undefined : content;
 }
 
+// How long a batch id is remembered: longer than any retry a device makes.
+const BATCH_KEEP_MS = 7 * 24 * 3600 * 1000;
+
 async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   const p = partition(url);
   if (!p) return json({ error: 'invalid_params' }, cors, 400);
-  const body = (await readJson(request)) as { client?: unknown; changes?: unknown } | undefined;
+  const body = (await readJson(request)) as { client?: unknown; batch?: unknown; changes?: unknown } | undefined;
   if (!body || typeof body.client !== 'string' || !Array.isArray(body.changes)) {
     return json({ error: 'expected_client_and_changes' }, cors, 400);
   }
   if (body.changes.length > MAX_CHANGES) return json({ error: 'too_many_changes', max: MAX_CHANGES }, cors, 413);
-  return json({ seqs: await storeChanges(env, p, body.client.slice(0, 64), body.changes) }, cors);
+  const client = body.client.slice(0, 64);
+  // A batch id (optional: older clients send none) makes the write idempotent:
+  // sending the same batch again, because the answer never arrived, gives the
+  // same answer instead of writing the cells a second time.
+  const batch = typeof body.batch === 'string' && body.batch.length > 0 ? body.batch.slice(0, 64) : null;
+  if (batch) {
+    const seen = await env.DB.prepare('SELECT seqs FROM grid_batches WHERE client = ?1 AND batch = ?2 AND date = ?3 AND poste = ?4')
+      .bind(client, batch, p.date, p.poste)
+      .first<{ seqs: string }>();
+    if (seen) return json({ seqs: JSON.parse(seen.seqs), replayed: true }, cors);
+  }
+  const seqs = await storeChanges(env, p, client, body.changes);
+  if (batch) {
+    const now = Date.now();
+    // Best effort: a lost record only means a later replay writes again, as before.
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO grid_batches (client, batch, date, poste, seqs, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(
+        client,
+        batch,
+        p.date,
+        p.poste,
+        JSON.stringify(seqs),
+        now,
+      ),
+      env.DB.prepare('DELETE FROM grid_batches WHERE created_at < ?1').bind(now - BATCH_KEEP_MS),
+    ]).catch(() => {});
+  }
+  return json({ seqs }, cors);
 }
 
 /** Stores one batch of cell writes (at most MAX_CHANGES); each one's seq, null
