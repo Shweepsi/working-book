@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { SYNC_ENABLED } from '../lib/api';
 import { CAN_EDIT_TEMPLATE, uploadTemplate } from '../lib/gridEditor';
 import TemplateEditor from './TemplateEditor';
-import { listTemplates, sharedGrid as grid, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
+import { listTemplates, sharedGrid as grid, type GridSnapshot, type GridTheme, type TemplateInfo } from '../lib/sharedGrid';
 import type { Poste, ShiftMeta, Theme } from '../types';
 import { RefreshIcon } from './icons';
 
@@ -43,6 +43,43 @@ const GRID_THEME: Record<Theme, GridTheme> = { auto: 'system', light: 'light', d
 const FRAME_SRC =
   '/gridcraft/?host=parent&titlebar=0&ribbon=collapsed&tabs=home,data,view&lang=fr&animations=0&formulabar=0&gridlines=0&headings=0';
 
+// Over the workbook, once it is open: what the operator has to know about what
+// they type (kept here, waiting for the network, or refused by the server).
+function SyncNotice({ snap }: { snap: GridSnapshot }) {
+  const plural = (n: number) => (n > 1 ? 's' : '');
+  if (snap.held > 0) {
+    return (
+      <div className="gc-status is-error no-print" role="alert">
+        <span>
+          {snap.held} saisie{plural(snap.held)} refusée{plural(snap.held)} par le serveur, gardée{plural(snap.held)} sur cet appareil.
+        </span>
+        <span className="gc-spacer" />
+        <button type="button" className="btn ghost mini" onClick={() => grid.retryHeld()}>
+          Renvoyer
+        </button>
+        <button
+          type="button"
+          className="btn ghost mini"
+          onClick={() => {
+            if (window.confirm('Abandonner ces saisies ? Elles resteront à l’écran jusqu’au rechargement, mais pas sur le serveur.')) grid.dropHeld();
+          }}
+        >
+          Abandonner
+        </button>
+      </div>
+    );
+  }
+  if (!snap.opened || (snap.status !== 'offline' && snap.status !== 'error')) return null;
+  const waiting = snap.pending ? `${snap.pending} saisie${plural(snap.pending)} en attente, gardée${plural(snap.pending)} sur cet appareil` : 'la saisie reste possible';
+  return (
+    <div className={`gc-status ${snap.status === 'offline' ? 'is-offline' : 'is-error'} no-print`} role="status">
+      <span>
+        <strong>{snap.status === 'offline' ? 'Hors ligne' : 'Serveur injoignable'}</strong> — {waiting} ; envoi automatique au retour de la connexion.
+      </span>
+    </div>
+  );
+}
+
 export default function Gridcraft({ poste, shiftMeta, theme, hidden }: GridcraftProps) {
   useEffect(() => {
     grid.connect();
@@ -56,7 +93,21 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
   const [src] = useState(() => `${FRAME_SRC}&theme=${GRID_THEME[theme]}`);
   useEffect(() => grid.setTheme(GRID_THEME[theme]), [theme]);
   // Stable, so React doesn't detach and reattach the frame on every render.
-  const attachFrame = useCallback((el: HTMLIFrameElement | null) => grid.attach(el), []);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  // The shift couldn't open (no network and never opened here, or the server
+  // is down): what the frame shows isn't that shift's workbook, so it is
+  // covered, and nothing typed in it can be taken for an edit.
+  const blocked = snap.blocked;
+  const blockedRef = useRef(blocked);
+  blockedRef.current = blocked;
+  const attachFrame = useCallback((el: HTMLIFrameElement | null) => {
+    frameRef.current = el;
+    if (el) el.inert = blockedRef.current !== null;
+    grid.attach(el);
+  }, []);
+  useEffect(() => {
+    if (frameRef.current) frameRef.current.inert = blocked !== null;
+  }, [blocked]);
 
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -161,6 +212,7 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
         </div>
       ) : (
         <>
+          <SyncNotice snap={snap} />
           <iframe
             className="no-print"
             ref={attachFrame}
@@ -175,6 +227,21 @@ export default function Gridcraft({ poste, shiftMeta, theme, hidden }: Gridcraft
             <div className="gc-loading no-print" role="status">
               <span className="gc-loading-glyph" aria-hidden="true"><RefreshIcon size={14} /></span>
               Chargement du classeur…
+            </div>
+          )}
+          {blocked && (
+            <div className="gc-loading gc-blocked no-print" role="alert">
+              <p>
+                <strong>{blocked === 'offline' ? 'Hors ligne' : 'Serveur injoignable'}</strong>
+                {' — '}
+                {blocked === 'offline'
+                  ? 'le classeur de ce poste n’a encore jamais été ouvert sur cet appareil.'
+                  : 'le classeur de ce poste ne s’est pas ouvert.'}
+              </p>
+              <p className="gc-blocked-hint">Il s’ouvrira dès que la connexion revient : nouvel essai automatique.</p>
+              <button type="button" className="btn primary" onClick={() => grid.retryOpen()}>
+                Réessayer
+              </button>
             </div>
           )}
         </>

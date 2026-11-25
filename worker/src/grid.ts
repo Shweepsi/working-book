@@ -9,7 +9,8 @@
 //   GET  /api/grid/template?id=…              → the .xlsx bytes (immutable, cached for good)
 //   GET  /api/grid/doc?date&poste[&since=n]   → { template_id, seq, changes }
 //        …&peek=1: a shift nobody opened yet stays so (template_id null)
-//   POST /api/grid/doc?date&poste             ← { client, changes } → { seqs } (null: cell refused)
+//   POST /api/grid/doc?date&poste             ← { client, batch?, changes } → { seqs } (null: cell refused)
+//        …a batch already stored under the same client + batch answers with the same seqs, unwritten
 //   PUT  /api/grid/doc/template?date&poste    ← { template_id } → { template_id }
 
 export interface GridEnv {
@@ -204,20 +205,75 @@ function storedContent(x: unknown): string | null | undefined {
   return content.length > MAX_CONTENT_BYTES ? undefined : content;
 }
 
+// How long a batch id is remembered: longer than any retry a device makes.
+const BATCH_KEEP_MS = 7 * 24 * 3600 * 1000;
+
+/** The seqs a stored batch got: its cells were written one after the other in
+ * one transaction, each taking the next number after `base`, and a cell
+ * refused took none. */
+function replaySeqs(changes: unknown[], base: number): (number | null)[] {
+  let n = 0;
+  return changes.map((ch) => (storedContent(ch) === undefined ? null : base + ++n));
+}
+
 async function postDoc(request: Request, url: URL, env: GridEnv, cors: Cors): Promise<Response> {
   const p = partition(url);
   if (!p) return json({ error: 'invalid_params' }, cors, 400);
-  const body = (await readJson(request)) as { client?: unknown; changes?: unknown } | undefined;
+  const body = (await readJson(request)) as { client?: unknown; batch?: unknown; changes?: unknown } | undefined;
   if (!body || typeof body.client !== 'string' || !Array.isArray(body.changes)) {
     return json({ error: 'expected_client_and_changes' }, cors, 400);
   }
   if (body.changes.length > MAX_CHANGES) return json({ error: 'too_many_changes', max: MAX_CHANGES }, cors, 413);
-  return json({ seqs: await storeChanges(env, p, body.client.slice(0, 64), body.changes) }, cors);
+  const client = body.client.slice(0, 64);
+  // A batch id (optional: older clients send none) makes the write idempotent:
+  // sending the same batch again, because the answer never arrived, gives the
+  // same answer instead of writing the cells a second time.
+  const batch = typeof body.batch === 'string' && body.batch.length > 0 ? body.batch.slice(0, 64) : null;
+  const changes = body.changes;
+  const seen = async (): Promise<Response | null> => {
+    if (!batch) return null;
+    const row = await env.DB.prepare('SELECT base FROM grid_batches WHERE client = ?1 AND batch = ?2 AND date = ?3 AND poste = ?4')
+      .bind(client, batch, p.date, p.poste)
+      .first<{ base: number }>();
+    return row ? json({ seqs: replaySeqs(changes, row.base), replayed: true }, cors) : null;
+  };
+  const known = await seen();
+  if (known) return known;
+  // The batch's record goes in the same transaction as its cells and comes
+  // first: a batch id already taken fails the whole batch, nothing written.
+  const claim = batch
+    ? env.DB.prepare(
+        `INSERT INTO grid_batches (client, batch, date, poste, base, created_at)
+         VALUES (?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(seq), 0) FROM grid_cells WHERE date = ?3 AND poste = ?4), ?5)`,
+      ).bind(client, batch, p.date, p.poste, Date.now())
+    : undefined;
+  let seqs: (number | null)[];
+  try {
+    seqs = await storeChanges(env, p, client, changes, claim);
+  } catch (e) {
+    // The same batch got in between (a retry while the first try was still
+    // running): that one wrote it, this one wrote nothing.
+    const again = await seen();
+    if (again) return again;
+    throw e;
+  }
+  // Now and then, forget old batch ids (a lost clean-up only leaves rows behind).
+  if (batch && Math.random() < 0.05) {
+    await env.DB.prepare('DELETE FROM grid_batches WHERE created_at < ?1').bind(Date.now() - BATCH_KEEP_MS).run().catch(() => {});
+  }
+  return json({ seqs }, cors);
 }
 
 /** Stores one batch of cell writes (at most MAX_CHANGES); each one's seq, null
  * for a cell refused. */
-export async function storeChanges(env: GridEnv, p: Partition, client: string, changes: unknown[]): Promise<(number | null)[]> {
+export async function storeChanges(
+  env: GridEnv,
+  p: Partition,
+  client: string,
+  changes: unknown[],
+  // Runs first, in the same transaction (it makes the whole batch fail when it does).
+  claim?: D1PreparedStatement,
+): Promise<(number | null)[]> {
   const now = Date.now();
   // One statement per cell, in one batch: D1 runs a batch as a transaction and
   // writers one at a time, so each statement's MAX(seq)+1 is a fresh, strictly
@@ -243,8 +299,9 @@ export async function storeChanges(env: GridEnv, p: Partition, client: string, c
   });
   const seqs: (number | null)[] = changes.map(() => null);
   if (statements.length) {
-    const results = await env.DB.batch<{ seq: number }>(statements);
-    results.forEach((r, j) => (seqs[at[j]] = r.results[0]?.seq ?? null));
+    const results = await env.DB.batch<{ seq: number }>(claim ? [claim, ...statements] : statements);
+    const first = claim ? 1 : 0;
+    at.forEach((i, j) => (seqs[i] = results[first + j].results[0]?.seq ?? null));
   }
   return seqs;
 }

@@ -96,7 +96,8 @@ export default defineConfig(({ command }) => ({
             urlPattern: ({ url, sameOrigin }) =>
               sameOrigin && (url.pathname.startsWith('/gridcraft/gridcraft-') || /^\/gridcraft\/(snippets|fonts)\//.test(url.pathname)),
             handler: 'CacheFirst',
-            options: { cacheName: 'gridcraft-app', expiration: { maxEntries: 16 } },
+            // A build is a handful of files: room for several (an update keeps the old ones until they are evicted).
+            options: { cacheName: 'gridcraft-app', expiration: { maxEntries: 40 } },
           },
           {
             urlPattern: ({ url, sameOrigin }) => sameOrigin && /^\/gridcraft\/(index\.html)?$/.test(url.pathname),
@@ -107,7 +108,8 @@ export default defineConfig(({ command }) => ({
             // A template never changes under its id.
             urlPattern: ({ url }) => url.pathname === '/api/grid/template',
             handler: 'CacheFirst',
-            options: { cacheName: 'gridcraft-templates', expiration: { maxEntries: 10 } },
+            // The Worker keeps at most 30 templates.
+            options: { cacheName: 'gridcraft-templates', expiration: { maxEntries: 30 } },
           },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,

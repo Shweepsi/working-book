@@ -3787,6 +3787,28 @@ body.is-col-resizing * {
 .gc-editor-title strong { color: var(--ink); font-weight: 600; }
 .gc-editor-hint { color: var(--ink-faint); }
 .gc-notice { color: var(--ink); }
+/* What the operator types here is only kept on this device (offline, server
+   down) or was refused: a bar over the workbook, not a dialog. */
+.gc-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.gc-status.is-offline,
+.gc-status.is-error {
+  border-color: var(--flag-unsched-bd);
+  color: var(--flag-unsched-fg);
+  background: color-mix(in srgb, var(--hl-red) 35%, var(--paper));
+}
+/* The shift could not open: the whole area says so, the frame behind is inert. */
+.gc-blocked { flex-direction: column; text-align: center; padding: var(--space-8); }
+.gc-blocked p { margin: 0; max-width: 46ch; color: var(--ink); }
+.gc-blocked .gc-blocked-hint { color: var(--ink-soft); font-size: var(--fs-sm); }
 .gc-spacer { flex: 1; }
 .gc-empty {
   flex: 1;
@@ -6212,6 +6234,7 @@ button.as-row:focus-visible {
   }
   /* Suivi's loading state: let the wash show instead of a white page. */
   :root[data-look='verre']:not(.is-print-preview) .gc-loading { background: transparent; }
+  :root[data-look='verre']:not(.is-print-preview) .gc-blocked { background: var(--paper-solid); }
   /* Planning rows: the swipe surface is solid paper so the « Terminés »
      action behind it stays hidden. At rest it can be clear (the action is
      hidden too), so the rows read as part of the glass rail. */
