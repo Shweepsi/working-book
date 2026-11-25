@@ -6,6 +6,7 @@ import { API_BASE, SYNC_ENABLED } from './api';
 
 export type StatEvent = 'open:defects' | 'open:dims' | 'rotate:defects' | 'rotate:dims';
 
+// « touch » is the primary pointer being a finger: a tablet with a mouse counts as a PC.
 const device = () => {
   try {
     return window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'pc';

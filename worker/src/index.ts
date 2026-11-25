@@ -318,12 +318,17 @@ async function handleStats(request: Request, env: Env, cors: Record<string, stri
   const device = typeof body?.device === 'string' ? body.device : '';
   if (!STATS[feature]?.includes(event) || !STATS_DEVICES.includes(device)) return json({ error: 'invalid_stat' }, cors, 400);
   const day = new Date().toISOString().slice(0, 10);
-  await env.DB.prepare(
-    `INSERT INTO ui_stats (day, feature, event, device, n) VALUES (?1, ?2, ?3, ?4, 1)
-     ON CONFLICT(day, feature, event, device) DO UPDATE SET n = n + 1`,
-  )
-    .bind(day, feature, event, device)
-    .run();
+  // A counter must never be a failure: without the table (migration not applied yet) it is just not counted.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO ui_stats (day, feature, event, device, n) VALUES (?1, ?2, ?3, ?4, 1)
+       ON CONFLICT(day, feature, event, device) DO UPDATE SET n = n + 1`,
+    )
+      .bind(day, feature, event, device)
+      .run();
+  } catch {
+    return json({ ok: false }, cors);
+  }
   return json({ ok: true }, cors);
 }
 
