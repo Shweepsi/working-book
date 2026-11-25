@@ -10,7 +10,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Partition } from '../lib/sharedGrid';
-import { dayShifts, refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import { dayShifts, useDayBilan, type DayBilan } from '../lib/dayBilan';
 import type { LineData } from '../lib/line';
 import { computeLineBilan } from '../lib/lineBilan';
 import { useShiftLine } from '../lib/shiftLine';
@@ -40,17 +40,20 @@ export function useBilan(part: Partition | null, live = false): SuiviBilan | nul
   return cache.bilan;
 }
 
-/** Loading, Unloading, scraps and their rate, the gap: lites, m² underneath. */
+/** Loading, Unloading, scraps and the gap: m² big, lites underneath; the scrap rate beside « Scraps ». */
 function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; sides?: { dl: boolean; fl: boolean }; compact?: boolean }) {
   const both = sides.dl && sides.fl;
   const tile = (label: string, lites: number | null, area: number | null, extra?: string, bad?: boolean) => (
     <div className={`sb-kpi${bad ? ' is-bad' : ''}`}>
-      <span className="sb-kpi-label">{label}</span>
+      <span className="sb-kpi-label">
+        {label}
+        {extra && <em className="sb-kpi-extra">{extra}</em>}
+      </span>
       <strong className="sb-kpi-value">
-        {lites === null ? '—' : fmt(lites)}
-        {extra && <span className="sb-kpi-extra"> · {extra}</span>}
+        {area === null ? '—' : m2(area)}
+        {area !== null && <small> m²</small>}
       </strong>
-      <span className="sb-kpi-sub">{area === null ? 'lites' : `lites · ${m2(area)} m²`}</span>
+      <span className="sb-kpi-sub">{lites === null ? 'lites' : `${fmt(lites)} lites`}</span>
     </div>
   );
   return (
@@ -159,6 +162,67 @@ function Rejects({ r }: { r: BilanRejects }) {
       )}
 
     </>
+  );
+}
+
+/** « B9 - Scratches » → the code and the name, to set them apart. */
+function defectParts(defect: string) {
+  const i = defect.indexOf(' - ');
+  return i > 0 ? { code: defect.slice(0, i), name: defect.slice(i + 3) } : { code: '', name: defect };
+}
+
+/** The scraps on screen: a defect per row, a column per dimension, the totals last. */
+function RejectsTable({ r }: { r: BilanRejects }) {
+  if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
+  if (!r.rejets)
+    return (
+      <p className="sb-rej-head">
+        <strong>Aucun scrap</strong> sur {fmt(r.passees)} lites passées à l’unloading.
+      </p>
+    );
+  return (
+    <div className="sb-scroll">
+      <table className="sb-table sb-rejects">
+        <thead>
+          <tr>
+            <th>Défaut</th>
+            {r.dims.map((d) => (
+              <th key={d.dim}>{d.dim}</th>
+            ))}
+            <th className="sb-tot">Lites</th>
+            <th>m²</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.defects.map((def) => {
+            const { code, name } = defectParts(def.defect);
+            return (
+              <tr key={def.defect}>
+                <th>
+                  {code && <span className="sb-code">{code}</span>}
+                  {name}
+                </th>
+                {r.dims.map((d) => (
+                  <td key={d.dim}>{def.byDim[d.dim] ? fmt(def.byDim[d.dim]) : ''}</td>
+                ))}
+                <td className="sb-tot sb-strong">{fmt(def.total)}</td>
+                <td className="sb-m2">{m2(def.m2)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            {r.dims.map((d) => (
+              <td key={d.dim}>{fmt(d.rejets)}</td>
+            ))}
+            <td className="sb-tot">{fmt(r.rejets)}</td>
+            <td>{m2(r.m2)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 
@@ -308,56 +372,78 @@ const ALL = -1;
 /** 06:00 on `date` to 06:00 the next day. */
 const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
 
-/** The figures on top, then a tab per colour after the whole (when there are several). */
-function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; children?: ReactNode }) {
-  const [tab, setTab] = useState(ALL);
+/** A Δ badge: red when the gap isn't zero. */
+const Delta = ({ v }: { v: number }) => <span className={`sb-delta${v ? ' is-bad' : ''}`}>Δ {fmt(v)}</span>;
+
+/**
+ * The whole and each colour as a list on the left (with `side` under it), the
+ * selection's figures on the right: `lead` above them, then the four tiles and the
+ * scraps. The rows to look at come as a bar above, opening on their list.
+ */
+function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; lead?: ReactNode; side?: ReactNode }) {
+  const [sel, setSel] = useState(ALL);
+  const [open, setOpen] = useState(false);
   const colours = bilan.colours;
   const several = colours.length > 1;
-  const current = several && tab !== ALL ? colours[Math.min(tab, colours.length - 1)] : undefined;
+  const current = several && sel !== ALL ? colours[Math.min(sel, colours.length - 1)] : undefined;
+  const n = showChecks ? bilan.checks.length : 0;
   return (
     <>
-      <Kpis t={bilan.totals} />
-      {children}
-      {several && (
-        <div className="sb-tabs" role="tablist" aria-label="Couleurs">
-          <button type="button" role="tab" aria-selected={!current} className={!current ? 'active' : ''} onClick={() => setTab(ALL)}>
-            {allLabel}
+      {n > 0 && (
+        <div className="sb-alert">
+          <button type="button" className="sb-alert-bar" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <span className="sb-count">{n}</span>
+            <strong>
+              {n} ligne{n > 1 ? 's' : ''} à vérifier
+            </strong>
+            <span className="sb-alert-go">{open ? 'Masquer' : 'Voir'}</span>
           </button>
-          {colours.map((c, i) => (
-            <button
-              key={c.name}
-              type="button"
-              role="tab"
-              aria-selected={c === current}
-              className={[c === current && 'active', c.inDl && c.inFl && c.totals.delta && 'is-bad', c.none && 'is-none'].filter(Boolean).join(' ')}
-              onClick={() => setTab(i)}
-            >
-              {c.name}
-              {showChecks && c.checks.length > 0 && (
-                <span className="sb-count" aria-label={`${c.checks.length} à vérifier`}>
-                  {c.checks.length}
-                </span>
-              )}
-            </button>
-          ))}
+          {open && <Checks checks={bilan.checks} onPick={onPick} />}
         </div>
       )}
-      <div role={several ? 'tabpanel' : undefined} className="sb-panel" key={current?.name ?? 'all'}>
-        {current ? (
-          <Panel colour={current} rejects={current.rejects} checks={showChecks ? current.checks : undefined} onPick={onPick} />
-        ) : (
-          <Panel rejects={bilan.rejects} checks={showChecks ? bilan.checks : undefined} onPick={onPick} />
+      <div className={`sb-layout${several || side ? '' : ' is-single'}`}>
+        {(several || side) && (
+          <div className="sb-side">
+            {several && (
+              <div className="sb-nav" role="tablist" aria-label="Couleurs">
+                <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
+                  <span className="sb-nav-name">{allLabel}</span>
+                  <Delta v={bilan.totals.delta} />
+                </button>
+                {colours.map((c, i) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    role="tab"
+                    aria-selected={c === current}
+                    className={['sb-nav-item', c === current && 'active', c.none && 'is-none'].filter(Boolean).join(' ')}
+                    onClick={() => setSel(i)}
+                  >
+                    <span className="sb-nav-name">{c.name}</span>
+                    {c.inDl && c.inFl && <Delta v={c.totals.delta} />}
+                  </button>
+                ))}
+              </div>
+            )}
+            {side}
+          </div>
         )}
+        <div className="sb-main" role={several ? 'tabpanel' : undefined} key={current?.name ?? 'all'}>
+          {lead}
+          {current ? <Kpis t={current.totals} sides={{ dl: current.inDl, fl: current.inFl }} /> : <Kpis t={bilan.totals} />}
+          <div className="sb-card">
+            <RejectsTable r={current ? current.rejects : bilan.rejects} />
+          </div>
+        </div>
       </div>
     </>
   );
 }
 
 /** The day's three shifts side by side: who worked, what went through, the gap each left. */
-function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; protection?: Map<string, number> }) {
-  return (
-    <Section title="Par poste">
-      <div className="sb-scroll">
+function ShiftsTable({ day, live, protection, screen }: { day: DayBilan; live?: string; protection?: Map<string, number>; screen?: boolean }) {
+  const table = (
+    <div className="sb-scroll">
         <table className="sb-table sb-shifts">
           <thead>
             <tr>
@@ -365,7 +451,7 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
               <th>Loading</th>
               <th>Unloading</th>
               <th>Scraps</th>
-              <th>Taux</th>
+              {!screen && <th>Taux</th>}
               <th>Delta</th>
               {protection && <th>Protection</th>}
             </tr>
@@ -377,10 +463,10 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
                 <tr key={s.key} className={s.poste === live ? 'is-live' : ''}>
                   <th>
                     {s.label} · {s.poste}
-                    <span className="sb-shift-hours">{s.hours}</span>
+                    {!screen && <span className="sb-shift-hours">{s.hours}</span>}
                   </th>
                   {!t || s.bilan?.empty ? (
-                    <td colSpan={5} className="sb-shift-none">
+                    <td colSpan={screen ? 4 : 5} className="sb-shift-none">
                       {!s.bilan && day.status === 'loading' ? 'lecture…' : 'rien de saisi'}
                     </td>
                   ) : (
@@ -388,7 +474,7 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
                       <td>{fmt(t.dl)}</td>
                       <td>{fmt(t.fl)}</td>
                       <td>{fmt(t.rejets)}</td>
-                      <td>{pct(t.rejets, t.fl + t.rejets)}</td>
+                      {!screen && <td>{pct(t.rejets, t.fl + t.rejets)}</td>}
                       <td className={t.delta ? 'is-bad' : ''}>{fmt(t.delta)}</td>
                     </>
                   )}
@@ -399,8 +485,8 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
           </tbody>
         </table>
       </div>
-    </Section>
   );
+  return screen ? <div className="sb-card">{table}</div> : <Section title="Par poste">{table}</Section>;
 }
 
 /** The day's protection plates: the shift on screen as it is being typed, the other two as read. */
@@ -434,7 +520,6 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
   const bilan = useBilan(part, true);
   const day = useDayBilan(part.date, part, scope === 'jour');
   const [protection, setProtection] = useProtection(part);
-  const dayProtection = useDayProtection(part, protection, scope === 'jour');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -457,7 +542,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
-            <h3>{scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan'}</h3>
+            <h3>Bilan</h3>
             <span className="sheet-head-sub">
               {scope === 'jour'
                 ? daySpan(part.date)
@@ -486,22 +571,10 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
         {scope === 'jour' ? (
           !day ? null : (
             <div className="sb">
-              <div className="sb-day-status">
-                <span>
-                  {day.status === 'loading'
-                    ? 'Lecture des autres postes…'
-                    : day.status === 'error'
-                      ? `Autres postes illisibles (${day.error}) : le bilan ne compte que ceux affichés.`
-                      : `Matin, après-midi et nuit du ${dayLabel(part.date)}.`}
-                </span>
-                <button type="button" className="btn ghost mini" onClick={() => void refreshDay(part.date)} disabled={day.status === 'loading'}>
-                  Actualiser
-                </button>
-              </div>
-              <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false}>
-                <ShiftsTable day={day} live={part.poste} protection={dayProtection.totals} />
-                <ProtectionSummary states={dayProtection.states} />
-              </BilanBody>
+              {day.status !== 'ready' && (
+                <p className="sb-day-status">{day.status === 'loading' ? 'Lecture des autres postes…' : `Autres postes illisibles (${day.error}) : le bilan ne compte que ceux affichés.`}</p>
+              )}
+              <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false} lead={<ShiftsTable day={day} live={part.poste} screen />} />
             </div>
           )
         ) : !bilan || bilan.empty ? (
@@ -511,9 +584,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           </div>
         ) : (
           <div className="sb">
-            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks>
-              <ProtectionEditor state={protection} onChange={setProtection} />
-            </BilanBody>
+            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks side={<ProtectionEditor state={protection} onChange={setProtection} />} />
           </div>
         )}
       </div>
