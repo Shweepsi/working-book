@@ -3942,6 +3942,8 @@ body.is-col-resizing * {
   .sb-nav { flex-direction: row; flex-wrap: wrap; gap: var(--space-3); }
   .sb-nav-item { min-height: 40px; border-color: var(--line-faint); border-radius: var(--radius-pill); }
   .sb-nav-item.active { box-shadow: none; background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .sb-nav-item.active .sb-delta { background: var(--paper); border-color: var(--paper); }
+  .sb-kpi-value { font-size: 18px; }
 }
 .sb-count {
   display: inline-block;

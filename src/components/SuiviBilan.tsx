@@ -285,7 +285,6 @@ function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; reje
 /** The shift's protection plates, typed in: a line per dimension (by hand) and a counter. Never rejects. */
 function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChange: (next: (prev: ProtectionState) => ProtectionState) => void }) {
   const [added, setAdded] = useState<string | null>(null);
-  const total = totalOf(state);
   const update = (id: string, patch: Partial<ProtectionState['lines'][number]>) => onChange((p) => ({ ...p, lines: p.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
   const count = (raw: string) => Math.min(9999, Math.max(0, Math.round(Number(raw.replace(/\D/g, '')) || 0)));
   const add = () => {
@@ -294,7 +293,7 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
     onChange((p) => ({ ...p, lines: [...p.lines, { id, longueur: '', epaisseur: '', nombre: 0 }] }));
   };
   return (
-    <Section title="Plaques de protection" aside={total ? `${fmt(total)} au total` : undefined}>
+    <Section title="Plaques de protection">
       {state.lines.length > 0 && (
         <ul className="sb-protect">
           {state.lines.map((l) => (
