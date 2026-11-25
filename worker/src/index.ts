@@ -91,6 +91,8 @@ export default {
           return await handleLogbook(request, url, env, cors);
         case '/api/protection':
           return await handleProtection(request, url, env, cors);
+        case '/api/stats':
+          return await handleStats(request, env, cors);
         case '/api/prodtest':
           return await handleProdTest(request, url, env, cors);
         case '/api/suivi':
@@ -299,6 +301,35 @@ async function handleProtection(request: Request, url: URL, env: Env, cors: Reco
   }
 
   return json({ error: 'method_not_allowed' }, cors, 405);
+}
+
+// Anonymous usage counters (migration 0014): a closed list of what can be counted,
+// so the table can't be filled with anything else.
+const STATS: Record<string, string[]> = {
+  'bilan-table': ['open:defects', 'open:dims', 'rotate:defects', 'rotate:dims'],
+};
+const STATS_DEVICES = ['pc', 'touch'];
+
+async function handleStats(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, cors, 405);
+  const body = (await readJsonBody(request, 1024)) as { feature?: unknown; event?: unknown; device?: unknown } | null;
+  const feature = typeof body?.feature === 'string' ? body.feature : '';
+  const event = typeof body?.event === 'string' ? body.event : '';
+  const device = typeof body?.device === 'string' ? body.device : '';
+  if (!STATS[feature]?.includes(event) || !STATS_DEVICES.includes(device)) return json({ error: 'invalid_stat' }, cors, 400);
+  const day = new Date().toISOString().slice(0, 10);
+  // A counter must never be a failure: without the table (migration not applied yet) it is just not counted.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO ui_stats (day, feature, event, device, n) VALUES (?1, ?2, ?3, ?4, 1)
+       ON CONFLICT(day, feature, event, device) DO UPDATE SET n = n + 1`,
+    )
+      .bind(day, feature, event, device)
+      .run();
+  } catch {
+    return json({ ok: false }, cors);
+  }
+  return json({ ok: true }, cors);
 }
 
 async function handleProdTest(

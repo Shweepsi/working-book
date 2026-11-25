@@ -17,6 +17,7 @@ import { computeLineBilan } from '../lib/lineBilan';
 import { useShiftLine } from '../lib/shiftLine';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { addDaysISO } from '../lib/shiftCalendar';
+import { track } from '../lib/uiStats';
 import { AddIcon, BilanIcon, CloseIcon, MinusIcon, NextIcon } from './icons';
 import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
 
@@ -204,6 +205,15 @@ function Rejects({ r }: { r: BilanRejects }) {
 
 const ROTATE_KEY = 'wb-bilan-rotated';
 
+/** The way the table was left: turned (a row per dimension) or not (a row per defect). */
+const readRotated = () => {
+  try {
+    return localStorage.getItem(ROTATE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 /** A « 2250,5 x 6UC » label as its length and thickness; the length is NaN when there is none (« ? x 6 »). */
 function splitDim(label: string) {
   const i = label.indexOf(' x ');
@@ -219,15 +229,10 @@ const byThickness = (a: string, b: string) => parseFloat(a) - parseFloat(b) || a
  * length (the thickness under it), a total per dimension; the m² of a cell on hover.
  */
 function RejectsTable({ r }: { r: BilanRejects }) {
-  const [rotated, setRotated] = useState(() => {
-    try {
-      return localStorage.getItem(ROTATE_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
+  const [rotated, setRotated] = useState(readRotated);
   const rotate = () => {
     setRotated(!rotated);
+    track('bilan-table', rotated ? 'rotate:defects' : 'rotate:dims');
     try {
       localStorage.setItem(ROTATE_KEY, rotated ? '0' : '1');
     } catch {
@@ -661,6 +666,14 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
   const day = useDayBilan(part.date, part, scope === 'jour');
   const [protection, setProtection] = useProtection(part);
   const sheetRef = useRef<HTMLDivElement>(null);
+  // How the table is read: counted once per opening, when there is a table to read.
+  const counted = useRef(false);
+  const hasTable = scope === 'poste' && !!bilan && !bilan.empty && bilan.rejects.rejets > 0;
+  useEffect(() => {
+    if (!hasTable || counted.current) return;
+    counted.current = true;
+    track('bilan-table', readRotated() ? 'open:dims' : 'open:defects');
+  }, [hasTable]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
