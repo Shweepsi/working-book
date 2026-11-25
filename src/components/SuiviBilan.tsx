@@ -8,10 +8,11 @@
 // against what went through Unloading), what (the defects, largest first),
 // and where (the scrap rate per dimension).
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import type { Partition } from '../lib/sharedGrid';
-import { dayShifts, refreshDay, useDayBilan, type DayBilan } from '../lib/dayBilan';
-import type { LineData } from '../lib/line';
+import { dayShifts, useDayBilan, type DayBilan } from '../lib/dayBilan';
+import { area, type LineData } from '../lib/line';
 import { computeLineBilan } from '../lib/lineBilan';
 import { useShiftLine } from '../lib/shiftLine';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
@@ -40,25 +41,64 @@ export function useBilan(part: Partition | null, live = false): SuiviBilan | nul
   return cache.bilan;
 }
 
-/** Loading, Unloading, scraps and their rate, the gap: lites, m² underneath. */
+/**
+ * One light bubble for the whole sheet: anything with a `data-tip` shows it on hover or
+ * keyboard focus (lines split on « \n »). Drawn in a portal, so no box clips it.
+ */
+function TipLayer({ root }: { root: RefObject<HTMLElement | null> }) {
+  const [tip, setTip] = useState<{ text: string; x: number; y: number; above: boolean } | null>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const show = (e: Event) => {
+      const t = (e.target as Element | null)?.closest?.('[data-tip]') as HTMLElement | null;
+      if (!t || !el.contains(t)) return setTip(null);
+      const r = t.getBoundingClientRect();
+      const above = r.bottom > window.innerHeight - 110;
+      setTip({ text: t.dataset.tip ?? '', x: Math.min(Math.max(r.left + r.width / 2, 150), window.innerWidth - 150), y: above ? r.top : r.bottom, above });
+    };
+    const hide = () => setTip(null);
+    el.addEventListener('pointerover', show);
+    el.addEventListener('focusin', show);
+    el.addEventListener('pointerleave', hide);
+    el.addEventListener('focusout', hide);
+    el.addEventListener('scroll', hide, true);
+    return () => {
+      el.removeEventListener('pointerover', show);
+      el.removeEventListener('focusin', show);
+      el.removeEventListener('pointerleave', hide);
+      el.removeEventListener('focusout', hide);
+      el.removeEventListener('scroll', hide, true);
+    };
+  }, [root]);
+  if (!tip) return null;
+  return createPortal(
+    <div className={`sb-tip${tip.above ? ' is-above' : ''}`} role="tooltip" style={{ left: tip.x, top: tip.y }}>
+      {tip.text}
+    </div>,
+    document.body,
+  );
+}
+
+/** Loading, Unloading, scraps and the gap: m² big, lites underneath. */
 function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; sides?: { dl: boolean; fl: boolean }; compact?: boolean }) {
   const both = sides.dl && sides.fl;
-  const tile = (label: string, lites: number | null, area: number | null, extra?: string, bad?: boolean) => (
+  const tile = (label: string, lites: number | null, area: number | null, bad?: boolean) => (
     <div className={`sb-kpi${bad ? ' is-bad' : ''}`}>
       <span className="sb-kpi-label">{label}</span>
       <strong className="sb-kpi-value">
-        {lites === null ? '—' : fmt(lites)}
-        {extra && <span className="sb-kpi-extra"> · {extra}</span>}
+        {area === null ? '—' : m2(area)}
+        {area !== null && <small> m²</small>}
       </strong>
-      <span className="sb-kpi-sub">{area === null ? 'lites' : `lites · ${m2(area)} m²`}</span>
+      <span className="sb-kpi-sub">{lites === null ? 'lites' : `${fmt(lites)} lites`}</span>
     </div>
   );
   return (
     <div className={`sb-kpis${compact ? ' is-compact' : ''}`}>
       {tile('Loading', sides.dl ? t.dl : null, sides.dl ? t.dlM2 : null)}
       {tile('Unloading', sides.fl ? t.fl : null, sides.fl ? t.flM2 : null)}
-      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null, sides.fl ? pct(t.rejets, t.fl + t.rejets) : undefined)}
-      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, undefined, both && !!t.delta)}
+      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null)}
+      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, both && !!t.delta)}
     </div>
   );
 }
@@ -162,6 +202,69 @@ function Rejects({ r }: { r: BilanRejects }) {
   );
 }
 
+/** « B9 - Scratches » → the code and the name, to set them apart. */
+function defectParts(defect: string) {
+  const i = defect.indexOf(' - ');
+  return i > 0 ? { code: defect.slice(0, i), name: defect.slice(i + 3) } : { code: '', name: defect };
+}
+
+/** The scraps on screen: a row per dimension, a column per defect (its code; the name and the m² on hover), the totals underneath. */
+function RejectsTable({ r }: { r: BilanRejects }) {
+  if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
+  if (!r.rejets)
+    return (
+      <p className="sb-rej-head">
+        <strong>Aucun scrap</strong> sur {fmt(r.passees)} lites passées à l’unloading.
+      </p>
+    );
+  const defects = r.defects.map((d) => ({ ...d, ...defectParts(d.defect) }));
+  // The length out of a « 2250,5 x 6 » label; NaN when there is none (« ? x 6 »).
+  const len = (label: string) => Number(label.split(' x ')[0].replace(/\s/g, '').replace(',', '.'));
+  // A dimension nothing was scrapped in has nothing to say here.
+  const dims = r.dims.filter((d) => d.rejets > 0);
+  return (
+    <div className="sb-scroll">
+      <table className="sb-table sb-rejects">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            {defects.map((d) => (
+              <th key={d.defect} data-tip={d.defect} tabIndex={0}>
+                {d.defect}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dims.map((dim) => (
+            <tr key={dim.dim}>
+              <th>{dim.dim}</th>
+              {defects.map((d) => {
+                const q = d.byDim[dim.dim];
+                return (
+                  <td key={d.defect} data-tip={q && Number.isFinite(len(dim.dim)) ? `${m2(area(len(dim.dim), q))} m²` : undefined}>
+                    {q ? fmt(q) : ''}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            {defects.map((d) => (
+              <td key={d.defect} data-tip={`${m2(d.m2)} m²`}>
+                {fmt(d.total)}
+              </td>
+            ))}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
 /** The rows to look at; with `onPick` (on screen), each one brings its cells up in Suivi. */
 function Checks({ checks, onPick }: { checks: BilanCheck[]; onPick?: (range: string) => void }) {
   if (!checks.length) return <p className="sb-none">Rien à signaler.</p>;
@@ -216,57 +319,73 @@ function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; reje
   );
 }
 
-/** The shift's protection plates, typed in: a line per dimension (by hand) and a counter. Never rejects. */
+/** The shift's protection plates, typed in: « + Ajouter une dimension », its dimension, ✓, then its number. Never rejects. */
 function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChange: (next: (prev: ProtectionState) => ProtectionState) => void }) {
-  const [added, setAdded] = useState<string | null>(null);
-  const total = totalOf(state);
-  const update = (id: string, patch: Partial<ProtectionState['lines'][number]>) => onChange((p) => ({ ...p, lines: p.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ longueur: '', epaisseur: '' });
+  const [fresh, setFresh] = useState<string | null>(null);
   const count = (raw: string) => Math.min(9999, Math.max(0, Math.round(Number(raw.replace(/\D/g, '')) || 0)));
-  const add = () => {
+  const ready = draft.longueur.trim() !== '' && draft.epaisseur.trim() !== '';
+  const cancel = () => {
+    setAdding(false);
+    setDraft({ longueur: '', epaisseur: '' });
+  };
+  const confirm = () => {
+    if (!ready) return;
     const id = newLineId();
-    setAdded(id);
-    onChange((p) => ({ ...p, lines: [...p.lines, { id, longueur: '', epaisseur: '', nombre: 0 }] }));
+    setFresh(id);
+    onChange((p) => ({ ...p, lines: [...p.lines, { id, longueur: draft.longueur.trim(), epaisseur: draft.epaisseur.trim(), nombre: 0 }] }));
+    cancel();
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') confirm();
+    else if (e.key === 'Escape') {
+      e.stopPropagation();
+      cancel();
+    }
   };
   return (
-    <Section title="Plaques de protection" aside={total ? `${fmt(total)} au total` : undefined}>
+    <Section title="Plaques de protection">
       {state.lines.length > 0 && (
         <ul className="sb-protect">
           {state.lines.map((l) => (
             <li key={l.id}>
-              <span className="sb-protect-dim">
-                <input
-                  value={l.longueur}
-                  onChange={(e) => update(l.id, { longueur: e.target.value })}
-                  inputMode="numeric"
-                  placeholder="Longueur"
-                  aria-label="Longueur en mm"
-                  autoFocus={added === l.id}
-                  maxLength={20}
-                />
-                <span aria-hidden="true">x</span>
-                <input value={l.epaisseur} onChange={(e) => update(l.id, { epaisseur: e.target.value })} placeholder="Ép." aria-label="Épaisseur" maxLength={20} />
-              </span>
-              <span className="sb-stepper">
-                <button type="button" onClick={() => update(l.id, { nombre: Math.max(0, l.nombre - 1) })} aria-label="Une plaque de moins" disabled={l.nombre <= 0}>
-                  <MinusIcon size={16} />
-                </button>
-                <input value={String(l.nombre)} onChange={(e) => update(l.id, { nombre: count(e.target.value) })} inputMode="numeric" aria-label="Nombre de plaques" />
-                <button type="button" onClick={() => update(l.id, { nombre: Math.min(9999, l.nombre + 1) })} aria-label="Une plaque de plus">
-                  <AddIcon size={16} />
-                </button>
-              </span>
-              <button type="button" className="btn ghost icon sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
-                <CloseIcon size={14} />
+              <span className="sb-protect-dim">{dimLabel(l)}</span>
+              <input
+                className="sb-protect-count"
+                value={String(l.nombre)}
+                onChange={(e) => onChange((p) => ({ ...p, lines: p.lines.map((x) => (x.id === l.id ? { ...x, nombre: count(e.target.value) } : x)) }))}
+                onFocus={(e) => e.target.select()}
+                inputMode="numeric"
+                aria-label={`Nombre de plaques ${dimLabel(l)}`}
+                autoFocus={fresh === l.id}
+              />
+              <button type="button" className="sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
+                <CloseIcon size={12} />
               </button>
             </li>
           ))}
         </ul>
       )}
-      <div className="sb-protect-foot">
-        <button type="button" className="btn ghost mini" onClick={add}>
+      {adding ? (
+        <div className="sb-protect-form" onKeyDown={onKey}>
+          <input value={draft.longueur} onChange={(e) => setDraft((d) => ({ ...d, longueur: e.target.value }))} inputMode="numeric" placeholder="Long." aria-label="Longueur en mm" autoFocus maxLength={20} />
+          <span aria-hidden="true">x</span>
+          <input value={draft.epaisseur} onChange={(e) => setDraft((d) => ({ ...d, epaisseur: e.target.value }))} placeholder="Ép." aria-label="Épaisseur" maxLength={20} />
+          <button type="button" className="sb-protect-ok" onClick={confirm} disabled={!ready} aria-label="Valider la dimension">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2.5 6.5l2.5 2.5 4.5-5.5" />
+            </svg>
+          </button>
+          <button type="button" className="sb-protect-remove" onClick={cancel} aria-label="Annuler">
+            <CloseIcon size={12} />
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="sb-protect-add" onClick={() => setAdding(true)}>
           + Ajouter une dimension
         </button>
-      </div>
+      )}
     </Section>
   );
 }
@@ -308,56 +427,79 @@ const ALL = -1;
 /** 06:00 on `date` to 06:00 the next day. */
 const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
 
-/** The figures on top, then a tab per colour after the whole (when there are several). */
-function BilanBody({ bilan, allLabel, onPick, showChecks, children }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; children?: ReactNode }) {
-  const [tab, setTab] = useState(ALL);
+/** A Δ badge: red when the gap isn't zero. */
+const Delta = ({ t }: { t: BilanTotals }) => <span className={`sb-delta${t.delta ? ' is-bad' : ''}`}>Δ {fmt(t.delta)}</span>;
+
+/**
+ * The whole and each colour as a list on the left (with `side` under it), the
+ * selection's figures on the right: `lead` above them, then the four tiles and the scraps. The rows to look at come as a bar above, opening on their list.
+ */
+function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; lead?: ReactNode; side?: ReactNode }) {
+  const [sel, setSel] = useState(ALL);
+  const [open, setOpen] = useState(false);
   const colours = bilan.colours;
   const several = colours.length > 1;
-  const current = several && tab !== ALL ? colours[Math.min(tab, colours.length - 1)] : undefined;
+  const current = several && sel !== ALL ? colours[Math.min(sel, colours.length - 1)] : undefined;
+  const checks = current ? current.checks : bilan.checks;
+  const n = showChecks ? checks.length : 0;
   return (
     <>
-      <Kpis t={bilan.totals} />
-      {children}
-      {several && (
-        <div className="sb-tabs" role="tablist" aria-label="Couleurs">
-          <button type="button" role="tab" aria-selected={!current} className={!current ? 'active' : ''} onClick={() => setTab(ALL)}>
-            {allLabel}
+      {n > 0 && (
+        <div className="sb-alert">
+          <button type="button" className="sb-alert-bar" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <span className="sb-count">{n}</span>
+            <strong>
+              {n} ligne{n > 1 ? 's' : ''} à vérifier
+            </strong>
+            <span className="sb-alert-go">{open ? 'Masquer' : 'Voir'}</span>
           </button>
-          {colours.map((c, i) => (
-            <button
-              key={c.name}
-              type="button"
-              role="tab"
-              aria-selected={c === current}
-              className={[c === current && 'active', c.inDl && c.inFl && c.totals.delta && 'is-bad', c.none && 'is-none'].filter(Boolean).join(' ')}
-              onClick={() => setTab(i)}
-            >
-              {c.name}
-              {showChecks && c.checks.length > 0 && (
-                <span className="sb-count" aria-label={`${c.checks.length} à vérifier`}>
-                  {c.checks.length}
-                </span>
-              )}
-            </button>
-          ))}
+          {open && <Checks checks={checks} onPick={onPick} />}
         </div>
       )}
-      <div role={several ? 'tabpanel' : undefined} className="sb-panel" key={current?.name ?? 'all'}>
-        {current ? (
-          <Panel colour={current} rejects={current.rejects} checks={showChecks ? current.checks : undefined} onPick={onPick} />
-        ) : (
-          <Panel rejects={bilan.rejects} checks={showChecks ? bilan.checks : undefined} onPick={onPick} />
+      <div className={`sb-layout${several || side ? '' : ' is-single'}`}>
+        {(several || side) && (
+          <div className="sb-side">
+            {several && (
+              <div className="sb-nav" role="tablist" aria-label="Couleurs">
+                <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
+                  <span className="sb-nav-name">{allLabel}</span>
+                  <Delta t={bilan.totals} />
+                </button>
+                {colours.map((c, i) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    role="tab"
+                    aria-selected={c === current}
+                    className={['sb-nav-item', c === current && 'active', c.none && 'is-none'].filter(Boolean).join(' ')}
+                    onClick={() => setSel(i)}
+                  >
+                    <span className="sb-nav-name">{c.name}</span>
+                    {c.inDl && c.inFl && <Delta t={c.totals} />}
+                  </button>
+                ))}
+              </div>
+            )}
+            {side}
+          </div>
         )}
+        <div className="sb-main" role={several ? 'tabpanel' : undefined} key={current?.name ?? 'all'}>
+          {lead}
+          {current ? <Kpis t={current.totals} sides={{ dl: current.inDl, fl: current.inFl }} /> : <Kpis t={bilan.totals} />}
+          <div className="sb-card">
+            <RejectsTable r={current ? current.rejects : bilan.rejects} />
+          </div>
+
+        </div>
       </div>
     </>
   );
 }
 
 /** The day's three shifts side by side: who worked, what went through, the gap each left. */
-function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; protection?: Map<string, number> }) {
-  return (
-    <Section title="Par poste">
-      <div className="sb-scroll">
+function ShiftsTable({ day, live, protection, screen }: { day: DayBilan; live?: string; protection?: Map<string, number>; screen?: boolean }) {
+  const table = (
+    <div className="sb-scroll">
         <table className="sb-table sb-shifts">
           <thead>
             <tr>
@@ -365,7 +507,7 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
               <th>Loading</th>
               <th>Unloading</th>
               <th>Scraps</th>
-              <th>Taux</th>
+              {!screen && <th>Taux</th>}
               <th>Delta</th>
               {protection && <th>Protection</th>}
             </tr>
@@ -377,10 +519,10 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
                 <tr key={s.key} className={s.poste === live ? 'is-live' : ''}>
                   <th>
                     {s.label} · {s.poste}
-                    <span className="sb-shift-hours">{s.hours}</span>
+                    {!screen && <span className="sb-shift-hours">{s.hours}</span>}
                   </th>
                   {!t || s.bilan?.empty ? (
-                    <td colSpan={5} className="sb-shift-none">
+                    <td colSpan={screen ? 4 : 5} className="sb-shift-none">
                       {!s.bilan && day.status === 'loading' ? 'lecture…' : 'rien de saisi'}
                     </td>
                   ) : (
@@ -388,7 +530,7 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
                       <td>{fmt(t.dl)}</td>
                       <td>{fmt(t.fl)}</td>
                       <td>{fmt(t.rejets)}</td>
-                      <td>{pct(t.rejets, t.fl + t.rejets)}</td>
+                      {!screen && <td>{pct(t.rejets, t.fl + t.rejets)}</td>}
                       <td className={t.delta ? 'is-bad' : ''}>{fmt(t.delta)}</td>
                     </>
                   )}
@@ -399,8 +541,8 @@ function ShiftsTable({ day, live, protection }: { day: DayBilan; live?: string; 
           </tbody>
         </table>
       </div>
-    </Section>
   );
+  return screen ? <div className="sb-card">{table}</div> : <Section title="Par poste">{table}</Section>;
 }
 
 /** The day's protection plates: the shift on screen as it is being typed, the other two as read. */
@@ -434,7 +576,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
   const bilan = useBilan(part, true);
   const day = useDayBilan(part.date, part, scope === 'jour');
   const [protection, setProtection] = useProtection(part);
-  const dayProtection = useDayProtection(part, protection, scope === 'jour');
+  const sheetRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -453,11 +595,12 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sb-sheet" role="dialog" aria-modal="true" aria-label={scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan du poste'}>
+      <div className="sheet sb-sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan du poste'}>
+        <TipLayer root={sheetRef} />
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
-            <h3>{scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan'}</h3>
+            <h3>Bilan</h3>
             <span className="sheet-head-sub">
               {scope === 'jour'
                 ? daySpan(part.date)
@@ -465,6 +608,14 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
             </span>
           </div>
           <div className="sheet-head-actions">
+            <div className="seg sb-scope" role="group" aria-label="Période du bilan">
+              <button type="button" className={scope === 'poste' ? 'active' : ''} aria-pressed={scope === 'poste'} onClick={() => onScope('poste')}>
+                Poste {part.poste} · {shiftLabel}
+              </button>
+              <button type="button" className={scope === 'jour' ? 'active' : ''} aria-pressed={scope === 'jour'} onClick={() => onScope('jour')}>
+                Journée du {shortDay(part.date)}
+              </button>
+            </div>
             <button type="button" className="btn ghost mini" onClick={onPrint} disabled={!printable}>
               Imprimer
             </button>
@@ -474,34 +625,13 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           </div>
         </div>
 
-        <div className="seg sb-scope" role="group" aria-label="Période du bilan">
-          <button type="button" className={scope === 'poste' ? 'active' : ''} aria-pressed={scope === 'poste'} onClick={() => onScope('poste')}>
-            Poste {part.poste} · {shiftLabel}
-          </button>
-          <button type="button" className={scope === 'jour' ? 'active' : ''} aria-pressed={scope === 'jour'} onClick={() => onScope('jour')}>
-            Journée du {shortDay(part.date)}
-          </button>
-        </div>
-
         {scope === 'jour' ? (
           !day ? null : (
             <div className="sb">
-              <div className="sb-day-status">
-                <span>
-                  {day.status === 'loading'
-                    ? 'Lecture des autres postes…'
-                    : day.status === 'error'
-                      ? `Autres postes illisibles (${day.error}) : le bilan ne compte que ceux affichés.`
-                      : `Matin, après-midi et nuit du ${dayLabel(part.date)}.`}
-                </span>
-                <button type="button" className="btn ghost mini" onClick={() => void refreshDay(part.date)} disabled={day.status === 'loading'}>
-                  Actualiser
-                </button>
-              </div>
-              <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false}>
-                <ShiftsTable day={day} live={part.poste} protection={dayProtection.totals} />
-                <ProtectionSummary states={dayProtection.states} />
-              </BilanBody>
+              {day.status !== 'ready' && (
+                <p className="sb-day-status">{day.status === 'loading' ? 'Lecture des autres postes…' : `Autres postes illisibles (${day.error}) : le bilan ne compte que ceux affichés.`}</p>
+              )}
+              <BilanBody key="jour" bilan={day.bilan} allLabel="Toute la journée" showChecks={false} lead={<ShiftsTable day={day} live={part.poste} screen />} />
             </div>
           )
         ) : !bilan || bilan.empty ? (
@@ -511,9 +641,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           </div>
         ) : (
           <div className="sb">
-            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks>
-              <ProtectionEditor state={protection} onChange={setProtection} />
-            </BilanBody>
+            <BilanBody key="poste" bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks side={<ProtectionEditor state={protection} onChange={setProtection} />} />
           </div>
         )}
       </div>
