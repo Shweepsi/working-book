@@ -87,7 +87,7 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
     <div className={`sb-kpi${bad ? ' is-bad' : ''}`}>
       <span className="sb-kpi-label">{label}</span>
       <strong className="sb-kpi-value">
-        {area === null ? '—' : m2(area)}
+        {area === null ? '—' : fmt(area, 0)}
         {area !== null && <small> m²</small>}
       </strong>
       <span className="sb-kpi-sub">{lites === null ? 'lites' : `${fmt(lites)} lites`}</span>
