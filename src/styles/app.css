@@ -3941,6 +3941,19 @@ body.is-col-resizing * {
 .sb-tip { position: fixed; z-index: 50; transform: translateX(-50%); margin-top: var(--space-3); max-width: 280px; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: var(--ink); color: var(--paper); font-size: var(--fs-md); line-height: 1.4; white-space: pre-line; pointer-events: none; box-shadow: var(--shadow-popover); }
 .sb-tip.is-above { transform: translate(-50%, -100%); margin-top: calc(var(--space-3) * -1); }
 [data-tip] { cursor: default; }
+/* Kept simple: what a selection or a scope brings in fades in (.sb-main is re-keyed by both);
+   the controls ease their colours. Nothing moves on the 2 s refresh, nothing without motion allowed. */
+.sb-sheet .sb-main { animation: fade-in 160ms ease-out; }
+.sb-tip { animation: fade-in 110ms ease-out; }
+.sb-sheet .sb-nav-item,
+.sb-sheet .sb-delta,
+.sb-sheet .sb-alert-bar,
+.sb-sheet .sb-protect-add,
+.sb-sheet .sb-protect-remove { transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-sheet .sb-main, .sb-tip { animation: none; }
+  .sb-sheet .sb-nav-item, .sb-sheet .sb-delta, .sb-sheet .sb-alert-bar, .sb-sheet .sb-protect-add, .sb-sheet .sb-protect-remove { transition: none; }
+}
 .sb-card { border: 1px solid var(--line-faint); border-radius: var(--radius-xl); background: var(--paper); overflow: hidden; }
 @media (max-width: 720px) {
   .sb-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
