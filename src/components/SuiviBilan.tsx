@@ -192,6 +192,8 @@ function Rejects({ r }: { r: BilanRejects }) {
   );
 }
 
+const ROTATE_KEY = 'wb-bilan-rotated';
+
 /** A « 2250,5 x 6UC » label as its length and thickness; the length is NaN when there is none (« ? x 6 »). */
 function splitDim(label: string) {
   const i = label.indexOf(' x ');
@@ -207,6 +209,22 @@ const byThickness = (a: string, b: string) => parseFloat(a) - parseFloat(b) || a
  * length (the thickness under it), a total per dimension; the m² of a cell on hover.
  */
 function RejectsTable({ r }: { r: BilanRejects }) {
+  const [rotated, setRotated] = useState(() => {
+    try {
+      return localStorage.getItem(ROTATE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const rotate = () =>
+    setRotated((v) => {
+      try {
+        localStorage.setItem(ROTATE_KEY, v ? '0' : '1');
+      } catch {
+        /* the choice just isn't kept */
+      }
+      return !v;
+    });
   if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
   if (!r.rejets)
     return (
@@ -225,15 +243,66 @@ function RejectsTable({ r }: { r: BilanRejects }) {
     if (g && g.length === c.length) g.cols.push(c);
     else groups.push({ length: c.length, cols: [c] });
   }
+  const turn = (
+    <button type="button" className="sb-rot" onClick={rotate} aria-label="Pivoter le tableau" title="Pivoter le tableau">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 6a4 4 0 1 1-1.2-2.8" />
+        <path d="M10 1.5v2.2H7.8" />
+      </svg>
+    </button>
+  );
   const first = new Set(groups.map((g) => g.cols[0].dim));
   const sep = (dim: string) => (first.has(dim) ? ' is-group' : '');
   const tip = (mm: number, lites: number) => (lites && Number.isFinite(mm) ? `${m2(area(mm, lites))} m²` : undefined);
+  if (rotated)
+    return (
+      <div className="sb-scroll">
+        <table className="sb-table sb-rejects is-rotated">
+          <thead>
+            <tr>
+              <th>
+                <span className="sb-corner">Dimension {turn}</span>
+              </th>
+              {r.defects.map((d) => (
+                <th key={d.defect} data-tip={d.defect} tabIndex={0}>
+                  {d.defect}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {cols.map((c) => (
+              <tr key={c.dim} className={first.has(c.dim) ? 'is-group' : undefined}>
+                <th>{c.dim}</th>
+                {r.defects.map((d) => (
+                  <td key={d.defect} data-tip={tip(c.mm, d.byDim[c.dim])}>
+                    {d.byDim[c.dim] ? fmt(d.byDim[c.dim]) : ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              {r.defects.map((d) => (
+                <td key={d.defect} data-tip={`${m2(d.m2)} m²`}>
+                  {fmt(d.total)}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
   return (
     <div className="sb-scroll">
       <table className="sb-table sb-rejects">
         <thead>
           <tr>
-            <th rowSpan={2}>Défaut</th>
+            <th rowSpan={2}>
+              <span className="sb-corner">Défaut {turn}</span>
+            </th>
             {groups.map((g) => (
               <th key={g.length} colSpan={g.cols.length} className="sb-grp is-group">
                 {g.length}

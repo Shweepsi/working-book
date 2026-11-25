@@ -4002,6 +4002,22 @@ body.is-col-resizing * {
 .sb-rejects thead th.sb-grp { height: 26px; padding: 0; text-align: center; color: var(--ink); font-size: var(--fs-md); border-bottom: 1px solid var(--line-faint); }
 .sb-rejects thead th.sb-ep { height: 24px; padding: 0; text-align: center; font-weight: 500; color: var(--ink-soft); border-bottom: 1px solid var(--line-faint); }
 .sb-rejects thead th:first-child { width: 268px; vertical-align: bottom; padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-faint); }
+.sb-corner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.sb-rot { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line-faint); border-radius: var(--radius-sm); background: var(--paper); color: var(--ink-soft); cursor: pointer; transition: background-color 140ms ease, color 140ms ease; }
+.sb-rot:hover { color: var(--ink); background: var(--paper-2); }
+.sb-rot svg { transition: transform 200ms ease; }
+.sb-rot:hover svg { transform: rotate(90deg); }
+/* Turned: a row per dimension, the defects across (named, cut if need be), the totals underneath. */
+.sb-rejects.is-rotated thead th { height: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--line-faint); }
+.sb-rejects.is-rotated thead th:first-child { width: 128px; }
+.sb-rejects.is-rotated tbody tr.is-group th,
+.sb-rejects.is-rotated tbody tr.is-group td { border-top: 1px solid var(--line-soft); }
+.sb-rejects.is-rotated tbody tr:first-child th,
+.sb-rejects.is-rotated tbody tr:first-child td { border-top: 0; }
+.sb-rejects.is-rotated tfoot th,
+.sb-rejects.is-rotated tfoot td { height: 30px; background: var(--paper-2); border-top: 1px solid var(--line-soft); font-weight: 650; }
+.sb-rejects.is-rotated tfoot th:first-child { background: var(--paper-2); }
+@media (prefers-reduced-motion: reduce) { .sb-rot, .sb-rot svg { transition: none; } }
 .sb-rejects .sb-tot { width: 64px; border-left: 1px solid var(--line-soft); }
 .sb-rejects thead th.sb-tot { vertical-align: bottom; padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-faint); color: var(--ink); }
 .sb-rejects .is-group { border-left: 1px solid var(--line-faint); }
