@@ -200,7 +200,9 @@ function RejectsTable({ r }: { r: BilanRejects }) {
               <tr key={def.defect}>
                 <th>
                   {code && <span className="sb-code">{code}</span>}
-                  {name}
+                  <span className="sb-def-name" title={def.defect}>
+                    {name}
+                  </span>
                 </th>
                 {r.dims.map((d) => (
                   <td key={d.dim}>{def.byDim[d.dim] ? fmt(def.byDim[d.dim]) : ''}</td>
@@ -550,6 +552,14 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
             </span>
           </div>
           <div className="sheet-head-actions">
+            <div className="seg sb-scope" role="group" aria-label="Période du bilan">
+              <button type="button" className={scope === 'poste' ? 'active' : ''} aria-pressed={scope === 'poste'} onClick={() => onScope('poste')}>
+                Poste {part.poste} · {shiftLabel}
+              </button>
+              <button type="button" className={scope === 'jour' ? 'active' : ''} aria-pressed={scope === 'jour'} onClick={() => onScope('jour')}>
+                Journée du {shortDay(part.date)}
+              </button>
+            </div>
             <button type="button" className="btn ghost mini" onClick={onPrint} disabled={!printable}>
               Imprimer
             </button>
@@ -557,15 +567,6 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
               <CloseIcon />
             </button>
           </div>
-        </div>
-
-        <div className="seg sb-scope" role="group" aria-label="Période du bilan">
-          <button type="button" className={scope === 'poste' ? 'active' : ''} aria-pressed={scope === 'poste'} onClick={() => onScope('poste')}>
-            Poste {part.poste} · {shiftLabel}
-          </button>
-          <button type="button" className={scope === 'jour' ? 'active' : ''} aria-pressed={scope === 'jour'} onClick={() => onScope('jour')}>
-            Journée du {shortDay(part.date)}
-          </button>
         </div>
 
         {scope === 'jour' ? (

@@ -3979,7 +3979,20 @@ body.is-col-resizing * {
 .sb-rejects thead th { height: 34px; background: var(--paper-2); border-bottom: 1px solid var(--line-faint); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
 .sb-rejects tbody tr:last-child th,
 .sb-rejects tbody tr:last-child td { border-bottom: 0; }
-.sb-rejects .sb-tot { border-left: 1px solid var(--line-faint); }
+.sb-def-name { display: inline-block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.sb-rejects tbody th { white-space: nowrap; }
+/* Many dimensions scroll sideways; the defect and the totals stay put. */
+.sb-rejects th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+.sb-rejects thead th:first-child,
+.sb-rejects tfoot th:first-child { background: var(--paper-2); }
+.sb-rejects .sb-tot,
+.sb-rejects th:last-child,
+.sb-rejects td:last-child { position: sticky; z-index: 1; background: var(--paper); }
+.sb-rejects .sb-tot { right: 92px; min-width: 64px; border-left: 1px solid var(--line-faint); }
+.sb-rejects th:last-child,
+.sb-rejects td:last-child { right: 0; min-width: 92px; }
+.sb-rejects thead .sb-tot, .sb-rejects thead th:last-child,
+.sb-rejects tfoot .sb-tot, .sb-rejects tfoot td:last-child { background: var(--paper-2); }
 .sb-rejects .sb-m2 { color: var(--ink-soft); }
 .sb-rejects tfoot th,
 .sb-rejects tfoot td { height: 40px; background: var(--paper-2); border-top: 1px solid var(--line-soft); border-bottom: 0; font-weight: 650; }
@@ -4073,10 +4086,13 @@ button.sb-check:focus-visible { outline: 2px solid var(--accent); outline-offset
 .sb-side .sb-protect-dim input { width: 4.6em; }
 .sb-side .sb-protect-dim input + span + input { width: 3.6em; }
 .sb-protect-foot { display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; }
+.sb-side .sb-protect-foot .btn { width: 100%; justify-content: center; }
 .sb-protect-table { width: auto; min-width: 260px; }
 .sb-shifts .sb-protect-col { color: var(--ink-soft); }
 /* The shift or its day. */
-.seg.sb-scope { align-self: stretch; }
+.seg.sb-scope { width: auto; margin-right: var(--space-4); }
+.seg.sb-scope button { flex: none; padding: var(--space-3) var(--space-7); white-space: nowrap; font-size: var(--fs-md); }
+.sheet.sb-sheet .sheet-head { flex-wrap: wrap; row-gap: var(--space-4); }
 .sb-day-status { margin: 0; color: var(--ink-soft); font-size: var(--fs-md); }
 /* The day's three shifts. */
 .sb-shifts tbody th { white-space: nowrap; }
