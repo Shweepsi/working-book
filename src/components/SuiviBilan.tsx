@@ -228,7 +228,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
             <th>Dimension</th>
             {defects.map((d) => (
               <th key={d.defect} data-tip={d.defect} tabIndex={0}>
-                {d.code || d.name}
+                {d.defect}
               </th>
             ))}
           </tr>

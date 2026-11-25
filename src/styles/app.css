@@ -3987,6 +3987,10 @@ body.is-col-resizing * {
 .sb-rejects thead th { height: 28px; background: var(--paper-2); border-bottom: 1px solid var(--line-faint); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
 .sb-rejects tbody tr:last-child th,
 .sb-rejects tbody tr:last-child td { border-bottom: 0; }
+.sb-rejects { table-layout: fixed; }
+.sb-rejects th:first-child { width: 112px; }
+/* The defect's whole name; cut with an ellipsis when the column is too narrow (the bubble has it in full). */
+.sb-rejects thead th:not(:first-child) { overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); }
 .sb-rejects th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); white-space: nowrap; }
 .sb-rejects thead th:first-child,
 .sb-rejects tfoot th:first-child { background: var(--paper-2); }
