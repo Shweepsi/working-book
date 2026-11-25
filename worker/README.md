@@ -110,6 +110,7 @@ All endpoints accept and return JSON. Keys are positional (no auth).
 - `GET  /api/archives` → `{ data: Record<schedule, ISO date> | null, updated_at }` — schedules retirés du planning
 - `PUT  /api/archives` body: `Record<schedule, ISO date>`
 - `GET  /api/updates[?date=…&poste=…&shift=…]` → `{ data: Record<domain, number | null>, updated_at }` — change probe, see below
+- `POST /api/stats` body: `{ feature, event, device }` — anonymous usage counter (`ui_stats`, migration 0014): a closed list of features and events, `device` = `pc` | `touch`; anything else is a 400, and a missing table is not an error (`ok: false`). No read route: query D1
 - `GET  /api/uploads` → `{ data: UploadMeta[], updated_at }` — fichiers envoyés à Claude, newest first
 - `POST /api/uploads?name=…[&note=…]` body: the file's raw bytes — up to 25 MB (see below)
 - `DELETE /api/uploads?id=…`
