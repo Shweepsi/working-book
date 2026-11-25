@@ -249,6 +249,9 @@ function RejectsTable({ r }: { r: BilanRejects }) {
                 {g.length}
               </th>
             ))}
+            <th rowSpan={2} className="sb-tot">
+              Total
+            </th>
           </tr>
           <tr>
             {cols.map((c) => (
@@ -267,6 +270,9 @@ function RejectsTable({ r }: { r: BilanRejects }) {
                   {d.byDim[c.dim] ? fmt(d.byDim[c.dim]) : ''}
                 </td>
               ))}
+              <td className="sb-tot sb-strong" data-tip={`${m2(d.m2)} m²`}>
+                {fmt(d.total)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -278,6 +284,9 @@ function RejectsTable({ r }: { r: BilanRejects }) {
                 {fmt(c.rejets)}
               </td>
             ))}
+            <td className="sb-tot" data-tip={`${m2(r.m2)} m²`}>
+              {fmt(r.rejets)}
+            </td>
           </tr>
         </tfoot>
       </table>
