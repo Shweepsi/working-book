@@ -171,7 +171,7 @@ function defectParts(defect: string) {
   return i > 0 ? { code: defect.slice(0, i), name: defect.slice(i + 3) } : { code: '', name: defect };
 }
 
-/** The scraps on screen: a defect per row, a column per dimension, the totals last. */
+/** The scraps on screen: a row per dimension, a column per defect (its code; the name on hover and in the legend), the totals underneath. */
 function RejectsTable({ r }: { r: BilanRejects }) {
   if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
   if (!r.rejets)
@@ -180,51 +180,61 @@ function RejectsTable({ r }: { r: BilanRejects }) {
         <strong>Aucun scrap</strong> sur {fmt(r.passees)} lites passées à l’unloading.
       </p>
     );
+  const defects = r.defects.map((d) => ({ ...d, ...defectParts(d.defect) }));
+  // A dimension nothing was scrapped in has nothing to say here.
+  const dims = r.dims.filter((d) => d.rejets > 0);
   return (
-    <div className="sb-scroll">
-      <table className="sb-table sb-rejects">
-        <thead>
-          <tr>
-            <th>Défaut</th>
-            {r.dims.map((d) => (
-              <th key={d.dim}>{d.dim}</th>
-            ))}
-            <th className="sb-tot">Lites</th>
-            <th>m²</th>
-          </tr>
-        </thead>
-        <tbody>
-          {r.defects.map((def) => {
-            const { code, name } = defectParts(def.defect);
-            return (
-              <tr key={def.defect}>
-                <th>
-                  {code && <span className="sb-code">{code}</span>}
-                  <span className="sb-def-name" title={def.defect}>
-                    {name}
-                  </span>
+    <>
+      <div className="sb-scroll">
+        <table className="sb-table sb-rejects">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              {defects.map((d) => (
+                <th key={d.defect} title={d.defect}>
+                  {d.code || d.name}
                 </th>
-                {r.dims.map((d) => (
-                  <td key={d.dim}>{def.byDim[d.dim] ? fmt(def.byDim[d.dim]) : ''}</td>
+              ))}
+              <th className="sb-tot">Lites</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dims.map((dim) => (
+              <tr key={dim.dim}>
+                <th>{dim.dim}</th>
+                {defects.map((d) => (
+                  <td key={d.defect}>{d.byDim[dim.dim] ? fmt(d.byDim[dim.dim]) : ''}</td>
                 ))}
-                <td className="sb-tot sb-strong">{fmt(def.total)}</td>
-                <td className="sb-m2">{m2(def.m2)}</td>
+                <td className="sb-tot sb-strong">{fmt(dim.rejets)}</td>
               </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th>Total</th>
-            {r.dims.map((d) => (
-              <td key={d.dim}>{fmt(d.rejets)}</td>
             ))}
-            <td className="sb-tot">{fmt(r.rejets)}</td>
-            <td>{m2(r.m2)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              {defects.map((d) => (
+                <td key={d.defect}>{fmt(d.total)}</td>
+              ))}
+              <td className="sb-tot">{fmt(r.rejets)}</td>
+            </tr>
+            <tr className="sb-rejects-m2">
+              <th>m²</th>
+              {defects.map((d) => (
+                <td key={d.defect}>{m2(d.m2)}</td>
+              ))}
+              <td className="sb-tot">{m2(r.m2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="sb-legend">
+        {defects.map((d) => (
+          <span key={d.defect}>
+            <b>{d.code}</b> {d.name}
+          </span>
+        ))}
+      </p>
+    </>
   );
 }
 
@@ -329,7 +339,7 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
       )}
       <div className="sb-protect-foot">
         <button type="button" className="btn ghost mini" onClick={add}>
-          + Ajouter une dimension
+          + Dimension
         </button>
       </div>
     </Section>
@@ -377,11 +387,10 @@ const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addD
 const Delta = ({ v }: { v: number }) => <span className={`sb-delta${v ? ' is-bad' : ''}`}>Δ {fmt(v)}</span>;
 
 /**
- * The whole and each colour as a list on the left (with `side` under it), the
- * selection's figures on the right: `lead` above them, then the four tiles and the
- * scraps. The rows to look at come as a bar above, opening on their list.
+ * The whole and each colour as a list on the left, the selection's figures on the
+ * right: `lead` above them, then the four tiles and the scraps, then `foot`. The rows to look at come as a bar above, opening on their list.
  */
-function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; lead?: ReactNode; side?: ReactNode }) {
+function BilanBody({ bilan, allLabel, onPick, showChecks, lead, foot }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; lead?: ReactNode; foot?: ReactNode }) {
   const [sel, setSel] = useState(ALL);
   const [open, setOpen] = useState(false);
   const colours = bilan.colours;
@@ -403,31 +412,26 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan:
           {open && <Checks checks={checks} onPick={onPick} />}
         </div>
       )}
-      <div className={`sb-layout${several || side ? '' : ' is-single'}`}>
-        {(several || side) && (
-          <div className="sb-side">
-            {several && (
-              <div className="sb-nav" role="tablist" aria-label="Couleurs">
-                <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
-                  <span className="sb-nav-name">{allLabel}</span>
-                  <Delta v={bilan.totals.delta} />
-                </button>
-                {colours.map((c, i) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    role="tab"
-                    aria-selected={c === current}
-                    className={['sb-nav-item', c === current && 'active', c.none && 'is-none'].filter(Boolean).join(' ')}
-                    onClick={() => setSel(i)}
-                  >
-                    <span className="sb-nav-name">{c.name}</span>
-                    {c.inDl && c.inFl && <Delta v={c.totals.delta} />}
-                  </button>
-                ))}
-              </div>
-            )}
-            {side}
+      <div className={`sb-layout${several ? '' : ' is-single'}`}>
+        {several && (
+          <div className="sb-nav" role="tablist" aria-label="Couleurs">
+            <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
+              <span className="sb-nav-name">{allLabel}</span>
+              <Delta v={bilan.totals.delta} />
+            </button>
+            {colours.map((c, i) => (
+              <button
+                key={c.name}
+                type="button"
+                role="tab"
+                aria-selected={c === current}
+                className={['sb-nav-item', c === current && 'active', c.none && 'is-none'].filter(Boolean).join(' ')}
+                onClick={() => setSel(i)}
+              >
+                <span className="sb-nav-name">{c.name}</span>
+                {c.inDl && c.inFl && <Delta v={c.totals.delta} />}
+              </button>
+            ))}
           </div>
         )}
         <div className="sb-main" role={several ? 'tabpanel' : undefined} key={current?.name ?? 'all'}>
@@ -436,6 +440,7 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan:
           <div className="sb-card">
             <RejectsTable r={current ? current.rejects : bilan.rejects} />
           </div>
+          {foot}
         </div>
       </div>
     </>
@@ -585,7 +590,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           </div>
         ) : (
           <div className="sb">
-            <BilanBody key="poste" bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks side={<ProtectionEditor state={protection} onChange={setProtection} />} />
+            <BilanBody key="poste" bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks foot={<ProtectionEditor state={protection} onChange={setProtection} />} />
           </div>
         )}
       </div>
