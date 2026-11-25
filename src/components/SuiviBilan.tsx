@@ -202,14 +202,38 @@ function Rejects({ r }: { r: BilanRejects }) {
   );
 }
 
-/** « B9 - Scratches » → the code and the name, to set them apart. */
-function defectParts(defect: string) {
-  const i = defect.indexOf(' - ');
-  return i > 0 ? { code: defect.slice(0, i), name: defect.slice(i + 3) } : { code: '', name: defect };
+const ROTATE_KEY = 'wb-bilan-rotated';
+
+/** A « 2250,5 x 6UC » label as its length and thickness; the length is NaN when there is none (« ? x 6 »). */
+function splitDim(label: string) {
+  const i = label.indexOf(' x ');
+  const length = i < 0 ? label : label.slice(0, i);
+  return { length, ep: i < 0 ? '' : label.slice(i + 3), mm: Number(length.replace(/\s/g, '').replace(',', '.')) };
 }
 
-/** The scraps on screen: a row per dimension, a column per defect (its code; the name and the m² on hover), the totals underneath. */
+/** Numbers first, then what follows (« 6 », « 6UC », « 8 », « 10 »). */
+const byThickness = (a: string, b: string) => parseFloat(a) - parseFloat(b) || a.localeCompare(b, 'fr');
+
+/**
+ * The scraps on screen: a row per defect (its whole name), the dimensions across, grouped by
+ * length (the thickness under it), a total per dimension; the m² of a cell on hover.
+ */
 function RejectsTable({ r }: { r: BilanRejects }) {
+  const [rotated, setRotated] = useState(() => {
+    try {
+      return localStorage.getItem(ROTATE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const rotate = () => {
+    setRotated(!rotated);
+    try {
+      localStorage.setItem(ROTATE_KEY, rotated ? '0' : '1');
+    } catch {
+      /* the choice just isn't kept */
+    }
+  };
   if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
   if (!r.rejets)
     return (
@@ -217,49 +241,109 @@ function RejectsTable({ r }: { r: BilanRejects }) {
         <strong>Aucun scrap</strong> sur {fmt(r.passees)} lites passées à l’unloading.
       </p>
     );
-  const defects = r.defects.map((d) => ({ ...d, ...defectParts(d.defect) }));
-  // The length out of a « 2250,5 x 6 » label; NaN when there is none (« ? x 6 »).
-  const len = (label: string) => Number(label.split(' x ')[0].replace(/\s/g, '').replace(',', '.'));
   // A dimension nothing was scrapped in has nothing to say here.
-  const dims = r.dims.filter((d) => d.rejets > 0);
+  const cols = r.dims
+    .filter((d) => d.rejets > 0)
+    .map((d) => ({ ...d, ...splitDim(d.dim) }))
+    .sort((a, b) => (Number.isNaN(a.mm) !== Number.isNaN(b.mm) ? (Number.isNaN(a.mm) ? 1 : -1) : a.mm - b.mm || 0) || a.length.localeCompare(b.length) || byThickness(a.ep, b.ep));
+  const groups: { length: string; cols: typeof cols }[] = [];
+  for (const c of cols) {
+    const g = groups[groups.length - 1];
+    if (g && g.length === c.length) g.cols.push(c);
+    else groups.push({ length: c.length, cols: [c] });
+  }
+  const turn = (
+    <button type="button" className="sb-rot" onClick={rotate} aria-label="Pivoter le tableau" title="Pivoter le tableau">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 6a4 4 0 1 1-1.2-2.8" />
+        <path d="M10 1.5v2.2H7.8" />
+      </svg>
+    </button>
+  );
+  const first = new Set(groups.map((g) => g.cols[0].dim));
+  const sep = (dim: string) => (first.has(dim) ? ' is-group' : '');
+  const tip = (mm: number, lites: number) => (lites && Number.isFinite(mm) ? `${m2(area(mm, lites))} m²` : undefined);
+  if (rotated)
+    return (
+      <div className="sb-scroll">
+        <table className="sb-table sb-rejects is-rotated">
+          <thead>
+            <tr>
+              <th>
+                <span className="sb-corner">Dimension {turn}</span>
+              </th>
+              {r.defects.map((d) => (
+                <th key={d.defect} data-tip={d.defect} tabIndex={0}>
+                  {d.defect}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {cols.map((c) => (
+              <tr key={c.dim} className={first.has(c.dim) ? 'is-group' : undefined}>
+                <th>{c.dim}</th>
+                {r.defects.map((d) => (
+                  <td key={d.defect} data-tip={tip(c.mm, d.byDim[c.dim])}>
+                    {d.byDim[c.dim] ? fmt(d.byDim[c.dim]) : ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              {r.defects.map((d) => (
+                <td key={d.defect} data-tip={`${m2(d.m2)} m²`}>
+                  {fmt(d.total)}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
   return (
     <div className="sb-scroll">
       <table className="sb-table sb-rejects">
         <thead>
           <tr>
-            <th>Dimension</th>
-            {defects.map((d) => (
-              <th key={d.defect} data-tip={d.defect} tabIndex={0}>
-                {d.defect}
+            <th rowSpan={2}>
+              <span className="sb-corner">Défaut {turn}</span>
+            </th>
+            {groups.map((g, i) => (
+              <th key={`${i}|${g.length}`} colSpan={g.cols.length} className="sb-grp is-group">
+                {g.length}
+              </th>
+            ))}
+            <th rowSpan={2} className="sb-tot">
+              Total
+            </th>
+          </tr>
+          <tr>
+            {cols.map((c) => (
+              <th key={c.dim} className={`sb-ep${sep(c.dim)}`}>
+                {c.ep}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {dims.map((dim) => (
-            <tr key={dim.dim}>
-              <th>{dim.dim}</th>
-              {defects.map((d) => {
-                const q = d.byDim[dim.dim];
-                return (
-                  <td key={d.defect} data-tip={q && Number.isFinite(len(dim.dim)) ? `${m2(area(len(dim.dim), q))} m²` : undefined}>
-                    {q ? fmt(q) : ''}
-                  </td>
-                );
-              })}
+          {r.defects.map((d) => (
+            <tr key={d.defect}>
+              <th>{d.defect}</th>
+              {cols.map((c) => (
+                <td key={c.dim} className={sep(c.dim).trim()} data-tip={tip(c.mm, d.byDim[c.dim])}>
+                  {d.byDim[c.dim] ? fmt(d.byDim[c.dim]) : ''}
+                </td>
+              ))}
+              <td className="sb-tot sb-strong" data-tip={`${m2(d.m2)} m²`}>
+                {fmt(d.total)}
+              </td>
             </tr>
           ))}
         </tbody>
-        <tfoot>
-          <tr>
-            <th>Total</th>
-            {defects.map((d) => (
-              <td key={d.defect} data-tip={`${m2(d.m2)} m²`}>
-                {fmt(d.total)}
-              </td>
-            ))}
-          </tr>
-        </tfoot>
       </table>
     </div>
   );
