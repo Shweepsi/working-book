@@ -3937,6 +3937,10 @@ body.is-col-resizing * {
   font-variant-numeric: tabular-nums;
 }
 .sb-delta.is-bad { border-color: var(--flag-unsched-bd); background: color-mix(in srgb, var(--flag-unsched-bd) 14%, transparent); color: var(--flag-unsched-fg); }
+/* The sheet's bubble (TipLayer): fixed, in the body, never clipped. */
+.sb-tip { position: fixed; z-index: 50; transform: translateX(-50%); margin-top: var(--space-3); max-width: 280px; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: var(--ink); color: var(--paper); font-size: var(--fs-md); line-height: 1.4; white-space: pre-line; pointer-events: none; box-shadow: var(--shadow-popover); }
+.sb-tip.is-above { transform: translate(-50%, -100%); margin-top: calc(var(--space-3) * -1); }
+[data-tip] { cursor: default; }
 .sb-card { border: 1px solid var(--line-faint); border-radius: var(--radius-xl); background: var(--paper); overflow: hidden; }
 @media (max-width: 720px) {
   .sb-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }

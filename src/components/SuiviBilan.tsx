@@ -8,7 +8,8 @@
 // against what went through Unloading), what (the defects, largest first),
 // and where (the scrap rate per dimension).
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import type { Partition } from '../lib/sharedGrid';
 import { dayShifts, useDayBilan, type DayBilan } from '../lib/dayBilan';
 import type { LineData } from '../lib/line';
@@ -40,11 +41,53 @@ export function useBilan(part: Partition | null, live = false): SuiviBilan | nul
   return cache.bilan;
 }
 
+/**
+ * One light bubble for the whole sheet: anything with a `data-tip` shows it on hover or
+ * keyboard focus (lines split on « \n »). Drawn in a portal, so no box clips it.
+ */
+function TipLayer({ root }: { root: RefObject<HTMLElement | null> }) {
+  const [tip, setTip] = useState<{ text: string; x: number; y: number; above: boolean } | null>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const show = (e: Event) => {
+      const t = (e.target as Element | null)?.closest?.('[data-tip]') as HTMLElement | null;
+      if (!t || !el.contains(t)) return setTip(null);
+      const r = t.getBoundingClientRect();
+      const above = r.bottom > window.innerHeight - 110;
+      setTip({ text: t.dataset.tip ?? '', x: Math.min(Math.max(r.left + r.width / 2, 150), window.innerWidth - 150), y: above ? r.top : r.bottom, above });
+    };
+    const hide = () => setTip(null);
+    el.addEventListener('pointerover', show);
+    el.addEventListener('focusin', show);
+    el.addEventListener('pointerleave', hide);
+    el.addEventListener('focusout', hide);
+    el.addEventListener('scroll', hide, true);
+    return () => {
+      el.removeEventListener('pointerover', show);
+      el.removeEventListener('focusin', show);
+      el.removeEventListener('pointerleave', hide);
+      el.removeEventListener('focusout', hide);
+      el.removeEventListener('scroll', hide, true);
+    };
+  }, [root]);
+  if (!tip) return null;
+  return createPortal(
+    <div className={`sb-tip${tip.above ? ' is-above' : ''}`} role="tooltip" style={{ left: tip.x, top: tip.y }}>
+      {tip.text}
+    </div>,
+    document.body,
+  );
+}
+
+/** What a gap is made of. */
+const deltaTip = (t: BilanTotals) => `Delta = Loading − Unloading − Scraps\n${fmt(t.dl)} − ${fmt(t.fl)} − ${fmt(t.rejets)} = ${fmt(t.delta)} lites`;
+
 /** Loading, Unloading, scraps and the gap: m² big, lites underneath. */
 function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; sides?: { dl: boolean; fl: boolean }; compact?: boolean }) {
   const both = sides.dl && sides.fl;
-  const tile = (label: string, lites: number | null, area: number | null, bad?: boolean) => (
-    <div className={`sb-kpi${bad ? ' is-bad' : ''}`}>
+  const tile = (label: string, lites: number | null, area: number | null, bad?: boolean, tip?: string) => (
+    <div className={`sb-kpi${bad ? ' is-bad' : ''}`} data-tip={tip} tabIndex={tip ? 0 : undefined}>
       <span className="sb-kpi-label">{label}</span>
       <strong className="sb-kpi-value">
         {area === null ? '—' : m2(area)}
@@ -57,8 +100,8 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
     <div className={`sb-kpis${compact ? ' is-compact' : ''}`}>
       {tile('Loading', sides.dl ? t.dl : null, sides.dl ? t.dlM2 : null)}
       {tile('Unloading', sides.fl ? t.fl : null, sides.fl ? t.flM2 : null)}
-      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null)}
-      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, both && !!t.delta)}
+      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null, false, sides.fl ? `Taux de scrap : ${pct(t.rejets, t.fl + t.rejets)}\n${fmt(t.rejets)} sur ${fmt(t.fl + t.rejets)} lites passées à l’unloading` : undefined)}
+      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, both && !!t.delta, both ? deltaTip(t) : undefined)}
     </div>
   );
 }
@@ -180,6 +223,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
   const defects = r.defects.map((d) => ({ ...d, ...defectParts(d.defect) }));
   // A dimension nothing was scrapped in has nothing to say here.
   const dims = r.dims.filter((d) => d.rejets > 0);
+  const defectTip = (d: (typeof defects)[number]) => `${d.defect}\n${fmt(d.total)} lites · ${m2(d.m2)} m²\n${pct(d.total, r.rejets)} des scraps`;
   return (
     <div className="sb-scroll">
       <table className="sb-table sb-rejects">
@@ -187,7 +231,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
           <tr>
             <th>Dimension</th>
             {defects.map((d) => (
-              <th key={d.defect} title={d.defect}>
+              <th key={d.defect} data-tip={defectTip(d)} tabIndex={0}>
                 {d.code || d.name}
               </th>
             ))}
@@ -196,18 +240,23 @@ function RejectsTable({ r }: { r: BilanRejects }) {
         <tbody>
           {dims.map((dim) => (
             <tr key={dim.dim}>
-              <th>{dim.dim}</th>
-              {defects.map((d) => (
-                <td key={d.defect}>{d.byDim[dim.dim] ? fmt(d.byDim[dim.dim]) : ''}</td>
-              ))}
+              <th data-tip={`${dim.dim}\n${fmt(dim.passees)} lites passées · ${fmt(dim.rejets)} en scrap\nTaux de scrap ${pct(dim.rejets, dim.passees)}`}>{dim.dim}</th>
+              {defects.map((d) => {
+                const q = d.byDim[dim.dim];
+                return (
+                  <td key={d.defect} data-tip={q ? `${d.code || d.name} · ${dim.dim}\n${fmt(q)} lites, ${pct(q, dim.passees)} des lites passées` : undefined}>
+                    {q ? fmt(q) : ''}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
-            <th title={`${m2(r.m2)} m²`}>Total</th>
+            <th data-tip={`Total des scraps\n${fmt(r.rejets)} lites · ${m2(r.m2)} m²\n${pct(r.rejets, r.passees)} des lites passées`}>Total</th>
             {defects.map((d) => (
-              <td key={d.defect} title={`${d.defect} · ${m2(d.m2)} m²`}>
+              <td key={d.defect} data-tip={defectTip(d)}>
                 {fmt(d.total)}
               </td>
             ))}
@@ -381,7 +430,11 @@ const ALL = -1;
 const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
 
 /** A Δ badge: red when the gap isn't zero. */
-const Delta = ({ v }: { v: number }) => <span className={`sb-delta${v ? ' is-bad' : ''}`}>Δ {fmt(v)}</span>;
+const Delta = ({ t }: { t: BilanTotals }) => (
+  <span className={`sb-delta${t.delta ? ' is-bad' : ''}`} data-tip={deltaTip(t)}>
+    Δ {fmt(t.delta)}
+  </span>
+);
 
 /**
  * The whole and each colour as a list on the left (with `side` under it), the
@@ -416,7 +469,7 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan:
               <div className="sb-nav" role="tablist" aria-label="Couleurs">
                 <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
                   <span className="sb-nav-name">{allLabel}</span>
-                  <Delta v={bilan.totals.delta} />
+                  <Delta t={bilan.totals} />
                 </button>
                 {colours.map((c, i) => (
                   <button
@@ -428,7 +481,7 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan:
                     onClick={() => setSel(i)}
                   >
                     <span className="sb-nav-name">{c.name}</span>
-                    {c.inDl && c.inFl && <Delta v={c.totals.delta} />}
+                    {c.inDl && c.inFl && <Delta t={c.totals} />}
                   </button>
                 ))}
               </div>
@@ -529,6 +582,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
   const bilan = useBilan(part, true);
   const day = useDayBilan(part.date, part, scope === 'jour');
   const [protection, setProtection] = useProtection(part);
+  const sheetRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -547,7 +601,8 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet sb-sheet" role="dialog" aria-modal="true" aria-label={scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan du poste'}>
+      <div className="sheet sb-sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={scope === 'jour' ? `Bilan du ${dayLabel(part.date)}` : 'Bilan du poste'}>
+        <TipLayer root={sheetRef} />
         <div className="grabber" />
         <div className="sheet-head">
           <div className="sheet-head-titles">
