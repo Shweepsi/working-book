@@ -6243,11 +6243,11 @@ button.as-row:focus-visible {
     border-radius: var(--radius-pill);
     background: var(--accent);
   }
-  .sch-rail-mark { animation: sch-rail-mark-in 220ms cubic-bezier(0.2, 0.8, 0.3, 1); }
+  .sch-rail-mark { animation: sch-rail-mark-in 160ms ease-out; }
 }
 @keyframes sch-rail-mark-in {
-  from { transform: scaleY(0.3); opacity: 0; }
-  to   { transform: scaleY(1); opacity: 1; }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ---------- Badges, the vitesse field and the print-preview bar ----------

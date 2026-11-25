@@ -246,6 +246,8 @@ function RejectsTable({ r }: { r: BilanRejects }) {
         <strong>Aucun scrap</strong> sur {fmt(r.passees)} lites passées à l’unloading.
       </p>
     );
+  // The defects from A to Z (the paper keeps them largest first).
+  const defects = [...r.defects].sort((x, y) => x.defect.localeCompare(y.defect, 'fr', { numeric: true }));
   // A dimension nothing was scrapped in has nothing to say here.
   const cols = r.dims
     .filter((d) => d.rejets > 0)
@@ -277,7 +279,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
               <th>
                 <span className="sb-corner">Dimension {turn}</span>
               </th>
-              {r.defects.map((d) => (
+              {defects.map((d) => (
                 <th key={d.defect} data-tip={d.defect} tabIndex={0}>
                   {d.defect}
                 </th>
@@ -288,7 +290,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
             {cols.map((c) => (
               <tr key={c.dim} className={first.has(c.dim) ? 'is-group' : undefined}>
                 <th>{c.dim}</th>
-                {r.defects.map((d) => (
+                {defects.map((d) => (
                   <td key={d.defect} data-tip={tip(c.mm, d.byDim[c.dim])}>
                     {d.byDim[c.dim] ? fmt(d.byDim[c.dim]) : ''}
                   </td>
@@ -299,7 +301,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
           <tfoot>
             <tr>
               <th>Total</th>
-              {r.defects.map((d) => (
+              {defects.map((d) => (
                 <td key={d.defect} data-tip={`${m2(d.m2)} m²`}>
                   {fmt(d.total)}
                 </td>
@@ -335,7 +337,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
           </tr>
         </thead>
         <tbody>
-          {r.defects.map((d) => (
+          {defects.map((d) => (
             <tr key={d.defect}>
               <th>{d.defect}</th>
               {cols.map((c) => (
