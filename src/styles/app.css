@@ -4001,7 +4001,7 @@ body.is-col-resizing * {
 .sb-rejects thead th { background: var(--paper-2); color: var(--ink-faint); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); }
 .sb-rejects thead th.sb-grp { height: 26px; padding: 0; text-align: center; color: var(--ink); font-size: var(--fs-md); border-bottom: 1px solid var(--line-faint); }
 .sb-rejects thead th.sb-ep { height: 24px; padding: 0; text-align: center; font-weight: 500; color: var(--ink-soft); border-bottom: 1px solid var(--line-faint); }
-.sb-rejects thead th:first-child { width: 230px; vertical-align: bottom; padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-faint); }
+.sb-rejects thead th:first-child { width: 268px; vertical-align: bottom; padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-faint); }
 .sb-rejects .is-group { border-left: 1px solid var(--line-faint); }
 .sb-rejects tbody th { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sb-rejects tbody tr:last-child th,
