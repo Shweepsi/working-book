@@ -3824,7 +3824,8 @@ body.is-col-resizing * {
 /* The shift's bilan (SuiviBilan.tsx): a sheet over the workbook; on paper
    (.sb-print), the whole shift then every colour in turn. */
 .sheet.sb-sheet,
-.sheet.sc-sheet { --sheet-w: 1000px; display: flex; flex-direction: column; gap: var(--space-6); }
+.sheet.sc-sheet { display: flex; flex-direction: column; gap: var(--space-6); }
+.sheet.sb-sheet { --sheet-w: 1000px; }
 .sheet.sc-sheet { --sheet-w: 520px; }
 .sheet.sb-sheet .sheet-head,
 .sheet.sc-sheet .sheet-head { margin-bottom: 0; }
@@ -3990,7 +3991,7 @@ body.is-col-resizing * {
 .sb-rejects td:last-child { position: sticky; z-index: 1; background: var(--paper); }
 .sb-rejects .sb-tot { right: 92px; min-width: 64px; border-left: 1px solid var(--line-faint); }
 .sb-rejects th:last-child,
-.sb-rejects td:last-child { right: 0; min-width: 92px; }
+.sb-rejects td:last-child { right: 0; width: 92px; min-width: 92px; max-width: 92px; }
 .sb-rejects thead .sb-tot, .sb-rejects thead th:last-child,
 .sb-rejects tfoot .sb-tot, .sb-rejects tfoot td:last-child { background: var(--paper-2); }
 .sb-rejects .sb-m2 { color: var(--ink-soft); }

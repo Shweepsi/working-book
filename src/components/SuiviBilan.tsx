@@ -388,7 +388,8 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan:
   const colours = bilan.colours;
   const several = colours.length > 1;
   const current = several && sel !== ALL ? colours[Math.min(sel, colours.length - 1)] : undefined;
-  const n = showChecks ? bilan.checks.length : 0;
+  const checks = current ? current.checks : bilan.checks;
+  const n = showChecks ? checks.length : 0;
   return (
     <>
       {n > 0 && (
@@ -400,7 +401,7 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan:
             </strong>
             <span className="sb-alert-go">{open ? 'Masquer' : 'Voir'}</span>
           </button>
-          {open && <Checks checks={bilan.checks} onPick={onPick} />}
+          {open && <Checks checks={checks} onPick={onPick} />}
         </div>
       )}
       <div className={`sb-layout${several || side ? '' : ' is-single'}`}>
@@ -575,7 +576,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
               {day.status !== 'ready' && (
                 <p className="sb-day-status">{day.status === 'loading' ? 'Lecture des autres postes…' : `Autres postes illisibles (${day.error}) : le bilan ne compte que ceux affichés.`}</p>
               )}
-              <BilanBody bilan={day.bilan} allLabel="Toute la journée" showChecks={false} lead={<ShiftsTable day={day} live={part.poste} screen />} />
+              <BilanBody key="jour" bilan={day.bilan} allLabel="Toute la journée" showChecks={false} lead={<ShiftsTable day={day} live={part.poste} screen />} />
             </div>
           )
         ) : !bilan || bilan.empty ? (
@@ -585,7 +586,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           </div>
         ) : (
           <div className="sb">
-            <BilanBody bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks side={<ProtectionEditor state={protection} onChange={setProtection} />} />
+            <BilanBody key="poste" bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks side={<ProtectionEditor state={protection} onChange={setProtection} />} />
           </div>
         )}
       </div>
