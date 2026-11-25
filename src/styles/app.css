@@ -4009,10 +4009,7 @@ body.is-col-resizing * {
 .sb-rejects tbody tr:last-child th,
 .sb-rejects tbody tr:last-child td { border-bottom: 0; }
 .sb-rejects th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
-.sb-rejects thead th:first-child,
-.sb-rejects tfoot th:first-child { background: var(--paper-2); }
-.sb-rejects tfoot th,
-.sb-rejects tfoot td { height: 30px; background: var(--paper-2); border-bottom: 0; border-top: 1px solid var(--line-soft); font-weight: 650; }
+.sb-rejects thead th:first-child { background: var(--paper-2); }
 .sb-card .sb-none,
 .sb-card .sb-rej-head { padding: var(--space-6) var(--space-7); }
 .sb-card .sb-shifts th,

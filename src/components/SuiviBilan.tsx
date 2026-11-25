@@ -180,17 +180,7 @@ function Rejects({ r }: { r: BilanRejects }) {
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <th>Taux de scrap</th>
-                {r.dims.map((d) => (
-                  <td key={d.dim} style={heat(d.rejets / d.passees)}>
-                    {pct(d.rejets, d.passees)}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          </table>
+              </table>
         </div>
       ) : (
         <p className="sb-line">
