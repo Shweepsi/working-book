@@ -18,7 +18,7 @@ import { useShiftLine } from '../lib/shiftLine';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { addDaysISO } from '../lib/shiftCalendar';
 import { AddIcon, BilanIcon, CloseIcon, MinusIcon, NextIcon } from './icons';
-import type { BilanCheck, type BilanColour, type BilanRejects, type BilanTotals, type SuiviBilan } from '../lib/suiviBilan';
+import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
 
 /** What the bilan covers: the shift on screen, or its whole day. */
 export type BilanScope = 'poste' | 'jour';
