@@ -12,13 +12,13 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type R
 import { createPortal } from 'react-dom';
 import type { Partition } from '../lib/sharedGrid';
 import { dayShifts, useDayBilan, type DayBilan } from '../lib/dayBilan';
-import type { LineData } from '../lib/line';
+import { area, type LineData } from '../lib/line';
 import { computeLineBilan } from '../lib/lineBilan';
 import { useShiftLine } from '../lib/shiftLine';
 import { byDimension, dimLabel, newLineId, totalOf, useProtection, useProtectionOf, type ProtectionState } from '../lib/protection';
 import { addDaysISO } from '../lib/shiftCalendar';
 import { AddIcon, BilanIcon, CloseIcon, MinusIcon, NextIcon } from './icons';
-import type { BilanCheck, BilanColour, BilanRejects, BilanTotals, SuiviBilan } from '../lib/suiviBilan';
+import type { BilanCheck, type BilanColour, type BilanRejects, type BilanTotals, type SuiviBilan } from '../lib/suiviBilan';
 
 /** What the bilan covers: the shift on screen, or its whole day. */
 export type BilanScope = 'poste' | 'jour';
@@ -80,14 +80,11 @@ function TipLayer({ root }: { root: RefObject<HTMLElement | null> }) {
   );
 }
 
-/** What a gap is made of. */
-const deltaTip = (t: BilanTotals) => `Delta = Loading − Unloading − Scraps\n${fmt(t.dl)} − ${fmt(t.fl)} − ${fmt(t.rejets)} = ${fmt(t.delta)} lites`;
-
 /** Loading, Unloading, scraps and the gap: m² big, lites underneath. */
 function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; sides?: { dl: boolean; fl: boolean }; compact?: boolean }) {
   const both = sides.dl && sides.fl;
-  const tile = (label: string, lites: number | null, area: number | null, bad?: boolean, tip?: string) => (
-    <div className={`sb-kpi${bad ? ' is-bad' : ''}`} data-tip={tip} tabIndex={tip ? 0 : undefined}>
+  const tile = (label: string, lites: number | null, area: number | null, bad?: boolean) => (
+    <div className={`sb-kpi${bad ? ' is-bad' : ''}`}>
       <span className="sb-kpi-label">{label}</span>
       <strong className="sb-kpi-value">
         {area === null ? '—' : m2(area)}
@@ -100,8 +97,8 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
     <div className={`sb-kpis${compact ? ' is-compact' : ''}`}>
       {tile('Loading', sides.dl ? t.dl : null, sides.dl ? t.dlM2 : null)}
       {tile('Unloading', sides.fl ? t.fl : null, sides.fl ? t.flM2 : null)}
-      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null, false, sides.fl ? `Taux de scrap : ${pct(t.rejets, t.fl + t.rejets)}\n${fmt(t.rejets)} sur ${fmt(t.fl + t.rejets)} lites passées à l’unloading` : undefined)}
-      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, both && !!t.delta, both ? deltaTip(t) : undefined)}
+      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null)}
+      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, both && !!t.delta)}
     </div>
   );
 }
@@ -223,7 +220,6 @@ function RejectsTable({ r }: { r: BilanRejects }) {
   const defects = r.defects.map((d) => ({ ...d, ...defectParts(d.defect) }));
   // A dimension nothing was scrapped in has nothing to say here.
   const dims = r.dims.filter((d) => d.rejets > 0);
-  const defectTip = (d: (typeof defects)[number]) => `${d.defect}\n${fmt(d.total)} lites · ${m2(d.m2)} m²\n${pct(d.total, r.rejets)} des scraps`;
   return (
     <div className="sb-scroll">
       <table className="sb-table sb-rejects">
@@ -231,7 +227,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
           <tr>
             <th>Dimension</th>
             {defects.map((d) => (
-              <th key={d.defect} data-tip={defectTip(d)} tabIndex={0}>
+              <th key={d.defect} data-tip={d.defect} tabIndex={0}>
                 {d.code || d.name}
               </th>
             ))}
@@ -240,11 +236,11 @@ function RejectsTable({ r }: { r: BilanRejects }) {
         <tbody>
           {dims.map((dim) => (
             <tr key={dim.dim}>
-              <th data-tip={`${dim.dim}\n${fmt(dim.passees)} lites passées · ${fmt(dim.rejets)} en scrap\nTaux de scrap ${pct(dim.rejets, dim.passees)}`}>{dim.dim}</th>
+              <th>{dim.dim}</th>
               {defects.map((d) => {
                 const q = d.byDim[dim.dim];
                 return (
-                  <td key={d.defect} data-tip={q ? `${d.code || d.name} · ${dim.dim}\n${fmt(q)} lites, ${pct(q, dim.passees)} des lites passées` : undefined}>
+                  <td key={d.defect} data-tip={q ? `${m2(area(parseFloat(dim.dim), q))} m²` : undefined}>
                     {q ? fmt(q) : ''}
                   </td>
                 );
@@ -254,9 +250,9 @@ function RejectsTable({ r }: { r: BilanRejects }) {
         </tbody>
         <tfoot>
           <tr>
-            <th data-tip={`Total des scraps\n${fmt(r.rejets)} lites · ${m2(r.m2)} m²\n${pct(r.rejets, r.passees)} des lites passées`}>Total</th>
+            <th>Total</th>
             {defects.map((d) => (
-              <td key={d.defect} data-tip={defectTip(d)}>
+              <td key={d.defect} data-tip={`${m2(d.m2)} m²`}>
                 {fmt(d.total)}
               </td>
             ))}
@@ -430,11 +426,7 @@ const ALL = -1;
 const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addDaysISO(date, 1))} 06:00`;
 
 /** A Δ badge: red when the gap isn't zero. */
-const Delta = ({ t }: { t: BilanTotals }) => (
-  <span className={`sb-delta${t.delta ? ' is-bad' : ''}`} data-tip={deltaTip(t)}>
-    Δ {fmt(t.delta)}
-  </span>
-);
+const Delta = ({ t }: { t: BilanTotals }) => <span className={`sb-delta${t.delta ? ' is-bad' : ''}`}>Δ {fmt(t.delta)}</span>;
 
 /**
  * The whole and each colour as a list on the left (with `side` under it), the
