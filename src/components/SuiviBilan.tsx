@@ -218,6 +218,8 @@ function RejectsTable({ r }: { r: BilanRejects }) {
       </p>
     );
   const defects = r.defects.map((d) => ({ ...d, ...defectParts(d.defect) }));
+  // The length out of a « 2250,5 x 6 » label; NaN when there is none (« ? x 6 »).
+  const len = (label: string) => Number(label.split(' x ')[0].replace(/\s/g, '').replace(',', '.'));
   // A dimension nothing was scrapped in has nothing to say here.
   const dims = r.dims.filter((d) => d.rejets > 0);
   return (
@@ -240,7 +242,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
               {defects.map((d) => {
                 const q = d.byDim[dim.dim];
                 return (
-                  <td key={d.defect} data-tip={q ? `${m2(area(parseFloat(dim.dim), q))} m²` : undefined}>
+                  <td key={d.defect} data-tip={q && Number.isFinite(len(dim.dim)) ? `${m2(area(len(dim.dim), q))} m²` : undefined}>
                     {q ? fmt(q) : ''}
                   </td>
                 );
