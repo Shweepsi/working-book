@@ -3943,7 +3943,7 @@ body.is-col-resizing * {
 [data-tip] { cursor: default; }
 /* The sheet hangs from a fixed top edge (it was centred, so every selection with a taller or
    shorter table moved it up or down); it only grows downward. Phones keep their bottom sheet. */
-@media (min-width: 561px) {
+@media (min-width: 601px) {
   .sheet.sb-sheet { top: 6dvh; max-height: calc(100dvh - 6dvh - 24px); transform: translateX(-50%); animation: sb-sheet-in 160ms ease-out; }
 }
 @keyframes sb-sheet-in { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%); } }
