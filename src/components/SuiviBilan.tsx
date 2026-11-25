@@ -180,7 +180,17 @@ function Rejects({ r }: { r: BilanRejects }) {
                 </tr>
               ))}
             </tbody>
-              </table>
+            <tfoot>
+              <tr>
+                <th>Taux de scrap</th>
+                {r.dims.map((d) => (
+                  <td key={d.dim} style={heat(d.rejets / d.passees)}>
+                    {pct(d.rejets, d.passees)}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
         </div>
       ) : (
         <p className="sb-line">
@@ -216,15 +226,14 @@ function RejectsTable({ r }: { r: BilanRejects }) {
       return false;
     }
   });
-  const rotate = () =>
-    setRotated((v) => {
-      try {
-        localStorage.setItem(ROTATE_KEY, v ? '0' : '1');
-      } catch {
-        /* the choice just isn't kept */
-      }
-      return !v;
-    });
+  const rotate = () => {
+    setRotated(!rotated);
+    try {
+      localStorage.setItem(ROTATE_KEY, rotated ? '0' : '1');
+    } catch {
+      /* the choice just isn't kept */
+    }
+  };
   if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
   if (!r.rejets)
     return (
@@ -236,7 +245,7 @@ function RejectsTable({ r }: { r: BilanRejects }) {
   const cols = r.dims
     .filter((d) => d.rejets > 0)
     .map((d) => ({ ...d, ...splitDim(d.dim) }))
-    .sort((a, b) => (Number.isNaN(a.mm) ? 1 : Number.isNaN(b.mm) ? -1 : a.mm - b.mm) || a.length.localeCompare(b.length) || byThickness(a.ep, b.ep));
+    .sort((a, b) => (Number.isNaN(a.mm) !== Number.isNaN(b.mm) ? (Number.isNaN(a.mm) ? 1 : -1) : a.mm - b.mm || 0) || a.length.localeCompare(b.length) || byThickness(a.ep, b.ep));
   const groups: { length: string; cols: typeof cols }[] = [];
   for (const c of cols) {
     const g = groups[groups.length - 1];
@@ -303,8 +312,8 @@ function RejectsTable({ r }: { r: BilanRejects }) {
             <th rowSpan={2}>
               <span className="sb-corner">Défaut {turn}</span>
             </th>
-            {groups.map((g) => (
-              <th key={g.length} colSpan={g.cols.length} className="sb-grp is-group">
+            {groups.map((g, i) => (
+              <th key={`${i}|${g.length}`} colSpan={g.cols.length} className="sb-grp is-group">
                 {g.length}
               </th>
             ))}
@@ -335,19 +344,6 @@ function RejectsTable({ r }: { r: BilanRejects }) {
             </tr>
           ))}
         </tbody>
-        <tfoot>
-          <tr>
-            <th>Total</th>
-            {cols.map((c) => (
-              <td key={c.dim} className={sep(c.dim).trim()} data-tip={tip(c.mm, c.rejets)}>
-                {fmt(c.rejets)}
-              </td>
-            ))}
-            <td className="sb-tot" data-tip={`${m2(r.m2)} m²`}>
-              {fmt(r.rejets)}
-            </td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   );

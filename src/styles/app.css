@@ -4001,7 +4001,7 @@ body.is-col-resizing * {
 .sb-rejects thead th { background: var(--paper-2); color: var(--ink-faint); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); }
 .sb-rejects thead th.sb-grp { height: 26px; padding: 0; text-align: center; color: var(--ink); font-size: var(--fs-md); border-bottom: 1px solid var(--line-faint); }
 .sb-rejects thead th.sb-ep { height: 24px; padding: 0; text-align: center; font-weight: 500; color: var(--ink-soft); border-bottom: 1px solid var(--line-faint); }
-.sb-rejects thead th:first-child { width: 268px; vertical-align: bottom; padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-faint); }
+.sb-rejects thead tr:first-child th:first-child { width: 268px; vertical-align: bottom; padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-faint); }
 .sb-corner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .sb-rot { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line-faint); border-radius: var(--radius-sm); background: var(--paper); color: var(--ink-soft); cursor: pointer; transition: background-color 140ms ease, color 140ms ease; }
 .sb-rot:hover { color: var(--ink); background: var(--paper-2); }
@@ -4009,7 +4009,7 @@ body.is-col-resizing * {
 .sb-rot:hover svg { transform: rotate(90deg); }
 /* Turned: a row per dimension, the defects across (named, cut if need be), the totals underneath. */
 .sb-rejects.is-rotated thead th { height: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--line-faint); }
-.sb-rejects.is-rotated thead th:first-child { width: 128px; }
+.sb-rejects.is-rotated thead tr:first-child th:first-child { width: 128px; vertical-align: middle; padding-bottom: 0; }
 .sb-rejects.is-rotated tbody tr.is-group th,
 .sb-rejects.is-rotated tbody tr.is-group td { border-top: 1px solid var(--line-soft); }
 .sb-rejects.is-rotated tbody tr:first-child th,
@@ -4024,8 +4024,9 @@ body.is-col-resizing * {
 .sb-rejects tbody th { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sb-rejects tbody tr:last-child th,
 .sb-rejects tbody tr:last-child td { border-bottom: 0; }
-.sb-rejects th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
-.sb-rejects thead th:first-child { background: var(--paper-2); }
+.sb-rejects tbody th:first-child,
+.sb-rejects thead tr:first-child th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+.sb-rejects thead tr:first-child th:first-child { background: var(--paper-2); }
 .sb-card .sb-none,
 .sb-card .sb-rej-head { padding: var(--space-6) var(--space-7); }
 .sb-card .sb-shifts th,
