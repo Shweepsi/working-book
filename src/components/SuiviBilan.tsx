@@ -40,15 +40,12 @@ export function useBilan(part: Partition | null, live = false): SuiviBilan | nul
   return cache.bilan;
 }
 
-/** Loading, Unloading, scraps and the gap: m² big, lites underneath; the scrap rate beside « Scraps ». */
+/** Loading, Unloading, scraps and the gap: m² big, lites underneath. */
 function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; sides?: { dl: boolean; fl: boolean }; compact?: boolean }) {
   const both = sides.dl && sides.fl;
-  const tile = (label: string, lites: number | null, area: number | null, extra?: string, bad?: boolean) => (
+  const tile = (label: string, lites: number | null, area: number | null, bad?: boolean) => (
     <div className={`sb-kpi${bad ? ' is-bad' : ''}`}>
-      <span className="sb-kpi-label">
-        {label}
-        {extra && <em className="sb-kpi-extra">{extra}</em>}
-      </span>
+      <span className="sb-kpi-label">{label}</span>
       <strong className="sb-kpi-value">
         {area === null ? '—' : m2(area)}
         {area !== null && <small> m²</small>}
@@ -60,8 +57,8 @@ function Kpis({ t, sides = { dl: true, fl: true }, compact }: { t: BilanTotals; 
     <div className={`sb-kpis${compact ? ' is-compact' : ''}`}>
       {tile('Loading', sides.dl ? t.dl : null, sides.dl ? t.dlM2 : null)}
       {tile('Unloading', sides.fl ? t.fl : null, sides.fl ? t.flM2 : null)}
-      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null, sides.fl ? pct(t.rejets, t.fl + t.rejets) : undefined)}
-      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, undefined, both && !!t.delta)}
+      {tile('Scraps', sides.fl ? t.rejets : null, sides.fl ? t.rejetsM2 : null)}
+      {tile('Delta', both ? t.delta : null, both ? t.deltaM2 : null, both && !!t.delta)}
     </div>
   );
 }
@@ -171,7 +168,7 @@ function defectParts(defect: string) {
   return i > 0 ? { code: defect.slice(0, i), name: defect.slice(i + 3) } : { code: '', name: defect };
 }
 
-/** The scraps on screen: a row per dimension, a column per defect (its code; the name on hover and in the legend), the totals underneath. */
+/** The scraps on screen: a row per dimension, a column per defect (its code; the name and the m² on hover), the totals underneath. */
 function RejectsTable({ r }: { r: BilanRejects }) {
   if (!r.passees) return <p className="sb-none">Rien n’est encore passé à l’unloading.</p>;
   if (!r.rejets)
@@ -184,57 +181,40 @@ function RejectsTable({ r }: { r: BilanRejects }) {
   // A dimension nothing was scrapped in has nothing to say here.
   const dims = r.dims.filter((d) => d.rejets > 0);
   return (
-    <>
-      <div className="sb-scroll">
-        <table className="sb-table sb-rejects">
-          <thead>
-            <tr>
-              <th>Dimension</th>
-              {defects.map((d) => (
-                <th key={d.defect} title={d.defect}>
-                  {d.code || d.name}
-                </th>
-              ))}
-              <th className="sb-tot">Lites</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dims.map((dim) => (
-              <tr key={dim.dim}>
-                <th>{dim.dim}</th>
-                {defects.map((d) => (
-                  <td key={d.defect}>{d.byDim[dim.dim] ? fmt(d.byDim[dim.dim]) : ''}</td>
-                ))}
-                <td className="sb-tot sb-strong">{fmt(dim.rejets)}</td>
-              </tr>
+    <div className="sb-scroll">
+      <table className="sb-table sb-rejects">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            {defects.map((d) => (
+              <th key={d.defect} title={d.defect}>
+                {d.code || d.name}
+              </th>
             ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dims.map((dim) => (
+            <tr key={dim.dim}>
+              <th>{dim.dim}</th>
               {defects.map((d) => (
-                <td key={d.defect}>{fmt(d.total)}</td>
+                <td key={d.defect}>{d.byDim[dim.dim] ? fmt(d.byDim[dim.dim]) : ''}</td>
               ))}
-              <td className="sb-tot">{fmt(r.rejets)}</td>
             </tr>
-            <tr className="sb-rejects-m2">
-              <th>m²</th>
-              {defects.map((d) => (
-                <td key={d.defect}>{m2(d.m2)}</td>
-              ))}
-              <td className="sb-tot">{m2(r.m2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <p className="sb-legend">
-        {defects.map((d) => (
-          <span key={d.defect}>
-            <b>{d.code}</b> {d.name}
-          </span>
-        ))}
-      </p>
-    </>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th title={`${m2(r.m2)} m²`}>Total</th>
+            {defects.map((d) => (
+              <td key={d.defect} title={`${d.defect} · ${m2(d.m2)} m²`}>
+                {fmt(d.total)}
+              </td>
+            ))}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 
@@ -292,15 +272,30 @@ function Panel({ colour, rejects, checks, onPick }: { colour?: BilanColour; reje
   );
 }
 
-/** The shift's protection plates, typed in: a line per dimension (by hand) and a counter. Never rejects. */
+/** The shift's protection plates, typed in: « + Ajouter une dimension », its dimension, ✓, then its number. Never rejects. */
 function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChange: (next: (prev: ProtectionState) => ProtectionState) => void }) {
-  const [added, setAdded] = useState<string | null>(null);
-  const update = (id: string, patch: Partial<ProtectionState['lines'][number]>) => onChange((p) => ({ ...p, lines: p.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ longueur: '', epaisseur: '' });
+  const [fresh, setFresh] = useState<string | null>(null);
   const count = (raw: string) => Math.min(9999, Math.max(0, Math.round(Number(raw.replace(/\D/g, '')) || 0)));
-  const add = () => {
+  const ready = draft.longueur.trim() !== '' && draft.epaisseur.trim() !== '';
+  const cancel = () => {
+    setAdding(false);
+    setDraft({ longueur: '', epaisseur: '' });
+  };
+  const confirm = () => {
+    if (!ready) return;
     const id = newLineId();
-    setAdded(id);
-    onChange((p) => ({ ...p, lines: [...p.lines, { id, longueur: '', epaisseur: '', nombre: 0 }] }));
+    setFresh(id);
+    onChange((p) => ({ ...p, lines: [...p.lines, { id, longueur: draft.longueur.trim(), epaisseur: draft.epaisseur.trim(), nombre: 0 }] }));
+    cancel();
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') confirm();
+    else if (e.key === 'Escape') {
+      e.stopPropagation();
+      cancel();
+    }
   };
   return (
     <Section title="Plaques de protection">
@@ -308,40 +303,40 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
         <ul className="sb-protect">
           {state.lines.map((l) => (
             <li key={l.id}>
-              <span className="sb-protect-dim">
-                <input
-                  value={l.longueur}
-                  onChange={(e) => update(l.id, { longueur: e.target.value })}
-                  inputMode="numeric"
-                  placeholder="Longueur"
-                  aria-label="Longueur en mm"
-                  autoFocus={added === l.id}
-                  maxLength={20}
-                />
-                <span aria-hidden="true">x</span>
-                <input value={l.epaisseur} onChange={(e) => update(l.id, { epaisseur: e.target.value })} placeholder="Ép." aria-label="Épaisseur" maxLength={20} />
-              </span>
-              <span className="sb-stepper">
-                <button type="button" onClick={() => update(l.id, { nombre: Math.max(0, l.nombre - 1) })} aria-label="Une plaque de moins" disabled={l.nombre <= 0}>
-                  <MinusIcon size={16} />
-                </button>
-                <input value={String(l.nombre)} onChange={(e) => update(l.id, { nombre: count(e.target.value) })} inputMode="numeric" aria-label="Nombre de plaques" />
-                <button type="button" onClick={() => update(l.id, { nombre: Math.min(9999, l.nombre + 1) })} aria-label="Une plaque de plus">
-                  <AddIcon size={16} />
-                </button>
-              </span>
-              <button type="button" className="btn ghost icon sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
-                <CloseIcon size={14} />
+              <span className="sb-protect-dim">{dimLabel(l)}</span>
+              <input
+                className="sb-protect-count"
+                value={String(l.nombre)}
+                onChange={(e) => onChange((p) => ({ ...p, lines: p.lines.map((x) => (x.id === l.id ? { ...x, nombre: count(e.target.value) } : x)) }))}
+                onFocus={(e) => e.target.select()}
+                inputMode="numeric"
+                aria-label={`Nombre de plaques ${dimLabel(l)}`}
+                autoFocus={fresh === l.id}
+              />
+              <button type="button" className="sb-protect-remove" onClick={() => onChange((p) => ({ ...p, lines: p.lines.filter((x) => x.id !== l.id) }))} aria-label={`Retirer ${dimLabel(l)}`}>
+                <CloseIcon size={12} />
               </button>
             </li>
           ))}
         </ul>
       )}
-      <div className="sb-protect-foot">
-        <button type="button" className="btn ghost mini" onClick={add}>
-          + Dimension
+      {adding ? (
+        <div className="sb-protect-form" onKeyDown={onKey}>
+          <input value={draft.longueur} onChange={(e) => setDraft((d) => ({ ...d, longueur: e.target.value }))} inputMode="numeric" placeholder="Long." aria-label="Longueur en mm" autoFocus maxLength={20} />
+          <span aria-hidden="true">x</span>
+          <input value={draft.epaisseur} onChange={(e) => setDraft((d) => ({ ...d, epaisseur: e.target.value }))} placeholder="Ép." aria-label="Épaisseur" maxLength={20} />
+          <button type="button" className="sb-protect-ok" onClick={confirm} disabled={!ready} aria-label="Valider la dimension">
+            ✓
+          </button>
+          <button type="button" className="sb-protect-remove" onClick={cancel} aria-label="Annuler">
+            <CloseIcon size={12} />
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="sb-protect-add" onClick={() => setAdding(true)}>
+          + Ajouter une dimension
         </button>
-      </div>
+      )}
     </Section>
   );
 }
@@ -387,10 +382,10 @@ const daySpan = (date: string) => `du ${shortDay(date)} 06:00 au ${shortDay(addD
 const Delta = ({ v }: { v: number }) => <span className={`sb-delta${v ? ' is-bad' : ''}`}>Δ {fmt(v)}</span>;
 
 /**
- * The whole and each colour as a list on the left, the selection's figures on the
- * right: `lead` above them, then the four tiles and the scraps, then `foot`. The rows to look at come as a bar above, opening on their list.
+ * The whole and each colour as a list on the left (with `side` under it), the
+ * selection's figures on the right: `lead` above them, then the four tiles and the scraps. The rows to look at come as a bar above, opening on their list.
  */
-function BilanBody({ bilan, allLabel, onPick, showChecks, lead, foot }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; lead?: ReactNode; foot?: ReactNode }) {
+function BilanBody({ bilan, allLabel, onPick, showChecks, lead, side }: { bilan: SuiviBilan; allLabel: string; onPick?: (range: string) => void; showChecks: boolean; lead?: ReactNode; side?: ReactNode }) {
   const [sel, setSel] = useState(ALL);
   const [open, setOpen] = useState(false);
   const colours = bilan.colours;
@@ -412,26 +407,31 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, foot }: { bilan:
           {open && <Checks checks={checks} onPick={onPick} />}
         </div>
       )}
-      <div className={`sb-layout${several ? '' : ' is-single'}`}>
-        {several && (
-          <div className="sb-nav" role="tablist" aria-label="Couleurs">
-            <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
-              <span className="sb-nav-name">{allLabel}</span>
-              <Delta v={bilan.totals.delta} />
-            </button>
-            {colours.map((c, i) => (
-              <button
-                key={c.name}
-                type="button"
-                role="tab"
-                aria-selected={c === current}
-                className={['sb-nav-item', c === current && 'active', c.none && 'is-none'].filter(Boolean).join(' ')}
-                onClick={() => setSel(i)}
-              >
-                <span className="sb-nav-name">{c.name}</span>
-                {c.inDl && c.inFl && <Delta v={c.totals.delta} />}
-              </button>
-            ))}
+      <div className={`sb-layout${several || side ? '' : ' is-single'}`}>
+        {(several || side) && (
+          <div className="sb-side">
+            {several && (
+              <div className="sb-nav" role="tablist" aria-label="Couleurs">
+                <button type="button" role="tab" aria-selected={!current} className={`sb-nav-item${!current ? ' active' : ''}`} onClick={() => setSel(ALL)}>
+                  <span className="sb-nav-name">{allLabel}</span>
+                  <Delta v={bilan.totals.delta} />
+                </button>
+                {colours.map((c, i) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    role="tab"
+                    aria-selected={c === current}
+                    className={['sb-nav-item', c === current && 'active', c.none && 'is-none'].filter(Boolean).join(' ')}
+                    onClick={() => setSel(i)}
+                  >
+                    <span className="sb-nav-name">{c.name}</span>
+                    {c.inDl && c.inFl && <Delta v={c.totals.delta} />}
+                  </button>
+                ))}
+              </div>
+            )}
+            {side}
           </div>
         )}
         <div className="sb-main" role={several ? 'tabpanel' : undefined} key={current?.name ?? 'all'}>
@@ -440,7 +440,7 @@ function BilanBody({ bilan, allLabel, onPick, showChecks, lead, foot }: { bilan:
           <div className="sb-card">
             <RejectsTable r={current ? current.rejects : bilan.rejects} />
           </div>
-          {foot}
+
         </div>
       </div>
     </>
@@ -590,7 +590,7 @@ export function BilanSheet({ part, shiftLabel, scope, onScope, onClose, onPrint,
           </div>
         ) : (
           <div className="sb">
-            <BilanBody key="poste" bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks foot={<ProtectionEditor state={protection} onChange={setProtection} />} />
+            <BilanBody key="poste" bilan={bilan} allLabel="Tout le poste" onPick={pick} showChecks side={<ProtectionEditor state={protection} onChange={setProtection} />} />
           </div>
         )}
       </div>
