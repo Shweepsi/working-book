@@ -326,7 +326,9 @@ function ProtectionEditor({ state, onChange }: { state: ProtectionState; onChang
           <span aria-hidden="true">x</span>
           <input value={draft.epaisseur} onChange={(e) => setDraft((d) => ({ ...d, epaisseur: e.target.value }))} placeholder="Ép." aria-label="Épaisseur" maxLength={20} />
           <button type="button" className="sb-protect-ok" onClick={confirm} disabled={!ready} aria-label="Valider la dimension">
-            ✓
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2.5 6.5l2.5 2.5 4.5-5.5" />
+            </svg>
           </button>
           <button type="button" className="sb-protect-remove" onClick={cancel} aria-label="Annuler">
             <CloseIcon size={12} />
